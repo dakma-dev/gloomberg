@@ -7,5 +7,8 @@
   ***wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b***
 
 ```bash
-docker run --rm -it ghcr.io/benleb/gloomberg:9c1abc0-amd64 live --endpoints="wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b" --wallets="yourDegenWallet.eth"
+docker run --rm -it \
+ghcr.io/benleb/gloomberg:9c1abc0-amd64 live \
+--endpoints="wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b" \
+--wallets="yourDegenWallet.eth"
 ```
