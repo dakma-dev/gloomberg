@@ -6,9 +6,9 @@
 - get an account at [Infura](https://infura.io)/[Alchemy](https://www.alchemy.com)/*whatever* to get a websockets endpoint to an ethereum node
   ***wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b***
 
-```bash
+```shell
 docker run --rm -it \
-ghcr.io/benleb/gloomberg:9c1abc0-amd64 live \
---endpoints="wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b" \
---wallets="yourDegenWallet.eth"
+  ghcr.io/benleb/gloomberg:9c1abc0-amd64 live \
+  --endpoints="wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b" \
+  --wallets="yourDegenWallet.eth"
 ```
