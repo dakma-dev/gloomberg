@@ -138,7 +138,8 @@ func init() {
 }
 
 func live(_ *cobra.Command, _ []string) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Millisecond*420*10))
+	defer cancel()
 
 	gbl.GetSugaredLogger()
 
