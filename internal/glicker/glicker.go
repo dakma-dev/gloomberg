@@ -407,7 +407,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 				timeNow,
 				event.EventType.Icon(),
 				rowStyle.Render(
-					fmt.Sprintf("%6.3f", subscriptions.WeiToEther(big.NewInt(int64(event.PricePerItem)))),
+					fmt.Sprintf("%6.3f", subscriptions.WeiToEther(event.PricePerItem)),
 				),
 				collectionStyle.Render("Ξ"),
 				tokenInfo,

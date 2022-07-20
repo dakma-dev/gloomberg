@@ -88,23 +88,26 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	isSaleOrMint := event.EventType == collections.Sale || event.EventType == collections.Purchase || event.EventType == collections.Mint
 	isMultiItemTx := event.TxItemCount > 1
 
-	// format priceEther
-	priceEther := subscriptions.WeiToEther(event.PriceWei)
-
 	var (
 		priceStyle      lipgloss.Style
 		priceArrowColor lipgloss.Color
 	)
 
-	var pricePerItem uint64
+	var pricePerItem *big.Int
 	if event.EventType == collections.Sale && isMultiItemTx {
-		pricePerItem = event.PriceWei.Uint64() / uint64(event.TxItemCount)
+		// pricePerItem = event.PriceWei.Div() / big.NewInt(event.TxItemCount)
+		pricePerItem = big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxItemCount)))
 	} else {
-		pricePerItem = event.PriceWei.Uint64()
+		// pricePerItem = event.PriceWei.Uint64()
+		pricePerItem = event.PriceWei
 	}
 
 	event.PricePerItem = pricePerItem
 	event.CollectionColor = event.Collection.Colors.Primary
+
+	// format price in ether
+	priceEther := subscriptions.WeiToEther(event.PriceWei)
+	priceEtherPerItem := subscriptions.WeiToEther(pricePerItem)
 
 	var previousMovingAverage, currentMovingAverage float64
 
@@ -114,7 +117,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		}
 
 		// recalculate moving average
-		itemPrice, _ := subscriptions.WeiToEther(big.NewInt(int64(pricePerItem))).Float64()
+		itemPrice, _ := subscriptions.WeiToEther(pricePerItem).Float64()
 		previousMovingAverage, currentMovingAverage = event.Collection.CalculateArtificialFloor(itemPrice)
 
 		// get a color with saturation depending on the tx price
@@ -253,7 +256,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	if listingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
 	} else if (event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration) && event.EventType == collections.Sale {
-		if float64(pricePerItem) >= viper.GetFloat64("show.min_price") {
+		if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 			}
@@ -282,7 +285,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
 
 	// price per item
-	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", subscriptions.WeiToEther(big.NewInt(int64(pricePerItem))))))
+	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", subscriptions.WeiToEther(pricePerItem))))
 	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
 
 	// collection/token info

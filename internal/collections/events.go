@@ -65,7 +65,7 @@ type Event struct {
 	Collection      *GbCollection
 	TokenID         uint64
 	PriceWei        *big.Int
-	PricePerItem    uint64
+	PricePerItem    *big.Int
 	CollectionColor lipgloss.Color
 	// MultiItemTx bool
 	Permalink   string
