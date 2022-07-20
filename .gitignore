@@ -1,0 +1,6 @@
+# build output
+dist/
+gloomberg
+
+# config files
+.gloomberg.yaml

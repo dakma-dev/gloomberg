@@ -1,0 +1,74 @@
+# documentation at https://goreleaser.com
+project_name: gloomberg
+
+# This is an example .goreleaser.yml file with some sensible defaults.
+# Make sure to check the documentation at https://goreleaser.com
+before:
+  hooks:
+    # You may remove this if you don't use go modules.
+    - "go mod tidy -e"
+    # you may remove this if you don't need go generate
+    # - go generate ./...
+builds:
+  - binary: gloomberg
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+
+    # Set the modified timestamp on the output binary, typically
+    # you would do this to ensure a build was reproducible. Pass
+    # empty string to skip modifying the output.
+    # Default is empty string.
+    mod_timestamp: "{{ .CommitTimestamp }}"
+
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.ShortCommit}}
+      - -X main.builtBy=benleb
+      - -X main.buildDate={{.CommitDate}}
+
+universal_binaries:
+  - # Whether to remove the previous single-arch binaries from the artifact list.
+    # If left as false, your end release might have both several macOS archives: amd64, arm64 and all.
+    #
+    # Defaults to false.
+    replace: true
+
+# dockers:
+# - image_templates: ["ghcr.io/benleb/{{ .ProjectName }}:{{ .Version }}-amd64"]
+#   use: buildx
+#   dockerfile: .github/run.Dockerfile
+#   build_flag_templates: ["--platform=linux/amd64"]
+# - image_templates: ["ghcr.io/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+#   use: buildx
+#   goarch: arm64
+#   dockerfile: .github/run.Dockerfile
+#   build_flag_templates: ["--platform=linux/arm64/v8"]
+
+# docker_manifests:
+# - name_template: benleb/{{ .ProjectName }}:{{ .Version }}
+#   image_templates: ["benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+
+# config the checksum filename
+# https://goreleaser.com/customization/checksum
+checksum:
+  name_template: "checksums.txt"
+
+snapshot:
+  # name_template: "{{ incpatch .Version }}-dev"
+  name_template: "{{ .Summary }}"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
