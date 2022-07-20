@@ -8,7 +8,6 @@ jobs:
     permissions:
       contents: write
       packages: write
-      # issues: write
 
     env:
       REGISTRY: ghcr.io
@@ -41,4 +40,5 @@ jobs:
           version: latest
           args: release --rm-dist
         env:
+          REGISTRY: ${{ env.REGISTRY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
