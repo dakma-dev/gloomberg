@@ -72,7 +72,7 @@ func init() {
 	viper.SetDefault("opensea.auto_list_min_sales", 500)
 
 	// number of retries to resolve an ens name to an address or vice versa
-	viper.SetDefault("ens.resolve_max_retries", 9)
+	viper.SetDefault("ens.resolve_max_retries", 5)
 
 	// ipfs gateway to fetch metadata/images
 	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
@@ -174,10 +174,8 @@ func live(_ *cobra.Command, _ []string) {
 	gbl.Log.Debug(viper.AllSettings())
 
 	// print header
-	headerLogo := style.GetHeader()
-	headerVersion := style.DarkGrayStyle.Copy().PaddingBottom(3).Render(fmt.Sprintf("                       gloomberg %s (%s) | %s", Version, Commit, BuildDate))
-	header := headerLogo + "\n" + headerVersion
-
+	versionString := fmt.Sprintf("gloomberg %s (%s) | %s", Version, Commit, BuildDate)
+	header := style.GetHeader(versionString)
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
