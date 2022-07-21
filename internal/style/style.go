@@ -98,11 +98,27 @@ var baseDivider = lipgloss.NewStyle().
 	Foreground(pink)
 var Divider = baseDivider.String()
 
-func GetHeader() string {
+func GetHeader(versionString string) string {
 	randColor, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
-	headerStyle := lipgloss.NewStyle().SetString(moneyHeader).Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 0, 8).Blink(true)
+	randHeader, _ := crand.Int(crand.Reader, big.NewInt(int64(len(headers))))
 
-	return headerStyle.String()
+	headerLogo := headers[randHeader.Int64()]
+
+	halfLogoWidth := lipgloss.Width(headerLogo) / 2
+	halfVersionWidth := lipgloss.Width(versionString) / 2
+
+	leftPadding := 6
+	versionLeftPadding := halfLogoWidth - halfVersionWidth + leftPadding
+
+	logoStyle := lipgloss.NewStyle().Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 1, leftPadding).Blink(true)
+	versionStyle := DarkGrayStyle.Copy().Padding(0, 0, 4, versionLeftPadding)
+
+	header := strings.Builder{}
+	header.WriteString(logoStyle.Render(headers[randHeader.Int64()]))
+	header.WriteString("\n")
+	header.WriteString(versionStyle.Render(versionString))
+
+	return header.String()
 }
 
 func GetHeader2() string {
