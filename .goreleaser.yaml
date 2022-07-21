@@ -43,11 +43,11 @@ universal_binaries:
     replace: true
 
 dockers:
-- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64"]
+- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-latest"]
   use: buildx
   dockerfile: .github/run.Dockerfile
   build_flag_templates: ["--platform=linux/amd64"]
-- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-latest"]
   use: buildx
   goarch: arm64
   dockerfile: .github/run.Dockerfile
@@ -56,6 +56,8 @@ dockers:
 docker_manifests:
 - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
   image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+- name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
+  image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
 
 # config the checksum filename
 # https://goreleaser.com/customization/checksum
