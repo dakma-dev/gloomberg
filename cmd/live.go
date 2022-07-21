@@ -175,7 +175,7 @@ func live(_ *cobra.Command, _ []string) {
 
 	// print header
 	headerLogo := style.GetHeader()
-	headerVersion := style.DarkGrayStyle.Copy().PaddingBottom(3).Render(fmt.Sprintf("                        gloomberg %s (%s) | %s", Version, Commit, BuildDate))
+	headerVersion := style.DarkGrayStyle.Copy().PaddingBottom(3).Render(fmt.Sprintf("                       gloomberg %s (%s) | %s", Version, Commit, BuildDate))
 	header := headerLogo + "\n" + headerVersion
 
 	fmt.Println(header)
