@@ -36,6 +36,8 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 	for _, walletConfig := range walletsConfig {
 		walletsWg.Add(1)
 
+		gbl.Log.Debugf("walletConfig: %s", walletConfig)
+
 		// bind walletConfig to this loop iteration
 		walletConfig := walletConfig
 
@@ -57,6 +59,8 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 			configEntry := walletConfig
 
 			if common.IsHexAddress(configEntry) {
+				gbl.Log.Debugf("common.IsHexAddress(configEntry): %+v", common.IsHexAddress(configEntry))
+
 				// address string given, trying to resolve name (reverse & forward lookup)
 				walletAddress = common.HexToAddress(configEntry)
 
@@ -80,6 +84,8 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 					walletName = WalletShortAddress(walletAddress)
 				}
 			} else if name := configEntry; strings.HasSuffix(name, ".eth") {
+				gbl.Log.Debugf("configEntry is ens: %+v", name)
+
 				// ens domain given, trying to resolve address
 				address, err := ens.Resolve(client, name)
 				if err != nil {
@@ -144,6 +150,8 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 				Address: walletAddress,
 				ENS:     walletENS,
 			}
+
+			gbl.Log.Debugf("userWallet: %+v", userWallet)
 
 			// default:
 			// 	decodeHooks := mapstructure.ComposeDecodeHookFunc(hooks.StringToAddressHookFunc())

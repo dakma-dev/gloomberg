@@ -40,7 +40,7 @@ func StreamListingsHandler(workerID int, gOwnCollections *collections.Collection
 
 		tokenID, err := strconv.ParseInt(tokenIDRaw, 10, 64)
 		if err != nil {
-			gbl.Log.Warnf("error parsing tokenIDRaw to big.int: %s | %s", tokenIDRaw, err.Error())
+			gbl.Log.Infof("error parsing tokenIDRaw to big.int: %s | %s | %s", event.Payload.Item.Metadata.Name, tokenIDRaw, err.Error())
 		}
 
 		priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice, 10, 64, big.ToNearestEven)
