@@ -441,7 +441,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 			var triggerAddress common.Address
 
-			linkURL := etherscanURL
+			// linkURL := etherscanURL
 
 			if wwatcher.Recipients.Contains(event.To.Address) {
 				triggerAddress = event.To.Address
@@ -450,7 +450,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 					event.EventType = collections.Purchase
 				} else if event.EventType == collections.Listing {
 					// currently not reachable as Listing events are filtered before here
-					linkURL = openseaURL
+					// linkURL = openseaURL
 				}
 			} else {
 				triggerAddress = event.From.Address
@@ -467,13 +467,13 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 			msgTelegram := strings.Builder{}
 			msgTelegram.WriteString(event.EventType.Icon())
-			msgTelegram.WriteString(" " + userName)
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
-			// msgTelegram.WriteString(" [" + strings.ReplaceAll(formi.FormatTokenInfo(event.TokenID, event.Collection, isMint, false), "#", "\\#") + "](" + linkURL + ")")
-			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, false))
+			msgTelegram.WriteString(" " + strings.ReplaceAll(internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, false), "#", "\\#"))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
-			msgTelegram.WriteString("\n" + linkURL)
+			// msgTelegram.WriteString("\n" + linkURL)
+			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
+			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
 
 			chatID := viper.GetInt64("telegram_chat_id")
 
