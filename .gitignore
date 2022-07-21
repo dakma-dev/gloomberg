@@ -4,3 +4,4 @@ gloomberg
 
 # config files
 .gloomberg.yaml
+.github/ttyd.Dockerfile
