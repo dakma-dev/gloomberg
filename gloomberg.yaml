@@ -1,1 +1,29 @@
-/Users/ben/.gloomberg.yaml
+
+log: { logfile: "/tmp/gloomberg.log" }
+
+# own wallets (for gathering collections and other stuff)
+wallets: [benleb.eth, osf.eth, pranksy.eth]
+
+endpoints:
+  - "wss://mainnet.infura.io/ws/v3/7f6fb81...."
+  - "wss://eth-mainnet.alchemyapi.io/v2/74OYH....."
+
+# keys/token to access the APIs of the external services
+api_keys:
+  # for listings
+  opensea: 30de1d94....
+  # for gas estimation
+  etherscan: BA84FQH6M2P9...
+
+# redis cache
+redis:
+  # use redis as name & sale cache
+  enabled: true
+  # redis host
+  host: 10.0.0.2
+
+
+# extra collections to show in the stream with the given settings
+collections:
+  0x80336ad7a747236ef41f47ed2c7641828a480baa:
+  0x8297d8e55c27aa6ce2d8a65b1fa3debb02410efc: { name: "OSF's 7 Deadly Sins", mark: "#FF0099", show: { listings: true, sales: true, mints: true } }
