@@ -27,4 +27,5 @@ var MIWs = &collections.AddressCollection{
 	common.HexToAddress("0x15d41E0Fa9419b11916507BEd3E201FE82266C74"), //  hmoore
 	common.HexToAddress("0xfE97f3ba5dA378Cd83F94B02DE8358045491D48f"), //  berndawgler
 	common.HexToAddress("0xF3936154fc93ecDA413de9f0A6E2cC20c56e9dcc"), //  9dcc.xyz
+	common.HexToAddress("0x66EC5ebf30c230976CfdF808a17FbD0ADd302537"), //  twickert
 }
