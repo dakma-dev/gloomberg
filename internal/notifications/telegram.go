@@ -59,6 +59,7 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = parseMode
 	msg.DisableNotification = disableNotifications
+	msg.DisableWebPagePreview = true
 
 	return TgBot.Send(msg)
 }
