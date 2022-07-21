@@ -28,6 +28,7 @@ var (
 	TrendLightRedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#806666"))
 	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#EEE"))
 	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#DDD"))
+	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#BBB"))
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
 	GrayFaintStyle       = GrayStyle.Copy().Faint(true)

@@ -157,6 +157,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	trendIndicator := style.CreateTrendIndicator(previousMovingAverage, currentMovingAverage)
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
+	isOwnCollection := event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration
 	ownWalletInvolved := wallets.Contains(event.From.Address) || wallets.Contains(event.To.Address)
 	wwatcherWalletInvolved := wwatcher.Recipients.Contains(event.From.Address) || wwatcher.Recipients.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && big.NewFloat(event.Collection.Highlight.ListingsBelowPrice).Cmp(priceEther) > 0
@@ -203,7 +204,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	// PRETTY...??
 	collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
-	if event.EventType == collections.Sale && (event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration) {
+	if event.EventType == collections.Sale && isOwnCollection {
 		timeNow = collectionStyle.Render(currentTime)
 
 		notifications.SendNotification(event.Collection.Name, tokenInfo)
@@ -255,14 +256,17 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	marker := " "
 	if listingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
-	} else if (event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration) && event.EventType == collections.Sale {
+	} else if isOwnCollection && event.EventType == collections.Sale {
 		if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 			}
-
-			glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
 		}
+	}
+
+	// add to event history
+	if isOwnCollection && event.EventType == collections.Sale {
+		glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
 	}
 
 	// build the line to be displayed

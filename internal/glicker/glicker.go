@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sort"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -364,7 +365,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		ownEvents := s.EventHistory[numberOfOwnEvents-numberOfShownEvents:]
 		sort.Slice(ownEvents, func(i, j int) bool { return i < j })
 
-		gbl.Log.Debugf("ownEvents: %d\n", len(ownEvents))
+		gbl.Log.Debugf("ownEvents: %d", len(ownEvents))
 
 		for idx, event := range ownEvents {
 			if event == nil {
@@ -379,18 +380,34 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 			// rCol := fmt.Sprintf("#%x", 0x111111*((idx+3)*2))
 
-			toSub := len(ownEvents) - idx
-			r, g, b := 0x11, 0x11, 0x11
-			darkenFactor := 1.4
-			rCol := fmt.Sprintf(
-				"#%x%x%x",
-				0xFF-(int(float64(toSub)*float64(r)*darkenFactor)),
-				0xFF-(int(float64(toSub)*float64(g)*darkenFactor)),
-				0xFF-(int(float64(toSub)*float64(b)*darkenFactor)),
-			)
+			// toSub := len(ownEvents) - idx
+			// r, g, b := 0x11, 0x11, 0x11
+			// darkenFactor := 1.4
+			// rCol := fmt.Sprintf(
+			// 	"#%x%x%x",
+			// 	0xFF-(int(float64(toSub)*float64(r)*darkenFactor)),
+			// 	0xFF-(int(float64(toSub)*float64(g)*darkenFactor)),
+			// 	0xFF-(int(float64(toSub)*float64(b)*darkenFactor)),
+			// )
 
-			rowColor := lipgloss.Color(rCol)
-			rowStyle := lipgloss.NewStyle().Foreground(rowColor)
+			var rowStyle lipgloss.Style
+
+			timeAgo := time.Since(event.Time)
+			glickerEpoch := viper.GetDuration("stats.interval")
+
+			switch {
+			case timeAgo < glickerEpoch:
+				rowStyle = style.AlmostWhiteStyle
+			case timeAgo < 2*glickerEpoch:
+				rowStyle = style.DarkWhiteStyle
+			case timeAgo < 3*glickerEpoch:
+				rowStyle = style.VeryLightGrayStyle
+			case timeAgo < 5*glickerEpoch:
+				rowStyle = style.LightGrayStyle
+			default:
+				rowStyle = style.GrayStyle
+			}
+
 			collectionStyle := lipgloss.NewStyle().Foreground(event.CollectionColor)
 
 			var tokenInfo string
@@ -400,20 +417,17 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 				tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, false, true)
 			}
 
-			// timeNow := style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05"))
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
-			historyLine := fmt.Sprintf(
-				"%s %s %s%s %s",
-				timeNow,
-				event.EventType.Icon(),
-				rowStyle.Render(
-					fmt.Sprintf("%6.3f", subscriptions.WeiToEther(event.PricePerItem)),
-				),
-				collectionStyle.Render("Ξ"),
-				tokenInfo,
-			)
 
-			eventsList = append(eventsList, listItem(historyLine))
+			historyLine := strings.Builder{}
+			historyLine.WriteString(timeNow)
+			// historyLine.WriteString(" " + timeAgo.Truncate(time.Second).String())
+			historyLine.WriteString(" " + event.EventType.Icon())
+			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", subscriptions.WeiToEther(event.PricePerItem))))
+			historyLine.WriteString(collectionStyle.Render("Ξ"))
+			historyLine.WriteString(" " + tokenInfo)
+
+			eventsList = append(eventsList, listItem(historyLine.String()))
 		}
 	}
 
