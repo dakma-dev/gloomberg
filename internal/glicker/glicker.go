@@ -392,23 +392,24 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 			var rowStyle lipgloss.Style
 
+			collectionStyle := lipgloss.NewStyle().Foreground(event.CollectionColor)
+
 			timeAgo := time.Since(event.Time)
 			glickerEpoch := viper.GetDuration("stats.interval")
 
 			switch {
 			case timeAgo < glickerEpoch:
-				rowStyle = style.AlmostWhiteStyle
-			case timeAgo < 2*glickerEpoch:
 				rowStyle = style.DarkWhiteStyle
-			case timeAgo < 3*glickerEpoch:
+			case timeAgo < 2*glickerEpoch:
 				rowStyle = style.VeryLightGrayStyle
-			case timeAgo < 5*glickerEpoch:
+			case timeAgo < 4*glickerEpoch:
 				rowStyle = style.LightGrayStyle
-			default:
+			case timeAgo < 8*glickerEpoch:
 				rowStyle = style.GrayStyle
+			default:
+				rowStyle = style.DarkGrayStyle
+				collectionStyle = collectionStyle.Faint(true)
 			}
-
-			collectionStyle := lipgloss.NewStyle().Foreground(event.CollectionColor)
 
 			var tokenInfo string
 			if event.TxItemCount > 1 {
