@@ -473,9 +473,8 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			msgTelegram.WriteString(event.EventType.Icon())
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
-			msgTelegram.WriteString(" " + strings.ReplaceAll(internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, false), "#", "\\#"))
+			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, false))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
-			// msgTelegram.WriteString("\n" + linkURL)
 			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
 			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
 
