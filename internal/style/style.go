@@ -99,9 +99,7 @@ var Divider = baseDivider.String()
 
 func GetHeader() string {
 	randColor, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
-	headerStyle := lipgloss.NewStyle().SetString(moneyHeader).Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 4, 8).Blink(true)
-
-	// return headerStyle.Render(moneyHeader)
+	headerStyle := lipgloss.NewStyle().SetString(moneyHeader).Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 0, 8).Blink(true)
 
 	return headerStyle.String()
 }
