@@ -5,9 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/notifications"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -109,6 +107,4 @@ func initConfig() {
 	}
 
 	gbl.InitSugaredLogger()
-	cache.GetRedisClient()
-	notifications.InitTelegramBot()
 }

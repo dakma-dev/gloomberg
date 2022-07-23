@@ -143,6 +143,8 @@ func live(_ *cobra.Command, _ []string) {
 	defer cancel()
 
 	gbl.GetSugaredLogger()
+	cache.GetRedisClient()
+	notifications.InitTelegramBot()
 
 	var (
 		// wallets *models.Wallets

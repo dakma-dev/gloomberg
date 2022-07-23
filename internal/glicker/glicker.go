@@ -406,6 +406,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 				rowStyle = style.LightGrayStyle
 			case timeAgo < 8*glickerEpoch:
 				rowStyle = style.GrayStyle
+				collectionStyle = collectionStyle.Faint(true)
 			default:
 				rowStyle = style.DarkGrayStyle
 				collectionStyle = collectionStyle.Faint(true)

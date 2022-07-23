@@ -26,9 +26,10 @@ var (
 	ensContractAddress = common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85")
 )
 
-func SubscriptionLogsHandler(nodes *gbnode.NodeCollection, gOwnCollections *collections.Collections, queueSubscriptionLogs chan types.Log, queueEvents chan *collections.Event) {
-	for subLog := range queueSubscriptionLogs {
-		gbl.Log.Debugf("%s | new subscription log (%d): %+v", time.Now().String(), len(queueSubscriptionLogs), subLog)
+func SubscriptionLogsHandler(nodes *gbnode.NodeCollection, gOwnCollections *collections.Collections, queueLogs chan types.Log, queueEvents chan *collections.Event) {
+	for subLog := range queueLogs {
+		// atomic.AddUint64(&stats.queueEvents, 1)
+		gbl.Log.Debugf("%s | new subscription log (%d): %+v", time.Now().String(), len(queueLogs), subLog)
 
 		if subLog.Address == common.HexToAddress("0x8297d8e55c27aa6ce2d8a65b1fa3debb02410efc") && subLog.Topics[1] == common.HexToHash("0xDcaE87821FA6CAEA05dBc2811126f4bc7fF73bd1") {
 			fmt.Println("")

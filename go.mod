@@ -35,6 +35,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
 	github.com/ipfs/go-cid v0.2.0 // indirect
+	github.com/juliangruber/go-intersect v1.1.0
 	github.com/klauspost/cpuid/v2 v2.1.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0
 	github.com/magiconair/properties v1.8.6 // indirect
@@ -75,6 +76,7 @@ require (
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.8.0 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
+	golang.org/x/exp v0.0.0-20220713135740-79cabaa25d75
 	golang.org/x/sys v0.0.0-20220715151400-c0bba94af5f8 // indirect
 	golang.org/x/term v0.0.0-20220526004731-065cf7ba2467 // indirect
 	golang.org/x/text v0.3.7 // indirect

@@ -255,10 +255,13 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	etherscanURL := fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash)
 
 	marker := " "
+	itemPrice, _ := priceEtherPerItem.Float64()
+
 	if listingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
 	} else if isOwnCollection && event.EventType == collections.Sale {
-		if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
+		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
+		if itemPrice >= viper.GetFloat64("show.min_price") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 			}
@@ -266,7 +269,9 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	}
 
 	// add to event history
-	if isOwnCollection && event.EventType == collections.Sale {
+	if isOwnCollection && event.EventType == collections.Sale && itemPrice >= viper.GetFloat64("show.min_price") {
+		glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
+	} else if ownWalletInvolved {
 		glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
 	}
 
