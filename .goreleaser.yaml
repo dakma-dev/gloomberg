@@ -80,6 +80,19 @@ changelog:
       - '^docs:'
       - '^test:'
 
+announce:
+  telegram:
+    # Whether its enabled or not.
+    # Defaults to false.
+    enabled: true
+
+    # Integer representation of your channel
+    chat_id: "{{ .Env.TELEGRAM_CHAT_ID }}"
+
+    # Message template to use while publishing.
+    # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
+    message_template: "💸 🚀 🙌  {{ .ProjectName }} {{.Tag}} is out! → {{ .ReleaseURL }} 🙌 🚀 💸"
+
 # gomod:
 #   # Proxy a module from proxy.golang.org, making the builds verifiable.
 #   # This will only be effective if running against a tag. Snapshots will ignore this setting.
