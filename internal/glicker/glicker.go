@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -142,26 +141,33 @@ func (s *Stats) processedLogs() uint64 {
 }
 
 func (s *Stats) UpdateBalances() {
-	balances := etherscan.MultiAccountBalance(*s.wallets)
+	gbl.Log.Debugf("updating wallet balances...")
 
+	balances := etherscan.GetBalances(s.wallets)
 	if balances == nil {
-		gbl.Log.Infof("error while fetching balances :/")
-
+		gbl.Log.Error("❌ error while fetching wallet balances")
 		return
 	}
 
-	for _, balance := range *balances {
+	if viper.GetBool("log.debug") {
+		for _, balance := range balances {
+			gbl.Log.Debugf("UpdateBalances| %+v\n", balance)
+		}
+	}
+
+	for _, balance := range balances {
 		walletAddress := common.HexToAddress(balance.Account)
 
-		balanceWei, err := strconv.ParseInt(balance.Balance, 10, 64)
-		if err != nil {
-			gbl.Log.Infof("error parsing balance to big.int: %s", err.Error())
-		}
+		balanceTotalWei := big.NewInt(0).Add(balance.BalanceETH, balance.BalanceWETH)
 
 		(*s.wallets)[walletAddress].BalanceBefore = (*s.wallets)[walletAddress].Balance
-		(*s.wallets)[walletAddress].Balance = big.NewInt(balanceWei)
+		(*s.wallets)[walletAddress].Balance = balanceTotalWei
 
-		trendIndicator := style.CreateTrendIndicator(float64((*s.wallets)[walletAddress].BalanceBefore.Int64()), float64((*s.wallets)[walletAddress].Balance.Int64()))
+		trendIndicator := style.CreateTrendIndicator(
+			float64((*s.wallets)[walletAddress].BalanceBefore.Int64()),
+			float64((*s.wallets)[walletAddress].Balance.Int64()),
+		)
+
 		(*s.wallets)[walletAddress].BalanceTrend = trendIndicator
 
 		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, subscriptions.WeiToEther((*s.wallets)[walletAddress].Balance))

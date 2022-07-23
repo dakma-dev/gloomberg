@@ -16,6 +16,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
@@ -39,15 +40,32 @@ type GasOracle struct {
 	GasUsedRatio    string `json:"gasUsedRatio"`
 }
 
+type TokenBalancesResponse struct {
+	Response
+	Result string `json:"result"`
+}
+
 type AccountBalancesResponse struct {
 	Response
-	Result []AccountBalance `json:"result"`
+	Result []struct {
+		Account string `json:"account"`
+		Balance string `json:"balance"`
+	} `json:"result"`
 }
 
 type AccountBalance struct {
-	Account string `json:"account"`
-	Balance string `json:"balance"`
+	Account     string   `json:"account"`
+	BalanceETH  *big.Int `json:"balance"`
+	BalanceWETH *big.Int `json:"balance_weth"`
 }
+
+type Token string
+
+const (
+	WETH Token = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
+)
+
+const apiBaseURL = "https://api.etherscan.io/api"
 
 func GetEstimatedGasPrice() *big.Int {
 	var estimatedGasPrice *big.Int
@@ -78,8 +96,7 @@ func GetGasOracle() *GasOracle {
 
 	client, _ := createEtherscanHTTPClient()
 
-	apiKey := viper.GetString("api_keys.etherscan")
-	url := fmt.Sprint("https://api.etherscan.io/api?module=gastracker&action=gasoracle&apikey=", apiKey)
+	url := withAPIKey(fmt.Sprint(apiBaseURL + "?module=gastracker&action=gasoracle"))
 
 	gbl.Log.Debugf("gas oracle url: %s", url)
 
@@ -124,7 +141,24 @@ func GetGasOracle() *GasOracle {
 	return &gasOracle
 }
 
-func MultiAccountBalance(wallets models.Wallets) *[]AccountBalance {
+func GetBalances(wallets *models.Wallets) []*AccountBalance {
+	balances := MultiAccountBalance(wallets)
+
+	for _, balance := range balances {
+		if wethBalance := GetWETHBalance(common.HexToAddress(balance.Account)); wethBalance != nil {
+			balance.BalanceWETH = wethBalance
+		}
+
+		// throttle to avoid hitting the apis reqs/s limit
+		time.Sleep(time.Millisecond * 337)
+	}
+
+	return balances
+}
+
+func MultiAccountBalance(wallets *models.Wallets) []*AccountBalance {
+	balances := make([]*AccountBalance, 0)
+
 	if !viper.IsSet("api_keys.etherscan") {
 		gbl.Log.Warnf("api_keys.etherscan not set")
 
@@ -135,8 +169,7 @@ func MultiAccountBalance(wallets models.Wallets) *[]AccountBalance {
 
 	addressList := strings.Join(wallets.StringAddresses(), ",")
 
-	apiKey := viper.GetString("api_keys.etherscan")
-	url := fmt.Sprint("https://api.etherscan.io/api?module=account&action=balancemulti&tag=latest&apikey=", apiKey, "&address=", addressList)
+	url := withAPIKey(fmt.Sprint(apiBaseURL+"?module=account&action=balancemulti&tag=latest&address=", addressList))
 
 	gbl.Log.Debugf("multiAccountBalance url: %s", url)
 
@@ -153,28 +186,48 @@ func MultiAccountBalance(wallets models.Wallets) *[]AccountBalance {
 
 	defer response.Body.Close()
 
-	// create a variable of the same type as our model
-	var accountBalancesResponse *AccountBalancesResponse
-
 	responseBody, err := ioutil.ReadAll(response.Body)
 
-	// decode the data
+	// validate the data
 	if err != nil || !json.Valid(responseBody) {
 		gbl.Log.Warnf("multiAccountBalance invalid json: %s", err)
-
 		return nil
 	}
 
+	// create a variable of the same type as our model
+	var accountBalancesResponse *AccountBalancesResponse
+
+	// decodeHooks := mapstructure.ComposeDecodeHookFunc(
+	// 	hooks.StringToAddressHookFunc(),
+	// 	hooks.StringToBigIntHookFunc(),
+	// )
+
+	// decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+	// 	DecodeHook:       decodeHooks,
+	// 	Result:           &accountBalancesResponse,
+	// 	WeaklyTypedInput: true,
+	// })
+
 	// decode the data
-	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&accountBalancesResponse); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(responseBody))
+
+	if err := dec.Decode(&accountBalancesResponse); err != nil {
 		gbl.Log.Warnf("multiAccountBalance decode error: %s", err.Error())
 
 		return nil
 	}
 
-	accountBalances := accountBalancesResponse.Result
+	for _, accountBalance := range accountBalancesResponse.Result {
+		if balance, err := strconv.ParseInt(accountBalance.Balance, 10, 64); err == nil {
+			balances = append(balances, &AccountBalance{
+				Account:     accountBalance.Account,
+				BalanceETH:  big.NewInt(balance),
+				BalanceWETH: big.NewInt(0),
+			})
+		}
+	}
 
-	return &accountBalances
+	return balances
 }
 
 func createEtherscanHTTPClient() (*http.Client, error) {
@@ -195,4 +248,68 @@ func createEtherscanHTTPClient() (*http.Client, error) {
 	}
 
 	return client, nil
+}
+
+func GetWETHBalance(walletAddress common.Address) *big.Int {
+	return GetTokenBalance(walletAddress, common.HexToAddress(string(WETH)))
+}
+
+func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) *big.Int {
+	if !viper.IsSet("api_keys.etherscan") {
+		log.Fatal("api_keys.etherscan not set")
+	}
+
+	client, _ := createEtherscanHTTPClient()
+
+	apiKey := viper.GetString("api_keys.etherscan")
+	url := fmt.Sprintf(
+		apiBaseURL+"?module=account&action=tokenbalance&contractaddress=%s&address=%s&tag=latest&apikey=%s",
+		tokenAddress, walletAddress, apiKey,
+	)
+
+	request, _ := http.NewRequest("GET", url, nil)
+
+	response, err := client.Do(request)
+	if err != nil {
+		if os.IsTimeout(err) {
+			gbl.Log.Warnf("⌛️ token balance · timeout while fetching: %+v", err.Error())
+		} else {
+			gbl.Log.Errorf("❌ token balance · error: %+v", err.Error())
+		}
+
+		return nil
+	}
+
+	gbl.Log.Debugf("token balance · status: %s", response.Status)
+
+	defer response.Body.Close()
+
+	// create a variable of the same type as our model
+	var tokenBalanceResponse *TokenBalancesResponse
+
+	responseBody, _ := ioutil.ReadAll(response.Body)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		gbl.Log.Warnf("token balance · invalid json: %s", err)
+
+		return nil
+	}
+
+	// decode the data
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&tokenBalanceResponse); err != nil {
+		gbl.Log.Warnf("token balance · decode error: %s", err.Error())
+
+		return nil
+	}
+
+	if balance, err := strconv.ParseInt(tokenBalanceResponse.Result, 10, 64); err == nil {
+		return big.NewInt(balance)
+	}
+
+	return nil
+}
+
+func withAPIKey(url string) string {
+	return url + "&apikey=" + viper.GetString("api_keys.etherscan")
 }
