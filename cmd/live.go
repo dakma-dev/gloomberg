@@ -124,11 +124,11 @@ func init() {
 	_ = viper.BindPFlag("telegram.enabled", liveCmd.Flags().Lookup("telegram"))
 
 	// rpc node
-	liveCmd.Flags().StringSliceVar(&endpoints, "endpoints", []string{}, "RPC endpoints")
+	liveCmd.Flags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
 	_ = viper.BindPFlag("endpoints", liveCmd.Flags().Lookup("endpoints"))
 
 	// wallets
-	liveCmd.Flags().StringSliceVar(&ownWallets, "wallets", []string{}, "Own wallet addresses")
+	liveCmd.Flags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
 	_ = viper.BindPFlag("wallets", liveCmd.Flags().Lookup("wallets"))
 
 	// apis
