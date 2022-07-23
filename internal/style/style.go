@@ -110,7 +110,7 @@ func GetHeader(versionString string) string {
 	leftPadding := 6
 	versionLeftPadding := halfLogoWidth - halfVersionWidth + leftPadding
 
-	logoStyle := lipgloss.NewStyle().Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 1, leftPadding).Blink(true)
+	logoStyle := lipgloss.NewStyle().Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 1, leftPadding)
 	versionStyle := DarkGrayStyle.Copy().Padding(0, 0, 4, versionLeftPadding)
 
 	header := strings.Builder{}
