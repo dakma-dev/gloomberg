@@ -81,11 +81,22 @@ var ctx = context.Background()
 func NewCollection(contractAddress common.Address, name string, nodes *gbnode.NodeCollection, source CollectionSource) *GbCollection {
 	// name
 	var collectionName string
-	if name == "" {
-		// collectionName = collectionMetadata.Name
-		collectionName = nodes.GetRandomNode().GetCollectionName(contractAddress)
-	} else {
+
+	if name != "" {
 		collectionName = name
+	} else if viper.GetBool("redis.enabled") {
+		// check if the collection is already in the redis cache
+		if rdb := cache.GetRedisClient(); rdb != nil {
+			gbl.Log.Debugf("redis | searching for contract address: %s", contractAddress.String())
+
+			if redisName, err := rdb.Get(ctx, cache.KeyContract(contractAddress)).Result(); err == nil && redisName != "" {
+				gbl.Log.Debugf("redis | using cached contractName: %s", redisName)
+
+				collectionName = redisName
+			}
+		}
+	} else {
+		collectionName = nodes.GetRandomNode().GetCollectionName(contractAddress)
 	}
 
 	// redis

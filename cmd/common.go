@@ -170,11 +170,12 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	if viper.GetBool("redis.enabled") {
 		if rdb := cache.GetRedisClient(); rdb != nil {
-			if cachedName, err := rdb.Get(ctx, cache.KeyENS(event.To.Address)).Result(); err == nil && cachedName != "" {
+			if cachedName, err := rdb.Get(context.Background(), cache.KeyENS(event.To.Address)).Result(); err == nil && cachedName != "" {
 				ensName = cachedName
-
 				gbl.Log.Infof("ensName from redis: %s", ensName)
 				to = toStyle.Render(ensName)
+			} else {
+				gbl.Log.Debugf("ensName not found in redis: %s", ensName)
 			}
 		}
 	}

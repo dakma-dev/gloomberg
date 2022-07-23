@@ -273,8 +273,8 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	if viper.GetBool("redis.enabled") {
 		if rdb := cache.GetRedisClient(); rdb != nil {
 			secondcolumn = append(secondcolumn, []string{
-				listItem(formatCounter(rdb.DBSize(ctx).Val(), " in n-cache")),
-				listItem(formatCounter(rdb.XLen(ctx, "sales").Val(), " in s-cache")),
+				listItem(formatCounter(rdb.DBSize(context.Background()).Val(), " in n-cache")),
+				listItem(formatCounter(rdb.XLen(context.Background(), "sales").Val(), " in s-cache")),
 			}...)
 		}
 	}
