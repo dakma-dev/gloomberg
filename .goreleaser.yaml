@@ -87,7 +87,7 @@ announce:
     enabled: true
 
     # Integer representation of your channel
-    chat_id: "{{ .Env.TELEGRAM_CHAT_ID }}"
+    chat_id: -575512868
 
     # Message template to use while publishing.
     # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
