@@ -18,9 +18,14 @@ builds:
     goos:
       - linux
       - darwin
+      - windows
     goarch:
       - amd64
       - arm64
+
+    ignore:
+      - goos: windows
+        goarch: arm64
 
     # Set the modified timestamp on the output binary, typically
     # you would do this to ensure a build was reproducible. Pass
