@@ -70,7 +70,7 @@ func init() {
 	viper.SetDefault("workers.output", 8)
 
 	// opensea settings
-	viper.SetDefault("opensea.auto_list_min_sales", 500)
+	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
