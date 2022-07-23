@@ -106,7 +106,7 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	})
 
 	join.Receive("error", func(response any) {
-		gbl.Log.Info("failed 2 joined channel:", channel.Topic(), response)
+		gbl.Log.Error("failed 2 joined channel:", channel.Topic(), response)
 	})
 
 	s.channels[topic] = channel
@@ -126,10 +126,10 @@ func (s StreamClient) getChannel(topic string) *phx.Channel {
 func (s StreamClient) on(eventType StreamEventType, collectionSlug string, eventHandler func(payload any)) func() {
 	topic := fmt.Sprintf("collection:%s", collectionSlug)
 
-	gbl.Log.Infof("Fetching channel %s", topic)
+	gbl.Log.Debugf("Fetching channel %s", topic)
 	channel := s.getChannel(topic)
 
-	gbl.Log.Infof("Subscribing to %s events on %s", eventType, topic)
+	gbl.Log.Debugf("Subscribing to %s events on %s", eventType, topic)
 	channel.On(string(eventType), eventHandler)
 
 	return func() {
@@ -137,7 +137,7 @@ func (s StreamClient) on(eventType StreamEventType, collectionSlug string, event
 
 		leave, err := channel.Leave()
 		if err != nil {
-			fmt.Println("channel.Leave err:", err)
+			gbl.Log.Error("channel.Leave err:", err)
 		}
 
 		leave.Receive("ok", func(response any) {
