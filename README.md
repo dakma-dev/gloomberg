@@ -1,5 +1,7 @@
 # gloomberg
 
+*no support, sorry! you have to know how to use this code yourself. issues closed, PRs open (ping me if you wanna contribute)*
+
 ## requirements
 
 - get your wallet address or ens
@@ -7,7 +9,7 @@
 - get an account at [Infura](https://infura.io)/[Alchemy](https://www.alchemy.com)/*whatever* to get a websockets endpoint to an ethereum node
   ***wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b***
 
-## quickstart
+## lfg! or *getting started*
 
 ```bash
 # get link to latest linux amd64 binary
@@ -19,7 +21,7 @@ wget -qO- https://github.com/benleb/gloomberg/releases/download/${GBL}/gloomberg
 gloomberg live -e "wss://mainnet.infura.io/ws/v3/32e9..." -w "yourDegenWallet.eth"
 ```
 
-## docker
+### docker
 
 ```shell
 docker run --rm -it \
@@ -27,3 +29,9 @@ docker run --rm -it \
   --env "GLOOMBERG_WALLETS=yourDegenWallet.eth"
   ghcr.io/benleb/gloomberg:latest live
 ```
+
+## gloomberg‽
+
+The name is a homage to the famous [gloomberg professional](https://opensea.io/assets/ethereum/0x495f947276749ce646f68ac8c248420045cb7b5e/99817193321473223322497783689261477808362186321335987444674465937111627333639) artwork created by [OSF](https://osf.art)
+
+Thanks also to all the other testers and contributors not shown in the git history! 💰 ❌ 💤
