@@ -1,9 +1,17 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
+	"crypto/tls"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"math/big"
+	"net/http"
+	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +33,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
+	"golang.org/x/net/http2"
 )
 
 var (
@@ -33,11 +42,39 @@ var (
 	BuildDate string
 	BuiltBy   string
 
+	apiKeyMoralis string
+
 	queueEvents   = make(chan *collections.Event, 1024)
 	queueLogs     = make(chan types.Log, 1024)
 	queueListings = make(chan *models.ItemListedEvent, 1024)
 	queueOutput   = make(chan string, 1024)
 )
+
+type ResponseOwner struct {
+	Status   string   `json:"status"`
+	Total    int      `json:"total"`
+	Page     int      `json:"page"`
+	PageSize int      `json:"page_size"`
+	Cursor   string   `json:"cursor"`
+	Result   []*Owner `json:"result"`
+}
+
+type Owner struct {
+	TokenAddress      string    `json:"token_address"`
+	TokenID           string    `json:"token_id"`
+	ContractType      string    `json:"contract_type"`
+	OwnerOf           string    `json:"owner_of"`
+	BlockNumber       string    `json:"block_number"`
+	BlockNumberMinted string    `json:"block_number_minted"`
+	TokenURI          string    `json:"token_uri"`
+	Metadata          string    `json:"metadata"`
+	Amount            string    `json:"amount"`
+	Name              string    `json:"name"`
+	Symbol            string    `json:"symbol"`
+	TokenHash         string    `json:"token_hash"`
+	LastTokenURISync  time.Time `json:"last_token_uri_sync"`
+	LastMetadataSync  time.Time `json:"last_metadata_sync"`
+}
 
 func getNodes() *gbnode.NodeCollection {
 	nodesSpinner := style.GetSpinner("setting up node connections...")
@@ -502,4 +539,84 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			}
 		}()
 	}
+}
+
+func getOwnerPage(client *http.Client, apiToken string, contractAddress common.Address, tokenID int, cursor string) (*ResponseOwner, error) {
+	var responseOwner *ResponseOwner
+
+	var token string
+	if tokenID == -1 {
+		token = ""
+	} else {
+		token = "/" + strconv.Itoa(tokenID)
+	}
+
+	url := fmt.Sprintf("https://deep-index.moralis.io/api/v2/nft/%s%s/owners?chain=eth&format=decimal&marketplace=opensea", contractAddress.String(), token)
+
+	if cursor != "" {
+		url = fmt.Sprintf("%s&cursor=%s", url, cursor)
+	}
+
+	request, _ := createMoralisGetRequest(url, apiToken)
+
+	response, err := client.Do(request)
+	if err != nil {
+		if os.IsTimeout(err) {
+			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
+		} else {
+			gbl.Log.Errorf("❌ gas oracle error: %+v", err.Error())
+		}
+
+		return responseOwner, err
+	}
+	defer response.Body.Close()
+
+	responseBody, _ := ioutil.ReadAll(response.Body)
+
+	// validate the data
+	if !json.Valid(responseBody) {
+		gbl.Log.Errorf("❌ invalid json: %+v\n\n", string(responseBody))
+		return responseOwner, errors.New("invalid json")
+	}
+
+	// decode the data
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&responseOwner); err != nil {
+		gbl.Log.Errorf("❌ error decoding json: %+v", err.Error())
+		return responseOwner, err
+	}
+
+	return responseOwner, nil
+}
+
+func createMoralisHTTPClient() (*http.Client, error) {
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+
+	transport := &http.Transport{
+		TLSClientConfig:     tlsConfig,
+		MaxIdleConnsPerHost: 20,
+		IdleConnTimeout:     5 * time.Second,
+	}
+
+	// explicitly use http2
+	_ = http2.ConfigureTransport(transport)
+
+	client := &http.Client{
+		Timeout:   15 * time.Second,
+		Transport: transport,
+	}
+
+	return client, nil
+}
+
+func createMoralisGetRequest(url string, apiToken string) (*http.Request, error) {
+	request, _ := http.NewRequest("GET", url, nil)
+
+	headers := http.Header{}
+	headers.Add("Accept", "application/json")
+	headers.Add("Cache-Control", "no-cache")
+	headers.Add("X-API-Key", apiToken)
+
+	request.Header = headers
+
+	return request, nil
 }
