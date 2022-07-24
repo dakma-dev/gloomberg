@@ -403,6 +403,8 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			timeAgo := time.Since(event.Time)
 			glickerEpoch := viper.GetDuration("stats.interval")
 
+			printFaint := false
+
 			switch {
 			case timeAgo < glickerEpoch:
 				rowStyle = style.DarkWhiteStyle
@@ -412,17 +414,17 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 				rowStyle = style.LightGrayStyle
 			case timeAgo < 8*glickerEpoch:
 				rowStyle = style.GrayStyle
-				collectionStyle = collectionStyle.Faint(true)
+				printFaint = true
 			default:
 				rowStyle = style.DarkGrayStyle
-				collectionStyle = collectionStyle.Faint(true)
+				printFaint = true
 			}
 
 			var tokenInfo string
 			if event.TxItemCount > 1 {
-				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), collectionStyle.Render(event.Collection.Name))
+				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
 			} else {
-				tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, false, true)
+				tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, printFaint, true)
 			}
 
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
@@ -432,8 +434,13 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			// historyLine.WriteString(" " + timeAgo.Truncate(time.Second).String())
 			historyLine.WriteString(" " + event.EventType.Icon())
 			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", subscriptions.WeiToEther(event.PricePerItem))))
-			historyLine.WriteString(collectionStyle.Render("Ξ"))
+			historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
 			historyLine.WriteString(" " + tokenInfo)
+
+			if viper.GetBool("log.debug") {
+				historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetForeground()))
+				historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
+			}
 
 			eventsList = append(eventsList, listItem(historyLine.String()))
 		}

@@ -6,12 +6,15 @@ import (
 	"math"
 	"math/big"
 	"math/rand"
+	"os"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lucasb-eyer/go-colorful"
 	"github.com/spf13/viper"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 var (
@@ -70,7 +73,7 @@ var PaletteRLD = []lipgloss.Color{
 	"#8D1537",
 	// "#120407",
 	"#6A0F27",
-	"#F6C3DE",
+	// "#F6C3DE",
 	"#6F2B4E",
 	"#A14C7C",
 	"#A46C8C",
@@ -98,27 +101,38 @@ var baseDivider = lipgloss.NewStyle().
 	Foreground(pink)
 var Divider = baseDivider.String()
 
-func GetHeader(versionString string) string {
-	randColor, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
-	randHeader, _ := crand.Int(crand.Reader, big.NewInt(int64(len(headers))))
+func GetHeader(version string, commit string) string {
+	randColorID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
+	randHeaderID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(headers))))
 
-	headerLogo := headers[randHeader.Int64()]
-
-	halfLogoWidth := lipgloss.Width(headerLogo) / 2
-	halfVersionWidth := lipgloss.Width(versionString) / 2
-
-	leftPadding := 6
-	versionLeftPadding := halfLogoWidth - halfVersionWidth + leftPadding
-
-	logoStyle := lipgloss.NewStyle().Foreground(PaletteRLD[randColor.Int64()]).Padding(2, 4, 1, leftPadding)
-	versionStyle := DarkGrayStyle.Copy().Padding(0, 0, 4, versionLeftPadding)
+	headerLogo := headers[randHeaderID.Int64()]
+	headerColor := PaletteRLD[randColorID.Int64()]
 
 	header := strings.Builder{}
-	header.WriteString(logoStyle.Render(headers[randHeader.Int64()]))
-	header.WriteString("\n")
-	header.WriteString(versionStyle.Render(versionString))
 
-	return header.String()
+	headerStyle := lipgloss.NewStyle().Foreground(headerColor).Padding(2, 0, 1, 0)
+	subHeaderStyle := DarkGrayStyle.Copy()
+
+	header.WriteString(headerStyle.Render(headerLogo) + "\n")
+
+	subHeader := strings.Builder{}
+	subHeader.WriteString(lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("·"))
+	subHeader.WriteString(" " + DarkGrayStyle.Render("gloomberg"))
+	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render(version))
+	// subHeader.WriteString(" " + GrayStyle.Render(version))
+	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("|"))
+	subHeader.WriteString(" " + DarkGrayStyle.Render("github.com/benleb/gloomberg"))
+	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("·"))
+
+	header.WriteString(subHeaderStyle.Render(subHeader.String()))
+	// header.WriteString("\n" + "💰 ❌ 💤")
+
+	width, _, err := terminal.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		gbl.Log.Error(err)
+	}
+
+	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
 }
 
 func GetHeader2() string {
@@ -322,3 +336,18 @@ func toFixed(num float64, precision int) float64 {
 
 // 	return tokenInfo
 // }
+
+// TerminalLink formats a link for the terminal using ANSI codes.
+func TerminalLink(params ...string) string {
+	var text string
+
+	url := params[0]
+
+	if len(params) >= 2 {
+		text = params[1]
+	} else {
+		text = url
+	}
+
+	return fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, text)
+}

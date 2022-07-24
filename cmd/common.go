@@ -283,7 +283,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	// price
 	if event.EventType == collections.Listing {
-		out.WriteString(" " + priceStyle.Render(TerminalLink(openseaURL, fmt.Sprintf("%6.3f", priceEther))))
+		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", priceEther))))
 	} else {
 		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", priceEther)))
 	}
@@ -316,11 +316,11 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	}
 
 	// link opensea
-	out.WriteString(" | " + style.GrayBoldStyle.Copy().Foreground(style.OpenseaToneBlue).Render(TerminalLink(openseaURL, "OpenSea")))
+	out.WriteString(" | " + style.GrayBoldStyle.Copy().Foreground(style.OpenseaToneBlue).Render(style.TerminalLink(openseaURL, "OpenSea")))
 
 	// link etherscan
 	if event.EventType != collections.Listing {
-		out.WriteString(" | " + style.GrayStyle.Render(TerminalLink(etherscanURL, "Etherscan")))
+		out.WriteString(" | " + style.GrayStyle.Render(style.TerminalLink(etherscanURL, "Etherscan")))
 	}
 
 	// buyer
@@ -502,19 +502,4 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			}
 		}()
 	}
-}
-
-// TerminalLink formats a link for the terminal using ANSI codes.
-func TerminalLink(params ...string) string {
-	var text string
-
-	url := params[0]
-
-	if len(params) >= 2 {
-		text = params[1]
-	} else {
-		text = url
-	}
-
-	return fmt.Sprintf("\033]8;;%s\033\\%s\033]8;;\033\\", url, text)
 }

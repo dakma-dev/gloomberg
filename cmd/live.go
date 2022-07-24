@@ -177,8 +177,7 @@ func live(_ *cobra.Command, _ []string) {
 	gbl.Log.Debug(viper.AllSettings())
 
 	// print header
-	versionString := fmt.Sprintf("gloomberg %s (%s) | %s", Version, Commit, BuildDate)
-	header := style.GetHeader(versionString)
+	header := style.GetHeader(Version, Commit)
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
@@ -311,6 +310,7 @@ func live(_ *cobra.Command, _ []string) {
 	// telegram bot testing
 	if viper.GetBool("telegram.enabled") {
 		notifications.InitTelegramBot()
+		notifications.RunTelegramBot()
 	}
 
 	// // websockets server

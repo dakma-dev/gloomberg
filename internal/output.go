@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, isMint bool, color bool) string {
+func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint bool, color bool) string {
 	var (
 		collectionName = collection.Name
 		prefix         = "#"
@@ -30,9 +30,9 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, isMin
 	}
 
 	if color {
-		collectionName = collection.Style().Faint(isMint).Render(collectionName)
-		id = collection.Style().Faint(isMint).Render(fmt.Sprint(id))
-		prefix = collection.StyleSecondary().Faint(isMint).Render(prefix)
+		collectionName = collection.Style().Faint(faint).Render(collectionName)
+		id = collection.Style().Faint(faint).Render(fmt.Sprint(id))
+		prefix = collection.StyleSecondary().Faint(faint).Render(prefix)
 	}
 
 	tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
