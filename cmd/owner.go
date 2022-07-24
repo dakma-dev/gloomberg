@@ -74,16 +74,11 @@ func owner(cmd *cobra.Command, args []string) {
 		gbl.Log.Fatal("contract address not valid")
 	}
 
-	if paramToken < 0 {
-		fmt.Println("token ID not valid")
-		gbl.Log.Fatal("token ID not valid")
-	}
-
 	contractAddress := common.HexToAddress(paramContract)
 
 	client, _ := createMoralisHTTPClient()
 
-	owners := make([]*common.Address, 0)
+	uniqueOwner := make(map[string]*Owner, 0)
 	cursor := ""
 
 	if !viper.GetBool("owner.raw") {
@@ -97,8 +92,7 @@ func owner(cmd *cobra.Command, args []string) {
 		}
 
 		for _, owner := range ownerResponse.Result {
-			ownerAddress := common.HexToAddress(owner.OwnerOf)
-			owners = append(owners, &ownerAddress)
+			uniqueOwner[owner.OwnerOf] = owner
 		}
 
 		if ownerResponse.Cursor == "" {
@@ -110,12 +104,12 @@ func owner(cmd *cobra.Command, args []string) {
 		time.Sleep(time.Second * 1)
 	}
 
-	for _, owner := range owners {
+	for address := range uniqueOwner {
 		var ownerAddress string
 		if viper.GetBool("owner.raw") {
-			ownerAddress = owner.Hex()
+			ownerAddress = address
 		} else {
-			ownerAddress = lipgloss.NewStyle().PaddingLeft(4).Render(owner.Hex())
+			ownerAddress = lipgloss.NewStyle().PaddingLeft(4).Render(address)
 		}
 
 		fmt.Println(ownerAddress)
@@ -123,7 +117,7 @@ func owner(cmd *cobra.Command, args []string) {
 
 	if !viper.GetBool("owner.raw") {
 		fmt.Println()
-		fmt.Println(lipgloss.NewStyle().Padding(1, 0, 1, 2).Render(fmt.Sprintf("token %d on contract %s is owned by: %s", paramToken, contractAddress.Hex(), style.BoldStyle.Render(fmt.Sprintf("%d wallets", len(owners))))))
+		fmt.Println(lipgloss.NewStyle().Padding(1, 0, 1, 2).Render(fmt.Sprintf("token %d on contract %s is owned by: %s", paramToken, contractAddress.Hex(), style.BoldStyle.Render(fmt.Sprintf("%d wallets", len(uniqueOwner))))))
 		fmt.Println()
 	}
 }
