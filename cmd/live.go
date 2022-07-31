@@ -14,7 +14,6 @@ import (
 	"github.com/benleb/gloomberg/internal/gbnode"
 	"github.com/benleb/gloomberg/internal/glicker"
 	"github.com/benleb/gloomberg/internal/models"
-	"github.com/benleb/gloomberg/internal/notifications"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/subscriptions"
@@ -22,11 +21,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-)
-
-var (
-	apiKeyEtherscan, apiKeyOpensea string
-	endpoints, ownWallets          []string
 )
 
 // liveCmd represents the live command.
@@ -83,12 +77,6 @@ func init() {
 	viper.SetDefault("wallets", []string{"pranksy.eth"})
 	viper.SetDefault("wwatcher", []any{map[string]string{}})
 
-	// logging
-	liveCmd.PersistentFlags().BoolP("verbose", "v", false, "Show more output")
-	_ = viper.BindPFlag("log.verbose", liveCmd.PersistentFlags().Lookup("verbose"))
-	liveCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
-	_ = viper.BindPFlag("log.debug", liveCmd.PersistentFlags().Lookup("debug"))
-
 	// show desktop notifications
 	liveCmd.Flags().Bool("notifications", false, "Show notifications?")
 	_ = viper.BindPFlag("show.notifications", liveCmd.Flags().Lookup("notifications"))
@@ -105,11 +93,9 @@ func init() {
 	liveCmd.Flags().Float64("min-price", 0.0, "Minimum price to show sales?")
 	_ = viper.BindPFlag("show.min_price", liveCmd.Flags().Lookup("min-price"))
 
-	// process & show all collection (we get events for) or just our own (from config/wallet)
-	liveCmd.Flags().Bool("all", false, "Show all collections, not just own ones (from config & wallet)")
-	_ = viper.BindPFlag("show.all", liveCmd.Flags().Lookup("all"))
-	liveCmd.Flags().Bool("own-only", false, "Show own collections only (from config/wallet)")
-	_ = viper.BindPFlag("show.own_only", liveCmd.Flags().Lookup("own-only"))
+	// process & show just our own collections (from config/wallet)
+	liveCmd.Flags().Bool("own", false, "Show only own collections (from config/wallet)")
+	_ = viper.BindPFlag("show.own", liveCmd.Flags().Lookup("own"))
 
 	// websockets server
 	liveCmd.Flags().Bool("server", false, "Start websockets server")
@@ -122,20 +108,6 @@ func init() {
 	// telegram bot
 	liveCmd.Flags().Bool("telegram", false, "Start telegram bot")
 	_ = viper.BindPFlag("telegram.enabled", liveCmd.Flags().Lookup("telegram"))
-
-	// rpc node
-	liveCmd.Flags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
-	_ = viper.BindPFlag("endpoints", liveCmd.Flags().Lookup("endpoints"))
-
-	// wallets
-	liveCmd.Flags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
-	_ = viper.BindPFlag("wallets", liveCmd.Flags().Lookup("wallets"))
-
-	// apis
-	liveCmd.Flags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
-	_ = viper.BindPFlag("api_keys.etherscan", liveCmd.Flags().Lookup("etherscan"))
-	liveCmd.Flags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
-	_ = viper.BindPFlag("api_keys.opensea", liveCmd.Flags().Lookup("opensea"))
 }
 
 func live(_ *cobra.Command, _ []string) {
@@ -144,7 +116,7 @@ func live(_ *cobra.Command, _ []string) {
 
 	gbl.GetSugaredLogger()
 	cache.GetRedisClient()
-	notifications.InitTelegramBot()
+	// notifications.InitTelegramBot()
 
 	var (
 		// wallets *models.Wallets
@@ -187,7 +159,7 @@ func live(_ *cobra.Command, _ []string) {
 	nodes := getNodes()
 
 	// if we subscribe to all chain-events, we can do it now
-	if viper.GetBool("show.all") {
+	if !viper.GetBool("show.own") {
 		nodes.SubscribeToAllTransfers(ctx, queueLogs)
 	}
 
@@ -237,7 +209,7 @@ func live(_ *cobra.Command, _ []string) {
 	_ = collectionsSpinner.Stop()
 
 	// specialized subscriptions
-	if !viper.GetBool("show.all") {
+	if viper.GetBool("show.own") {
 		for _, node := range nodes.GetNodes() {
 			// subscribe to all "Transfer" events
 			if _, err := node.SubscribeToTransfersFor(ctx, queueLogs, ownCollections.Addresses()); err != nil {
@@ -305,12 +277,6 @@ func live(_ *cobra.Command, _ []string) {
 	// start status indicator ticker
 	if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
 		stats.StartTicker(statsInterval)
-	}
-
-	// telegram bot testing
-	if viper.GetBool("telegram.enabled") {
-		notifications.InitTelegramBot()
-		notifications.RunTelegramBot()
 	}
 
 	// // websockets server

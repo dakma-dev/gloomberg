@@ -20,6 +20,8 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 	// shorten some names
 	collectionName = strings.ReplaceAll(collectionName, "Psychedelics Anonymous", "PA")
 	collectionName = strings.ReplaceAll(collectionName, "Open Edition", "OE")
+	collectionName = strings.ReplaceAll(collectionName, "Genesis Edition", "Genesis")
+
 	collectionName = strings.ReplaceAll(collectionName, " Collection", "")
 
 	// remove useless IDs for ens domains
@@ -35,7 +37,11 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 		prefix = collection.StyleSecondary().Faint(faint).Render(prefix)
 	}
 
-	tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
+	if (tokenID > 0 && tokenID < 999_999) || collectionName == "" {
+		tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
+	} else {
+		tokenInfo = fmt.Sprintf("%s", collectionName)
+	}
 
 	return tokenInfo
 }

@@ -478,9 +478,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	}
 
 	// telegram notification
-	gbl.Log.Debug("telegram notify: %v | address match: %v | tgBot: %v", viper.GetBool("telegram.enabled"), wwatcherWalletInvolved, notifications.TgBot != nil)
-
-	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("telegram.enabled") && notifications.TgBot != nil {
+	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("telegram.enabled") { // && notifications.TgBot != nil {
 		gbl.Log.Warn("sending telegram notification...")
 
 		go func() {

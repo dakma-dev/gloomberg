@@ -2,7 +2,6 @@ package subscriptions
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"sync"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
-	"github.com/benleb/gloomberg/internal/notifications"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
@@ -30,21 +28,6 @@ func SubscriptionLogsHandler(nodes *gbnode.NodeCollection, gOwnCollections *coll
 	for subLog := range queueLogs {
 		// atomic.AddUint64(&stats.queueEvents, 1)
 		gbl.Log.Debugf("%s | new subscription log (%d): %+v", time.Now().String(), len(queueLogs), subLog)
-
-		if subLog.Address == common.HexToAddress("0x8297d8e55c27aa6ce2d8a65b1fa3debb02410efc") && subLog.Topics[1] == common.HexToHash("0xDcaE87821FA6CAEA05dBc2811126f4bc7fF73bd1") {
-			fmt.Println("")
-			fmt.Println("")
-			fmt.Println(" ‼️ OSF's 7 Deadly Sins ‼️ OSF's 7 Deadly Sins ‼️ OSF's 7 Deadly Sins ‼️")
-			fmt.Println("")
-			fmt.Println("  https://opensea.io/collection/osf-7-sins")
-			fmt.Println("")
-			fmt.Println("")
-			notifications.SendAlert("OSF's 7 Deadly Sins", "https://opensea.io/collection/osf-7-sins", true)
-
-			if msg, err := notifications.SendTelegramMessage(viper.GetInt64("telegram_chat_id"), " @benleb ‼️ OSF's 7 Deadly Sins !!\n\nhttps://opensea.io/collection/osf-7-sins", ""); err != nil {
-				gbl.Log.Errorf("failed to send telegram message: %s | imageURI: %s | err: %s\n", msg, "", err)
-			}
-		}
 
 		// erc721 has 0-3, (erc1155 has topics 2?), erc20 has topics 0-2
 		if len(subLog.Topics) != 4 {

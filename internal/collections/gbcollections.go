@@ -173,6 +173,12 @@ func GetCollectionsFromConfiguration(nodes *gbnode.NodeCollection) []*GbCollecti
 
 					continue
 				}
+
+				// get configured opensea slug; can be used to retrieve listings
+				// for single collections on the storefront contract
+				if osSlug := collection.(map[string]interface{})["slug"]; osSlug != nil {
+					currentCollection.Metadata.OpenseaSlug = collection.(map[string]interface{})["slug"].(string)
+				}
 			}
 
 			gbl.Log.Debugf("currentCollection: %+v", currentCollection)

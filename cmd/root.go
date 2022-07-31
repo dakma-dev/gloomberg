@@ -10,7 +10,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var cfgFile string
+var (
+	apiKeyEtherscan, apiKeyOpensea, cfgFile string
+	endpoints, ownWallets                   []string
+)
 
 // rootCmd represents the base command when called without any subcommands.
 var rootCmd = &cobra.Command{
@@ -57,13 +60,33 @@ func init() {
 	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
 	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
 
-	viper.Set("show.all", true)
+	// viper.Set("show.all", true)
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gloomberg.yaml)")
+
+	// logging
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Show more output")
+	_ = viper.BindPFlag("log.verbose", rootCmd.PersistentFlags().Lookup("verbose"))
+	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
+	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
+
+	// rpc node
+	rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
+	_ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
+
+	// wallets
+	rootCmd.PersistentFlags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
+	_ = viper.BindPFlag("wallets", rootCmd.Flags().Lookup("wallets"))
+
+	// apis
+	rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
+	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
+	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
+	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
 }
 
 // initConfig reads in config file and ENV variables if set.

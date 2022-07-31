@@ -9,30 +9,42 @@ import (
 	"github.com/spf13/viper"
 )
 
-var TgBot *tgbotapi.BotAPI
+var tgBot *tgbotapi.BotAPI
 
-func InitTelegramBot() *tgbotapi.BotAPI {
+func getBot() (*tgbotapi.BotAPI, error) {
 	token := viper.GetString("api_keys.telegram")
+	if token == "" {
+		gbl.Log.Error("No telegram API key found in config file.")
+		return nil, fmt.Errorf("No telegram API key found in config file.")
+	}
 
 	if bot, err := tgbotapi.NewBotAPI(token); err == nil {
-		TgBot = bot
+		tgBot = bot
 	} else {
 		gbl.Log.Error(err)
 
-		return nil
+		return nil, err
 	}
 
-	TgBot.Debug = false
-	if response, err := TgBot.Request(tgbotapi.DeleteWebhookConfig{}); err != nil {
+	tgBot.Debug = false
+	if response, err := tgBot.Request(tgbotapi.DeleteWebhookConfig{}); err != nil {
 		gbl.Log.Error(err)
 	} else {
 		gbl.Log.Debugf("%+v\n", response)
 	}
 
-	return TgBot
+	return tgBot, nil
 }
 
 func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.Message, error) {
+	if tgBot == nil {
+		tgBot, err := getBot()
+
+		if err != nil || tgBot == nil {
+			return tgbotapi.Message{}, err
+		}
+	}
+
 	if chatID == 0 {
 		chatID = viper.GetInt64("wwatcher.telegram_chat_id")
 	}
@@ -52,7 +64,7 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 			msg.ParseMode = parseMode
 			msg.DisableNotification = disableNotifications
 
-			return TgBot.Send(msg)
+			return tgBot.Send(msg)
 		}
 	}
 
@@ -61,71 +73,71 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 	msg.DisableNotification = disableNotifications
 	msg.DisableWebPagePreview = true
 
-	return TgBot.Send(msg)
+	return tgBot.Send(msg)
 }
 
-func RunTelegramBot() {
-	token := viper.GetString("api_keys.telegram")
-	chatID := viper.GetInt64("telegram_chat_id")
+// func RunTelegramBot() {
+// 	token := viper.GetString("api_keys.telegram")
+// 	chatID := viper.GetInt64("telegram_chat_id")
 
-	bot, err := tgbotapi.NewBotAPI(token)
-	if err != nil {
-		gbl.Log.Error(err)
-	}
+// 	bot, err := tgbotapi.NewBotAPI(token)
+// 	if err != nil {
+// 		gbl.Log.Error(err)
+// 	}
 
-	bot.Debug = false
-	if response, err := bot.Request(tgbotapi.DeleteWebhookConfig{}); err != nil {
-		gbl.Log.Error(err)
-	} else {
-		gbl.Log.Debugf("%+v\n", response)
-	}
+// 	bot.Debug = false
+// 	if response, err := bot.Request(tgbotapi.DeleteWebhookConfig{}); err != nil {
+// 		gbl.Log.Error(err)
+// 	} else {
+// 		gbl.Log.Debugf("%+v\n", response)
+// 	}
 
-	gbl.Log.Infof("Authorized on account %s\n", bot.Self.UserName)
+// 	gbl.Log.Infof("Authorized on account %s\n", bot.Self.UserName)
 
-	u := tgbotapi.NewUpdate(0)
-	u.Timeout = 60
+// 	u := tgbotapi.NewUpdate(0)
+// 	u.Timeout = 60
 
-	updates := bot.GetUpdatesChan(u)
+// 	updates := bot.GetUpdatesChan(u)
 
-	// chatMember, err := bot.GetChatMember(tgbotapi.GetChatMemberConfig{ChatConfigWithUser: tgbotapi.ChatConfigWithUser{ChatID: chatID}})
-	chatMember := "h"
+// 	// chatMember, err := bot.GetChatMember(tgbotapi.GetChatMemberConfig{ChatConfigWithUser: tgbotapi.ChatConfigWithUser{ChatID: chatID}})
+// 	chatMember := "h"
 
-	gbl.Log.Debugf("token: %s | chat_id: %d | bot.GetChatMember(): %+v\n", token, chatID, chatMember)
+// 	gbl.Log.Debugf("token: %s | chat_id: %d | bot.GetChatMember(): %+v\n", token, chatID, chatMember)
 
-	for update := range updates {
-		if update.Message != nil {
-			// ignore any non-Message updates
-			if update.Message == nil {
-				continue
-			}
+// 	for update := range updates {
+// 		if update.Message != nil {
+// 			// ignore any non-Message updates
+// 			if update.Message == nil {
+// 				continue
+// 			}
 
-			// ignore any non-command Messages
-			if !update.Message.IsCommand() {
-				continue
-			}
+// 			// ignore any non-command Messages
+// 			if !update.Message.IsCommand() {
+// 				continue
+// 			}
 
-			gbl.Log.Infof("%s: %s", update.Message.From.UserName, update.Message.Text)
+// 			gbl.Log.Infof("%s: %s", update.Message.From.UserName, update.Message.Text)
 
-			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
-			msg.ReplyToMessageID = update.Message.MessageID
+// 			msg := tgbotapi.NewMessage(update.Message.Chat.ID, update.Message.Text)
+// 			msg.ReplyToMessageID = update.Message.MessageID
 
-			// Extract the command from the Message.
-			switch update.Message.Command() {
-			case "flup":
-				msg.Text = "flup! flup! flup!!!"
-			case "status":
-				msg.Text = "I'm ok, mfer."
-			default:
-				msg.Text = fmt.Sprintf("I don't know that command @%s", update.Message.From.UserName)
-			}
+// 			// Extract the command from the Message.
+// 			switch update.Message.Command() {
+// 			case "flup":
+// 				msg.Text = "flup! flup! flup!!!"
+// 			case "status":
+// 				msg.Text = "I'm ok, mfer."
+// 			default:
+// 				msg.Text = fmt.Sprintf("I don't know that command @%s", update.Message.From.UserName)
+// 			}
 
-			gbl.Log.Infof("Sending message to %d: %s\n", update.Message.Chat.ID, msg.Text)
+// 			gbl.Log.Infof("Sending message to %d: %s\n", update.Message.Chat.ID, msg.Text)
 
-			if sentMessage, err := bot.Send(msg); err != nil {
-				gbl.Log.Error(err)
-			} else {
-				gbl.Log.Debugf("%+v\n", sentMessage)
-			}
-		}
-	}
-}
+// 			if sentMessage, err := bot.Send(msg); err != nil {
+// 				gbl.Log.Error(err)
+// 			} else {
+// 				gbl.Log.Debugf("%+v\n", sentMessage)
+// 			}
+// 		}
+// 	}
+// }
