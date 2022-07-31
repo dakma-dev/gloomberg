@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"math/big"
 	"math/rand"
@@ -99,8 +100,6 @@ var ctx = context.Background()
 func New(endpoint string) (*ChainNode, error) {
 	client, err := ethclient.DialContext(ctx, endpoint)
 	if err != nil {
-		gbl.Log.Errorf("failed to connect to %s: %s", endpoint, err)
-
 		return nil, err
 	}
 
@@ -125,8 +124,11 @@ func GetNodesFromConfig(endpoints []string) *NodeCollection {
 			defer gbnodeWg.Done()
 
 			if provider, err := New(endpoint); err != nil {
-				gbl.Log.Errorf("failed to connect to %s: %s", endpoint, err)
+				gbl.Log.Errorf("❌ failed to connect to %s: %s", endpoint, err)
+				fmt.Printf("\n❌ failed to connect to %s: %s\n\n", endpoint, err)
 			} else {
+				gbl.Log.Infof("✅ successfully connected to %s: %s", endpoint)
+
 				nodes = append(nodes, provider)
 			}
 		}()
