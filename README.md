@@ -9,6 +9,23 @@
 - get an account at [Infura](https://infura.io)/[Alchemy](https://www.alchemy.com)/*whatever* to get a websockets endpoint to an ethereum node
   ***wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b***
 
+## recommended ☝️
+
+‼️ use [redis](https://redis.io) as cache for collection & ENS names! it saves a lot of (limited) calls to a node and is also faster than calls to a node. you can use the [redis docker image](https://hub.docker.com/_/redis) for this or [install redis](https://redis.io/docs/getting-started/installation/) on a local machine.
+
+most simple configuration example with `redis` running on `10.0.0.2:6379` (default port, database and no password):
+  
+  ```yaml
+  # redis cache
+  redis:
+    # use redis as name & sale cache
+    enabled: true
+    # redis host
+    host: 10.0.0.2
+  ```
+
+there is also an ultra-simple built-in cache but without any persistence and therefore empty on every new start of `gloomberg`.
+
 ## lfg! or *getting started*
 
 ```bash
