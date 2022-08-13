@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"regexp"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -37,6 +38,8 @@ func StreamListingsHandler(workerID int, gOwnCollections *collections.Collection
 		patternTokenID := regexp.MustCompile(`^(.*?)\ #?(\d*)(\/.*)?$`)
 		tokenIDRaw := patternTokenID.ReplaceAllString(event.Payload.Item.Metadata.Name, "$2")
 		gbl.Log.Debugf("tokenIDRaw: %+v", tokenIDRaw)
+
+		tokenIDRaw = strings.TrimPrefix(tokenIDRaw, "#")
 
 		tokenID, err := strconv.ParseInt(tokenIDRaw, 10, 64)
 		if err != nil {
