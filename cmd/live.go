@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
@@ -115,8 +114,6 @@ func live(_ *cobra.Command, _ []string) {
 	defer cancel()
 
 	gbl.GetSugaredLogger()
-	cache.GetRedisClient()
-	// notifications.InitTelegramBot()
 
 	var (
 		// wallets *models.Wallets
@@ -255,10 +252,12 @@ func live(_ *cobra.Command, _ []string) {
 				gbl.Log.Error(err)
 			}); client != nil {
 				for _, collection := range ownCollections.UserCollections {
+					gbl.Log.Debugf("%s: collection.Show.Listings: %v | collection.OpenseaSlug: %s", collection.Name, collection.Show.Listings, collection.OpenseaSlug)
+
 					if collection.Show.Listings {
-						if collection.Metadata.OpenseaSlug == "" {
+						if collection.OpenseaSlug == "" {
 							if slug := opensea.GetCollectionSlug(collection.ContractAddress); slug != "" {
-								collection.Metadata.OpenseaSlug = slug
+								collection.OpenseaSlug = slug
 							} else {
 								gbl.Log.Warnf("no slug for collection %s", collection.ContractAddress)
 
@@ -266,8 +265,8 @@ func live(_ *cobra.Command, _ []string) {
 							}
 						}
 
-						opensea.SubscribeToCollectionSlug(client, collection.Metadata.OpenseaSlug, streamListingsReceiver)
-						time.Sleep(1370 * time.Millisecond)
+						opensea.SubscribeToCollectionSlug(client, collection.OpenseaSlug, streamListingsReceiver)
+						time.Sleep(337 * time.Millisecond)
 					}
 				}
 			}

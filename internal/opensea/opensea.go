@@ -132,7 +132,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 			}
 
 			userCollection := collections.NewCollection(contractAddress, collection.Name, nodes, collections.Wallet)
-			userCollection.Metadata.OpenseaSlug = collection.Slug
+			userCollection.OpenseaSlug = collection.Slug
 
 			receivedCollections = append(receivedCollections, userCollection)
 		}

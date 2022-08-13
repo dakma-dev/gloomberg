@@ -62,10 +62,8 @@ func (cs *Collections) OpenseaSlugs() []string {
 	slugs := make([]string, 0)
 
 	for _, c := range cs.UserCollections {
-		if c.Metadata != nil { // } && c.Show.Listings {
-			if slug := c.Metadata.OpenseaSlug; slug != "" {
-				slugs = append(slugs, c.Metadata.OpenseaSlug)
-			}
+		if slug := c.OpenseaSlug; slug != "" {
+			slugs = append(slugs, c.OpenseaSlug)
 		}
 	}
 
@@ -172,12 +170,6 @@ func GetCollectionsFromConfiguration(nodes *gbnode.NodeCollection) []*GbCollecti
 					gbl.Log.Errorf("error decoding collection: %+v", err)
 
 					continue
-				}
-
-				// get configured opensea slug; can be used to retrieve listings
-				// for single collections on the storefront contract
-				if osSlug := collection.(map[string]interface{})["slug"]; osSlug != nil {
-					currentCollection.Metadata.OpenseaSlug = collection.(map[string]interface{})["slug"].(string)
 				}
 			}
 
