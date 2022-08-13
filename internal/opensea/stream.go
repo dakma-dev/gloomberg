@@ -102,7 +102,7 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	}
 
 	join.Receive("ok", func(response any) {
-		gbl.Log.Info("Joined channel:", channel.Topic(), response)
+		gbl.Log.Infof("joined channel: %s", channel.Topic()) //), response)
 	})
 
 	join.Receive("error", func(response any) {
@@ -167,9 +167,9 @@ func (s StreamClient) OnItemListed(collectionSlug string, eventHandler func(item
 // 	s.on(ReceivedBid, collectionSlug, eventHandler)
 // }
 
-// func (s StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
-// 	s.on(ReceivedOffer, collectionSlug, eventHandler)
-// }
+func (s StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
+	s.on(ReceivedOffer, collectionSlug, eventHandler)
+}
 
 // func (s StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
 // 	s.on(MetadataUpdated, collectionSlug, eventHandler)
