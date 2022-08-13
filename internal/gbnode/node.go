@@ -26,7 +26,6 @@ import (
 
 type CollectionMetadata struct {
 	Name        string `json:"name"`
-	OpenseaSlug string `mapstructure:"slug"`
 	Symbol      string `mapstructure:"symbol"`
 	TotalSupply uint64 `mapstructure:"total_supply"`
 	TokenURI    string `mapstructure:"token_uri"`
@@ -74,8 +73,6 @@ func (nc *NodeCollection) SubscribeToAllTransfers(ctx context.Context, queueLogs
 		if _, err := node.SubscribeToSingleTransfers(ctx, queueLogs); err != nil {
 			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: ", node.WebsocketsEndpoint, err)
 		}
-
-		gbl.Log.Infof("subTransfers & subSingleTransfers for ALL")
 	}
 }
 
@@ -127,7 +124,7 @@ func GetNodesFromConfig(endpoints []string) *NodeCollection {
 				gbl.Log.Errorf("❌ failed to connect to %s: %s", endpoint, err)
 				fmt.Printf("\n❌ failed to connect to %s: %s\n\n", endpoint, err)
 			} else {
-				gbl.Log.Infof("✅ successfully connected to %s: %s", endpoint)
+				gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(endpoint))
 
 				nodes = append(nodes, provider)
 			}
@@ -135,6 +132,7 @@ func GetNodesFromConfig(endpoints []string) *NodeCollection {
 	}
 
 	gbnodeWg.Wait()
+	gbl.Log.Info()
 
 	return &nodes
 }
@@ -143,7 +141,9 @@ func GetNodesFromConfig(endpoints []string) *NodeCollection {
 type ChainNode struct {
 	Name               string `mapstructure:"name"`
 	Client             *ethclient.Client
-	WebsocketsEndpoint string `mapstructure:"url"`
+	WebsocketsEndpoint string     `mapstructure:"url"`
+	ReceivedMessages   uint64     `mapstructure:"received_messages"`
+	KillTimer          time.Timer `mapstructure:"kill_timer"`
 }
 
 func (p ChainNode) SubscribeToContract(ctx context.Context, queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
@@ -193,16 +193,14 @@ func (p ChainNode) GetCollectionName(contractAddress common.Address) string {
 	// collection name
 	collectionName := ""
 
+	cache := cache.New(ctx)
+
 	// check if the collection is already in the redis cache
 	if viper.GetBool("redis.enabled") {
-		if rdb := cache.GetRedisClient(); rdb != nil {
-			gbl.Log.Debugf("redis | searching for contract address: %s", contractAddress.String())
+		if name, err := cache.GetCollectionName(contractAddress); err == nil && name != "" {
+			gbl.Log.Infof("cache | cached collection name: %s", name)
 
-			if name, err := rdb.Get(ctx, cache.KeyContract(contractAddress)).Result(); err == nil && name != "" {
-				gbl.Log.Debugf("redis | using cached contractName: %s", name)
-
-				collectionName = name
-			}
+			collectionName = name
 		}
 	}
 
@@ -212,14 +210,11 @@ func (p ChainNode) GetCollectionName(contractAddress common.Address) string {
 			collectionName = name
 
 			if viper.GetBool("redis.enabled") {
-				if rdb := cache.GetRedisClient(); rdb != nil {
-					err := rdb.SetEX(ctx, cache.KeyContract(contractAddress), collectionName, time.Hour*48).Err()
+				if collectionName != "" {
+					// cache collection name
+					gbl.Log.Infof("cache | caching collection name: %s", collectionName)
 
-					if err != nil {
-						gbl.Log.Infof("redis | error while adding: %s", err.Error())
-					} else {
-						gbl.Log.Debugf("redis | added: %s -> %s", contractAddress.Hex(), collectionName)
-					}
+					cache.CacheCollectionName(contractAddress, collectionName)
 				}
 			}
 		} else {
@@ -235,43 +230,6 @@ func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *Collec
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
 		gbl.Log.Error(err)
-	}
-
-	// collection name
-	collectionName := ""
-
-	// check if the collection is already in the redis cache
-	if viper.GetBool("redis.enabled") {
-		if rdb := cache.GetRedisClient(); rdb != nil {
-			gbl.Log.Debugf("redis | searching for contract address: %s", contractAddress.String())
-
-			if name, err := rdb.Get(ctx, cache.KeyContract(contractAddress)).Result(); err == nil && name != "" {
-				gbl.Log.Debugf("redis | using cached contractName: %s", name)
-
-				collectionName = name
-			}
-		}
-	}
-
-	// if not found in redis, we call the contract method to get the name
-	if collectionName == "" {
-		if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
-			collectionName = name
-
-			if viper.GetBool("redis.enabled") {
-				if rdb := cache.GetRedisClient(); rdb != nil {
-					err := rdb.SetEX(ctx, cache.KeyContract(contractAddress), collectionName, time.Hour*48).Err()
-
-					if err != nil {
-						gbl.Log.Infof("redis | error while adding: %s", err.Error())
-					} else {
-						gbl.Log.Debugf("redis | added: %s -> %s", contractAddress.Hex(), collectionName)
-					}
-				}
-			}
-		} else {
-			collectionName = style.ShortenAddress(&contractAddress)
-		}
 	}
 
 	// collection total supply
@@ -293,7 +251,6 @@ func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *Collec
 	}
 
 	return &CollectionMetadata{
-		Name:        collectionName,
 		Symbol:      collectionSymbol,
 		TotalSupply: collectionTotalSupply,
 		TokenURI:    collectionTokenURI,

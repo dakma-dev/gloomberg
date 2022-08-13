@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"math/rand"
 	"sync/atomic"
-	"time"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
@@ -25,6 +24,7 @@ type GbCollection struct {
 
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
+	OpenseaSlug     string         `mapstructure:"slug"`
 
 	Show struct {
 		Sales     bool `mapstructure:"sales"`
@@ -79,58 +79,43 @@ var ctx = context.Background()
 // func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
 
 func NewCollection(contractAddress common.Address, name string, nodes *gbnode.NodeCollection, source CollectionSource) *GbCollection {
-	// name
 	var collectionName string
+
+	cache := cache.New(ctx)
+	nameInCache := false
 
 	if name != "" {
 		collectionName = name
 	} else if viper.GetBool("redis.enabled") {
-		// check if the collection is already in the redis cache
-		if rdb := cache.GetRedisClient(); rdb != nil {
-			gbl.Log.Debugf("redis | searching for contract address: %s", contractAddress.String())
+		// check if the collection is already in the cache
+		if name, err := cache.GetCollectionName(contractAddress); err == nil && name != "" {
+			gbl.Log.Infof("cache | cached collection name: %s", name)
 
-			if redisName, err := rdb.Get(ctx, cache.KeyContract(contractAddress)).Result(); err == nil && redisName != "" {
-				gbl.Log.Debugf("redis | using cached contractName: %s", redisName)
-
-				collectionName = redisName
-			}
+			collectionName = name
+			nameInCache = true
 		}
 	} else {
 		collectionName = nodes.GetRandomNode().GetCollectionName(contractAddress)
 	}
 
-	// redis
-	if viper.GetBool("redis.enabled") {
-		if rdb := cache.GetRedisClient(); rdb != nil {
-			err := rdb.SetEX(ctx, cache.KeyContract(contractAddress), collectionName, time.Hour*48).Err()
+	if collectionName != "" && !nameInCache {
+		// cache collection name
+		if viper.GetBool("redis.enabled") {
+			gbl.Log.Infof("cache | caching collection name: %s", collectionName)
 
-			if err != nil {
-				gbl.Log.Infof("redis | error while adding: %s", err.Error())
-			} else {
-				gbl.Log.Debugf("redis | added: %s -> %s", contractAddress.Hex(), collectionName)
-			}
+			cache.CacheCollectionName(contractAddress, collectionName)
 		}
 	}
-
-	// if uc.source == Wallet || uc.source == Stream {
-	// 	uc.Show.Sales = viper.GetBool("show.sales")
-	// 	uc.Show.Mints = viper.GetBool("show.mints")
-	// 	uc.Show.Transfers = viper.GetBool("show.transfers")
-
-	// 	if viper.IsSet("api_keys.opensea") {
-	// 		uc.Show.Listings = viper.GetBool("show.listings")
-	// 	}
-	// }
 
 	collection := GbCollection{
 		ContractAddress: contractAddress,
 		Name:            collectionName,
-		// Metadata:        collectionMetadata,
-		Metadata:        &gbnode.CollectionMetadata{},
-		Source:          source,
+
+		Metadata: &gbnode.CollectionMetadata{},
+		Source:   source,
+
 		ArtificialFloor: ewma.NewMovingAverage(),
 		SaLiRa:          ewma.NewMovingAverage(),
-		// Show:            show,
 	}
 
 	go func() {
@@ -155,10 +140,6 @@ func NewCollection(contractAddress common.Address, name string, nodes *gbnode.No
 
 	// generate the collection color based on the contract address if none given
 	collection.generateColorsFromAddress()
-
-	// // initialize the moving averages
-	// uc.artificialFloor = ewma.NewMovingAverage()
-	// uc.saLiRa = ewma.NewMovingAverage()
 
 	// initialize the counters
 	collection.ResetStats()
@@ -248,80 +229,3 @@ func (uc *GbCollection) generateColorsFromAddress() {
 		uc.Colors.Secondary = secondary
 	}
 }
-
-// func GetCollectionMetadata(contractAddress common.Address) *models.CollectionMetadata {
-// 	// get the contractERC721 ABIs
-// 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
-// 	if err != nil {
-// 		gbl.Log.Error(err)
-// 	}
-
-// 	// collection name
-// 	collectionName := ""
-
-// 	// check if the collection is already in the redis cache
-// 	if viper.GetBool("redis.enabled") {
-// 		if rdb := cache.GetRedisClient(); rdb != nil {
-// 			gbl.Log.Debugf("redis | searching for contract address: %s", contractAddress.String())
-
-// 			if name, err := rdb.Get(ctx, cache.KeyContract(contractAddress)).Result(); err == nil && name != "" {
-// 				gbl.Log.Debugf("redis | using cached contractName: %s", name)
-
-// 				collectionName = name
-// 			}
-// 		}
-// 	}
-
-// 	// if not found in redis, we call the contract method to get the name
-// 	if collectionName == "" {
-// 		if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
-// 			collectionName = name
-
-// 			if viper.GetBool("redis.enabled") {
-// 				if rdb := cache.GetRedisClient(); rdb != nil {
-// 					err := rdb.SetEX(ctx, cache.KeyContract(contractAddress), collectionName, time.Hour*48).Err()
-
-// 					if err != nil {
-// 						gbl.Log.Infof("redis | error while adding: %s", err.Error())
-// 					} else {
-// 						gbl.Log.Debugf("redis | added: %s -> %s", contractAddress.Hex(), collectionName)
-// 					}
-// 				}
-// 			}
-// 		} else {
-// 			collectionName = style.ShortenAddress(&contractAddress)
-// 		}
-// 	}
-
-// 	// collection total supply
-// 	collectionTotalSupply := uint64(0)
-// 	if totalSupply, err := contractERC721.TotalSupply(&bind.CallOpts{}); err == nil {
-// 		collectionTotalSupply = totalSupply.Uint64()
-// 	}
-
-// 	// collection symbol
-// 	collectionSymbol := ""
-// 	if symbol, err := contractERC721.Symbol(&bind.CallOpts{}); err == nil {
-// 		collectionSymbol = symbol
-// 	}
-
-// 	// collection token uri
-// 	collectionTokenURI := ""
-// 	if tokenURI, err := contractERC721.TokenURI(&bind.CallOpts{}, big.NewInt(1)); err == nil {
-// 		collectionTokenURI = tokenURI
-// 	}
-
-// 	return &models.CollectionMetadata{
-// 		Name:        collectionName,
-// 		Symbol:      collectionSymbol,
-// 		TotalSupply: collectionTotalSupply,
-// 		TokenURI:    collectionTokenURI,
-// 	}
-// }
-
-// type CollectionMetadata struct {
-// 	OpenseaSlug string `mapstructure:"slug"`
-// 	Symbol      string `mapstructure:"symbol"`
-// 	TotalSupply uint64 `mapstructure:"total_supply"`
-// 	TokenURI    string `mapstructure:"token_uri"`
-// }

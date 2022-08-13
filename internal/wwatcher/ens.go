@@ -3,14 +3,12 @@ package wwatcher
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
 	"github.com/wealdtech/go-ens/v3"
 )
@@ -36,7 +34,7 @@ func (nc *NamesCache) MarshalBinary() ([]byte, error) { return json.Marshal(nc) 
 func (nc *NamesCache) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, nc) }
 
 // GetENSForAddress returns the ENS name for an address or an empty string if not available.
-func GetENSForAddress(nodes *gbnode.NodeCollection, address common.Address, namesCache *NamesCache) string {
+func GetENSForAddress(ctx context.Context, nodes *gbnode.NodeCollection, address common.Address, namesCache *NamesCache) string {
 	var ensName string
 
 	mu.RLock()
@@ -51,7 +49,7 @@ func GetENSForAddress(nodes *gbnode.NodeCollection, address common.Address, name
 
 	gbl.Log.Debugf("resolving address: %s", address.Hex())
 
-	if ensName = ReverseLookupAndValidate(address, nodes); ensName == "" {
+	if ensName = ReverseLookupAndValidate(ctx, address, nodes); ensName == "" {
 		mu.Lock()
 		addressesWithoutENSName[address] = true
 		mu.Unlock()
@@ -66,7 +64,7 @@ func GetENSForAddress(nodes *gbnode.NodeCollection, address common.Address, name
 	return ensName
 }
 
-func ReverseLookupAndValidate(address common.Address, nodes *gbnode.NodeCollection) string {
+func ReverseLookupAndValidate(ctx context.Context, address common.Address, nodes *gbnode.NodeCollection) string {
 	var name, ensName string
 
 	var err error
@@ -94,18 +92,12 @@ func ReverseLookupAndValidate(address common.Address, nodes *gbnode.NodeCollecti
 	} else {
 		ensName = name
 
+		cache := cache.New(ctx)
+
 		if viper.GetBool("redis.enabled") {
-			if rdb := cache.GetRedisClient(); rdb != nil {
-				if err := rdb.SetEX(context.Background(), cache.KeyENS(address), ensName, viper.GetDuration("cache.ens_ttl")).Err(); err != nil {
-					if errors.Is(err, redis.Nil) {
-						gbl.Log.Warnf("redis | redis.Nil while adding to ensName: %s", err)
-					} else {
-						gbl.Log.Errorf("redis | could not add ensName: %s", err)
-					}
-				} else {
-					gbl.Log.Infof("redis | added ensName: %s -> %s", ensName, address.Hex())
-				}
-			}
+			// cache collection name
+			gbl.Log.Infof("cache | caching ENS name: %s", ensName)
+			cache.CacheCollectionName(address, ensName)
 		}
 	}
 

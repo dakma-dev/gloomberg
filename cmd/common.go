@@ -205,23 +205,24 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	var ensName string
 
+	cache := cache.New(ctx)
+
 	if viper.GetBool("redis.enabled") {
-		if rdb := cache.GetRedisClient(); rdb != nil {
-			if cachedName, err := rdb.Get(context.Background(), cache.KeyENS(event.To.Address)).Result(); err == nil && cachedName != "" {
-				ensName = cachedName
-				gbl.Log.Infof("ensName from redis: %s", ensName)
-				to = toStyle.Render(ensName)
-			} else {
-				gbl.Log.Debugf("ensName not found in redis: %s", ensName)
-			}
+		// check if the ENS name is already in the cache
+		if name, err := cache.GetENSName(event.To.Address); err == nil && name != "" {
+			gbl.Log.Infof("cache | cached ENS name: %s", name)
+
+			ensName = name
 		}
 	}
 
 	if ensName == "" && viper.IsSet("api_keys.etherscan") {
-		if ensName := wwatcher.GetENSForAddress(nodes, event.To.Address, namesCache); ensName != "" {
+		if ensName := wwatcher.GetENSForAddress(ctx, nodes, event.To.Address, namesCache); ensName != "" {
 			gbl.Log.Debugf("ensName from etherscan: %s", ensName)
 			to = toStyle.Render(ensName)
 			event.ToENS = ensName
+
+			cache.CacheENSName(event.To.Address, ensName)
 		} else if event.ToENS != "" {
 			to = toStyle.Render(event.ToENS)
 		}

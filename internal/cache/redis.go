@@ -1,7 +1,9 @@
 package cache
 
 import (
+	"context"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,10 +11,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	rdb *redis.Client
-	mu  = &sync.RWMutex{}
-)
+//	cache = &redisCache{
+//		rdb: nil,
+//	}
+var mu = &sync.RWMutex{}
 
 type NamespaceKey string
 
@@ -22,33 +24,25 @@ const (
 	KeyDelimiter       string       = ":"
 )
 
-func KeyContract(contractAddress common.Address) string {
+func keyContract(contractAddress common.Address) string {
 	return fmt.Sprint(PrefixContractName, KeyDelimiter, contractAddress.Hex())
 }
 
-func KeyENS(address common.Address) string {
+func keyENS(address common.Address) string {
 	return fmt.Sprint(PrefixENS, KeyDelimiter, address.Hex())
 }
 
-func GetRedisClient() *redis.Client {
-	mu.Lock()
-	if rdb == nil {
-		redisHost := viper.GetString("redis.host")
-		redisPort := viper.GetInt("redis.port")
-		redisPassword := viper.GetString("redis.password")
-		redisDatabase := viper.GetInt("redis.database")
+func NewRCache(ctx context.Context) *redis.Client {
+	rdb := redis.NewClient(&redis.Options{
+		Addr: strings.Join([]string{
+			viper.GetString("redis.host"),
+			fmt.Sprint(viper.GetInt("redis.port")),
+		}, ":"),
+		Password: viper.GetString("redis.password"),
+		DB:       viper.GetInt("redis.database"),
+	})
 
-		rdb = redis.NewClient(&redis.Options{
-			Addr:     fmt.Sprint(redisHost, ":", redisPort),
-			Password: redisPassword,
-			DB:       redisDatabase,
-		})
-
-		if viper.GetBool("log.debug") {
-			fmt.Println(rdb.Info(rdb.Context()).Val())
-		}
-	}
-	mu.Unlock()
+	rdb.WithContext(ctx)
 
 	return rdb
 }

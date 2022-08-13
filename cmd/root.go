@@ -56,6 +56,7 @@ func init() {
 	viper.SetDefault("redis.database", 0)
 	viper.SetDefault("redis.password", "")
 
+	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
 	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
 	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
 	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
