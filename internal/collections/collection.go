@@ -11,6 +11,7 @@ import (
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -82,28 +83,29 @@ func NewCollection(contractAddress common.Address, name string, nodes *gbnode.No
 	var collectionName string
 
 	cache := cache.New(ctx)
-	nameInCache := false
 
 	if name != "" {
 		collectionName = name
-	} else if viper.GetBool("redis.enabled") {
-		// check if the collection is already in the cache
-		if name, err := cache.GetCollectionName(contractAddress); err == nil && name != "" {
+	} else {
+		if name, err := cache.GetCollectionName(contractAddress); err == nil {
 			gbl.Log.Infof("cache | cached collection name: %s", name)
 
-			collectionName = name
-			nameInCache = true
-		}
-	} else {
-		collectionName = nodes.GetRandomNode().GetCollectionName(contractAddress)
-	}
+			if name != "" {
+				collectionName = name
+			}
+		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress); err == nil {
+			gbl.Log.Infof("chain | collection name via contract call: %s", name)
 
-	if collectionName != "" && !nameInCache {
-		// cache collection name
-		if viper.GetBool("redis.enabled") {
-			gbl.Log.Infof("cache | caching collection name: %s", collectionName)
+			if name != "" {
+				collectionName = name
+			}
 
+			// cache collection name
 			cache.CacheCollectionName(contractAddress, collectionName)
+		} else {
+			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
+
+			collectionName = style.ShortenAddress(&contractAddress)
 		}
 	}
 
