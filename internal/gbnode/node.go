@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/abis"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum"
@@ -25,7 +24,6 @@ import (
 )
 
 type CollectionMetadata struct {
-	Name        string `json:"name"`
 	Symbol      string `mapstructure:"symbol"`
 	TotalSupply uint64 `mapstructure:"total_supply"`
 	TokenURI    string `mapstructure:"token_uri"`
@@ -183,46 +181,22 @@ func (p ChainNode) subscribeTo(ctx context.Context, queueLogs chan types.Log, to
 	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (p ChainNode) GetCollectionName(contractAddress common.Address) string {
+func (p ChainNode) GetCollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
 		gbl.Log.Error(err)
+
+		return "", err
 	}
 
-	// collection name
-	collectionName := ""
+	if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
+		gbl.Log.Infof("found collection name via chain call: %s", name)
 
-	cache := cache.New(ctx)
-
-	// check if the collection is already in the redis cache
-	if viper.GetBool("redis.enabled") {
-		if name, err := cache.GetCollectionName(contractAddress); err == nil && name != "" {
-			gbl.Log.Infof("cache | cached collection name: %s", name)
-
-			collectionName = name
-		}
+		return name, nil
 	}
 
-	// if not found in redis, we call the contract method to get the name
-	if collectionName == "" {
-		if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
-			collectionName = name
-
-			if viper.GetBool("redis.enabled") {
-				if collectionName != "" {
-					// cache collection name
-					gbl.Log.Infof("cache | caching collection name: %s", collectionName)
-
-					cache.CacheCollectionName(contractAddress, collectionName)
-				}
-			}
-		} else {
-			collectionName = style.ShortenAddress(&contractAddress)
-		}
-	}
-
-	return collectionName
+	return "", nil
 }
 
 func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *CollectionMetadata {

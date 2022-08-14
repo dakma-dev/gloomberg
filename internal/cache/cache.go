@@ -28,8 +28,10 @@ func New(ctx context.Context) *GbCache {
 	}
 
 	if viper.GetBool("redis.enabled") {
-		if client := NewRCache(ctx); client != nil {
+		if client := NewRedisClient(ctx); client != nil {
 			gCache.rdb = client
+		} else {
+			viper.Set("redis.enabled", false)
 		}
 	}
 

@@ -9,7 +9,6 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/viper"
 	"github.com/wealdtech/go-ens/v3"
 )
 
@@ -94,11 +93,10 @@ func ReverseLookupAndValidate(ctx context.Context, address common.Address, nodes
 
 		cache := cache.New(ctx)
 
-		if viper.GetBool("redis.enabled") {
-			// cache collection name
-			gbl.Log.Infof("cache | caching ENS name: %s", ensName)
-			cache.CacheCollectionName(address, ensName)
-		}
+		// cache collection name
+		gbl.Log.Infof("cache | caching ENS name: %s", ensName)
+		cache.CacheCollectionName(address, ensName)
+
 	}
 
 	return ensName

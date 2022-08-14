@@ -207,13 +207,11 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	cache := cache.New(ctx)
 
-	if viper.GetBool("redis.enabled") {
-		// check if the ENS name is already in the cache
-		if name, err := cache.GetENSName(event.To.Address); err == nil && name != "" {
-			gbl.Log.Infof("cache | cached ENS name: %s", name)
+	// check if the ENS name is already in the cache
+	if name, err := cache.GetENSName(event.To.Address); err == nil && name != "" {
+		gbl.Log.Infof("cache | cached ENS name: %s", name)
 
-			ensName = name
-		}
+		ensName = name
 	}
 
 	if ensName == "" && viper.IsSet("api_keys.etherscan") {
