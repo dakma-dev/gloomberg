@@ -166,6 +166,21 @@ func live(_ *cobra.Command, _ []string) {
 	wallets := getWallets(nodes)
 
 	//
+	// MIWs
+	//
+	miwSpinner := style.GetSpinner("setting up MIWs...")
+	_ = miwSpinner.Start()
+
+	wwatcher.LoadMIWs()
+
+	if len(wwatcher.MIWs) > 0 {
+		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWs))), " MIWs loaded", "\n")))
+		_ = miwSpinner.Stop()
+	} else {
+		_ = miwSpinner.StopFail()
+	}
+
+	//
 	// initialize collections
 	//
 	collectionsSpinner := style.GetSpinner("setting up collections...")
