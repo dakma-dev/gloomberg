@@ -17,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/subscriptions"
 	"github.com/benleb/gloomberg/internal/wwatcher"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -58,9 +59,9 @@ func init() {
 	viper.SetDefault("stats.interval", time.Second*90)
 
 	// worker settings
-	viper.SetDefault("workers.log_handler", 8)
+	viper.SetDefault("workers.log_handler", 7)
 	viper.SetDefault("workers.listings_handler", 4)
-	viper.SetDefault("workers.output", 8)
+	viper.SetDefault("workers.output", 10)
 
 	// opensea settings
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
@@ -157,7 +158,11 @@ func live(_ *cobra.Command, _ []string) {
 
 	// if we subscribe to all chain-events, we can do it now
 	if !viper.GetBool("show.own") {
-		nodes.SubscribeToAllTransfers(ctx, queueLogs)
+		for _, node := range *nodes {
+			queue := make(chan types.Log, 1024)
+			logQueues[node.NodeID] = &queue
+			nodes.SubscribeToAllTransfers(ctx, *logQueues[node.NodeID])
+		}
 	}
 
 	//
@@ -251,8 +256,10 @@ func live(_ *cobra.Command, _ []string) {
 	}
 
 	// processes logs from the ethereum chain from our nodes
-	for workerID := 1; workerID <= viper.GetInt("workers.log_handler"); workerID++ {
-		go subscriptions.SubscriptionLogsHandler(nodes, ownCollections, queueLogs, queueEvents)
+	for _, node := range *nodes {
+		for workerID := 1; workerID <= viper.GetInt("workers.log_handler"); workerID++ {
+			go subscriptions.SubscriptionLogsHandler(ctx, node, nodes, ownCollections, logQueues[node.NodeID], queueEvents)
+		}
 	}
 
 	// processes new listings from the opensea stream api

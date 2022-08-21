@@ -48,6 +48,9 @@ var (
 	queueLogs     = make(chan types.Log, 1024)
 	queueListings = make(chan *models.ItemListedEvent, 1024)
 	queueOutput   = make(chan string, 1024)
+
+	logQueues = make(map[int]*chan types.Log, 0)
+	newNodes  = make(map[int]*gbnode.ChainNode, 0)
 )
 
 type ResponseOwner struct {
@@ -80,7 +83,57 @@ func getNodes() *gbnode.NodeCollection {
 	nodesSpinner := style.GetSpinner("setting up node connections...")
 	_ = nodesSpinner.Start()
 
-	nodes := gbnode.GetNodesFromConfig(viper.GetStringSlice("endpoints"))
+	// var nodes *gbnode.NodeCollection
+
+	var nodes gbnode.NodeCollection
+
+	for idx, ep := range viper.Get("endpoints").([]interface{}) {
+		config := make(map[string]string, 0)
+
+		switch nodeConfig := ep.(type) {
+		case string:
+			config["endpoint"] = nodeConfig
+
+		case map[string]interface{}:
+			for k, v := range nodeConfig {
+				config[k] = v.(string)
+			}
+		}
+
+		if config["marker"] == "" {
+			config["marker"] = fmt.Sprint(" ", idx)
+		}
+
+		if config["color"] != "" {
+			config["marker"] = lipgloss.NewStyle().Foreground(lipgloss.Color(config["color"])).Render(config["marker"])
+		}
+
+		if config["name"] == "" {
+			config["name"] = fmt.Sprint("node", idx)
+		}
+
+		if config["endpoint"] == "" {
+			fmt.Printf("endpoint missin config: %+v\n\n", config)
+			continue
+		}
+
+		if node, err := gbnode.NewNode(idx, config["name"], config["marker"], config["endpoint"]); err != nil {
+			gbl.Log.Errorf("❌ failed to connect to %s | %s: %s", config["name"], config["endpoint"], err)
+		} else {
+			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
+
+			nodes = append(nodes, node)
+			newNodes[idx] = node
+
+			// out := strings.Builder{}
+			// out.WriteString("✅ node" + fmt.Sprint(node.NodeID) + ": ")
+			// out.WriteString(" " + node.Marker)
+			// out.WriteString(" " + node.Name)
+			// out.WriteString(" | " + node.WebsocketsEndpoint)
+			// fmt.Println(out.String())
+		}
+	}
+
 	numNodes := len(nodes.GetNodes())
 
 	// stop spinner
@@ -91,7 +144,7 @@ func getNodes() *gbnode.NodeCollection {
 		gbl.Log.Fatal("No node providers found")
 	}
 
-	return nodes
+	return &nodes
 }
 
 func getWallets(nodes *gbnode.NodeCollection) *models.Wallets {
@@ -313,6 +366,19 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	// build the line to be displayed
 	out := strings.Builder{}
+
+	if viper.GetBool("log.verbose") {
+		if event.EventType == collections.Listing {
+			// out.WriteString(style.DarkGrayStyle.Render("⛴️"))
+			// out.WriteString(style.DarkGrayStyle.Render("  "))
+			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#20293d")).Render("OS"))
+		} else {
+			out.WriteString(style.DarkGrayStyle.Render(fmt.Sprint(newNodes[event.NodeID].Marker)))
+		}
+
+		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("||"))
+	}
+
 	out.WriteString(timeNow)
 	out.WriteString(marker + event.EventType.Icon())
 	out.WriteString(" " + divider)
@@ -391,7 +457,11 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	// counting
 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
-		go event.Collection.AddSale(event.PriceWei, uint64(event.TxItemCount))
+		for i := 0; i < int(event.TxItemCount); i++ {
+			// go event.Collection.AddSale(event.PriceWei, uint64(event.TxItemCount))
+			go event.Collection.AddSale(event.PriceWei, 1)
+			// event.Collection.SaLiRa.Add((float64(event.Collection.Counters.Sales) / float64(event.Collection.Counters.Listings)))
+		}
 	} else if event.EventType == collections.Mint {
 		go event.Collection.AddMint()
 	}
