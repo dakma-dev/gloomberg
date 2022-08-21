@@ -23,6 +23,12 @@ const (
 	Purchase
 )
 
+func (et EventType) String() string {
+	return map[EventType]string{
+		Sale: "Sale", Mint: "Mint", Transfer: "Transfer", Listing: "Listing", Purchase: "Purchase",
+	}[et]
+}
+
 func (dt EventType) Icon() string {
 	switch dt {
 	case Sale:
@@ -58,6 +64,7 @@ func (dt EventType) ActionName() string {
 }
 
 type Event struct {
+	NodeID    int
 	EventType EventType
 	Topic     string
 	TxHash    common.Hash

@@ -21,6 +21,8 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 	collectionName = strings.ReplaceAll(collectionName, "Psychedelics Anonymous", "PA")
 	collectionName = strings.ReplaceAll(collectionName, "Open Edition", "OE")
 	collectionName = strings.ReplaceAll(collectionName, "Genesis Edition", "Genesis")
+	collectionName = strings.ReplaceAll(collectionName, "Golid and Deca", "G&D")
+	collectionName = strings.ReplaceAll(collectionName, "[ Ledger ] Market Pass", "Ledger Market Pass")
 
 	collectionName = strings.ReplaceAll(collectionName, " Collection", "")
 
