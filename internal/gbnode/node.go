@@ -104,6 +104,22 @@ func New(endpoint string) (*ChainNode, error) {
 	}, nil
 }
 
+// New returns a new gbnode if connection to the given endpoint succeeds.
+func NewNode(nodeID int, name string, marker string, endpoint string) (*ChainNode, error) {
+	client, err := ethclient.DialContext(ctx, endpoint)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ChainNode{
+		NodeID:             nodeID,
+		Name:               name,
+		Marker:             marker,
+		Client:             client,
+		WebsocketsEndpoint: endpoint,
+	}, nil
+}
+
 // GetNodesFromConfig reads the websockets endpoints slice from config, connects to them and returns a list with successfully connected nodes.
 func GetNodesFromConfig(endpoints []string) *NodeCollection {
 	var gbnodeWg sync.WaitGroup
@@ -137,9 +153,11 @@ func GetNodesFromConfig(endpoints []string) *NodeCollection {
 
 // ChainNode represents a w3 provider configuration.
 type ChainNode struct {
+	NodeID             int    `mapstructure:"id"`
 	Name               string `mapstructure:"name"`
+	Marker             string `mapstructure:"marker"`
 	Client             *ethclient.Client
-	WebsocketsEndpoint string     `mapstructure:"url"`
+	WebsocketsEndpoint string     `mapstructure:"endpoint"`
 	ReceivedMessages   uint64     `mapstructure:"received_messages"`
 	KillTimer          time.Timer `mapstructure:"kill_timer"`
 }

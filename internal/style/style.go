@@ -307,36 +307,6 @@ func toFixed(num float64, precision int) float64 {
 	return float64(round(num*output)) / output
 }
 
-// func FormatTokenInfo(tokenID uint64, collection *gbCollections.Collection, isMint bool, color bool) string {
-// 	var (
-// 		collectionName = collection.Name
-// 		prefix         = " #"
-// 		id             = fmt.Sprint(tokenID)
-
-// 		tokenInfo string
-// 	)
-
-// 	collectionName = strings.ReplaceAll(collectionName, "Psychedelics Anonymous", "PA")
-// 	collectionName = strings.ReplaceAll(collectionName, "Open Edition", "OE")
-// 	collectionName = strings.ReplaceAll(collectionName, " Collection", "")
-
-// 	if collection.Address == common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85") {
-// 		collectionName = "ENS: Ethereum Name Service"
-// 		prefix = ""
-// 		id = ""
-// 	}
-
-// 	if color {
-// 		collectionName = collection.Style().Faint(isMint).Render(collectionName)
-// 		id = collection.Style().Faint(isMint).Render(fmt.Sprint(id))
-// 		prefix = collection.StyleSecondary().Faint(isMint).Render(prefix)
-// 	}
-
-// 	tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
-
-// 	return tokenInfo
-// }
-
 // TerminalLink formats a link for the terminal using ANSI codes.
 func TerminalLink(params ...string) string {
 	var text string

@@ -11,6 +11,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+// enable other cache/datastore backends besides redis?
+// type ExtCache interface {
+// 	cacheName(address common.Address, keyFunc func(common.Address) string, value string, duration time.Duration)
+// 	getName(address common.Address, keyFunc func(common.Address) string) (string, error)
+// }
+
 var gbCache *GbCache
 
 type GbCache struct {
@@ -56,6 +62,36 @@ func (c *GbCache) CacheENSName(walletAddress common.Address, ensName string) {
 
 func (c *GbCache) GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
+}
+
+func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID uint64, priceWei uint64, numItems uint, eventTime time.Time, eventType int64) {
+	xAddArgs := &redis.XAddArgs{
+		Stream: "sales",
+		MaxLen: 100000,
+		Approx: true,
+		ID:     "*",
+		Values: map[string]any{
+			"contractAddress": contractAddress.Hex(),
+			"collectionName":  collectionName,
+			"tokenID":         tokenID,
+			"priceWei":        priceWei,
+			"numItems":        numItems,
+			"eventTime":       eventTime,
+			"eventType":       eventType,
+		},
+	}
+
+	if c.rdb != nil {
+		gbl.Log.Debugf("redis | adding sale: %s #%d", collectionName, int(tokenID))
+
+		if added, err := c.rdb.XAdd(c.rdb.Context(), xAddArgs).Result(); err == redis.Nil {
+			gbl.Log.Errorf("redis | strange redis.Nil while adding to stream: %s %d -xxx-> %s: %s", collectionName, tokenID, xAddArgs.Stream, err)
+		} else if err != nil {
+			gbl.Log.Errorf("redis | could not add event: %s", err)
+		} else {
+			gbl.Log.Debugf("redis | added event (%d) to stream: %s %d | %s", eventType, collectionName, tokenID, added)
+		}
+	}
 }
 
 func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address) string, value string, duration time.Duration) {
