@@ -5,3 +5,7 @@ gloomberg
 # config files
 .gloomberg.yaml
 .github/ttyd.Dockerfile
+
+# misc
+cmd/setOwner.go
+internal/miw
