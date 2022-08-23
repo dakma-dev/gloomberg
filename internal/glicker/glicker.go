@@ -125,9 +125,9 @@ func (s *Stats) salesPerMinute() float64 {
 // }
 
 func (s *Stats) salesVolumePerMinute() float64 {
-	ethVolume, _ := subscriptions.WeiToEther(s.salesVolume).Uint64()
+	ethVolume, _ := subscriptions.WeiToEther(s.salesVolume).Float64()
 
-	return float64((ethVolume * 60) / uint64(s.interval.Seconds()))
+	return float64((ethVolume * 60) / s.interval.Seconds())
 }
 
 func (s *Stats) processedLogs() uint64 {
@@ -263,7 +263,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	firstColumn = append(firstColumn, []string{
 		// listItem(FormatCounter(lipgloss.NewStyle().Align(lipgloss.Right).Render(fmt.Sprintf("%4d", GetEstimatedGasPrice())), "𛱟 gas")),
 		listItem(formatCounter(fmt.Sprintf("%.1f", s.salesVolumePerMinute()), "Ξ vol/min")),
-		listItem(formatCounter(fmt.Sprintf("%4d", uint(s.salesPerMinute())), "  sales/min")),
+		listItem(formatCounter(fmt.Sprintf("%4d", uint(s.salesPerMinute())), " sales/min")),
 		// listItem(formatCounter(fmt.Sprintf("%4d", uint(s.mintsPerMinute())), "  mints/min")),
 	}...)
 
@@ -291,7 +291,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		}...)
 	}
 
-	statsOutput := []string{listStyle.Copy().Width(18).Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
+	statsOutput := []string{listStyle.Copy().Width(17).Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
 
 	if len(secondcolumn) > 0 {
 		statsOutput = append(statsOutput, listStyle.Copy().Width(20).Render(lipgloss.JoinVertical(lipgloss.Left, secondcolumn...)))

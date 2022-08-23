@@ -116,12 +116,9 @@ func live(_ *cobra.Command, _ []string) {
 
 	gbl.GetSugaredLogger()
 
-	var (
-		// wallets *models.Wallets
-		stats *glicker.Stats
+	// wallets *models.Wallets
 
-		ownCollections = collections.New()
-	)
+	ownCollections := collections.New()
 
 	//
 	// config

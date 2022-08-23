@@ -49,6 +49,8 @@ var (
 	queueListings = make(chan *models.ItemListedEvent, 1024)
 	queueOutput   = make(chan string, 1024)
 
+	stats *glicker.Stats
+
 	logQueues = make(map[int]*chan types.Log, 0)
 	newNodes  = make(map[int]*gbnode.ChainNode, 0)
 )
@@ -460,6 +462,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		for i := 0; i < int(event.TxItemCount); i++ {
 			// go event.Collection.AddSale(event.PriceWei, uint64(event.TxItemCount))
 			go event.Collection.AddSale(event.PriceWei, 1)
+			stats.AddSale(pricePerItem)
 			// event.Collection.SaLiRa.Add((float64(event.Collection.Counters.Sales) / float64(event.Collection.Counters.Listings)))
 		}
 	} else if event.EventType == collections.Mint {
