@@ -460,10 +460,8 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	// counting
 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
 		for i := 0; i < int(event.TxItemCount); i++ {
-			// go event.Collection.AddSale(event.PriceWei, uint64(event.TxItemCount))
 			go event.Collection.AddSale(event.PriceWei, 1)
 			stats.AddSale(pricePerItem)
-			// event.Collection.SaLiRa.Add((float64(event.Collection.Counters.Sales) / float64(event.Collection.Counters.Listings)))
 		}
 	} else if event.EventType == collections.Mint {
 		go event.Collection.AddMint()
