@@ -371,11 +371,9 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	if viper.GetBool("log.verbose") {
 		if event.EventType == collections.Listing {
-			// out.WriteString(style.DarkGrayStyle.Render("⛴️"))
-			// out.WriteString(style.DarkGrayStyle.Render("  "))
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#20293d")).Render("OS"))
 		} else {
-			out.WriteString(style.DarkGrayStyle.Render(fmt.Sprint(newNodes[event.NodeID].Marker)))
+			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(newNodes[event.NodeID].Marker)))
 		}
 
 		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("||"))
