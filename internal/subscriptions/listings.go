@@ -23,7 +23,7 @@ func StreamListingsHandler(workerID int, gOwnCollections *collections.Collection
 
 		// atomic.AddUint64(&stats.queueEvents, 1)
 
-		patternContractAddress := regexp.MustCompile(`^ethereum\/(.*?)\/(.*)$`)
+		patternContractAddress := regexp.MustCompile(`^ethereum/(.*?)/(.*)$`)
 		contractAddress := patternContractAddress.ReplaceAllString(event.Payload.Item.NftID, "$1")
 		gbl.Log.Debugf("contractAddress: %+v", contractAddress)
 
@@ -35,7 +35,7 @@ func StreamListingsHandler(workerID int, gOwnCollections *collections.Collection
 			continue
 		}
 
-		patternTokenID := regexp.MustCompile(`^(.*?)\ ?#?(\d*)(\/.*)?$`)
+		patternTokenID := regexp.MustCompile(`^(.*?) ?#?(\d*)(/.*)?$`)
 		tokenIDRaw := patternTokenID.ReplaceAllString(event.Payload.Item.Metadata.Name, "$2")
 		gbl.Log.Debugf("tokenIDRaw: %+v", tokenIDRaw)
 

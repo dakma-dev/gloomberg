@@ -29,8 +29,8 @@ func (et EventType) String() string {
 	}[et]
 }
 
-func (dt EventType) Icon() string {
-	switch dt {
+func (et EventType) Icon() string {
+	switch et {
 	case Sale:
 		return "💰"
 	case Mint:
@@ -46,8 +46,8 @@ func (dt EventType) Icon() string {
 	return "⁉️"
 }
 
-func (dt EventType) ActionName() string {
-	switch dt {
+func (et EventType) ActionName() string {
+	switch et {
 	case Sale:
 		return "sold"
 	case Mint:

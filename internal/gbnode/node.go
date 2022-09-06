@@ -4,17 +4,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"math/rand"
 	"net/http"
-	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -53,9 +50,11 @@ func (nc *NodeCollection) GetNodes() []*ChainNode {
 
 	nodes := make([]*ChainNode, len(*nc))
 
-	for i, node := range *nc {
-		nodes[i] = node
-	}
+	copy(nodes, *nc)
+
+	// for i, node := range *nc {
+	// 	nodes[i] = node
+	// }
 
 	return nodes
 }
@@ -64,12 +63,12 @@ func (nc *NodeCollection) SubscribeToAllTransfers(ctx context.Context, queueLogs
 	for _, node := range nc.GetNodes() {
 		// subscribe to all "Transfer" events
 		if _, err := node.SubscribeToTransfers(ctx, queueLogs); err != nil {
-			gbl.Log.Warnf("Transfers subscribe to %s failed: ", node.WebsocketsEndpoint, err)
+			gbl.Log.Warnf("Transfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
 		}
 
 		// subscribe to all "SingleTransfer" events
 		if _, err := node.SubscribeToSingleTransfers(ctx, queueLogs); err != nil {
-			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: ", node.WebsocketsEndpoint, err)
+			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
 		}
 	}
 }
@@ -91,21 +90,21 @@ func (t Topic) String() string {
 
 var ctx = context.Background()
 
-// New returns a new gbnode if connection to the given endpoint succeeds.
-func New(endpoint string) (*ChainNode, error) {
-	client, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		return nil, err
-	}
+//// New returns a new gbnode if connection to the given endpoint succeeds.
+// func New(endpoint string) (*ChainNode, error) {
+//	client, err := ethclient.DialContext(ctx, endpoint)
+//	if err != nil {
+//		return nil, err
+//	}
+//
+//	return &ChainNode{
+//		Client:             client,
+//		WebsocketsEndpoint: endpoint,
+//	}, nil
+//}
 
-	return &ChainNode{
-		Client:             client,
-		WebsocketsEndpoint: endpoint,
-	}, nil
-}
-
 // New returns a new gbnode if connection to the given endpoint succeeds.
-func NewNode(nodeID int, name string, marker string, endpoint string) (*ChainNode, error) {
+func New(nodeID int, name string, marker string, endpoint string) (*ChainNode, error) {
 	client, err := ethclient.DialContext(ctx, endpoint)
 	if err != nil {
 		return nil, err
@@ -121,35 +120,35 @@ func NewNode(nodeID int, name string, marker string, endpoint string) (*ChainNod
 }
 
 // GetNodesFromConfig reads the websockets endpoints slice from config, connects to them and returns a list with successfully connected nodes.
-func GetNodesFromConfig(endpoints []string) *NodeCollection {
-	var gbnodeWg sync.WaitGroup
-
-	var nodes NodeCollection
-
-	for _, endpoint := range endpoints {
-		gbnodeWg.Add(1)
-
-		endpoint := endpoint
-
-		go func() {
-			defer gbnodeWg.Done()
-
-			if provider, err := New(endpoint); err != nil {
-				gbl.Log.Errorf("❌ failed to connect to %s: %s", endpoint, err)
-				fmt.Printf("\n❌ failed to connect to %s: %s\n\n", endpoint, err)
-			} else {
-				gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(endpoint))
-
-				nodes = append(nodes, provider)
-			}
-		}()
-	}
-
-	gbnodeWg.Wait()
-	gbl.Log.Info()
-
-	return &nodes
-}
+// func GetNodesFromConfig(endpoints []string) *NodeCollection {
+//	var gbnodeWg sync.WaitGroup
+//
+//	var nodes NodeCollection
+//
+//	for _, endpoint := range endpoints {
+//		gbnodeWg.Add(1)
+//
+//		endpoint := endpoint
+//
+//		go func() {
+//			defer gbnodeWg.Done()
+//
+//			if provider, err := New(endpoint); err != nil {
+//				gbl.Log.Errorf("❌ failed to connect to %s: %s", endpoint, err)
+//				fmt.Printf("\n❌ failed to connect to %s: %s\n\n", endpoint, err)
+//			} else {
+//				gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(endpoint))
+//
+//				nodes = append(nodes, provider)
+//			}
+//		}()
+//	}
+//
+//	gbnodeWg.Wait()
+//	gbl.Log.Info()
+//
+//	return &nodes
+//}
 
 // ChainNode represents a w3 provider configuration.
 type ChainNode struct {
@@ -273,7 +272,7 @@ func (p ChainNode) GetTokenMetadata(tokenURI string) (*MetadataERC721, error) {
 	// create a variable of the same type as our model
 	var tokenMetadata *MetadataERC721
 
-	responseBody, err := ioutil.ReadAll(response.Body)
+	responseBody, err := io.ReadAll(response.Body)
 
 	// decode the data
 	if err != nil || !json.Valid(responseBody) {

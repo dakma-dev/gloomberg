@@ -31,13 +31,13 @@ func SendNotification(title string, message string) {
 	}
 }
 
-// SendAlert sends a desktop notification with sound.
-func SendAlert(title string, message string, force bool) {
-	if viper.GetBool("notifications") || force {
-		if runtime.GOOS == "darwin" {
-			if err := beeep.Alert(stripANSI(title), stripANSI(message), notificationImage); err != nil {
-				gbl.Log.Error(err)
-			}
-		}
-	}
-}
+//// SendAlert sends a desktop notification with sound.
+// func SendAlert(title string, message string, force bool) {
+//	if viper.GetBool("notifications") || force {
+//		if runtime.GOOS == "darwin" {
+//			if err := beeep.Alert(stripANSI(title), stripANSI(message), notificationImage); err != nil {
+//				gbl.Log.Error(err)
+//			}
+//		}
+//	}
+//}

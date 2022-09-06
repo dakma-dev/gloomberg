@@ -127,7 +127,7 @@ func (s *Stats) salesPerMinute() float64 {
 func (s *Stats) salesVolumePerMinute() float64 {
 	ethVolume, _ := subscriptions.WeiToEther(s.salesVolume).Float64()
 
-	return float64((ethVolume * 60) / s.interval.Seconds())
+	return (ethVolume * 60) / s.interval.Seconds()
 }
 
 func (s *Stats) processedLogs() uint64 {

@@ -161,6 +161,7 @@ func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCol
 		if !showMints && !collection.Show.Mints {
 			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
 			gbl.Log.Debugf("‼️ mint not shown %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+
 			return
 		}
 
@@ -173,6 +174,7 @@ func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCol
 		if err != nil {
 			gbl.Log.Infof("‼️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
+
 			return
 		}
 
@@ -251,9 +253,9 @@ func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCol
 	// send to formatting
 	queueEvents <- event
 
-	cache := cache.New(ctx)
+	gbCache := cache.New(ctx)
 	// cache.StoreEvent(event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, eventType.String())
-	cache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, int64(eventType))
+	gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, int64(eventType))
 
 	// *outputWs <- event
 

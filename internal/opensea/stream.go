@@ -2,26 +2,23 @@ package opensea
 
 import (
 	"fmt"
-	"math/big"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/ethereum/go-ethereum/params"
 	"github.com/nshafer/phx"
 )
 
 type StreamEventType string
 
 const (
-	MetadataUpdated StreamEventType = "item_metadata_updated"
-	Listed          StreamEventType = "item_listed"
-	Sold            StreamEventType = "item_sold"
-	Transferred     StreamEventType = "item_transferred"
-	ReceivedOffer   StreamEventType = "item_received_offer"
-	ReceivedBid     StreamEventType = "item_received_bid"
-	Cancelled       StreamEventType = "item_cancelle"
+	Listed        StreamEventType = "item_listed"
+	ReceivedOffer StreamEventType = "item_received_offer"
+
+	//Sold            StreamEventType = "item_sold"
+	//Transferred     StreamEventType = "item_transferred"
+	//ReceivedBid     StreamEventType = "item_received_bid"
+	//Cancelled       StreamEventType = "item_cancelle".
 )
 
 const StreamAPIEndpoint = "wss://stream.openseabeta.com/socket"
@@ -78,7 +75,7 @@ func NewStreamClient(token string, onError func(error)) *StreamClient {
 	return client
 }
 
-func (s StreamClient) Connect() error {
+func (s *StreamClient) Connect() error {
 	return s.socket.Connect()
 }
 
@@ -102,7 +99,7 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	}
 
 	join.Receive("ok", func(response any) {
-		gbl.Log.Infof("joined channel: %s", channel.Topic()) //), response)
+		gbl.Log.Infof("joined channel: %s", channel.Topic()) // ), response)
 	})
 
 	join.Receive("error", func(response any) {
@@ -114,7 +111,7 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (s StreamClient) getChannel(topic string) *phx.Channel {
+func (s *StreamClient) getChannel(topic string) *phx.Channel {
 	channel, ok := s.channels[topic]
 	if !ok {
 		channel = s.createChannel(topic)
@@ -123,7 +120,7 @@ func (s StreamClient) getChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (s StreamClient) on(eventType StreamEventType, collectionSlug string, eventHandler func(payload any)) func() {
+func (s *StreamClient) on(eventType StreamEventType, collectionSlug string, eventHandler func(payload any)) func() {
 	topic := fmt.Sprintf("collection:%s", collectionSlug)
 
 	gbl.Log.Debugf("Fetching channel %s", topic)
@@ -147,7 +144,7 @@ func (s StreamClient) on(eventType StreamEventType, collectionSlug string, event
 	}
 }
 
-func (s StreamClient) OnItemListed(collectionSlug string, eventHandler func(itemListedEvent any)) {
+func (s *StreamClient) OnItemListed(collectionSlug string, eventHandler func(itemListedEvent any)) {
 	s.on(Listed, collectionSlug, eventHandler)
 }
 
@@ -167,7 +164,7 @@ func (s StreamClient) OnItemListed(collectionSlug string, eventHandler func(item
 // 	s.on(ReceivedBid, collectionSlug, eventHandler)
 // }
 
-func (s StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
+func (s *StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
 	s.on(ReceivedOffer, collectionSlug, eventHandler)
 }
 
@@ -175,15 +172,15 @@ func (s StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler fu
 // 	s.on(MetadataUpdated, collectionSlug, eventHandler)
 // }
 
-func SubscribeToCollectionSlugs(apiToken string, slugs []string, eventHandler func(itemListedEvent any)) {
-	if client := NewStreamClient(apiToken, func(err error) {
-		gbl.Log.Error(err)
-	}); client != nil {
-		for _, slug := range slugs {
-			SubscribeToCollectionSlug(client, slug, eventHandler)
-		}
-	}
-}
+// func SubscribeToCollectionSlugs(apiToken string, slugs []string, eventHandler func(itemListedEvent any)) {
+//	if client := NewStreamClient(apiToken, func(err error) {
+//		gbl.Log.Error(err)
+//	}); client != nil {
+//		for _, slug := range slugs {
+//			SubscribeToCollectionSlug(client, slug, eventHandler)
+//		}
+//	}
+//}
 
 func SubscribeToCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
 	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
@@ -193,7 +190,7 @@ func SubscribeToCollectionSlug(client *StreamClient, slug string, eventHandler f
 			client = streamClient
 		}
 
-		gbl.Log.Debugf("eventHandler %+v | client.eventHandler: %+v\n", eventHandler, client.eventHandler)
+		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
 
 		if eventHandler != nil || client.eventHandler != nil {
 			if eventHandler == nil {
@@ -210,24 +207,24 @@ func SubscribeToCollectionSlug(client *StreamClient, slug string, eventHandler f
 	}
 }
 
-// from https://github.com/ethereum/go-ethereum/issues/21221#issuecomment-802092592
-func EtherToWei(eth *big.Float) *big.Int {
-	truncInt, _ := eth.Int(nil)
-	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
-	fracStr += strings.Repeat("0", 18-len(fracStr))
-	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-	wei := new(big.Int).Add(truncInt, fracInt)
+//// EtherToWei from https://github.com/ethereum/go-ethereum/issues/21221#issuecomment-802092592
+// func EtherToWei(eth *big.Float) *big.Int {
+//	truncInt, _ := eth.Int(nil)
+//	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
+//	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
+//	fracStr += strings.Repeat("0", 18-len(fracStr))
+//	fracInt, _ := new(big.Int).SetString(fracStr, 10)
+//	wei := new(big.Int).Add(truncInt, fracInt)
+//
+//	return wei
+//}
 
-	return wei
-}
-
-// ParseBigFloat parse string value to big.Float.
-func ParseBigFloat(value string) (*big.Float, error) {
-	f := new(big.Float)
-	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-	f.SetMode(big.ToNearestEven)
-	_, err := fmt.Sscan(value, f)
-
-	return f, err
-}
+//// ParseBigFloat parse string value to big.Float.
+// func ParseBigFloat(value string) (*big.Float, error) {
+//	f := new(big.Float)
+//	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+//	f.SetMode(big.ToNearestEven)
+//	_, err := fmt.Sscan(value, f)
+//
+//	return f, err
+//}

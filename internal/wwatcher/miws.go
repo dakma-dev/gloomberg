@@ -44,7 +44,7 @@ func LoadMIWs() {
 
 var (
 	MIWC = MIWCollection{}
-	// MIWs               = collections.AddressCollection{}
+	// MIWs               = collections.AddressCollection{}.
 	addressCollections = map[string]*collections.AddressCollection{
 		"handpicked": {
 			common.HexToAddress("0x05576913eea5d79B83f28f0Cb0D12BE54Fdae8dC"), //  Unc1epennybags

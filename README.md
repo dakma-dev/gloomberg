@@ -1,6 +1,6 @@
 # gloomberg
 
-*no support, sorry! you have to know how to use this code yourself. issues closed, PRs open (ping me if you wanna contribute)*
+*no support, sorry! you have to know how to use this code yourself. issues closed, PRs open (ping me if you want to contribute)*
 
 ## requirements
 

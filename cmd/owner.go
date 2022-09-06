@@ -17,7 +17,7 @@ var (
 	paramToken    int
 )
 
-// ownerCmd represents the owner command
+// ownerCmd represents the owner command.
 var ownerCmd = &cobra.Command{
 	Use:   "owner",
 	Short: "A brief description of your command",
@@ -57,10 +57,10 @@ func init() {
 	_ = viper.BindPFlag("owner.token", ownerCmd.Flags().Lookup("token"))
 }
 
-func owner(cmd *cobra.Command, args []string) {
+func owner(_ *cobra.Command, _ []string) {
 	if !viper.GetBool("owner.raw") {
 		// print header
-		header := style.GetHeader(Version, Commit)
+		header := style.GetHeader(Version)
 		fmt.Println(header)
 	}
 

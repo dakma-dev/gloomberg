@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/big"
 	"net/http"
 	"os"
@@ -37,10 +37,10 @@ import (
 )
 
 var (
-	Version   string
-	Commit    string
-	BuildDate string
-	BuiltBy   string
+	Version string
+
+	// BuildDate string
+	// BuiltBy   string.
 
 	apiKeyMoralis string
 
@@ -119,7 +119,7 @@ func getNodes() *gbnode.NodeCollection {
 			continue
 		}
 
-		if node, err := gbnode.NewNode(idx, config["name"], config["marker"], config["endpoint"]); err != nil {
+		if node, err := gbnode.New(idx, config["name"], config["marker"], config["endpoint"]); err != nil {
 			gbl.Log.Errorf("❌ failed to connect to %s | %s: %s", config["name"], config["endpoint"], err)
 		} else {
 			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
@@ -260,10 +260,10 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	var ensName string
 
-	cache := cache.New(ctx)
+	gbCache := cache.New(ctx)
 
 	// check if the ENS name is already in the cache
-	if name, err := cache.GetENSName(event.To.Address); err == nil && name != "" {
+	if name, err := gbCache.GetENSName(event.To.Address); err == nil && name != "" {
 		gbl.Log.Infof("cache | cached ENS name: %s", name)
 
 		ensName = name
@@ -275,7 +275,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			to = toStyle.Render(ensName)
 			event.ToENS = ensName
 
-			cache.CacheENSName(event.To.Address, ensName)
+			gbCache.CacheENSName(event.To.Address, ensName)
 		} else if event.ToENS != "" {
 			to = toStyle.Render(event.ToENS)
 		}
@@ -568,10 +568,11 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 				if event.EventType == collections.Sale {
 					event.EventType = collections.Purchase
-				} else if event.EventType == collections.Listing {
-					// currently not reachable as Listing events are filtered before here
-					// linkURL = openseaURL
 				}
+				// else if event.EventType == collections.Listing {
+				// 	// currently not reachable as Listing events are filtered before here
+				// 	// linkURL = openseaURL
+				// }
 			} else {
 				triggerAddress = event.From.Address
 			}
@@ -605,10 +606,10 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			}
 
 			if msg, err := notifications.SendTelegramMessage(chatID, msgTelegram.String(), imageURI); err != nil {
-				gbl.Log.Errorf("failed to send telegram message: %s | imageURI: %s | err: %s\n", msg, imageURI, err)
+				gbl.Log.Errorf("failed to send telegram message: '%s' | imageURI: %s | err: %s\n", msg.Text, imageURI, err)
 			} else {
 				gbl.Log.Warnf("sent telegram message: %s\n", msg.Text)
-				gbl.Log.Infof("sent telegram message: %s\n", msg)
+				gbl.Log.Infof("sent telegram message: '%s'\n", msg.Text)
 			}
 		}()
 	}
@@ -644,7 +645,7 @@ func getOwnerPage(client *http.Client, apiToken string, contractAddress common.A
 	}
 	defer response.Body.Close()
 
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 
 	// validate the data
 	if !json.Valid(responseBody) {

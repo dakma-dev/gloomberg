@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"os"
 	"time"
@@ -66,13 +66,13 @@ func createGetRequest(url string) (*http.Request, error) {
 
 // GetWalletCollections returns the collections a wallet owns at least one item of.
 func GetWalletCollections(wallets map[common.Address]*models.Wallet, userCollections *collections.Collections, nodes *gbnode.NodeCollection) []*collections.GbCollection {
-	collections := make([]*collections.GbCollection, 0)
+	gbCollections := make([]*collections.GbCollection, 0)
 
 	for _, wallet := range wallets {
-		collections = append(collections, GetCollectionsFor(wallet.Address, userCollections, nodes, 1)...)
+		gbCollections = append(gbCollections, GetCollectionsFor(wallet.Address, userCollections, nodes, 1)...)
 	}
 
-	return collections
+	return gbCollections
 }
 
 // GetCollectionsFor returns the collections a wallet owns at least one item of.
@@ -108,7 +108,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 	// create a variable of the same type as our model
 	var collectionResponse []*models.AssetCollection
 
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 
 	// decode the data
 	if !json.Valid(responseBody) {
@@ -139,56 +139,6 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 	}
 
 	return receivedCollections
-}
-
-// GetAssetEvents returns the events for a collection.
-func GetAssetEvents(_ time.Time, userCollections *collections.Collections, contractAddress common.Address, newListings chan<- []models.AssetEvent) {
-	collections := *userCollections
-	collection := *collections.UserCollections[contractAddress]
-
-	// create the http client & request
-	client, _ := createHTTPClient()
-
-	numberOfEventsToFetch := 30
-	url := fmt.Sprintf("https://api.opensea.io/api/v1/events?asset_contract_address=%s&only_opensea=false&limit=%d&event_type=created", collection.ContractAddress, numberOfEventsToFetch)
-
-	request, _ := createGetRequest(url)
-
-	response, err := client.Do(request)
-	if err != nil {
-		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ timeout while fetching listings for %s", collection.Name)
-		} else {
-			gbl.Log.Error("❌ opensea request error:", err)
-		}
-
-		return
-	}
-
-	defer response.Body.Close()
-
-	// create a variable of the same type as our model
-	var eventsResponse *models.AssetEventsResponse
-
-	responseBody, _ := ioutil.ReadAll(response.Body)
-
-	// decode the data
-	if !json.Valid(responseBody) {
-		fmt.Println(response.Status, "| GetAssetEvents expected a json but received something else, trying again next round...")
-
-		return
-	}
-
-	// decode the data
-	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&eventsResponse); err != nil {
-		fmt.Println(response.Status, "| GetAssetEvents ooops! an error occurred while decoding the events, please try again! error:", err)
-
-		return
-	}
-
-	if len(eventsResponse.AssetEvents) > 0 {
-		newListings <- eventsResponse.AssetEvents
-	}
 }
 
 func GetCollectionSlug(collectionAddress common.Address) string {
@@ -224,7 +174,7 @@ func GetAssetContract(contractAddress common.Address) *models.AssetContract {
 	// create a variable of the same type as our model
 	var assetContract *models.AssetContract
 
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 
 	// decode the data
 	if !json.Valid(responseBody) {

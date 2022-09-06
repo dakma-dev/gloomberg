@@ -16,7 +16,7 @@ func GetSugaredLogger() *zap.SugaredLogger {
 	return Log
 }
 
-// InitBLog initializes the global logger.
+// InitSugaredLogger initializes the global logger.
 func InitSugaredLogger() *zap.SugaredLogger {
 	var outputPaths []string
 	// outputPaths = append(outputPaths, "/tmp/gloomberg.log")

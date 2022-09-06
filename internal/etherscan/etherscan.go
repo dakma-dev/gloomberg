@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
@@ -120,7 +120,7 @@ func GetGasOracle() *GasOracle {
 	// create a variable of the same type as our model
 	var gasOracleResponse *GasOracleResponse
 
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 
 	// decode the data
 	if !json.Valid(responseBody) {
@@ -186,7 +186,7 @@ func MultiAccountBalance(wallets *models.Wallets) []*AccountBalance {
 
 	defer response.Body.Close()
 
-	responseBody, err := ioutil.ReadAll(response.Body)
+	responseBody, err := io.ReadAll(response.Body)
 
 	// validate the data
 	if err != nil || !json.Valid(responseBody) {
@@ -287,7 +287,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	// create a variable of the same type as our model
 	var tokenBalanceResponse *TokenBalancesResponse
 
-	responseBody, _ := ioutil.ReadAll(response.Body)
+	responseBody, _ := io.ReadAll(response.Body)
 
 	// decode the data
 	if !json.Valid(responseBody) {

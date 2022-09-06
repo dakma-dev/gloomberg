@@ -2,9 +2,7 @@ package hooks
 
 import (
 	"errors"
-	"math/big"
 	"reflect"
-	"strconv"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -76,26 +74,26 @@ func StringToLipglossColorHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
-// StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
-func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data any,
-	) (any, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-
-		if t != reflect.TypeOf(*big.NewInt(0)) {
-			return data, nil
-		}
-
-		// convert it by parsing
-		if balance, err := strconv.ParseInt(data.(string), 10, 64); err == nil {
-			return big.NewInt(balance), nil
-		} else {
-			return data, err
-		}
-	}
-}
+//// StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
+//func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
+//	return func(
+//		f reflect.Type,
+//		t reflect.Type,
+//		data any,
+//	) (any, error) {
+//		if f.Kind() != reflect.String {
+//			return data, nil
+//		}
+//
+//		if t != reflect.TypeOf(*big.NewInt(0)) {
+//			return data, nil
+//		}
+//
+//		// convert it by parsing
+//		if balance, err := strconv.ParseInt(data.(string), 10, 64); err == nil {
+//			return big.NewInt(balance), nil
+//		} else {
+//			return data, err
+//		}
+//	}
+//}

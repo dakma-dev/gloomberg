@@ -92,7 +92,7 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 					// retry with other node
 					address, err = ens.Resolve(nodes.GetRandomNode().Client, name)
 					if err != nil {
-						gbl.Log.Warnf("could not resolve ENS Address %s: %s", walletENS, err.Error())
+						gbl.Log.Warnf("could not resolve ENS Address %s: %s", walletENS.Name, err.Error())
 
 						return
 					}

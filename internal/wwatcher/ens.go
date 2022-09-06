@@ -91,12 +91,11 @@ func ReverseLookupAndValidate(ctx context.Context, address common.Address, nodes
 	} else {
 		ensName = name
 
-		cache := cache.New(ctx)
+		gbCache := cache.New(ctx)
 
 		// cache collection name
 		gbl.Log.Infof("cache | caching ENS name: %s", ensName)
-		cache.CacheCollectionName(address, ensName)
-
+		gbCache.CacheCollectionName(address, ensName)
 	}
 
 	return ensName

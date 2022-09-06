@@ -70,7 +70,7 @@ func (cs *Collections) OpenseaSlugs() []string {
 	return slugs
 }
 
-// OpenseaSlugs returns a slice of slugs for collections with enabled listings.
+// ListingsAddresses returns a slice of addresses.
 func (cs *Collections) ListingsAddresses() []common.Address {
 	addresses := make([]common.Address, 0)
 

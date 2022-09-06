@@ -42,7 +42,7 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 	if (tokenID > 0 && tokenID < 999_999) || collectionName == "" {
 		tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
 	} else {
-		tokenInfo = fmt.Sprintf("%s", collectionName)
+		tokenInfo = collectionName
 	}
 
 	return tokenInfo

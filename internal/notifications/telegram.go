@@ -14,8 +14,8 @@ var tgBot *tgbotapi.BotAPI
 func getBot() (*tgbotapi.BotAPI, error) {
 	token := viper.GetString("api_keys.telegram")
 	if token == "" {
-		gbl.Log.Error("No telegram API key found in config file.")
-		return nil, fmt.Errorf("No telegram API key found in config file.")
+		gbl.Log.Error("no telegram API key found in config file")
+		return nil, fmt.Errorf("no telegram API key found in config file")
 	}
 
 	if bot, err := tgbotapi.NewBotAPI(token); err == nil {

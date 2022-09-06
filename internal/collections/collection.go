@@ -66,7 +66,7 @@ type GbCollection struct {
 
 	SaLiRa ewma.MovingAverage `mapstructure:"salira"`
 
-	// exponential moving average of the actuall sale prices
+	// exponential moving average of the actual sale prices
 	ArtificialFloor         ewma.MovingAverage `mapstructure:"artificialFloor"`
 	PreviousArtificialFloor float64            `mapstructure:"artificialFloor"`
 }
@@ -82,12 +82,12 @@ var ctx = context.Background()
 func NewCollection(contractAddress common.Address, name string, nodes *gbnode.NodeCollection, source CollectionSource) *GbCollection {
 	var collectionName string
 
-	cache := cache.New(ctx)
+	gbCache := cache.New(ctx)
 
 	if name != "" {
 		collectionName = name
 	} else {
-		if name, err := cache.GetCollectionName(contractAddress); err == nil {
+		if name, err := gbCache.GetCollectionName(contractAddress); err == nil {
 			gbl.Log.Infof("cache | cached collection name: %s", name)
 
 			if name != "" {
@@ -101,7 +101,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *gbnode.No
 			}
 
 			// cache collection name
-			cache.CacheCollectionName(contractAddress, collectionName)
+			gbCache.CacheCollectionName(contractAddress, collectionName)
 		} else {
 			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
 
@@ -194,7 +194,7 @@ func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
 	return previousSaLiRa, currentSaLiRa
 }
 
-// CalculateMovingAverage updates the moving average of a given collection.
+// CalculateArtificialFloor updates the moving average of a given collection.
 func (uc *GbCollection) CalculateArtificialFloor(tokenPrice float64) (float64, float64) {
 	// update the moving average
 	uc.PreviousArtificialFloor = uc.ArtificialFloor.Value()

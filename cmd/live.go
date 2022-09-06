@@ -111,7 +111,7 @@ func init() {
 }
 
 func live(_ *cobra.Command, _ []string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(time.Millisecond*420*10))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*420*10)
 	defer cancel()
 
 	gbl.GetSugaredLogger()
@@ -128,7 +128,7 @@ func live(_ *cobra.Command, _ []string) {
 	}
 
 	if viper.GetFloat64("show.min_price") > 0.0 {
-		numGlickerLines := math.Max(float64(viper.GetInt("stats.lines")), float64(4.0))
+		numGlickerLines := math.Max(float64(viper.GetInt("stats.lines")), 4.0)
 		viper.Set("stats.lines", numGlickerLines)
 	}
 
@@ -144,7 +144,7 @@ func live(_ *cobra.Command, _ []string) {
 	gbl.Log.Debug(viper.AllSettings())
 
 	// print header
-	header := style.GetHeader(Version, Commit)
+	header := style.GetHeader(Version)
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
@@ -227,12 +227,12 @@ func live(_ *cobra.Command, _ []string) {
 		for _, node := range nodes.GetNodes() {
 			// subscribe to all "Transfer" events
 			if _, err := node.SubscribeToTransfersFor(ctx, queueLogs, ownCollections.Addresses()); err != nil {
-				gbl.Log.Warnf("TransfersFor subscribe failed: ", err)
+				gbl.Log.Warnf("TransfersFor subscribe failed: %s", err)
 			}
 
 			// subscribe to all "SingleTransfer" events
 			if _, err := node.SubscribeToSingleTransfersFor(ctx, queueLogs, ownCollections.Addresses()); err != nil {
-				gbl.Log.Warnf("SingleTransfersFor subscribe failed: ", err)
+				gbl.Log.Warnf("SingleTransfersFor subscribe failed: %s", err)
 			}
 		}
 	}
@@ -325,7 +325,7 @@ func workerEventFormatter(ctx context.Context, workerID int, nodes *gbnode.NodeC
 	gbl.Log.Infof("workerEventFormatter %d/%d started", workerID, viper.GetInt("workers.log_handler"))
 
 	for event := range *queueEvents {
-		gbl.Log.Debugf("%s ~ %d | workerEventFormatter event: %s", workerID, len(*queueEvents), event)
+		gbl.Log.Debugf("%d ~ %d | workerEventFormatter event: %v", workerID, len(*queueEvents), event)
 
 		// atomic.AddUint64(&stats.queueEvents, 1)
 		formatEvent(ctx, nil, event, nodes, wallets, queueOutput)
@@ -338,7 +338,7 @@ func workerOutput(workerID int, queueOutput *chan string) {
 	gbl.Log.Infof("workerOutput %d/%d started", workerID, viper.GetInt("workers.output"))
 
 	for outputLine := range *queueOutput {
-		gbl.Log.Debugf("%s ~ %d | workerOutput outputLine: %s", workerID, len(*queueOutput), outputLine)
+		gbl.Log.Debugf("%d ~ %d | workerOutput outputLine: %s", workerID, len(*queueOutput), outputLine)
 
 		if viper.GetBool("log.debug") {
 			outputLine = fmt.Sprintf("%s ~ %d | %s", style.BoldStyle.Render(fmt.Sprintf("%d", workerID)), len(*queueOutput), outputLine)

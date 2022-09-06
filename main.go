@@ -5,18 +5,15 @@ import (
 	"github.com/benleb/gloomberg/cmd"
 )
 
-var (
-	version   = "dev"
-	commit    = "none"
-	buildDate = "unknown"
-	builtBy   = "unknown"
-)
+var version = "dev" // commit    = "none"
+// buildDate = "unknown"
+// builtBy   = "unknown"
 
 func main() {
 	cmd.Version = version
-	cmd.Commit = commit
-	cmd.BuildDate = buildDate
-	cmd.BuiltBy = builtBy
+
+	//cmd.BuildDate = buildDate
+	//cmd.BuiltBy = builtBy
 
 	cmd.Execute()
 }

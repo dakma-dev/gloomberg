@@ -14,7 +14,7 @@ type NotificationRecipients map[common.Address]*User
 
 var Recipients NotificationRecipients = make(map[common.Address]*User)
 
-// Wallet represents the wallets watched by the wwatcher.
+// User representsa user who can own multiple wallets.
 type User struct {
 	Name            string           `mapstructure:"name"`
 	WalletAddresses []common.Address `mapstructure:"wallets"`

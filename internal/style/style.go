@@ -12,9 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/lucasb-eyer/go-colorful"
-	"github.com/spf13/viper"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 var (
@@ -24,7 +22,6 @@ var (
 	Subtle               = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	darkGray             = lipgloss.Color("#333")
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
-	PinkStyle            = lipgloss.NewStyle().Foreground(pink)
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))
@@ -34,7 +31,6 @@ var (
 	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#BBB"))
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
-	GrayFaintStyle       = GrayStyle.Copy().Faint(true)
 	DarkGrayStyle        = lipgloss.NewStyle().Foreground(darkGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
 	PinkBoldStyle        = BoldStyle.Copy().Foreground(pink)
@@ -43,6 +39,8 @@ var (
 	Sharrow              = BoldStyle.Copy().SetString("→")
 	DividerArrowRight    = GrayBoldStyle.SetString("→")
 	DividerArrowLeft     = GrayBoldStyle.SetString("←")
+	// PinkStyle            = lipgloss.NewStyle().Foreground(pink)
+	// GrayFaintStyle       = GrayStyle.Copy().Faint(true)
 
 	// borders
 	// noBorderStyle              = lipgloss.NewStyle().BorderTop(false).BorderBottom(false).BorderLeft(false).BorderRight(false)
@@ -80,28 +78,12 @@ var PaletteRLD = []lipgloss.Color{
 	"#6C3441",
 }
 
-var TitleStyle = lipgloss.NewStyle().
-	MarginLeft(1).
-	MarginRight(5).
-	Padding(0, 1).
-	Italic(true).
-	Foreground(lipgloss.Color("#FFF7DB")).
-	SetString("BTV")
-
-var DescStyle = lipgloss.NewStyle().MarginTop(1)
-
-var InfoStyle = lipgloss.NewStyle().
-	BorderStyle(lipgloss.NormalBorder()).
-	BorderTop(true).
-	BorderForeground(Subtle)
-
-var baseDivider = lipgloss.NewStyle().
-	SetString("•").
-	Padding(0, 0).
-	Foreground(pink)
-var Divider = baseDivider.String()
-
-func GetHeader(version string, commit string) string {
+//	SetString("•").
+//	Padding(0, 0).
+//	Foreground(pink)
+//
+// var Divider = baseDivider.String()
+func GetHeader(version string) string {
 	randColorID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
 	randHeaderID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(headers))))
 
@@ -127,47 +109,12 @@ func GetHeader(version string, commit string) string {
 	header.WriteString(subHeaderStyle.Render(subHeader.String()))
 	// header.WriteString("\n" + "💰 ❌ 💤")
 
-	width, _, err := terminal.GetSize(int(os.Stdin.Fd()))
+	width, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
 		gbl.Log.Error(err)
 	}
 
 	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
-}
-
-func GetHeader2() string {
-	// output header
-	doc := strings.Builder{}
-
-	var (
-		colors = ColorGrid(1, 5)
-		title  strings.Builder
-	)
-
-	for i, v := range colors {
-		const offset = 2
-
-		c := lipgloss.Color(v[0])
-
-		fmt.Fprint(&title, TitleStyle.Copy().MarginLeft(i*offset).Background(c))
-
-		if i < len(colors)-1 {
-			title.WriteRune('\n')
-		}
-	}
-
-	desc := lipgloss.JoinVertical(lipgloss.Left,
-		DescStyle.Render("👀 watching the ethereum chain"),
-		InfoStyle.Render(fmt.Sprintf("  config %s %s", Divider, BoldStyle.Render(viper.ConfigFileUsed()))),
-		InfoStyle.UnsetBorderStyle().Render(fmt.Sprintf("  debug %s %s", Divider, BoldStyle.Render(fmt.Sprint(viper.GetBool("log.debug"))))),
-		InfoStyle.UnsetBorderStyle().Render(fmt.Sprintf("  verbose %s %s", Divider, BoldStyle.Render(fmt.Sprint(viper.GetBool("log.verbose"))))),
-		InfoStyle.UnsetBorderStyle().Render(fmt.Sprintf("  status %s every %s", Divider, BoldStyle.Render(viper.GetDuration("stats.interval").String()))),
-	)
-
-	row := lipgloss.JoinHorizontal(lipgloss.Top, title.String(), desc)
-	doc.WriteString(row + "\n")
-
-	return doc.String()
 }
 
 func GetPriceShadeColor(txValue *big.Float) lipgloss.Color {
@@ -195,36 +142,6 @@ func GetPriceShadeColor(txValue *big.Float) lipgloss.Color {
 	}
 
 	return priceColor
-}
-
-func ColorGrid(xSteps, ySteps int) [][]string {
-	x0y0, _ := colorful.Hex("#F25D94")
-	x1y0, _ := colorful.Hex("#EDFF82")
-	x0y1, _ := colorful.Hex("#643AFF")
-	x1y1, _ := colorful.Hex("#14F9D5")
-
-	x0 := make([]colorful.Color, ySteps)
-	for i := range x0 {
-		x0[i] = x0y0.BlendLuv(x0y1, float64(i)/float64(ySteps))
-	}
-
-	x1 := make([]colorful.Color, ySteps)
-	for i := range x1 {
-		x1[i] = x1y0.BlendLuv(x1y1, float64(i)/float64(ySteps))
-	}
-
-	grid := make([][]string, ySteps)
-
-	for x := 0; x < ySteps; x++ {
-		y0 := x0[x]
-
-		grid[x] = make([]string, xSteps)
-		for y := 0; y < xSteps; y++ {
-			grid[x][y] = y0.BlendLuv(x1[x], float64(y)/float64(xSteps)).Hex()
-		}
-	}
-
-	return grid
 }
 
 // ShortenAddress returns a shortened address styled with colors.
