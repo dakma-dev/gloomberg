@@ -175,8 +175,8 @@ func live(_ *cobra.Command, _ []string) {
 
 	wwatcher.LoadMIWs()
 
-	if len(wwatcher.MIWs) > 0 {
-		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWs))), " MIWs loaded", "\n")))
+	if len(wwatcher.MIWC.WeightedMIWs) > 0 {
+		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
 		_ = miwSpinner.Stop()
 	} else {
 		_ = miwSpinner.StopFail()

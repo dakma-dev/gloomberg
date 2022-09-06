@@ -1,12 +1,50 @@
 package wwatcher
 
 import (
+	"fmt"
+
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/ethereum/go-ethereum/common"
 )
 
+type MIWCollection struct {
+	MIWs         collections.AddressCollection
+	WeightedMIWs map[common.Address]int
+}
+
+func LoadMIWs() {
+	miwAddresses := make(map[common.Address]bool, 0)
+	miwWeightedAddresses := make(map[common.Address]int, 0)
+
+	for _, addresses := range addressCollections {
+		for _, address := range *addresses {
+			miwWeightedAddresses[address]++
+
+			if miwWeightedAddresses[address] > 1 {
+				fmt.Printf("MIW: %s  %d\n", address, miwWeightedAddresses[address])
+			}
+		}
+
+		for _, address := range *addresses {
+			if !miwAddresses[address] {
+				miwAddresses[address] = true
+			}
+		}
+	}
+
+	miws := make([]common.Address, 0, len(miwAddresses))
+
+	for address := range miwAddresses {
+		miws = append(miws, address)
+	}
+
+	MIWC.MIWs = miws
+	MIWC.WeightedMIWs = miwWeightedAddresses
+}
+
 var (
-	MIWs               = collections.AddressCollection{}
+	MIWC = MIWCollection{}
+	// MIWs               = collections.AddressCollection{}
 	addressCollections = map[string]*collections.AddressCollection{
 		"handpicked": {
 			common.HexToAddress("0x05576913eea5d79B83f28f0Cb0D12BE54Fdae8dC"), //  Unc1epennybags
@@ -1241,22 +1279,3 @@ var (
 		},
 	}
 )
-
-func LoadMIWs() {
-	miwAddresses := make(map[common.Address]bool, 0)
-
-	for _, addresses := range addressCollections {
-		for _, address := range *addresses {
-			if !miwAddresses[address] {
-				miwAddresses[address] = true
-			}
-		}
-	}
-
-	miws := make([]common.Address, 0, len(miwAddresses))
-	for address := range miwAddresses {
-		miws = append(miws, address)
-	}
-
-	MIWs = append(MIWs, miws...)
-}

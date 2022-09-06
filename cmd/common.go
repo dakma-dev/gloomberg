@@ -430,8 +430,15 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	out.WriteString(" " + to)
 
 	// maybe importan wallet indicator
-	if wwatcher.MIWs.Contains(event.To.Address) {
-		out.WriteString("   " + style.PinkBoldStyle.Render("👀 MIW! 👀"))
+	if wwatcher.MIWC.MIWs.Contains(event.To.Address) {
+		var miwLevel string
+		if wwatcher.MIWC.WeightedMIWs[event.To.Address] > 1 {
+			miwLevel = "⭐ " + strconv.Itoa(wwatcher.MIWC.WeightedMIWs[event.To.Address]) + " ⭐"
+		} else {
+			miwLevel = strconv.Itoa(wwatcher.MIWC.WeightedMIWs[event.To.Address])
+		}
+
+		out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("👀 MIW! %s 👀", miwLevel)))
 	}
 
 	// log topic (for debugging)
