@@ -255,7 +255,7 @@ func live(_ *cobra.Command, _ []string) {
 	// processes logs from the ethereum chain from our nodes
 	for _, node := range *nodes {
 		for workerID := 1; workerID <= viper.GetInt("workers.log_handler"); workerID++ {
-			go subscriptions.SubscriptionLogsHandler(ctx, node, nodes, ownCollections, logQueues[node.NodeID], queueEvents)
+			go subscriptions.SubscriptionLogsHandler(ctx, node, nodes, ownCollections, logQueues[node.NodeID], queueEvents, queueWS)
 		}
 	}
 

@@ -44,10 +44,13 @@ var (
 
 	apiKeyMoralis string
 
-	queueEvents   = make(chan *collections.Event, 1024)
 	queueLogs     = make(chan types.Log, 1024)
 	queueListings = make(chan *models.ItemListedEvent, 1024)
-	queueOutput   = make(chan string, 1024)
+
+	queueEvents = make(chan *collections.Event, 1024)
+
+	queueWS     = make(chan *collections.Event, 1024)
+	queueOutput = make(chan string, 1024)
 
 	stats *glicker.Stats
 

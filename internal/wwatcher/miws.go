@@ -1,8 +1,6 @@
 package wwatcher
 
 import (
-	"fmt"
-
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -19,10 +17,6 @@ func LoadMIWs() {
 	for _, addresses := range addressCollections {
 		for _, address := range *addresses {
 			miwWeightedAddresses[address]++
-
-			if miwWeightedAddresses[address] > 1 {
-				fmt.Printf("MIW: %s  %d\n", address, miwWeightedAddresses[address])
-			}
 		}
 
 		for _, address := range *addresses {

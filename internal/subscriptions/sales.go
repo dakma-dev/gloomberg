@@ -25,7 +25,7 @@ var (
 	ensContractAddress = common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85")
 )
 
-func SubscriptionLogsHandler(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCollection, gOwnCollections *collections.Collections, queueLogs *chan types.Log, queueEvents chan *collections.Event) {
+func SubscriptionLogsHandler(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCollection, gOwnCollections *collections.Collections, queueLogs *chan types.Log, queueEvents chan *collections.Event, queueWS chan *collections.Event) {
 	for subLog := range *queueLogs {
 		// atomic.AddUint64(&stats.queueEvents, 1)
 		gbl.Log.Debugf("%s | new subscription log (%d): %+v", time.Now().String(), len(*queueLogs), subLog)
@@ -75,11 +75,11 @@ func SubscriptionLogsHandler(ctx context.Context, node *gbnode.ChainNode, nodes 
 			continue
 		}
 
-		go parseLog(ctx, node, nodes, gOwnCollections, subLog, queueEvents)
+		go parseLog(ctx, node, nodes, gOwnCollections, subLog, queueEvents, queueWS)
 	}
 }
 
-func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCollection, ownCollections *collections.Collections, subLog types.Log, queueEvents chan *collections.Event) {
+func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCollection, ownCollections *collections.Collections, subLog types.Log, queueEvents chan *collections.Event, queueWS chan *collections.Event) {
 	// transaction collector to "recognize" multi-item txs
 	var transco *TransactionCollector
 
@@ -252,6 +252,9 @@ func parseLog(ctx context.Context, node *gbnode.ChainNode, nodes *gbnode.NodeCol
 
 	// send to formatting
 	queueEvents <- event
+
+	// send to websockets output
+	queueWS <- event
 
 	gbCache := cache.New(ctx)
 	// cache.StoreEvent(event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, eventType.String())
