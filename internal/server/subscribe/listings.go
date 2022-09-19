@@ -1,4 +1,4 @@
-package subscriptions
+package subscribe
 
 import (
 	"math/big"

@@ -4,8 +4,9 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/benleb/gloomberg/internal/server/node"
+
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/gbnode"
 	"github.com/benleb/gloomberg/internal/hooks"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
@@ -132,7 +133,7 @@ func (cs *Collections) SortedAndColoredNames() []string {
 	return names
 }
 
-func GetCollectionsFromConfiguration(nodes *gbnode.NodeCollection) []*GbCollection {
+func GetCollectionsFromConfiguration(nodes *node.Nodes) []*GbCollection {
 	collections := make([]*GbCollection, 0)
 
 	if viper.IsSet("collections") {
@@ -152,7 +153,7 @@ func GetCollectionsFromConfiguration(nodes *gbnode.NodeCollection) []*GbCollecti
 				currentCollection.Show.Mints = viper.GetBool("show.mints")
 				currentCollection.Show.Transfers = viper.GetBool("show.transfers")
 			} else {
-				gbl.Log.Infof("reading collection: %+v - %+v", address, collection)
+				gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
 
 				decodeHooks := mapstructure.ComposeDecodeHookFunc(
 					hooks.StringToAddressHookFunc(),

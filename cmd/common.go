@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
@@ -11,10 +10,12 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"regexp"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
+
+	"github.com/benleb/gloomberg/internal/server/node"
 
 	"github.com/awesome-gocui/gocui"
 	"github.com/benleb/gloomberg/internal"
@@ -22,16 +23,14 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/gbnode"
-	"github.com/benleb/gloomberg/internal/glicker"
-	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/notifications"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/subscriptions"
+	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/wwatcher"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
@@ -44,18 +43,14 @@ var (
 
 	apiKeyMoralis string
 
-	queueLogs     = make(chan types.Log, 1024)
-	queueListings = make(chan *models.ItemListedEvent, 1024)
+	// queuePending  = make(chan common.Hash, 1024)
 
-	queueEvents = make(chan *collections.Event, 1024)
-
-	queueWS     = make(chan *collections.Event, 1024)
+	// queueEvents = make(chan *collections.Event, 1024)
 	queueOutput = make(chan string, 1024)
 
-	stats *glicker.Stats
+	stats *ticker.Stats
 
-	logQueues = make(map[int]*chan types.Log, 0)
-	newNodes  = make(map[int]*gbnode.ChainNode, 0)
+	// logQueues = make(map[int]*chan types.Log, 0)
 )
 
 type ResponseOwner struct {
@@ -84,75 +79,96 @@ type Owner struct {
 	LastMetadataSync  time.Time `json:"last_metadata_sync"`
 }
 
-func getNodes() *gbnode.NodeCollection {
-	nodesSpinner := style.GetSpinner("setting up node connections...")
-	_ = nodesSpinner.Start()
+// func getNodes() *gbnode.Nodes {
+// 	nodesSpinner := style.GetSpinner("setting up node connections...")
+// 	_ = nodesSpinner.Start()
 
-	// var nodes *gbnode.NodeCollection
+// 	// var nodes *gbnode.Nodes
 
-	var nodes gbnode.NodeCollection
+// 	var nodes, nodesOnline gbnode.Nodes
 
-	for idx, ep := range viper.Get("endpoints").([]interface{}) {
-		config := make(map[string]string, 0)
+// 	for idx, ep := range viper.Get("endpoints").([]interface{}) {
+// 		config := make(map[string]string, 0)
 
-		switch nodeConfig := ep.(type) {
-		case string:
-			config["endpoint"] = nodeConfig
+// 		switch nodeConfig := ep.(type) {
+// 		case string:
+// 			config["endpoint"] = nodeConfig
 
-		case map[string]interface{}:
-			for k, v := range nodeConfig {
-				config[k] = v.(string)
-			}
-		}
+// 		case map[string]interface{}:
+// 			for k, v := range nodeConfig {
+// 				config[k] = v.(string)
+// 			}
+// 		}
 
-		if config["marker"] == "" {
-			config["marker"] = fmt.Sprint(" ", idx)
-		}
+// 		if config["marker"] == "" {
+// 			config["marker"] = fmt.Sprint(" ", idx)
+// 		}
 
-		if config["color"] != "" {
-			config["marker"] = lipgloss.NewStyle().Foreground(lipgloss.Color(config["color"])).Render(config["marker"])
-		}
+// 		if config["color"] != "" {
+// 			config["marker"] = lipgloss.NewStyle().Foreground(lipgloss.Color(config["color"])).Render(config["marker"])
+// 		}
 
-		if config["name"] == "" {
-			config["name"] = fmt.Sprint("node", idx)
-		}
+// 		if config["name"] == "" {
+// 			config["name"] = fmt.Sprint("node", idx)
+// 		}
 
-		if config["endpoint"] == "" {
-			fmt.Printf("endpoint missin config: %+v\n\n", config)
-			continue
-		}
+// 		if config["endpoint"] == "" {
+// 			fmt.Printf("endpoint missin config: %+v\n\n", config)
+// 			continue
+// 		}
 
-		if node, err := gbnode.New(idx, config["name"], config["marker"], config["endpoint"]); err != nil {
-			gbl.Log.Errorf("❌ failed to connect to %s | %s: %s", config["name"], config["endpoint"], err)
-		} else {
-			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
+// 		node, err := gbnode.New(idx, config["name"], config["marker"], config["endpoint"])
 
-			nodes = append(nodes, node)
-			newNodes[idx] = node
+// 		if err != nil {
+// 			gbl.Log.Warnf("❌ failed to connect to %s | %s:", config["name"], config["endpoint"])
+// 			gbl.Log.Warnf("%s %s", style.PinkBoldStyle.PaddingLeft(3).Render("→"), err)
+// 		} else {
+// 			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
 
-			// out := strings.Builder{}
-			// out.WriteString("✅ node" + fmt.Sprint(node.NodeID) + ": ")
-			// out.WriteString(" " + node.Marker)
-			// out.WriteString(" " + node.Name)
-			// out.WriteString(" | " + node.WebsocketsEndpoint)
-			// fmt.Println(out.String())
-		}
-	}
+// 			newNodes[idx] = node
+// 		}
 
-	numNodes := len(nodes.GetNodes())
+// 		nodes = append(nodes, node)
+// 	}
 
-	// stop spinner
-	nodesSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(numNodes)), " nodes connected\n"))
-	_ = nodesSpinner.Stop()
+// 	numNodes := len(nodes.GetNodes())
 
-	if numNodes == 0 {
-		gbl.Log.Fatal("No node providers found")
-	}
+// 	// stop spinner
+// 	stopMsg := strings.Builder{}
+// 	stopMsg.WriteString(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(numNodes)), " nodes connected\n"))
 
-	return &nodes
-}
+// 	for _, node := range nodes {
+// 		nodeName := node.WebsocketsEndpoint
 
-func getWallets(nodes *gbnode.NodeCollection) *models.Wallets {
+// 		if node.Name != "" {
+// 			nodeName = node.Name + " " + style.LightGrayStyle.Render(node.WebsocketsEndpoint)
+// 		}
+
+// 		nodeStyle := style.BoldStyle.Copy().PaddingLeft(2)
+// 		// if node.Error != nil {
+// 		// if node != nil && node.Error == "" {
+// 		if node.Error == nil {
+// 			nodeStyle.Foreground(style.OwnerGreen)
+
+// 			nodesOnline = append(nodesOnline, node)
+// 		} else {
+// 			nodeStyle.Foreground(style.Pink)
+// 		}
+
+// 		stopMsg.WriteString(fmt.Sprintf("%s %s\n", nodeStyle.Render("→"), nodeName))
+// 	}
+
+// 	nodesSpinner.StopMessage(stopMsg.String())
+// 	_ = nodesSpinner.Stop()
+
+// 	if numNodes == 0 {
+// 		gbl.Log.Fatal("No node providers found")
+// 	}
+
+// 	return &nodesOnline
+// }
+
+func getWallets(nodes *node.Nodes) *wallet.Wallets {
 	// set up spinner
 	walletSpinner := style.GetSpinner("setting up wallets...")
 	_ = walletSpinner.Start()
@@ -170,11 +186,15 @@ func getWallets(nodes *gbnode.NodeCollection) *models.Wallets {
 	return wallets
 }
 
-func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, nodes *gbnode.NodeCollection, wallets *models.Wallets, outputLines *chan string) {
-	namesCache := &wwatcher.NamesCache{
-		Names: make(map[common.Address]string),
-		RWMu:  &sync.RWMutex{},
-	}
+func formatEvent(g *gocui.Gui, event *collections.Event, nodes *node.Nodes, wallets *wallet.Wallets, outputLines *chan string, queueOutWS *chan *collections.Event) {
+	// gbl.Log.Debugf("  common > queueLogs: %d | queueListings: %d | queueOutWS: %d | QueueOutput: %d <", len(queueLogs), len(queueListings), len(*queueOutWS), len(queueOutput))
+
+	// namesCache := &wwatcher.NamesCache{
+	// 	Names: make(map[common.Address]string),
+	// 	RWMu:  &sync.RWMutex{},
+	// }
+
+	eventWithStyle := &collections.EventWithStyle{}
 
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 
@@ -201,8 +221,8 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	event.CollectionColor = event.Collection.Colors.Primary
 
 	// format price in ether
-	priceEther := subscriptions.WeiToEther(event.PriceWei)
-	priceEtherPerItem := subscriptions.WeiToEther(pricePerItem)
+	priceEther := node.WeiToEther(event.PriceWei)
+	priceEtherPerItem := node.WeiToEther(pricePerItem)
 
 	var previousMovingAverage, currentMovingAverage float64
 
@@ -212,12 +232,15 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		}
 
 		// recalculate moving average
-		itemPrice, _ := subscriptions.WeiToEther(pricePerItem).Float64()
+		itemPrice, _ := node.WeiToEther(pricePerItem).Float64()
 		previousMovingAverage, currentMovingAverage = event.Collection.CalculateArtificialFloor(itemPrice)
 
 		// get a color with saturation depending on the tx price
 		priceStyle = style.DarkWhiteStyle
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
+
+		eventWithStyle.PriceEtherColor = "#DDDDDD"
+		eventWithStyle.PriceArrowColor = style.GetPriceShadeColor(priceEther)
 	} else {
 		// if this is a mint/transfer/listing, we don't touch the moving average
 		currentMovingAverage = event.Collection.ArtificialFloor.Value()
@@ -225,6 +248,9 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 		priceStyle = style.GrayStyle
 		priceArrowColor = "#333333"
+
+		eventWithStyle.PriceEtherColor = "#666666"
+		eventWithStyle.PriceArrowColor = "#333333"
 	}
 
 	// item number style
@@ -263,17 +289,17 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 
 	var ensName string
 
-	gbCache := cache.New(ctx)
+	gbCache := cache.New()
 
 	// check if the ENS name is already in the cache
 	if name, err := gbCache.GetENSName(event.To.Address); err == nil && name != "" {
-		gbl.Log.Infof("cache | cached ENS name: %s", name)
+		gbl.Log.Debugf("cache | cached ENS name: %s", name)
 
 		ensName = name
 	}
 
 	if ensName == "" && viper.IsSet("api_keys.etherscan") {
-		if ensName := wwatcher.GetENSForAddress(ctx, nodes, event.To.Address, namesCache); ensName != "" {
+		if ensName, err := nodes.GetENSForAddress(event.To.Address); err == nil && ensName != "" {
 			gbl.Log.Debugf("ensName from etherscan: %s", ensName)
 			to = toStyle.Render(ensName)
 			event.ToENS = ensName
@@ -285,22 +311,45 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	}
 
 	// WEN...??
-	currentTime := time.Now().Format("15:04:05")
+	now := time.Now()
+	currentTime := now.Format("15:04:05")
 	timeNow := style.GrayStyle.Copy().Faint(true).Render(currentTime)
+	eventWithStyle.Time = now
+	eventWithStyle.TimeColor = "#999999"
+
+	eventWithStyle.CollectionName = event.Collection.Name
 
 	// WHAT...??
 	var tokenInfo string
 	if isMultiItemTx {
 		tokenInfo = fmt.Sprintf("%s %s", numberStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), event.Collection.Style().Faint(isMint).Render(event.Collection.Name))
+
+		eventWithStyle.TxItemCount = event.TxItemCount
+	} else if event.Collection.ContractAddress == common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85") {
+		if event.DomainENS == "" {
+			event.DomainENS = "Ethereum Name Service"
+		}
+
+		tokenInfo = fmt.Sprintf(
+			"%s %s",
+			event.Collection.Style().Copy().Faint(true).Render(event.Collection.Name+":"),
+			event.Collection.Style().Copy().Faint(false).Render(event.DomainENS),
+		)
+
+		eventWithStyle.TxItemCount = event.TxItemCount
 	} else {
 		tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, true)
+
+		eventWithStyle.TokenID = event.TokenID
 	}
 
 	// PRETTY...??
 	collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
+	eventWithStyle.CollectionColor = event.Collection.Colors.Primary
 
 	if event.EventType == collections.Sale && isOwnCollection {
 		timeNow = collectionStyle.Render(currentTime)
+		eventWithStyle.TimeColor = eventWithStyle.CollectionColor
 
 		notifications.SendNotification(event.Collection.Name, tokenInfo)
 		gbl.Log.Debugf("SendNotification | collection: %s, tokenInfo: %s", event.Collection.Name, tokenInfo)
@@ -309,6 +358,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	// highlight line if the seller or buyer is a wallet from the configured wallets
 	if ownWalletInvolved {
 		timeNow = lipgloss.NewStyle().Foreground(style.OwnerGreen).Bold(true).Render(currentTime)
+		eventWithStyle.TimeColor = lipgloss.Color(style.OwnerGreen.Dark)
 	}
 
 	// check if listing is below configured max. price
@@ -318,8 +368,10 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		if event.EventType == collections.Listing {
 			timeStyle = style.PinkBoldStyle
 			priceStyle = style.BoldStyle
+			eventWithStyle.TimeColor = lipgloss.Color(style.Pink.Dark)
 		} else {
 			timeStyle = lipgloss.NewStyle().Foreground(style.ShadesPink[3])
+			eventWithStyle.TimeColor = style.ShadesPink[3]
 		}
 
 		timeNow = timeStyle.Render(currentTime)
@@ -328,10 +380,13 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	switch {
 	case event.EventType == collections.Sale && event.Collection.Highlight.Sales != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Sales).Render(currentTime)
+		eventWithStyle.TimeColor = event.Collection.Highlight.Sales
 	case event.EventType == collections.Listing && event.Collection.Highlight.Listings != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Listings).Render(currentTime)
+		eventWithStyle.TimeColor = event.Collection.Highlight.Listings
 	case event.Collection.Highlight.Color != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Color).Render(currentTime)
+		eventWithStyle.TimeColor = event.Collection.Highlight.Color
 	}
 
 	arrow := style.DividerArrowRight
@@ -358,16 +413,20 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		if itemPrice >= viper.GetFloat64("show.min_price") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
+				eventWithStyle.Marker = "*"
+				eventWithStyle.MarkerColor = "#73F59F"
 			}
 		}
 	}
 
 	// add to event history
-	if isOwnCollection && event.EventType == collections.Sale && itemPrice >= viper.GetFloat64("show.min_price") {
-		glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
+	if isOwnCollection && event.EventType == collections.Sale { // && itemPrice >= viper.GetFloat64("show.min_price") {
+		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if ownWalletInvolved {
-		glicker.StatsTicker.EventHistory = append(glicker.StatsTicker.EventHistory, event)
+		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
+
+	eventWithStyle.Verbose = viper.GetBool("log.verbose")
 
 	// build the line to be displayed
 	out := strings.Builder{}
@@ -375,16 +434,31 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	if viper.GetBool("log.verbose") {
 		if event.EventType == collections.Listing {
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#20293d")).Render("OS"))
+
+			eventWithStyle.Source = "OS"
+			eventWithStyle.SourceColor = "#20293d"
 		} else {
-			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(newNodes[event.NodeID].Marker)))
+			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(nodes.GetNodeByID(event.NodeID).Marker)))
+
+			eventWithStyle.Source = stripANSI(fmt.Sprint(nodes.GetNodeByID(event.NodeID).Marker))
+			eventWithStyle.SourceColor = "#1A1A1A"
 		}
 
-		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("||"))
+		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
 	}
 
 	out.WriteString(timeNow)
 	out.WriteString(marker + event.EventType.Icon())
 	out.WriteString(" " + divider)
+
+	eventWithStyle.EventType = event.EventType
+	eventWithStyle.EventEmoji = event.EventType.Icon()
+	eventWithStyle.Marker = marker
+
+	eventWithStyle.PriceEther = fmt.Sprintf("%6.3f", priceEther)
+
+	eventWithStyle.OpenseaURL = openseaURL
+	eventWithStyle.EtherscanURL = etherscanURL
 
 	// price
 	if event.EventType == collections.Listing {
@@ -400,7 +474,7 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
 
 	// price per item
-	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", subscriptions.WeiToEther(pricePerItem))))
+	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", node.WeiToEther(pricePerItem))))
 	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
 
 	// collection/token info
@@ -416,6 +490,8 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			outputTotalSupply = fmt.Sprintf("%dK", uint(totalSupply/1000))
 			totalSupplyStyle = collectionStyle.Copy().Faint(true)
 		}
+
+		eventWithStyle.CollectionTotalSupply = totalSupply
 
 		out.WriteString(style.DarkGrayStyle.Render(" /") + totalSupplyStyle.Render(outputTotalSupply))
 	}
@@ -466,16 +542,21 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 	}
 
 	// counting
-	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
-		for i := 0; i < int(event.TxItemCount); i++ {
-			go event.Collection.AddSale(event.PriceWei, 1)
-			stats.AddSale(pricePerItem)
+	if stats != nil {
+		if event.EventType == collections.Sale || event.EventType == collections.Purchase {
+			for i := 0; i < int(event.TxItemCount); i++ {
+				go event.Collection.AddSale(event.PriceWei, 1)
+				stats.AddSale(pricePerItem)
+			}
+		} else if event.EventType == collections.Mint {
+			go event.Collection.AddMint()
 		}
-	} else if event.EventType == collections.Mint {
-		go event.Collection.AddMint()
 	}
 
 	// sales/listings count & salira
+	eventWithStyle.ListingsCount = event.Collection.Counters.Listings
+	eventWithStyle.SalesCount = event.Collection.Counters.Sales
+
 	if event.Collection.Counters.Sales+event.Collection.Counters.Listings > 0 {
 		var salesAndListings string
 
@@ -555,6 +636,11 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 		*outputLines <- out.String()
 	}
 
+	// send to websockets output
+	if cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
+		*queueOutWS <- event
+	}
+
 	// telegram notification
 	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("telegram.enabled") { // && notifications.TgBot != nil {
 		gbl.Log.Warn("sending telegram notification...")
@@ -569,13 +655,14 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			if wwatcher.Recipients.Contains(event.To.Address) {
 				triggerAddress = event.To.Address
 
-				if event.EventType == collections.Sale {
-					event.EventType = collections.Purchase
-				}
 				// else if event.EventType == collections.Listing {
 				// 	// currently not reachable as Listing events are filtered before here
 				// 	// linkURL = openseaURL
 				// }
+
+				if event.EventType == collections.Sale {
+					event.EventType = collections.Purchase
+				}
 			} else {
 				triggerAddress = event.From.Address
 			}
@@ -603,15 +690,14 @@ func formatEvent(ctx context.Context, g *gocui.Gui, event *collections.Event, no
 			var imageURI string
 
 			if uri, err := nodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil || strings.HasSuffix(uri, ".gif") {
-				gbl.Log.Errorf("error getting token image uri: %v", err)
+				gbl.Log.Warnf("error getting token image uri: %v", err)
 			} else {
 				imageURI = strings.Replace(uri, "ipfs://", "https://ipfs.io/ipfs/", 1)
 			}
 
 			if msg, err := notifications.SendTelegramMessage(chatID, msgTelegram.String(), imageURI); err != nil {
-				gbl.Log.Errorf("failed to send telegram message: '%s' | imageURI: %s | err: %s\n", msg.Text, imageURI, err)
+				gbl.Log.Warnf("failed to send telegram message: '%s' | imageURI: %s | err: %s\n", msgTelegram.String(), imageURI, err)
 			} else {
-				gbl.Log.Warnf("sent telegram message: %s\n", msg.Text)
 				gbl.Log.Infof("sent telegram message: '%s'\n", msg.Text)
 			}
 		}()
@@ -696,4 +782,13 @@ func createMoralisGetRequest(url string, apiToken string) (*http.Request, error)
 	request.Header = headers
 
 	return request, nil
+}
+
+const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
+
+var pattern = regexp.MustCompile(ansi)
+
+// stripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
+func stripANSI(str string) string {
+	return pattern.ReplaceAllString(str, "")
 }

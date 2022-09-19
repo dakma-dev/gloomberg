@@ -8,4 +8,4 @@ gloomberg
 
 # misc
 cmd/setOwner.go
-internal/miw
+internal/assets

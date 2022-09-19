@@ -1,16 +1,17 @@
 package collections
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/benleb/gloomberg/internal/server/node"
+
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/gbnode"
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
@@ -47,7 +48,8 @@ type GbCollection struct {
 	// calculated/generated fields
 	//
 
-	Metadata *gbnode.CollectionMetadata `mapstructure:"metadata"`
+	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
+	// Metadata map[string]interface{} `mapstructure:"metadata"`
 
 	Source CollectionSource `mapstructure:"source"`
 
@@ -71,30 +73,28 @@ type GbCollection struct {
 	PreviousArtificialFloor float64            `mapstructure:"artificialFloor"`
 }
 
-var ctx = context.Background()
-
 // // MarshalBinary encodes the Collection into a binary format.
 // func (uc *Collection) MarshalBinary() ([]byte, error) { return json.Marshal(uc) }
 
 // // UnmarshalBinary decodes the Collection from a binary format.
 // func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
 
-func NewCollection(contractAddress common.Address, name string, nodes *gbnode.NodeCollection, source CollectionSource) *GbCollection {
+func NewCollection(contractAddress common.Address, name string, nodes *node.Nodes, source CollectionSource) *GbCollection {
 	var collectionName string
 
-	gbCache := cache.New(ctx)
+	gbCache := cache.New()
 
 	if name != "" {
 		collectionName = name
 	} else {
 		if name, err := gbCache.GetCollectionName(contractAddress); err == nil {
-			gbl.Log.Infof("cache | cached collection name: %s", name)
+			gbl.Log.Debugf("cache | cached collection name: %s", name)
 
 			if name != "" {
 				collectionName = name
 			}
 		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress); err == nil {
-			gbl.Log.Infof("chain | collection name via contract call: %s", name)
+			gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 			if name != "" {
 				collectionName = name
@@ -113,7 +113,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *gbnode.No
 		ContractAddress: contractAddress,
 		Name:            collectionName,
 
-		Metadata: &gbnode.CollectionMetadata{},
+		Metadata: &models.CollectionMetadata{},
 		Source:   source,
 
 		ArtificialFloor: ewma.NewMovingAverage(),
@@ -121,7 +121,27 @@ func NewCollection(contractAddress common.Address, name string, nodes *gbnode.No
 	}
 
 	go func() {
-		collection.Metadata = nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
+		rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
+
+		metadata := &models.CollectionMetadata{}
+
+		if name := rawMetaDatas["name"]; name != nil {
+			metadata.ContractName = name.(string)
+		}
+
+		if symbol := rawMetaDatas["symbol"]; symbol != nil {
+			metadata.Symbol = symbol.(string)
+		}
+
+		if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
+			metadata.TotalSupply = totalSupply.(uint64)
+		}
+
+		if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
+			metadata.TokenURI = tokenURI.(string)
+		}
+
+		collection.Metadata = metadata
 	}()
 
 	if source == Wallet || source == Stream {

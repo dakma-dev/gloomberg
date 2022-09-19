@@ -7,8 +7,8 @@ import (
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/gbnode"
-	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/wallet"
+	"github.com/benleb/gloomberg/internal/server/node"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/wealdtech/go-ens/v3"
@@ -28,10 +28,10 @@ import (
 // }
 
 // GetWalletsFromConfig returns a slice of wallets from the configuration file.
-func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) *models.Wallets {
+func GetWalletsFromConfig(walletsConfig []string, nodes *node.Nodes) *wallet.Wallets {
 	var walletsWg sync.WaitGroup
 
-	var wallets models.Wallets = make(map[common.Address]*models.Wallet)
+	var wallets wallet.Wallets = make(map[common.Address]*wallet.Wallet)
 
 	for _, walletConfig := range walletsConfig {
 		walletsWg.Add(1)
@@ -45,7 +45,7 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 			defer walletsWg.Done()
 
 			var (
-				userWallet models.Wallet
+				userWallet wallet.Wallet
 
 				walletName    string
 				walletAddress common.Address
@@ -145,7 +145,7 @@ func GetWalletsFromConfig(walletsConfig []string, nodes *gbnode.NodeCollection) 
 				}
 			}
 
-			userWallet = models.Wallet{
+			userWallet = wallet.Wallet{
 				Name:    walletName,
 				Address: walletAddress,
 				ENS:     walletENS,

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -15,7 +16,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
@@ -141,22 +142,26 @@ func GetGasOracle() *GasOracle {
 	return &gasOracle
 }
 
-func GetBalances(wallets *models.Wallets) []*AccountBalance {
+func GetBalances(wallets *wallet.Wallets) ([]*AccountBalance, error) {
 	balances := MultiAccountBalance(wallets)
 
 	for _, balance := range balances {
-		if wethBalance := GetWETHBalance(common.HexToAddress(balance.Account)); wethBalance != nil {
-			balance.BalanceWETH = wethBalance
+		wethBalance, err := GetWETHBalance(common.HexToAddress(balance.Account))
+		if err != nil || wethBalance == nil {
+			gbl.Log.Warnf("could not get weth balance for %s: %s", balance.Account, err.Error())
+			continue
 		}
 
+		balance.BalanceWETH = wethBalance
+
 		// throttle to avoid hitting the apis reqs/s limit
-		time.Sleep(time.Millisecond * 337)
+		time.Sleep(time.Millisecond * 173)
 	}
 
-	return balances
+	return balances, nil
 }
 
-func MultiAccountBalance(wallets *models.Wallets) []*AccountBalance {
+func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	balances := make([]*AccountBalance, 0)
 
 	if !viper.IsSet("api_keys.etherscan") {
@@ -236,30 +241,29 @@ func createEtherscanHTTPClient() (*http.Client, error) {
 	transport := &http.Transport{
 		TLSClientConfig:     tlsConfig,
 		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     5 * time.Second,
+		IdleConnTimeout:     13 * time.Second,
 	}
 
 	// explicitly use http2
 	_ = http2.ConfigureTransport(transport)
 
 	client := &http.Client{
-		Timeout:   15 * time.Second,
+		Timeout:   13 * time.Second,
 		Transport: transport,
 	}
 
 	return client, nil
 }
 
-func GetWETHBalance(walletAddress common.Address) *big.Int {
+func GetWETHBalance(walletAddress common.Address) (*big.Int, error) {
 	return GetTokenBalance(walletAddress, common.HexToAddress(string(WETH)))
 }
 
-func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) *big.Int {
+func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) (*big.Int, error) {
+	// etherscan api access required
 	if !viper.IsSet("api_keys.etherscan") {
-		log.Fatal("api_keys.etherscan not set")
+		gbl.Log.Fatal("api_keys.etherscan not set")
 	}
-
-	client, _ := createEtherscanHTTPClient()
 
 	apiKey := viper.GetString("api_keys.etherscan")
 	url := fmt.Sprintf(
@@ -267,7 +271,9 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 		tokenAddress, walletAddress, apiKey,
 	)
 
+	// fetch balance
 	request, _ := http.NewRequest("GET", url, nil)
+	client, _ := createEtherscanHTTPClient()
 
 	response, err := client.Do(request)
 	if err != nil {
@@ -277,37 +283,41 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 			gbl.Log.Errorf("❌ token balance · error: %+v", err.Error())
 		}
 
-		return nil
+		return nil, err
 	}
-
-	gbl.Log.Debugf("token balance · status: %s", response.Status)
-
 	defer response.Body.Close()
 
-	// create a variable of the same type as our model
-	var tokenBalanceResponse *TokenBalancesResponse
-
-	responseBody, _ := io.ReadAll(response.Body)
+	// read the response body
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		gbl.Log.Errorf("❌ token balance · response read error: %+v", err.Error())
+		return nil, err
+	}
 
 	// decode the data
 	if !json.Valid(responseBody) {
-		gbl.Log.Warnf("token balance · invalid json: %s", err)
+		gbl.Log.Warnf("token balance · invalid json")
 
-		return nil
+		return nil, errors.New("invalid json")
 	}
 
 	// decode the data
+	var tokenBalanceResponse *TokenBalancesResponse
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&tokenBalanceResponse); err != nil {
 		gbl.Log.Warnf("token balance · decode error: %s", err.Error())
 
-		return nil
+		return nil, err
 	}
 
-	if balance, err := strconv.ParseInt(tokenBalanceResponse.Result, 10, 64); err == nil {
-		return big.NewInt(balance)
+	// convert the balance to a big int
+	balance, err := strconv.ParseInt(tokenBalanceResponse.Result, 10, 64)
+	if err != nil {
+		gbl.Log.Warnf("token balance · parse error: %s", err.Error())
+
+		return nil, err
 	}
 
-	return nil
+	return big.NewInt(balance), nil
 }
 
 func withAPIKey(url string) string {

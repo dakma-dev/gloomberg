@@ -71,6 +71,7 @@ type Event struct {
 	// Collection      *Collection
 	Collection      *GbCollection
 	TokenID         uint64
+	DomainENS       string
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
 	CollectionColor lipgloss.Color
@@ -83,4 +84,49 @@ type Event struct {
 	To          User
 	ToENS       string
 	WorkerID    int
+}
+
+type EventWithStyle struct {
+	Verbose bool
+
+	Source      string
+	SourceColor lipgloss.Color
+
+	Time      time.Time
+	TimeColor lipgloss.Color
+
+	EventType  EventType
+	EventEmoji string
+
+	Marker      string
+	MarkerColor lipgloss.Color
+
+	TxHash common.Hash
+
+	CollectionName        string
+	CollectionColor       lipgloss.Color
+	CollectionTotalSupply uint64
+	TokenID               uint64
+
+	PriceEther      string
+	PriceEtherColor lipgloss.Color
+	PriceArrowColor lipgloss.Color
+	PriceWei        *big.Int
+	PricePerItem    *big.Int
+
+	TxItemCount uint
+
+	EtherscanURL string
+	OpenseaURL   string
+
+	From      User
+	FromColor lipgloss.Color
+	FromENS   string
+
+	To      User
+	ToColor lipgloss.Color
+	ToENS   string
+
+	SalesCount    uint64
+	ListingsCount uint64
 }

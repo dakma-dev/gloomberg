@@ -46,21 +46,6 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// api keys from node providers & other services
-	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
-
-	// redis settings
-	viper.SetDefault("redis.enabled", false)
-	viper.SetDefault("redis.host", "127.0.0.1")
-	viper.SetDefault("redis.port", 6379)
-	viper.SetDefault("redis.database", 0)
-	viper.SetDefault("redis.password", "")
-
-	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
-	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
-	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
-	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
-
 	// viper.Set("show.all", true)
 
 	// Cobra also supports local flags, which will only run
@@ -88,6 +73,33 @@ func init() {
 	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
 	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
 	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
+
+	// // websockets server
+	// rootCmd.PersistentFlags().Bool("server", false, "Start websockets server")
+	// _ = viper.BindPFlag("server.enabled", rootCmd.Flags().Lookup("server"))
+	// rootCmd.PersistentFlags().IP("host", net.IPv4(0, 0, 0, 0), "Websockets server port")
+	// _ = viper.BindPFlag("server.host", rootCmd.Flags().Lookup("host"))
+	// rootCmd.PersistentFlags().Uint16("port", 42069, "Websockets server port")
+	// _ = viper.BindPFlag("server.port", rootCmd.Flags().Lookup("port"))
+
+	// defaults
+
+	// api keys from node providers & other services
+	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
+
+	// redis settings
+	viper.SetDefault("redis.enabled", false)
+	viper.SetDefault("redis.host", "127.0.0.1")
+	viper.SetDefault("redis.port", 6379)
+	viper.SetDefault("redis.database", 0)
+	viper.SetDefault("redis.password", "")
+
+	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
+	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
+	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
+	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
+
+	viper.SetDefault("server.websockets.enabled", false)
 }
 
 // initConfig reads in config file and ENV variables if set.

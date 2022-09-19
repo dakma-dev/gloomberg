@@ -1,27 +1,32 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"math"
 	"net"
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/server/node"
+	"github.com/benleb/gloomberg/internal/server/ws"
+	"github.com/benleb/gloomberg/internal/ticker"
+	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/gbnode"
-	"github.com/benleb/gloomberg/internal/glicker"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/opensea"
+	"github.com/benleb/gloomberg/internal/server"
+	"github.com/benleb/gloomberg/internal/server/subscribe"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/subscriptions"
 	"github.com/benleb/gloomberg/internal/wwatcher"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
+
+var cWatcher *server.ChainWatcher
 
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
@@ -61,16 +66,13 @@ func init() {
 	// worker settings
 	viper.SetDefault("workers.log_handler", 7)
 	viper.SetDefault("workers.listings_handler", 4)
-	viper.SetDefault("workers.output", 10)
+	viper.SetDefault("workers.output", 8)
 
 	// opensea settings
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
-
-	// ipfs gateway to fetch metadata/images
-	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
 
 	// default collections and wallet
 	viper.SetDefault("collections", []any{map[string]string{"name": "OSF's Red Lite District", "mark": "#6A0F27", "address": "0x513cd71defc801b9c1aa763db47b5df223da77a2"}})
@@ -98,35 +100,35 @@ func init() {
 	_ = viper.BindPFlag("show.own", liveCmd.Flags().Lookup("own"))
 
 	// websockets server
-	liveCmd.Flags().Bool("server", false, "Start websockets server")
-	_ = viper.BindPFlag("server.enabled", liveCmd.Flags().Lookup("server"))
-	liveCmd.Flags().IP("host", net.IPv4(0, 0, 0, 0), "Websockets server port")
-	_ = viper.BindPFlag("server.host", liveCmd.Flags().Lookup("host"))
-	liveCmd.Flags().Uint16("port", 42069, "Websockets server port")
-	_ = viper.BindPFlag("server.port", liveCmd.Flags().Lookup("port"))
+	liveCmd.Flags().Bool("ws", false, "enable websockets server")
+	liveCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
+	liveCmd.Flags().Uint16("ws-port", 42069, "websockets server port")
+	_ = viper.BindPFlag("server.websockets.enabled", liveCmd.Flags().Lookup("ws"))
+	_ = viper.BindPFlag("server.websockets.host", liveCmd.Flags().Lookup("ws-host"))
+	_ = viper.BindPFlag("server.websockets.port", liveCmd.Flags().Lookup("ws-port"))
 
 	// telegram bot
 	liveCmd.Flags().Bool("telegram", false, "Start telegram bot")
 	_ = viper.BindPFlag("telegram.enabled", liveCmd.Flags().Lookup("telegram"))
+
+	// ticker
+	viper.SetDefault("ticker.statsbox", time.Second*89)
+	viper.SetDefault("ticker.gasline", time.Second*13)
+
+	viper.SetDefault("server.websockets.enabled", true)
+
+	// ipfs gateway to fetch metadata/images
+	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
 }
 
+// wtf fix this
+var queues = make(map[string]interface{})
+
 func live(_ *cobra.Command, _ []string) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*420*10)
-	defer cancel()
-
 	gbl.GetSugaredLogger()
-
-	// wallets *models.Wallets
-
-	ownCollections := collections.New()
 
 	//
 	// config
-	//
-	if viper.GetString("server.host") != net.IPv4(0, 0, 0, 0).String() || viper.GetUint("server.port") != 42069 {
-		viper.Set("server.enabled", true)
-	}
-
 	if viper.GetFloat64("show.min_price") > 0.0 {
 		numGlickerLines := math.Max(float64(viper.GetInt("stats.lines")), 4.0)
 		viper.Set("stats.lines", numGlickerLines)
@@ -148,28 +150,39 @@ func live(_ *cobra.Command, _ []string) {
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
-	//
-	// initialize node connections
-	//
-	nodes := getNodes()
+	// create a queue/channel for the received chain logs
+	queueLogs := make(chan types.Log, 1024)
+	queues["logs"] = &queueLogs
+	// create a queue/channel for the received listings
+	queueListings := make(chan *models.ItemListedEvent, 1024)
+	queues["listings"] = &queueListings
+	// create a queue/channel for the received & parsed events
+	queueEvents := make(chan *collections.Event, 1024)
+	queues["events"] = &queueEvents
+	// create a queue/channel for events to be sent out via ws
+	queueOutWS := make(chan *collections.Event, 1024)
+	queues["outWS"] = &queueOutWS
 
-	// if we subscribe to all chain-events, we can do it now
-	if !viper.GetBool("show.own") {
-		for _, node := range *nodes {
-			queue := make(chan types.Log, 1024)
-			logQueues[node.NodeID] = &queue
-			nodes.SubscribeToAllTransfers(ctx, *logQueues[node.NodeID])
-		}
+	// create a new chainserver instance
+	cWatcher = server.New()
+	// subscribe to the chain logs/events and start the workers
+	cWatcher.Subscribe(&queueEvents)
+	// old type (while migrating to new snode.Node type (will be renamed from snode to node after))
+	// nodes := cWatcher.GetNodesAsGBNodeCollection()
+
+	// websockets server
+	if viper.GetBool("server.websockets.enabled") {
+		// websockets
+		wsServer := ws.New(viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"), &queueOutWS)
+		go wsServer.Start()
 	}
 
 	//
 	// initialize wallets
-	//
-	wallets := getWallets(nodes)
+	wallets := getWallets(&cWatcher.Nodes)
 
 	//
 	// MIWs
-	//
 	miwSpinner := style.GetSpinner("setting up MIWs...")
 	_ = miwSpinner.Start()
 
@@ -184,7 +197,6 @@ func live(_ *cobra.Command, _ []string) {
 
 	//
 	// initialize collections
-	//
 	collectionsSpinner := style.GetSpinner("setting up collections...")
 	_ = collectionsSpinner.Start()
 
@@ -192,85 +204,75 @@ func live(_ *cobra.Command, _ []string) {
 	collectionsSpinner.Message("setting up config collections...")
 
 	// read collections from config and store in ownCollections
-	configCollections := collections.GetCollectionsFromConfiguration(nodes)
-	configCollectionsNumber := len(configCollections) // config.ReadCollectionsFromConfig(ctx, ownCollections)
+	configCollections := collections.GetCollectionsFromConfiguration(&cWatcher.Nodes)
+	configCollectionsNumber := len(configCollections)
 	gbl.Log.Infof("collections from config: %d", configCollectionsNumber)
 
 	for _, collection := range configCollections {
-		ownCollections.UserCollections[collection.ContractAddress] = collection
+		cWatcher.OwnCollections.UserCollections[collection.ContractAddress] = collection
 	}
 
 	// collections from wallet holdings
 	collectionsSpinner.Message("setting up wallet collections...")
 
 	// read collections hold in wallets from opensea and store in currentCollections
-	walletCollections := opensea.GetWalletCollections(*wallets, ownCollections, nodes)
+	walletCollections := opensea.GetWalletCollections(*wallets, cWatcher.OwnCollections, &cWatcher.Nodes)
 
 	for _, collection := range walletCollections {
-		if ownCollections.UserCollections[collection.ContractAddress] == nil {
-			ownCollections.UserCollections[collection.ContractAddress] = collection
+		if cWatcher.OwnCollections.UserCollections[collection.ContractAddress] == nil {
+			cWatcher.OwnCollections.UserCollections[collection.ContractAddress] = collection
 		}
 	}
 
-	gbl.Log.Infof("collections from wallets: %d", len(ownCollections.UserCollections)-configCollectionsNumber)
+	gbl.Log.Infof("collections from wallets: %d", len(cWatcher.OwnCollections.UserCollections)-configCollectionsNumber)
 
 	// print collections from config & wallet holdings
-	if len(ownCollections.UserCollections) > 0 {
-		collectionNames := ownCollections.SortedAndColoredNames()
+	if len(cWatcher.OwnCollections.UserCollections) > 0 {
+		collectionNames := cWatcher.OwnCollections.SortedAndColoredNames()
 		collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections: ", strings.Join(collectionNames, ", "), "\n\n"))
 	}
 
 	_ = collectionsSpinner.Stop()
 
+	//
 	// specialized subscriptions
 	if viper.GetBool("show.own") {
-		for _, node := range nodes.GetNodes() {
+		for _, cNode := range cWatcher.Nodes {
 			// subscribe to all "Transfer" events
-			if _, err := node.SubscribeToTransfersFor(ctx, queueLogs, ownCollections.Addresses()); err != nil {
+			if _, err := cNode.SubscribeToTransfersFor(queueLogs, cWatcher.OwnCollections.Addresses()); err != nil {
 				gbl.Log.Warnf("TransfersFor subscribe failed: %s", err)
 			}
 
 			// subscribe to all "SingleTransfer" events
-			if _, err := node.SubscribeToSingleTransfersFor(ctx, queueLogs, ownCollections.Addresses()); err != nil {
+			if _, err := cNode.SubscribeToSingleTransfersFor(queueLogs, cWatcher.OwnCollections.Addresses()); err != nil {
 				gbl.Log.Warnf("SingleTransfersFor subscribe failed: %s", err)
 			}
 		}
 	}
 
 	//
-	// initialize the statistics
-	//
-	stats = glicker.New(ctx, wallets, len(ownCollections.UserCollections))
-
-	//
-	// set up workers print to process events from the chain
-	//
-
-	// receives formatted lines and prints them to stdout
+	// format events and print them to stdout
 	for outputWorkerID := 1; outputWorkerID <= viper.GetInt("workers.output"); outputWorkerID++ {
-		go workerEventFormatter(ctx, outputWorkerID, nodes, wallets, &queueEvents, &queueOutput)
-		go workerOutput(outputWorkerID, &queueOutput)
-	}
+		// format events from queueEvents in a pretty way for terminal (and later other "outputs")
+		go workerEventFormatter(outputWorkerID, &cWatcher.Nodes, wallets, &queueEvents, &queueOutput, &queueOutWS)
 
-	// processes logs from the ethereum chain from our nodes
-	for _, node := range *nodes {
-		for workerID := 1; workerID <= viper.GetInt("workers.log_handler"); workerID++ {
-			go subscriptions.SubscriptionLogsHandler(ctx, node, nodes, ownCollections, logQueues[node.NodeID], queueEvents, queueWS)
-		}
+		// print formatted events to stdout
+		go workerOutput(outputWorkerID, &queueOutput)
 	}
 
 	// processes new listings from the opensea stream api
 	for listingsWorkerID := 1; listingsWorkerID <= viper.GetInt("workers.listings_handler"); listingsWorkerID++ {
-		go subscriptions.StreamListingsHandler(listingsWorkerID, ownCollections, &queueListings, &queueEvents)
+		go subscribe.StreamListingsHandler(listingsWorkerID, cWatcher.OwnCollections, &queueListings, &queueEvents)
 	}
 
+	//
 	// subscribe to sales on the stream api for all collections discovered in wallets and configuration
 	if openseaToken := viper.GetString("api_keys.opensea"); openseaToken != "" {
 		go func() {
 			if client := opensea.NewStreamClient(openseaToken, func(err error) {
 				gbl.Log.Error(err)
 			}); client != nil {
-				for _, collection := range ownCollections.UserCollections {
+				for _, collection := range cWatcher.OwnCollections.UserCollections {
 					gbl.Log.Debugf("%s: collection.Show.Listings: %v | collection.OpenseaSlug: %s", collection.Name, collection.Show.Listings, collection.OpenseaSlug)
 
 					if collection.Show.Listings {
@@ -292,16 +294,28 @@ func live(_ *cobra.Command, _ []string) {
 		}()
 	}
 
+	// gasline ticker
+	var gasTicker *time.Ticker
+
+	if tickerInterval := viper.GetDuration("ticker.gasline"); len(cWatcher.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+		// initial startup delay
+		time.Sleep(tickerInterval / 5)
+
+		// start gasline ticker
+		gasTicker = time.NewTicker(tickerInterval)
+		go ticker.GasTicker(gasTicker, &cWatcher.Nodes, &queueOutput)
+	}
+
+	//
+	// initialize the statistics
+	stats = ticker.New(gasTicker, wallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
+
 	// start status indicator ticker
 	if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
 		stats.StartTicker(statsInterval)
 	}
 
-	// // websockets server
-	// if viper.GetBool("server.enabled") {
-	// 	viper.Set("mode.server", true)
-	// 	go server.StartWebsocketServer(&outputWs)
-	// }
+	QueueStatsLive(&queueEvents, queueLogs, queueListings, &queueOutput, &queueOutWS)
 
 	select {}
 }
@@ -316,19 +330,20 @@ func streamListingsReceiver(response any) {
 
 	gbl.Log.Debugf("%+v", itemListedEvent)
 
-	queueListings <- &itemListedEvent
+	// var queueLising chan *models.ItemListedEvent = queues["listings"].(*chan *models.ItemListedEvent)
+	*queues["listings"].(*chan *models.ItemListedEvent) <- &itemListedEvent
 }
 
-// queueEvents -> queueOutput
+// queueEvents -> queues for Output
 // workerEventFormatter formats sale/listing events from queueEvents and pushes them to the queueOutput channel.
-func workerEventFormatter(ctx context.Context, workerID int, nodes *gbnode.NodeCollection, wallets *models.Wallets, queueEvents *chan *collections.Event, queueOutput *chan string) {
+func workerEventFormatter(workerID int, nodes *node.Nodes, wallets *wallet.Wallets, queueEvents *chan *collections.Event, queueOutput *chan string, queueOutWS *chan *collections.Event) {
 	gbl.Log.Infof("workerEventFormatter %d/%d started", workerID, viper.GetInt("workers.log_handler"))
 
 	for event := range *queueEvents {
 		gbl.Log.Debugf("%d ~ %d | workerEventFormatter event: %v", workerID, len(*queueEvents), event)
 
 		// atomic.AddUint64(&stats.queueEvents, 1)
-		formatEvent(ctx, nil, event, nodes, wallets, queueOutput)
+		go formatEvent(nil, event, nodes, wallets, queueOutput, queueOutWS)
 	}
 }
 
@@ -344,7 +359,13 @@ func workerOutput(workerID int, queueOutput *chan string) {
 			outputLine = fmt.Sprintf("%s ~ %d | %s", style.BoldStyle.Render(fmt.Sprintf("%d", workerID)), len(*queueOutput), outputLine)
 		}
 
-		// atomic.AddUint64(&stats.queueOutput, 1)
 		fmt.Println(outputLine)
+	}
+}
+
+func QueueStatsLive(queueEvents *chan *collections.Event, queueLogs chan types.Log, queueListings chan *models.ItemListedEvent, queueOutput *chan string, queueOutWS *chan *collections.Event) {
+	tickerPrintStats := time.NewTicker(time.Second * 5)
+	for range tickerPrintStats.C {
+		gbl.Log.Infof("  live > queueEvents: %d | queueLogs: %d | queueListings: %d | queueOutput: %d | queueOutWS: %d <", len(*queueEvents), len(queueLogs), len(queueListings), len(*queueOutput), len(*queueOutWS))
 	}
 }

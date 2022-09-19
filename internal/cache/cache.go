@@ -1,8 +1,8 @@
 package cache
 
 import (
-	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -19,29 +19,33 @@ import (
 
 var gbCache *GbCache
 
+const noENSName = "NO-ENS-NAME"
+
 type GbCache struct {
+	mu            *sync.RWMutex
 	rdb           *redis.Client
 	addressToName map[common.Address]string
 }
 
-func New(ctx context.Context) *GbCache {
+func New() *GbCache {
 	if gbCache != nil {
 		return gbCache
 	}
 
-	gCache := &GbCache{
+	gbCache = &GbCache{
+		mu:            &sync.RWMutex{},
 		addressToName: make(map[common.Address]string),
 	}
 
 	if viper.GetBool("redis.enabled") {
-		if client := NewRedisClient(ctx); client != nil {
-			gCache.rdb = client
+		if client := NewRedisClient(); client != nil {
+			gbCache.rdb = client
 		} else {
 			viper.Set("redis.enabled", false)
 		}
 	}
 
-	return gCache
+	return gbCache
 }
 
 func (c *GbCache) GetRDB() *redis.Client {
@@ -95,10 +99,16 @@ func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName stri
 }
 
 func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address) string, value string, duration time.Duration) {
+	if value == "" {
+		value = noENSName
+	}
+
+	c.mu.Lock()
 	c.addressToName[address] = value
+	c.mu.Unlock()
 
 	if c.rdb != nil {
-		gbl.Log.Debugf("redis | searching for: %s", keyFunc(address))
+		gbl.Log.Debugf("redis | caching %s -> %s", keyFunc(address), value)
 
 		err := c.rdb.SetEX(c.rdb.Context(), keyFunc(address), value, duration).Err()
 
@@ -111,25 +121,53 @@ func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address)
 }
 
 func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) string) (string, error) {
-	if name := c.addressToName[address]; name != "" {
+	c.mu.RLock()
+	name := c.addressToName[address]
+	c.mu.RUnlock()
+
+	if name != "" {
+		if name == noENSName {
+			name = ""
+		}
+
+		gbl.Log.Debugf("cache | found name in in-memory cache: '%s'", name)
+
 		return name, nil
 	}
 
 	if c.rdb != nil {
 		gbl.Log.Debugf("redis | searching for: %s", keyFunc(address))
 
-		if name, err := c.rdb.Get(c.rdb.Context(), keyFunc(address)).Result(); err == nil && name != "" {
+		if name, err := c.rdb.Get(c.rdb.Context(), keyFunc(address)).Result(); err == nil {
 			gbl.Log.Debugf("redis | using cached name: %s", name)
 
+			c.mu.Lock()
 			c.addressToName[address] = name
+			c.mu.Unlock()
+
+			if name == noENSName {
+				name = ""
+			}
 
 			return name, nil
+		} else if errors.Is(err, redis.Nil) {
+			gbl.Log.Debugf("redis | redis.Nil - name not found in cache: %s", keyFunc(address))
 		} else {
-			gbl.Log.Debugf("redis | name not found in cache: %s", err)
+			gbl.Log.Debugf("redis | get error: %s", err)
 
 			return "", err
 		}
 	}
 
 	return "", errors.New("name not found in cache")
+}
+
+func CacheENSName(walletAddress common.Address, ensName string) {
+	c := New()
+	c.cacheName(walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
+}
+
+func GetENSName(walletAddress common.Address) (string, error) {
+	c := New()
+	return c.getName(walletAddress, keyENS)
 }

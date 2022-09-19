@@ -36,10 +36,6 @@ type PrimaryAssetContract struct {
 	PayoutAddress               any    `json:"payout_address"`
 }
 
-type CollectionStatsResponse struct {
-	Stats CollectionStats `json:"stats"`
-}
-
 type CollectionStats struct {
 	OneDayVolume          float64 `json:"one_day_volume"`
 	OneDayChange          float64 `json:"one_day_change"`
@@ -103,83 +99,6 @@ type AssetCollection struct {
 	InstagramUsername           any    `json:"instagram_username"`
 	WikiURL                     any    `json:"wiki_url"`
 	OwnedAssetCount             int    `json:"owned_asset_count"`
-}
-
-type AssetEventsResponse struct {
-	// AssetEvents []any `json:"asset_events"`
-	AssetEvents []AssetEvent `json:"asset_events"`
-}
-
-type AssetEvent struct {
-	ApprovedAccount         any          `json:"approved_account"`
-	Asset                   OrderAsset   `json:"asset"`
-	AssetBundle             any          `json:"asset_bundle"`
-	AuctionType             string       `json:"auction_type"`
-	BidAmount               any          `json:"bid_amount"`
-	CollectionSlug          string       `json:"collection_slug"`
-	ContractAddress         string       `json:"contract_address"`
-	CreatedDate             string       `json:"created_date"`
-	CustomEventName         any          `json:"custom_event_name"`
-	DevFeePaymentEvent      any          `json:"dev_fee_payment_event"`
-	DevSellerFeeBasisPoints int          `json:"dev_seller_fee_basis_points"`
-	Duration                string       `json:"duration"`
-	EndingPrice             string       `json:"ending_price"`
-	EventType               string       `json:"event_type"`
-	FromAccount             OSAccount    `json:"from_account"`
-	ID                      int64        `json:"id"`
-	IsPrivate               bool         `json:"is_private"`
-	OwnerAccount            any          `json:"owner_account"`
-	PaymentToken            PaymentToken `json:"payment_token"`
-	Quantity                string       `json:"quantity"`
-	Seller                  OSAccount    `json:"seller"`
-	StartingPrice           string       `json:"starting_price"`
-	ToAccount               any          `json:"to_account"`
-	TotalPrice              any          `json:"total_price"`
-	Transaction             any          `json:"transaction"`
-	WinnerAccount           any          `json:"winner_account"`
-	ListingTime             string       `json:"listing_time"`
-}
-
-type OrderAsset struct {
-	ID                   int           `json:"id"`
-	TokenID              string        `json:"token_id"`
-	NumSales             int           `json:"num_sales"`
-	BackgroundColor      any           `json:"background_color"`
-	ImageURL             string        `json:"image_url"`
-	ImagePreviewURL      string        `json:"image_preview_url"`
-	ImageThumbnailURL    string        `json:"image_thumbnail_url"`
-	ImageOriginalURL     string        `json:"image_original_url"`
-	AnimationURL         any           `json:"animation_url"`
-	AnimationOriginalURL any           `json:"animation_original_url"`
-	Name                 string        `json:"name"`
-	Description          string        `json:"description"`
-	ExternalLink         any           `json:"external_link"`
-	AssetContract        AssetContract `json:"asset_contract"`
-	Permalink            string        `json:"permalink"`
-	Collection           OSCollection  `json:"collection"`
-	Decimals             int           `json:"decimals"`
-	TokenMetadata        string        `json:"token_metadata"`
-	Owner                OSAccount     `json:"owner"`
-}
-
-// type PaymentToken struct {
-// 	ID       int    `json:"id"`
-// 	Symbol   string `json:"symbol"`
-// 	Address  string `json:"address"`
-// 	ImageURL string `json:"image_url"`
-// 	Name     string `json:"name"`
-// 	Decimals int    `json:"decimals"`
-// 	EthPrice string `json:"eth_price"`
-// 	UsdPrice string `json:"usd_price"`
-// }
-
-type OSAccount struct {
-	User struct {
-		Username string `json:"username"`
-	} `json:"user"`
-	ProfileImgURL string `json:"profile_img_url"`
-	Address       string `json:"address"`
-	Config        string `json:"config"`
 }
 
 type AssetContract struct {

@@ -10,10 +10,12 @@ import (
 	"os"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/server/node"
+
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/gbnode"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
@@ -65,18 +67,18 @@ func createGetRequest(url string) (*http.Request, error) {
 }
 
 // GetWalletCollections returns the collections a wallet owns at least one item of.
-func GetWalletCollections(wallets map[common.Address]*models.Wallet, userCollections *collections.Collections, nodes *gbnode.NodeCollection) []*collections.GbCollection {
+func GetWalletCollections(wallets map[common.Address]*wallet.Wallet, userCollections *collections.Collections, nodes *node.Nodes) []*collections.GbCollection {
 	gbCollections := make([]*collections.GbCollection, 0)
 
-	for _, wallet := range wallets {
-		gbCollections = append(gbCollections, GetCollectionsFor(wallet.Address, userCollections, nodes, 1)...)
+	for _, w := range wallets {
+		gbCollections = append(gbCollections, GetCollectionsFor(w.Address, userCollections, nodes, 1)...)
 	}
 
 	return gbCollections
 }
 
 // GetCollectionsFor returns the collections a wallet owns at least one item of.
-func GetCollectionsFor(walletAddress common.Address, userCollections *collections.Collections, nodes *gbnode.NodeCollection, try int) []*collections.GbCollection {
+func GetCollectionsFor(walletAddress common.Address, userCollections *collections.Collections, nodes *node.Nodes, try int) []*collections.GbCollection {
 	receivedCollections := make([]*collections.GbCollection, 0)
 
 	// create the http client & request

@@ -16,11 +16,12 @@ import (
 )
 
 var (
-	// tui.
-	pink                 = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
+	Pink                 = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
 	OwnerGreen           = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 	Subtle               = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	darkGray             = lipgloss.Color("#333")
+	darkerGray           = lipgloss.Color("#222")
+	darkestGray          = lipgloss.Color("#111")
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
@@ -32,8 +33,10 @@ var (
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
 	DarkGrayStyle        = lipgloss.NewStyle().Foreground(darkGray)
+	DarkerGrayStyle      = lipgloss.NewStyle().Foreground(darkerGray)
+	DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
-	PinkBoldStyle        = BoldStyle.Copy().Foreground(pink)
+	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
 	OwnerGreenBoldStyle  = BoldStyle.Copy().Foreground(OwnerGreen)
 	GrayBoldStyle        = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
 	Sharrow              = BoldStyle.Copy().SetString("→")

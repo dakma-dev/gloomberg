@@ -15,10 +15,10 @@ const (
 	Listed        StreamEventType = "item_listed"
 	ReceivedOffer StreamEventType = "item_received_offer"
 
-	//Sold            StreamEventType = "item_sold"
-	//Transferred     StreamEventType = "item_transferred"
-	//ReceivedBid     StreamEventType = "item_received_bid"
-	//Cancelled       StreamEventType = "item_cancelle".
+	// Sold            StreamEventType = "item_sold"
+	// Transferred     StreamEventType = "item_transferred"
+	// ReceivedBid     StreamEventType = "item_received_bid"
+	// Cancelled       StreamEventType = "item_cancelle".
 )
 
 const StreamAPIEndpoint = "wss://stream.openseabeta.com/socket"
@@ -99,11 +99,11 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	}
 
 	join.Receive("ok", func(response any) {
-		gbl.Log.Infof("joined channel: %s", channel.Topic()) // ), response)
+		gbl.Log.Debugf("joined channel: %s", channel.Topic()) // ), response)
 	})
 
 	join.Receive("error", func(response any) {
-		gbl.Log.Error("failed 2 joined channel:", channel.Topic(), response)
+		gbl.Log.Error("failed to joined channel:", channel.Topic(), response)
 	})
 
 	s.channels[topic] = channel

@@ -9,6 +9,8 @@ before:
     - "go mod tidy -e"
     # you may remove this if you don't need 'go generate'
     # - go generate ./...
+    # - bash -c "for abi in internal/abis/*.json; do abiname="$(basename "${abi}")"; abigen --abi="${abi}" --pkg=abis --type="${abiname//.json/}" --out="${abi//.json/.go}"; done"
+    # - oapi-codegen -package ensmetadata -old-config-style -generate types,client,spec internal/assets/ens_metadata_service_0.0.1-alpha.1.yaml > internal/ensmetadata/ensmetadata.go
 builds:
   - binary: gloomberg
     env:

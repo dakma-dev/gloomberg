@@ -24,7 +24,7 @@ func keyENS(address common.Address) string {
 	return fmt.Sprint(prefixENS, keyDelimiter, address.Hex())
 }
 
-func NewRedisClient(ctx context.Context) *redis.Client {
+func NewRedisClient() *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: strings.Join([]string{
 			viper.GetString("redis.host"),
@@ -34,7 +34,7 @@ func NewRedisClient(ctx context.Context) *redis.Client {
 		DB:       viper.GetInt("redis.database"),
 	})
 
-	rdb.WithContext(ctx)
+	rdb.WithContext(context.Background())
 
 	return rdb
 }

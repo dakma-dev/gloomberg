@@ -1,4 +1,4 @@
-package subscriptions
+package subscribe
 
 import (
 	"math"
@@ -26,7 +26,7 @@ func NewTransactionCollector(log *types.Log) *TransactionCollector {
 		TX:         nil,
 	}
 
-	tokenID := GetTokenIDFromTopics(log.Topics)
+	tokenID := getTokenIDFromTopics(log.Topics)
 
 	transco.LogIndices = append(transco.LogIndices, int(log.Index))
 	transco.TokenIDs = append(transco.TokenIDs, tokenID)
@@ -41,7 +41,7 @@ func (transco *TransactionCollector) AddLog(log *types.Log) {
 	defer transco.RWMu.Unlock()
 
 	transco.LogIndices = append(transco.LogIndices, int(log.Index))
-	transco.TokenIDs = append(transco.TokenIDs, GetTokenIDFromTopics(log.Topics))
+	transco.TokenIDs = append(transco.TokenIDs, getTokenIDFromTopics(log.Topics))
 	transco.Logs[int(log.Index)] = log
 }
 
@@ -55,4 +55,16 @@ func (transco *TransactionCollector) UniqueTokenIDs() int {
 	}
 
 	return int(math.Max(float64(len(dupeMap)), 1))
+}
+
+func getTokenIDFromTopics(topics []common.Hash) uint64 {
+	// parse token id
+	var tokenID uint64
+	if len(topics) >= 4 {
+		tokenID = topics[3].Big().Uint64()
+	} else {
+		tokenID = 0
+	}
+
+	return tokenID
 }

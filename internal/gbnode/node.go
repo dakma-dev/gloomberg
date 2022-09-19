@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"math/rand"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,15 +22,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-type CollectionMetadata struct {
-	Symbol      string `mapstructure:"symbol"`
-	TotalSupply uint64 `mapstructure:"total_supply"`
-	TokenURI    string `mapstructure:"token_uri"`
-}
+var ctx = context.Background()
 
-type MetadataERC721 struct {
-	Image string `json:"image"`
-}
+// type CollectionMetadata struct {
+// 	ContractName string `json:"contractName"`
+// 	Symbol       string `json:"symbol"`
+// 	TotalSupply  uint64 `json:"total_supply"`
+// 	TokenURI     string `json:"token_uri"`
+// }
+
+// type MetadataERC721 struct {
+// 	Image string `json:"image"`
+// }
 
 type NodeCollection []*ChainNode
 
@@ -41,6 +46,21 @@ func (nc *NodeCollection) GetRandomNode() *ChainNode {
 	//nolint:gosec
 	return (*nc)[rand.Intn(len(*nc))]
 }
+
+// func (nc *NodeCollection) GetRandomGasNode() *ChainNode {
+// 	if len(*nc) == 0 {
+// 		return nil
+// 	}
+
+// 	for _, node := range *nc {
+// 		fmt.Println("node: ", node.Name, node.LocalNode)
+// 		if node.LocalNode {
+// 			return node
+// 		}
+// 	}
+
+// 	return nil
+// }
 
 // GetNodes returns all nodes as slice.
 func (nc *NodeCollection) GetNodes() []*ChainNode {
@@ -59,15 +79,30 @@ func (nc *NodeCollection) GetNodes() []*ChainNode {
 	return nodes
 }
 
-func (nc *NodeCollection) SubscribeToAllTransfers(ctx context.Context, queueLogs chan types.Log) {
+// GetNodeByID GetNodes returns all nodes as slice.
+func (nc *NodeCollection) GetNodeByID(nodeID int) *ChainNode {
+	if len(*nc) == 0 {
+		return nil
+	}
+
+	for _, node := range *nc {
+		if node.NodeID == nodeID {
+			return node
+		}
+	}
+
+	return nil
+}
+
+func (nc *NodeCollection) SubscribeToAllTransfers(queueLogs chan types.Log) {
 	for _, node := range nc.GetNodes() {
 		// subscribe to all "Transfer" events
-		if _, err := node.SubscribeToTransfers(ctx, queueLogs); err != nil {
+		if _, err := node.SubscribeToTransfers(queueLogs); err != nil {
 			gbl.Log.Warnf("Transfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
 		}
 
 		// subscribe to all "SingleTransfer" events
-		if _, err := node.SubscribeToSingleTransfers(ctx, queueLogs); err != nil {
+		if _, err := node.SubscribeToSingleTransfers(queueLogs); err != nil {
 			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
 		}
 	}
@@ -88,68 +123,6 @@ func (t Topic) String() string {
 	}[t]
 }
 
-var ctx = context.Background()
-
-//// New returns a new gbnode if connection to the given endpoint succeeds.
-// func New(endpoint string) (*ChainNode, error) {
-//	client, err := ethclient.DialContext(ctx, endpoint)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return &ChainNode{
-//		Client:             client,
-//		WebsocketsEndpoint: endpoint,
-//	}, nil
-//}
-
-// New returns a new gbnode if connection to the given endpoint succeeds.
-func New(nodeID int, name string, marker string, endpoint string) (*ChainNode, error) {
-	client, err := ethclient.DialContext(ctx, endpoint)
-	if err != nil {
-		return nil, err
-	}
-
-	return &ChainNode{
-		NodeID:             nodeID,
-		Name:               name,
-		Marker:             marker,
-		Client:             client,
-		WebsocketsEndpoint: endpoint,
-	}, nil
-}
-
-// GetNodesFromConfig reads the websockets endpoints slice from config, connects to them and returns a list with successfully connected nodes.
-// func GetNodesFromConfig(endpoints []string) *NodeCollection {
-//	var gbnodeWg sync.WaitGroup
-//
-//	var nodes NodeCollection
-//
-//	for _, endpoint := range endpoints {
-//		gbnodeWg.Add(1)
-//
-//		endpoint := endpoint
-//
-//		go func() {
-//			defer gbnodeWg.Done()
-//
-//			if provider, err := New(endpoint); err != nil {
-//				gbl.Log.Errorf("❌ failed to connect to %s: %s", endpoint, err)
-//				fmt.Printf("\n❌ failed to connect to %s: %s\n\n", endpoint, err)
-//			} else {
-//				gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(endpoint))
-//
-//				nodes = append(nodes, provider)
-//			}
-//		}()
-//	}
-//
-//	gbnodeWg.Wait()
-//	gbl.Log.Info()
-//
-//	return &nodes
-//}
-
 // ChainNode represents a w3 provider configuration.
 type ChainNode struct {
 	NodeID             int    `mapstructure:"id"`
@@ -159,35 +132,59 @@ type ChainNode struct {
 	WebsocketsEndpoint string     `mapstructure:"endpoint"`
 	ReceivedMessages   uint64     `mapstructure:"received_messages"`
 	KillTimer          time.Timer `mapstructure:"kill_timer"`
+	Error              error      `mapstructure:"error"`
+	NumLogsReceived    uint64
+	LastLogReceived    int64
+	LocalNode          bool
 }
 
-func (p ChainNode) SubscribeToContract(ctx context.Context, queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, nil, []common.Address{contractAddress})
+// // New returns a new gbnode if connection to the given endpoint succeeds.
+// func New(nodeID int, name string, marker string, endpoint string, localNode bool) (*ChainNode, error) {
+// 	ctx := context.Background()
+// 	client, err := ethclient.DialContext(ctx, endpoint)
+
+// 	// if err != nil {
+// 	// 	return nil, err
+// 	// }
+
+// 	return &ChainNode{
+// 		NodeID:             nodeID,
+// 		Name:               name,
+// 		Marker:             marker,
+// 		Client:             client,
+// 		WebsocketsEndpoint: endpoint,
+// 		Error:              err,
+// 		LocalNode:          localNode,
+// 	}, err
+// }
+
+func (p ChainNode) SubscribeToContract(queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, nil, []common.Address{contractAddress})
 }
 
-func (p ChainNode) SubscribeToTransfers(ctx context.Context, queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, [][]common.Hash{{common.HexToHash(string(Transfer))}}, nil)
+func (p ChainNode) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(Transfer))}}, nil)
 }
 
-func (p ChainNode) SubscribeToSingleTransfers(ctx context.Context, queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, [][]common.Hash{{common.HexToHash(string(TransferSingle))}}, nil)
+func (p ChainNode) SubscribeToSingleTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(TransferSingle))}}, nil)
 }
 
-func (p ChainNode) SubscribeToTransfersFor(ctx context.Context, queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, [][]common.Hash{{common.HexToHash(string(Transfer))}}, contractAddresses)
+func (p ChainNode) SubscribeToTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(Transfer))}}, contractAddresses)
 }
 
-func (p ChainNode) SubscribeToSingleTransfersFor(ctx context.Context, queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, [][]common.Hash{{common.HexToHash(string(TransferSingle))}}, contractAddresses)
+func (p ChainNode) SubscribeToSingleTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(TransferSingle))}}, contractAddresses)
 }
 
-func (p ChainNode) SubscribeToOrdersMatched(ctx context.Context, queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(ctx, queueLogs, [][]common.Hash{{common.HexToHash(string(OrdersMatched))}}, nil)
+func (p ChainNode) SubscribeToOrdersMatched(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(OrdersMatched))}}, nil)
 }
 
-func (p ChainNode) subscribeTo(ctx context.Context, queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (p ChainNode) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	if topics == nil && contractAddresses == nil {
-		return nil, nil
+		return nil, errors.New("topics and contractAddresses are nil")
 	}
 
 	filterQuery := ethereum.FilterQuery{
@@ -216,7 +213,7 @@ func (p ChainNode) GetCollectionName(contractAddress common.Address) (string, er
 	return "", nil
 }
 
-func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *CollectionMetadata {
+func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *models.CollectionMetadata {
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
@@ -241,14 +238,14 @@ func (p ChainNode) GetCollectionMetadata(contractAddress common.Address) *Collec
 		collectionTokenURI = tokenURI
 	}
 
-	return &CollectionMetadata{
+	return &models.CollectionMetadata{
 		Symbol:      collectionSymbol,
 		TotalSupply: collectionTotalSupply,
 		TokenURI:    collectionTokenURI,
 	}
 }
 
-func (p ChainNode) GetTokenMetadata(tokenURI string) (*MetadataERC721, error) {
+func (p ChainNode) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
 	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
 
 	client, _ := createMetadataHTTPClient()
@@ -270,7 +267,7 @@ func (p ChainNode) GetTokenMetadata(tokenURI string) (*MetadataERC721, error) {
 	defer response.Body.Close()
 
 	// create a variable of the same type as our model
-	var tokenMetadata *MetadataERC721
+	var tokenMetadata *models.MetadataERC721
 
 	responseBody, err := io.ReadAll(response.Body)
 

@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint bool, color bool) string {
@@ -23,15 +22,10 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 	collectionName = strings.ReplaceAll(collectionName, "Genesis Edition", "Genesis")
 	collectionName = strings.ReplaceAll(collectionName, "Golid and Deca", "G&D")
 	collectionName = strings.ReplaceAll(collectionName, "[ Ledger ] Market Pass", "Ledger Market Pass")
+	collectionName = strings.ReplaceAll(collectionName, "PREMINT Collector Pass - OFFICIAL", "PREMINT Collector Pass")
+	collectionName = strings.ReplaceAll(collectionName, " - thestoics.art", "")
 
 	collectionName = strings.ReplaceAll(collectionName, " Collection", "")
-
-	// remove useless IDs for ens domains
-	if collection.ContractAddress == common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85") {
-		collectionName = "ENS: Ethereum Name Service"
-		prefix = ""
-		id = ""
-	}
 
 	if color {
 		collectionName = collection.Style().Faint(faint).Render(collectionName)
