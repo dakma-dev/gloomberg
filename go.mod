@@ -6,7 +6,7 @@ require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/awesome-gocui/gocui v1.1.0
 	github.com/charmbracelet/lipgloss v0.6.0
-	github.com/ethereum/go-ethereum v1.10.24
+	github.com/ethereum/go-ethereum v1.10.25
 	github.com/gen2brain/beeep v0.0.0-20220909211152-5a9ec94374f6
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
@@ -18,15 +18,9 @@ require (
 	github.com/theckman/yacspin v0.13.12
 	github.com/wealdtech/go-ens/v3 v3.5.5
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20220915105810-2d61f44442a3
+	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
 	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
 	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
-)
-
-require (
-	github.com/rogpeppe/go-internal v1.8.0 // indirect
-	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
-	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 )
 
 require (
@@ -76,6 +70,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rivo/uniseg v0.4.2 // indirect
 	github.com/rjeczalik/notify v0.9.2 // indirect
+	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.2 // indirect
@@ -95,6 +90,8 @@ require (
 	golang.org/x/sync v0.0.0-20220907140024-f12130a52804 // indirect
 	golang.org/x/sys v0.0.0-20220913175220-63ea55921009 // indirect
 	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
