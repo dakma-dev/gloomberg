@@ -187,13 +187,6 @@ func getWallets(nodes *node.Nodes) *wallet.Wallets {
 }
 
 func formatEvent(g *gocui.Gui, event *collections.Event, nodes *node.Nodes, wallets *wallet.Wallets, outputLines *chan string, queueOutWS *chan *collections.Event) {
-	// gbl.Log.Debugf("  common > queueLogs: %d | queueListings: %d | queueOutWS: %d | QueueOutput: %d <", len(queueLogs), len(queueListings), len(*queueOutWS), len(queueOutput))
-
-	// namesCache := &wwatcher.NamesCache{
-	// 	Names: make(map[common.Address]string),
-	// 	RWMu:  &sync.RWMutex{},
-	// }
-
 	eventWithStyle := &collections.EventWithStyle{}
 
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)

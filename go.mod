@@ -6,10 +6,8 @@ require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/awesome-gocui/gocui v1.1.0
 	github.com/charmbracelet/lipgloss v0.6.0
-	github.com/deepmap/oapi-codegen v1.11.0
 	github.com/ethereum/go-ethereum v1.10.24
 	github.com/gen2brain/beeep v0.0.0-20220909211152-5a9ec94374f6
-	github.com/getkin/kin-openapi v0.101.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.1.0
@@ -26,6 +24,12 @@ require (
 )
 
 require (
+	github.com/rogpeppe/go-internal v1.8.0 // indirect
+	golang.org/x/time v0.0.0-20220411224347-583f2d630306 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
+)
+
+require (
 	github.com/btcsuite/btcd/btcec/v2 v2.2.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
@@ -36,8 +40,6 @@ require (
 	github.com/gdamore/encoding v1.0.0 // indirect
 	github.com/gdamore/tcell/v2 v2.5.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
-	github.com/go-openapi/jsonpointer v0.19.5 // indirect
-	github.com/go-openapi/swag v0.22.3 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-toast/toast v0.0.0-20190211030409-01e6764cf0a4 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
@@ -50,14 +52,11 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
 	github.com/inconshreveable/mousetrap v1.0.1 // indirect
-	github.com/invopop/yaml v0.2.0 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.1.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.6 // indirect
-	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.16 // indirect
 	github.com/mattn/go-runewidth v0.0.13 // indirect

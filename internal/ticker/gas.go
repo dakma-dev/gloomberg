@@ -27,7 +27,6 @@ func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan stri
 
 		gasLine.WriteString(style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05")))
 		gasLine.WriteString(" " + style.DarkGrayStyle.Render("🧟"))
-		// gasLine.WriteString(" ⛽️")
 
 		gasLine.WriteString("   ")
 

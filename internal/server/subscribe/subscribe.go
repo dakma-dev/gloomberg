@@ -10,11 +10,11 @@ import (
 
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/domains"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/notifications"
 	"github.com/benleb/gloomberg/internal/server/node"
-	"github.com/benleb/gloomberg/internal/wwatcher"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
@@ -205,25 +205,16 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 	var domainENS string
 
 	if collection.ContractAddress == common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85") {
+		// set custom collection name
 		collection.Name = "ENS"
 
-		ctx, ctxCancel := context.WithTimeout(context.Background(), 13*time.Second)
-
-		if ensMetadataClient, err := wwatcher.NewClientWithResponses("https://metadata.ens.domains/"); err == nil {
-			ensMetadata, err := ensMetadataClient.GetNetworkNameContractAddressTokenIdWithResponse(
-				ctx, wwatcher.Mainnet, collection.ContractAddress.String(), fmt.Sprint(rawTokenID),
-			)
-
-			if err == nil && ensMetadata.JSON200 != nil {
-				domainENS = ensMetadata.JSON200.Name
-			} else {
-				gbl.Log.Warnf("getting ens metadata failed: %s | %s", fmt.Sprint(rawTokenID), err)
-			}
-
-			gbl.Log.Warnf("getting ens metadata client failed: %s | %s", err, fmt.Sprint(rawTokenID))
+		// get ens metadata, primarily the name
+		ensMetadata, err := domains.GetMetadataForTokenID(rawTokenID)
+		if err == nil && ensMetadata != nil {
+			domainENS = ensMetadata.Name
+		} else {
+			gbl.Log.Warnf("getting ens metadata failed: %s | %s", err, fmt.Sprint(rawTokenID))
 		}
-
-		ctxCancel()
 	}
 
 	event := &collections.Event{
