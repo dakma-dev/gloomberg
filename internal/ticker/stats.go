@@ -295,8 +295,9 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 	walletsList := make([]string, 0)
 
 	for _, w := range wallets[:numberOfWalletsToShow] {
-		balanceEther := node.WeiToEther(w.Balance)
-		balance := fmt.Sprint(style.LightGrayStyle.Render(fmt.Sprintf("%5.2f", balanceEther)), style.GrayStyle.Render("Ξ"))
+		balanceEther, _ := node.WeiToEther(w.Balance).Float64()
+		balanceRounded := math.Floor(balanceEther*100.0) / 100.0
+		balance := fmt.Sprint(style.LightGrayStyle.Render(fmt.Sprintf("%5.2f", balanceRounded)), style.GrayStyle.Render("Ξ"))
 		walletBalance := fmt.Sprintf("%s %s %s", w.ColoredName(maxWalletNameLength), style.DarkGrayStyle.Render(w.BalanceTrend), balance)
 		walletsList = append(walletsList, listItem(walletBalance))
 	}
