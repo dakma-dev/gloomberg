@@ -181,6 +181,27 @@ func live(_ *cobra.Command, _ []string) {
 	// initialize wallets
 	wallets := getWallets(&cWatcher.Nodes)
 
+	// gasline ticker
+	var gasTicker *time.Ticker
+
+	if tickerInterval := viper.GetDuration("ticker.gasline"); len(cWatcher.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+		// initial startup delay
+		time.Sleep(tickerInterval / 5)
+
+		// start gasline ticker
+		gasTicker = time.NewTicker(tickerInterval)
+		go ticker.GasTicker(gasTicker, &cWatcher.Nodes, &queueOutput)
+	}
+
+	//
+	// initialize the statistics
+	stats = ticker.New(gasTicker, wallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
+
+	// start status indicator ticker
+	if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
+		stats.StartTicker(statsInterval)
+	}
+
 	//
 	// MIWs
 	miwSpinner := style.GetSpinner("setting up MIWs...")
@@ -292,27 +313,6 @@ func live(_ *cobra.Command, _ []string) {
 				}
 			}
 		}()
-	}
-
-	// gasline ticker
-	var gasTicker *time.Ticker
-
-	if tickerInterval := viper.GetDuration("ticker.gasline"); len(cWatcher.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-		// initial startup delay
-		time.Sleep(tickerInterval / 5)
-
-		// start gasline ticker
-		gasTicker = time.NewTicker(tickerInterval)
-		go ticker.GasTicker(gasTicker, &cWatcher.Nodes, &queueOutput)
-	}
-
-	//
-	// initialize the statistics
-	stats = ticker.New(gasTicker, wallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
-
-	// start status indicator ticker
-	if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
-		stats.StartTicker(statsInterval)
 	}
 
 	QueueStatsLive(&queueEvents, queueLogs, queueListings, &queueOutput, &queueOutWS)

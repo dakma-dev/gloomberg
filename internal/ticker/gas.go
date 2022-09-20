@@ -42,18 +42,12 @@ func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan stri
 
 				oldGasPrice = gasPrice
 
-				gasLine.WriteString(style.DarkerGrayStyle.Render("~  gas  ~   "))
-				gasLine.WriteString(style.LightGrayStyle.Render(fmt.Sprintf("%d", gasPrice))) // ⛽️
-				gasLine.WriteString(style.DarkGrayStyle.Render("gw"))
+				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
+				outro := style.DarkerGrayStyle.Render("   ~   ~")
+				formattedGas := style.LightGrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
+				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
 
-				gasLine.WriteString(style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   "))
-				gasLine.WriteString(style.LightGrayStyle.Render(fmt.Sprintf("%d", gasPrice))) // ⛽️
-				gasLine.WriteString(style.DarkGrayStyle.Render("gw"))
-
-				gasLine.WriteString(style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   "))
-				gasLine.WriteString(style.LightGrayStyle.Render(fmt.Sprintf("%d", gasPrice))) // ⛽️
-				gasLine.WriteString(style.DarkGrayStyle.Render("gw"))
-				gasLine.WriteString(style.DarkerGrayStyle.Render("   ~   ~"))
+				gasLine.WriteString(intro + formattedGas + divider + formattedGas + divider + formattedGas + outro)
 			}
 			// // tip / priority fee
 			// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
