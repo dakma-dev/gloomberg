@@ -93,7 +93,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *node.Node
 			if name != "" {
 				collectionName = name
 			}
-		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress); err == nil {
+		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress, nil); err == nil {
 			gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 			if name != "" {

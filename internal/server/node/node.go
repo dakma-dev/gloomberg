@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/topic"
@@ -166,8 +168,46 @@ func (p Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, cont
 	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (p Node) GetCollectionName(contractAddress common.Address) (string, error) {
-	// get the contractERC721 ABIs
+func (p Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+	//
+	// ERC1155
+	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
+	if err != nil {
+		gbl.Log.Error(err)
+
+		return "", err
+	}
+
+	if tokenID == nil {
+		tokenID = big.NewInt(1)
+	}
+
+	if name, err := contractERC1155.Name(&bind.CallOpts{}, tokenID); err == nil && name != "" {
+		gbl.Log.Debugf("found collection name via erc1155 chain call: %s", name)
+
+		return name, nil
+	}
+
+	if uri, err := contractERC1155.Uri(&bind.CallOpts{}, tokenID); err == nil {
+		gbl.Log.Debugf("found collection uri via erc1155 chain call: %s", uri)
+
+		if metadata, err := external.GetERC1155MetadataForURI(uri, tokenID); err == nil && metadata != nil {
+			name := metadata.Name
+			if metadata.CreatedBy != "" {
+				name = metadata.CreatedBy + " | " + name
+			}
+
+			gbl.Log.Debugf("found collection name via erc1155 metadata: %v\n", name)
+
+			return name, nil
+		}
+	}
+
+	return "", errors.New("could not find collection name")
+}
+
+func (p Node) GetCollectionName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+	// get the contractERC721 ABI
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
 		gbl.Log.Error(err)
@@ -176,7 +216,7 @@ func (p Node) GetCollectionName(contractAddress common.Address) (string, error) 
 	}
 
 	if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
-		gbl.Log.Debugf("found collection name via chain call: %s", name)
+		gbl.Log.Debugf("found collection name via erc721 chain call: %s", name)
 
 		return name, nil
 	}

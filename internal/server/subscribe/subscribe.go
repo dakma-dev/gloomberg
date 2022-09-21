@@ -10,7 +10,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/domains"
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/notifications"
@@ -120,7 +120,11 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 
 	// parse topics
 	logTopic, fromAddress, toAddress, rawTokenID := parseTopics(subLog.Topics)
-	tokenID := rawTokenID.Uint64()
+
+	var tokenID uint64
+	if rawTokenID != nil {
+		tokenID = rawTokenID.Uint64()
+	}
 
 	// collection information
 	ownCollections.RWMu.RLock()
@@ -128,7 +132,18 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 	ownCollections.RWMu.RUnlock()
 
 	if collection == nil && subLog.Address != common.HexToAddress("0x0000000000000000000000000000000000000000") {
-		collection = collections.NewCollection(subLog.Address, "", cNodes, collections.Stream)
+		name := ""
+
+		if logTopic == topic.TransferSingle {
+			if tokenName, err := cNodes.GetRandomNode().GetERC1155TokenName(subLog.Address, rawTokenID); err == nil && tokenName != "" {
+				name = tokenName
+				gbl.Log.Debugf("found token name: %s | %s", name, subLog.Address.String())
+			} else if err != nil {
+				gbl.Log.Warnf("failed to get collection name: %s", err)
+			}
+		}
+
+		collection = collections.NewCollection(subLog.Address, name, cNodes, collections.Stream)
 
 		ownCollections.RWMu.Lock()
 		ownCollections.UserCollections[subLog.Address] = collection
@@ -136,10 +151,16 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 
 		if collection == nil {
 			// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
-			gbl.Log.Warnf("discarded unknown collection: %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Warnf("discarded unknown collection: %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 			return
 		}
+	}
+
+	if collection.Name == "" {
+		preSuffix := collection.StyleSecondary().Copy().Faint(true).Render("??")
+		name := collection.Style().Copy().Faint(true).Italic(true).Render("Unknown " + logTopic.String())
+		collection.Name = preSuffix + " " + name + " " + preSuffix
 	}
 
 	isMint := common.HexToAddress(subLog.Topics[1].Hex()).String() == "0x0000000000000000000000000000000000000000"
@@ -180,7 +201,7 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 	}
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
-	isTransfer := value.Cmp(big.NewInt(0)) == 0 && !isMint
+	isTransfer := (value.Cmp(big.NewInt(0)) == 0 && !isMint) && logTopic != topic.TransferSingle
 	showTransfers := viper.GetBool("show.transfers") || collection.Show.Transfers
 
 	if !isMint && !isOwnCollection && node.WeiToEther(value).Cmp(big.NewFloat(viper.GetFloat64("show.min_price"))) < 0 {
@@ -209,7 +230,7 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 		collection.Name = "ENS"
 
 		// get ens metadata, primarily the name
-		ensMetadata, err := domains.GetMetadataForTokenID(rawTokenID)
+		ensMetadata, err := external.GetENSMetadataForTokenID(rawTokenID)
 		if err == nil && ensMetadata != nil {
 			domainENS = ensMetadata.Name
 		} else {
@@ -265,7 +286,9 @@ func parseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 
 	// parse token id
 	var rawTokenID *big.Int
-	if len(topics) >= 4 {
+	if logTopic == topic.TransferSingle {
+		rawTokenID = nil
+	} else if len(topics) >= 4 {
 		rawTokenID = topics[3].Big()
 	} else {
 		rawTokenID = big.NewInt(0)
