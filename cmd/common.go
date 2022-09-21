@@ -454,10 +454,11 @@ func formatEvent(g *gocui.Gui, event *collections.Event, nodes *node.Nodes, wall
 	eventWithStyle.EtherscanURL = etherscanURL
 
 	// price
+	price, _ := priceEther.Float64()
 	if event.EventType == collections.Listing {
-		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", priceEther))))
+		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", price))))
 	} else {
-		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", priceEther)))
+		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", price)))
 	}
 
 	out.WriteString(formattedCurrencySymbol)

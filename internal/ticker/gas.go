@@ -42,18 +42,27 @@ func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan stri
 
 				oldGasPrice = gasPrice
 
+				// // tip / priority fee
+				// var gasTip int
+				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
+				// 	gasTipGwei, _ := node.WeiToGwei(gasInfo.GasTipWei).Float64()
+				// 	gasTip = int(math.Round(gasTipGwei))
+				// 	fmt.Printf("gasInfo.GasTipWei: %+v | gasTipGwei: %+v | gasTip: %+v\n", gasInfo.GasTipWei, gasTipGwei, gasTip)
+				// }
+
 				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
 				outro := style.DarkerGrayStyle.Render("   ~   ~")
-				formattedGas := style.LightGrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
 				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
 
-				gasLine.WriteString(intro + formattedGas + divider + formattedGas + divider + formattedGas + outro)
+				formattedGas := style.GrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
+				formattedGasAndTip := formattedGas
+
+				// if gasTip > 0 {
+				// 	formattedGasAndTip = formattedGas + "|" + style.GrayStyle.Render(fmt.Sprintf("%d", gasTip)) + style.DarkGrayStyle.Render("gw")
+				// }
+
+				gasLine.WriteString(intro + formattedGas + divider + formattedGasAndTip + divider + formattedGas + outro)
 			}
-			// // tip / priority fee
-			// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
-			// 	gasTipGwei, _ := weiToGwei(gasInfo.GasTipWei).Float64()
-			// 	gasLine.WriteString(style.GrayStyle.Render(fmt.Sprintf("  |  tip: %d", int(math.Ceil(gasTipGwei)))))
-			// }
 		}
 
 		*queueOutput <- gasLine.String()

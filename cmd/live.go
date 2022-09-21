@@ -166,9 +166,7 @@ func live(_ *cobra.Command, _ []string) {
 	// create a new chainserver instance
 	cWatcher = server.New()
 	// subscribe to the chain logs/events and start the workers
-	cWatcher.Subscribe(&queueEvents)
-	// old type (while migrating to new snode.Node type (will be renamed from snode to node after))
-	// nodes := cWatcher.GetNodesAsGBNodeCollection()
+	go cWatcher.Subscribe(&queueEvents)
 
 	// websockets server
 	if viper.GetBool("server.websockets.enabled") {
@@ -315,7 +313,7 @@ func live(_ *cobra.Command, _ []string) {
 		}()
 	}
 
-	QueueStatsLive(&queueEvents, queueLogs, queueListings, &queueOutput, &queueOutWS)
+	go QueueStatsLive(&queueEvents, queueLogs, queueListings, &queueOutput, &queueOutWS)
 
 	select {}
 }
