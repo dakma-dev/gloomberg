@@ -2,6 +2,7 @@ package external
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"math/big"
 	"net/http"
@@ -39,13 +40,27 @@ type ERC1155Metadata struct {
 }
 
 func GetERC1155MetadataForURI(url string, tokenID *big.Int) (*ERC1155Metadata, error) {
+	if url == "" {
+		gbl.Log.Debugf("erc1155 metadata url is empty\n")
+		return nil, errors.New("erc1155 metadata url is empty")
+	}
+
 	url = strings.Replace(url, "ipfs://", viper.GetString("ipfs.gateway"), 1)
 	url = strings.Replace(url, "{id}", tokenID.String(), -1)
 
 	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
 
-	client, _ := newClient()
-	request, _ := http.NewRequest("GET", url, nil)
+	client, err := newClient()
+	if err != nil {
+		gbl.Log.Errorf("error creating http client: %+v", err)
+		return nil, err
+	}
+
+	request, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		gbl.Log.Errorf("error creating erc1155 metadata request: %+v", err)
+		return nil, err
+	}
 
 	response, err := client.Do(request)
 	if err != nil {
