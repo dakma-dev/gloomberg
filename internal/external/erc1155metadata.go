@@ -42,7 +42,7 @@ func GetERC1155MetadataForURI(url string, tokenID *big.Int) (*ERC1155Metadata, e
 	url = strings.Replace(url, "ipfs://", viper.GetString("ipfs.gateway"), 1)
 	url = strings.Replace(url, "{id}", tokenID.String(), -1)
 
-	gbl.Log.Infof("erc1155 metadata url: %+v", url)
+	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
 
 	client, _ := newClient()
 	request, _ := http.NewRequest("GET", url, nil)
@@ -50,9 +50,9 @@ func GetERC1155MetadataForURI(url string, tokenID *big.Int) (*ERC1155Metadata, e
 	response, err := client.Do(request)
 	if err != nil {
 		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())
+			gbl.Log.Debugf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())
 		} else {
-			gbl.Log.Errorf("❌ erc1155 metadata error: %+v", err.Error())
+			gbl.Log.Warnf("❌ erc1155 metadata error: %+v", err.Error())
 		}
 
 		return nil, err
