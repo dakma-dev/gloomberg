@@ -98,94 +98,13 @@ func (cs *ChainWatcher) Subscribe(queueEvents *chan *collections.Event) {
 		if _, err := cNode.SubscribeToSingleTransfers(*cs.queueLogs); err != nil {
 			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: %s", cNode.WebsocketsEndpoint, err)
 		}
-	}
 
-	// create a defined number of workers/handlers per cNode to receive and process incoming events/logs
-	for _, cNode := range cs.Nodes {
+		// create a defined number of workers/handlers per cNode to receive and process incoming events/logs
 		for workerID := 1; workerID <= viper.GetInt("server.workers.subscription_logs"); workerID++ {
 			go subscribe.WorkerLogsQueue(workerID, cNode, cs.Nodes, cs.OwnCollections, cs.queueLogs, cs.queueEvents, cs.queueOutWS)
 		}
 	}
 }
-
-// func GetNodes() map[string][]*snode.Node {
-// 	nodesOnline := make([]*snode.Node, 0)
-// 	nodesOffline := make([]*snode.Node, 0)
-
-// 	nodesSpinner := style.GetSpinner("setting up node connections...")
-// 	_ = nodesSpinner.Start()
-
-// 	for idx, ep := range viper.Get("endpoints").([]interface{}) {
-// 		config := make(map[string]string, 0)
-
-// 		switch nodeConfig := ep.(type) {
-// 		case string:
-// 			config["endpoint"] = nodeConfig
-
-// 		case map[string]interface{}:
-// 			for k, v := range nodeConfig {
-// 				config[k] = v.(string)
-// 			}
-// 		}
-
-// 		if config["marker"] == "" {
-// 			config["marker"] = fmt.Sprint(" ", idx)
-// 		}
-
-// 		if config["color"] != "" {
-// 			config["marker"] = lipgloss.NewStyle().Foreground(lipgloss.Color(config["color"])).Render(config["marker"])
-// 		}
-
-// 		if config["name"] == "" {
-// 			config["name"] = fmt.Sprint("node", idx)
-// 		}
-
-// 		if config["endpoint"] == "" {
-// 			fmt.Printf("endpoint missin config: %+v\n\n", config)
-// 			continue
-// 		}
-
-// 		node, err := snode.New(idx, config["name"], config["marker"], config["endpoint"])
-
-// 		if err == nil {
-// 			nodesOnline = append(nodesOnline, node)
-
-// 			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
-// 		} else {
-// 			nodesOffline = append(nodesOffline, node)
-
-// 			gbl.Log.Warnf("❌ failed to connect to %s | %s:", config["name"], config["endpoint"])
-// 			gbl.Log.Warnf("%s %s", style.PinkBoldStyle.PaddingLeft(3).Render("→"), err)
-// 		}
-// 	}
-
-// 	numOnlineNodes := len(nodesOnline)
-
-// 	if numOnlineNodes == 0 {
-// 		gbl.Log.Error("No node providers found")
-
-// 		nodesSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render("no node providers found")))
-// 		_ = nodesSpinner.Stop()
-
-// 		os.Exit(1)
-// 	}
-
-// 	nodeNames := make([]string, 0)
-// 	for _, node := range nodesOnline {
-// 		nodeNames = append(nodeNames, style.BoldStyle.Render(node.Name))
-// 	}
-
-// 	nodesSpinner.StopMessage(
-// 		fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(numOnlineNodes)), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
-// 	)
-
-// 	_ = nodesSpinner.Stop()
-
-// 	return map[string][]*snode.Node{
-// 		"online":  nodesOnline,
-// 		"offline": nodesOffline,
-// 	}
-// }
 
 func GetNodes() map[string][]*node.Node {
 	nodesOnline := make([]*node.Node, 0)

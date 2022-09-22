@@ -40,9 +40,9 @@ func createHTTPClient() (*http.Client, error) {
 	transport := &http.Transport{
 		MaxIdleConnsPerHost:   25,
 		TLSClientConfig:       tlsConfig,
-		IdleConnTimeout:       20 * time.Second,
-		ResponseHeaderTimeout: 5 * time.Second,
-		TLSHandshakeTimeout:   3 * time.Second,
+		IdleConnTimeout:       17 * time.Second,
+		ResponseHeaderTimeout: 7 * time.Second,
+		TLSHandshakeTimeout:   5 * time.Second,
 	}
 
 	// explicitly use http2
@@ -129,7 +129,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 				continue
 			}
 
-			if collection.Stats.AveragePrice <= 0.01 {
+			if collection.Stats.AveragePrice <= 0.001 {
 				continue
 			}
 

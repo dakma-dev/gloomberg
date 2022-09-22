@@ -113,7 +113,7 @@ func init() {
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
-	viper.SetDefault("ticker.gasline", time.Second*13)
+	viper.SetDefault("ticker.gasline", time.Second*17)
 
 	viper.SetDefault("server.websockets.enabled", true)
 
@@ -166,7 +166,7 @@ func live(_ *cobra.Command, _ []string) {
 	// create a new chainserver instance
 	cWatcher = server.New()
 	// subscribe to the chain logs/events and start the workers
-	go cWatcher.Subscribe(&queueEvents)
+	cWatcher.Subscribe(&queueEvents)
 
 	// websockets server
 	if viper.GetBool("server.websockets.enabled") {
@@ -252,6 +252,9 @@ func live(_ *cobra.Command, _ []string) {
 	}
 
 	_ = collectionsSpinner.Stop()
+
+	// subscribe to the chain logs/events and start the workers
+	// cWatcher.Subscribe(&queueEvents)
 
 	//
 	// specialized subscriptions
