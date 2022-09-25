@@ -62,18 +62,18 @@ func WorkerLogsQueue(workerID int, cNode *node.Node, rawNodes []*node.Node, ownC
 
 		// erc721 has 0-3, (erc1155 has topics 2?), erc20 has topics 0-2
 		if len(subLog.Topics) != 4 {
-			gbl.Log.Debugf("DiscardedOtherERC| %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Debugf("🗑️ len(subLog.Topics) != 4 -> %v | %v | TxHash: %v / %d | %+v\n", len(subLog.Topics) != 4, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
 
 		go parseTransferLog(cNode, &cNodes, ownCollections, subLog, queueEvents, queueOutWS)
 
-		if totalNumReceived%1000 == 0 {
-			// for _, node := range nodes {
-			// 	gbl.Log.Infof("received logs %s: %d | %s", node.Name, node.NumLogsReceived, time.Unix(0, node.LastLogReceived).Format("15:04:05.000000000"))
-			// }
-			gbl.Log.Infof("  > received: %d | queueLogs: %d | queueEvents: %d | queueOutWS: %d <", totalNumReceived, len(*queueLogs), len(*queueEvents), len(*queueOutWS))
-		}
+		// if totalNumReceived%1000 == 0 {
+		// 	// for _, node := range nodes {
+		// 	// 	gbl.Log.Infof("received logs %s: %d | %s", node.Name, node.NumLogsReceived, time.Unix(0, node.LastLogReceived).Format("15:04:05.000000000"))
+		// 	// }
+		// 	gbl.Log.Infof("  > received: %d | queueLogs: %d | queueEvents: %d | queueOutWS: %d <", totalNumReceived, len(*queueLogs), len(*queueEvents), len(*queueOutWS))
+		// }
 	}
 }
 
@@ -82,10 +82,13 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 	var transco *TransactionCollector
 
 	mu.Lock()
+	// check if we already have a collector for this tx
 	if tc := transactionCollectors[subLog.TxHash]; tc != nil {
-		transco = tc
-		transco.AddLog(&subLog)
+		// if we have a collector, we can add this log/logindex to the collector
+		tc.AddLog(&subLog)
 		mu.Unlock()
+
+		gbl.Log.Debugf("🗑️ tc -> %v | %v | TxHash: %v / %d | %+v\n", tc, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 		return
 	}
@@ -107,8 +110,10 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 		if lidx == logIndex {
 			mu.Unlock()
 
-			// if we know the tx (from another node provider or ...) we don't need to do anything
-			gbl.Log.Warnf("discarded already known tx: %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			// // if we know the tx (from another node provider or ...) we don't need to do anything
+			// gbl.Log.Warnf("discarded already known tx: %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+
+			gbl.Log.Warnf("🗑️ idx == logIndex -> %v | %v | TxHash: %v / %d | %+v\n", lidx == logIndex, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 			return
 		}
@@ -151,7 +156,8 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 
 		if collection == nil {
 			// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
-			gbl.Log.Warnf("discarded unknown collection: %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			// gbl.Log.Warnf("discarded unknown collection: %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Warnf("🗑️ collection is nil | ownCollections.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d | %+v\n", ownCollections.UserCollections[subLog.Address], subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 			return
 		}
@@ -176,7 +182,7 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 		// mint
 		if !showMints && !collection.Show.Mints {
 			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
-			gbl.Log.Debugf("‼️ mint not shown %v | TxHash: %v / %d | %+v\n", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Debugf("🗑️ showMints -> %v | collection.Show.Mints -> %s | %v | TxHash: %v / %d | %+v\n", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 			return
 		}
@@ -188,7 +194,10 @@ func parseTransferLog(cNode *node.Node, cNodes *node.Nodes, ownCollections *coll
 		// get the transaction details
 		tx, _, err := cNodes.GetRandomNode().Client.TransactionByHash(context.Background(), subLog.TxHash)
 		if err != nil {
-			gbl.Log.Warnf("getting tx details failed: %s | %+v", subLog.TxHash.Hex(), err)
+			// gbl.Log.Warnf("getting tx details failed: %s | %+v", subLog.TxHash.Hex(), err)
+
+			gbl.Log.Warnf("🗑️ getting tx details faileds | %v | TxHash: %v / %d | %+v\n", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+
 			// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
 
 			return

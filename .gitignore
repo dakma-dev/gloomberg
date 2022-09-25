@@ -9,3 +9,4 @@ gloomberg
 # misc
 cmd/setOwner.go
 internal/assets
+dev.md

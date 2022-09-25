@@ -3,6 +3,7 @@ package cmd
 import (
 	"net"
 
+	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/server/ws"
 
 	"github.com/benleb/gloomberg/internal/collections"
@@ -53,10 +54,23 @@ func LFG(_ *cobra.Command, _ []string) {
 	// create a queue/channel for events to be sent out via ws
 	queueOutWS := make(chan *collections.Event, 1024)
 
+	queueOutput := make(chan string, 1024)
+
 	// subscribe to the chain logs/events and start the workers
 	cServer.Subscribe(&queueEvents)
 
 	// websockets
 	wsServer := ws.New(viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"), &queueOutWS)
 	go wsServer.Start()
+
+	//
+	// format events and print them to stdout
+	for outputWorkerID := 1; outputWorkerID <= viper.GetInt("workers.output"); outputWorkerID++ {
+		// format events from queueEvents in a pretty way for terminal (and later other "outputs")
+		go workerEventFormatter(outputWorkerID, &cServer.Nodes, &wallet.Wallets{}, &queueEvents, &queueOutput, &queueOutWS)
+		// // print formatted events to stdout
+		// go workerOutput(outputWorkerID, &queueOutput)
+	}
+
+	select {}
 }

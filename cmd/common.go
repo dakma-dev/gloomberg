@@ -631,7 +631,7 @@ func formatEvent(g *gocui.Gui, event *collections.Event, nodes *node.Nodes, wall
 	}
 
 	// send to websockets output
-	if cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
+	if cWatcher != nil && cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
 		*queueOutWS <- event
 	}
 
