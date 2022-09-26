@@ -2,6 +2,13 @@
 
 *no support, sorry! you have to know how to use this code yourself. issues closed, PRs open (ping me if you want to contribute)*
 
+## random screenshots
+
+<p><img title="screenshot 22/09/26" width="480" alt="image" src="https://user-images.githubusercontent.com/512997/192209465-edb95aeb-be2f-419f-b4d1-84da3f35e97e.png">
+<img title="screenshot 22/09/26" align="right" width="470" alt="image" src="https://user-images.githubusercontent.com/512997/192209940-538105c5-8552-42ed-bf16-508da83611d0.png"></p>
+
+---
+
 ## requirements
 
 - get your wallet address or ens
