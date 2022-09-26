@@ -4,8 +4,8 @@
 
 ## random screenshots
 
-<p><img title="screenshot 22/09/26" width="480" alt="image" src="https://user-images.githubusercontent.com/512997/192209465-edb95aeb-be2f-419f-b4d1-84da3f35e97e.png">
-<img title="screenshot 22/09/26" align="right" width="470" alt="image" src="https://user-images.githubusercontent.com/512997/192209940-538105c5-8552-42ed-bf16-508da83611d0.png"></p>
+<p><img title="screenshot 22/09/26" width="300" alt="image" src="https://user-images.githubusercontent.com/512997/192209465-edb95aeb-be2f-419f-b4d1-84da3f35e97e.png">
+<img title="screenshot 22/09/26" align="right" width="280" alt="image" src="https://user-images.githubusercontent.com/512997/192209940-538105c5-8552-42ed-bf16-508da83611d0.png"></p>
 
 ---
 
