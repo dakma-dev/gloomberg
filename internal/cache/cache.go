@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
@@ -162,7 +162,7 @@ func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) s
 	return "", errors.New("name not found in cache")
 }
 
-func CacheENSName(walletAddress common.Address, ensName string) {
+func StoreENSName(walletAddress common.Address, ensName string) {
 	c := New()
 	c.cacheName(walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
 }

@@ -1,4 +1,4 @@
-package etherscan
+package external
 
 import (
 	"bytes"
@@ -15,8 +15,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models/wallet"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"

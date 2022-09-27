@@ -5,19 +5,20 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/nshafer/phx"
 )
 
 type StreamEventType string
 
 const (
-	Listed        StreamEventType = "item_listed"
-	ReceivedOffer StreamEventType = "item_received_offer"
+	Listed          StreamEventType = "item_listed"
+	ReceivedOffer   StreamEventType = "item_received_offer"
+	ReceivedBid     StreamEventType = "item_received_bid"
+	MetadataUpdated StreamEventType = "item_metadata_updated"
 
 	// Sold            StreamEventType = "item_sold"
 	// Transferred     StreamEventType = "item_transferred"
-	// ReceivedBid     StreamEventType = "item_received_bid"
 	// Cancelled       StreamEventType = "item_cancelle".
 )
 
@@ -160,17 +161,17 @@ func (s *StreamClient) OnItemListed(collectionSlug string, eventHandler func(ite
 // 	s.on(Cancelled, collectionSlug, eventHandler)
 // }
 
-// func (s StreamClient) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
-// 	s.on(ReceivedBid, collectionSlug, eventHandler)
-// }
+func (s StreamClient) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
+	s.on(ReceivedBid, collectionSlug, eventHandler)
+}
 
 func (s *StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
 	s.on(ReceivedOffer, collectionSlug, eventHandler)
 }
 
-// func (s StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
-// 	s.on(MetadataUpdated, collectionSlug, eventHandler)
-// }
+func (s StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
+	s.on(MetadataUpdated, collectionSlug, eventHandler)
+}
 
 // func SubscribeToCollectionSlugs(apiToken string, slugs []string, eventHandler func(itemListedEvent any)) {
 //	if client := NewStreamClient(apiToken, func(err error) {
@@ -182,7 +183,7 @@ func (s *StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler f
 //	}
 //}
 
-func SubscribeToCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
+func SubscribeToListingsForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
 	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
 
 	if client != nil || streamClient != nil {
@@ -207,24 +208,31 @@ func SubscribeToCollectionSlug(client *StreamClient, slug string, eventHandler f
 	}
 }
 
-//// EtherToWei from https://github.com/ethereum/go-ethereum/issues/21221#issuecomment-802092592
-// func EtherToWei(eth *big.Float) *big.Int {
-//	truncInt, _ := eth.Int(nil)
-//	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-//	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
-//	fracStr += strings.Repeat("0", 18-len(fracStr))
-//	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-//	wei := new(big.Int).Add(truncInt, fracInt)
-//
-//	return wei
-//}
+func SubscribeToEverythingForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
+	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
 
-//// ParseBigFloat parse string value to big.Float.
-// func ParseBigFloat(value string) (*big.Float, error) {
-//	f := new(big.Float)
-//	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-//	f.SetMode(big.ToNearestEven)
-//	_, err := fmt.Sscan(value, f)
-//
-//	return f, err
-//}
+	if client != nil || streamClient != nil {
+		if client == nil {
+			client = streamClient
+		}
+
+		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
+
+		if eventHandler != nil || client.eventHandler != nil {
+			if eventHandler == nil {
+				eventHandler = client.eventHandler
+			} else {
+				client.eventHandler = eventHandler
+			}
+
+			client.OnItemReceivedBid(slug, eventHandler)
+			gbl.Log.Infof("subscribed to bids for: %s", slug)
+
+			client.OnItemReceivedOffer(slug, eventHandler)
+			gbl.Log.Infof("subscribed to offers for: %s", slug)
+
+			client.OnItemMetadataUpdated(slug, eventHandler)
+			gbl.Log.Infof("subscribed to metadata updates for: %s", slug)
+		}
+	}
+}

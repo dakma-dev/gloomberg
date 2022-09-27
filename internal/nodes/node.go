@@ -1,4 +1,4 @@
-package node
+package nodes
 
 import (
 	"bytes"
@@ -14,9 +14,10 @@ import (
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/external"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/topic"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,18 +32,16 @@ import (
 
 // Node represents a w3 provider configuration.
 type Node struct {
-	NodeID             int    `mapstructure:"id"`
-	Name               string `mapstructure:"name"`
-	Marker             string `mapstructure:"marker"`
+	NodeID             int            `mapstructure:"id"`
+	Name               string         `mapstructure:"name"`
+	Color              lipgloss.Color `mapstructure:"color"`
+	Marker             string         `mapstructure:"marker"`
+	WebsocketsEndpoint string         `mapstructure:"endpoint"`
+	LocalNode          bool           `mapstructure:"local"`
 	Client             *ethclient.Client
 	ClientGeth         *gethclient.Client
-	WebsocketsEndpoint string     `mapstructure:"endpoint"`
-	ReceivedMessages   uint64     `mapstructure:"received_messages"`
-	KillTimer          time.Timer `mapstructure:"kill_timer"`
-	Error              error      `mapstructure:"error"`
 	NumLogsReceived    uint64
 	LastLogReceived    int64
-	LocalNode          bool
 }
 
 type GasInfo struct {
@@ -53,49 +52,44 @@ type GasInfo struct {
 }
 
 // New returns a new gbnode if connection to the given endpoint succeeds.
-func New(nodeID int, name string, marker string, endpoint string, localNode bool) (*Node, error) {
-	rpcClient, err := rpc.DialContext(context.Background(), endpoint)
+func (n *Node) Connect() error {
+	var err error
+
+	rpcClient, err := rpc.DialContext(context.Background(), n.WebsocketsEndpoint)
 	if err != nil {
-		return nil, err
+		gbl.Log.Warnf("Failed to connect to node %s: %s", n.Name, err)
+		return err
 	}
 
 	ethClient := ethclient.NewClient(rpcClient)
-	// if err != nil {
-	// 	gbl.Log.Warnf("Failed to connect to the Ethereum node: %s", err)
-	// }
-
-	var gethClient *gethclient.Client
-	if nodeID == 0 {
-		gethClient = gethclient.New(rpcClient)
+	if ethClient == nil {
+		gbl.Log.Warnf("Failed to start eth client for node %s: %s", n.Name, err)
 	}
 
-	return &Node{
-		NodeID:             nodeID,
-		Name:               name,
-		Marker:             marker,
-		Client:             ethClient,
-		ClientGeth:         gethClient,
-		WebsocketsEndpoint: endpoint,
-		Error:              err,
-		LocalNode:          localNode,
-	}, err
+	n.Client = ethClient
+
+	if n.LocalNode {
+		n.ClientGeth = gethclient.New(rpcClient)
+	}
+
+	return err
 }
 
 // GetCurrentGasInfo returns the current gas price and tip
-func (p Node) GetCurrentGasInfo() (*GasInfo, error) {
+func (n Node) GetCurrentGasInfo() (*GasInfo, error) {
 	ctx := context.Background()
 
-	block, err := p.Client.BlockByNumber(ctx, nil)
+	block, err := n.Client.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	gasPrice, err := p.Client.SuggestGasPrice(ctx)
+	gasPrice, err := n.Client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	gasTip, err := p.Client.SuggestGasTipCap(ctx)
+	gasTip, err := n.Client.SuggestGasTipCap(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -108,52 +102,35 @@ func (p Node) GetCurrentGasInfo() (*GasInfo, error) {
 	}, nil
 }
 
-// // gas price
-// if gasNode := sNodes.GetRandomGasNode(); gasNode != nil {
-// 	if gasPrice, err := gasNode.Client.SuggestGasPrice(context.Background()); err != nil {
-// 		gbl.Log.Error(err)
-// 	} else {
-// 		gasPriceGwei, _ := weiToGwei(gasPrice).Float64()
-// 		out.WriteString("  | " + style.GrayStyle.Render(fmt.Sprintf("⛽️ %.1f", gasPriceGwei)))
-// 	}
-
-// 	if gasTip, err := gasNode.Client.SuggestGasTipCap(context.Background()); err != nil {
-// 		gbl.Log.Error(err)
-// 	} else {
-// 		gasTipGwei, _ := weiToGwei(gasTip).Uint64()
-// 		out.WriteString(style.GrayStyle.Render(fmt.Sprintf(" / %d", gasTipGwei)))
-// 	}
-// }
-
-func (p Node) SubscribeToPendingTransactions(queueLogs chan<- common.Hash) (ethereum.Subscription, error) {
-	return p.ClientGeth.SubscribePendingTransactions(context.Background(), queueLogs)
+func (n Node) SubscribeToPendingTransactions(queueLogs chan<- common.Hash) (ethereum.Subscription, error) {
+	return n.ClientGeth.SubscribePendingTransactions(context.Background(), queueLogs)
 }
 
-func (p Node) SubscribeToContract(queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, nil, []common.Address{contractAddress})
+func (n Node) SubscribeToContract(queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, nil, []common.Address{contractAddress})
 }
 
-func (p Node) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, nil)
+func (n Node) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, nil)
 }
 
-func (p Node) SubscribeToSingleTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, nil)
+func (n Node) SubscribeToSingleTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, nil)
 }
 
-func (p Node) SubscribeToTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, contractAddresses)
+func (n Node) SubscribeToTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, contractAddresses)
 }
 
-func (p Node) SubscribeToSingleTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, contractAddresses)
+func (n Node) SubscribeToSingleTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, contractAddresses)
 }
 
-func (p Node) SubscribeToOrdersMatched(queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.OrdersMatched))}}, nil)
+func (n Node) SubscribeToOrdersMatched(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.OrdersMatched))}}, nil)
 }
 
-func (p Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (n Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	ctx := context.Background()
 
 	if topics == nil && contractAddresses == nil {
@@ -165,13 +142,13 @@ func (p Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, cont
 		Topics:    topics,
 	}
 
-	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
+	return n.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (p Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	//
 	// ERC1155
-	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
+	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
 	if err != nil {
 		gbl.Log.Error(err)
 
@@ -206,9 +183,9 @@ func (p Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.I
 	return "", errors.New("could not find collection name")
 }
 
-func (p Node) GetCollectionName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n Node) GetERC721CollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABI
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
 	if err != nil {
 		gbl.Log.Error(err)
 
@@ -224,11 +201,11 @@ func (p Node) GetCollectionName(contractAddress common.Address, tokenID *big.Int
 	return "", nil
 }
 
-func (p Node) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
+func (n Node) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
 	collectionMetadata := make(map[string]interface{}, 0)
 
 	// get the contractERC721 ABIs
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
 	if err != nil {
 		gbl.Log.Error(err)
 	}
@@ -262,7 +239,7 @@ func (p Node) GetCollectionMetadata(contractAddress common.Address) map[string]i
 	return collectionMetadata
 }
 
-func (p Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
+func (n Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
 	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
 
 	client, _ := createMetadataHTTPClient()
@@ -307,17 +284,17 @@ func (p Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) 
 	return tokenMetadata, nil
 }
 
-func (p Node) GetTokenImageURI(contractAddress common.Address, tokenID uint64) (string, error) {
+func (n Node) GetTokenImageURI(contractAddress common.Address, tokenID uint64) (string, error) {
 	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
 
-	tokenURI, err := p.GetTokenURI(contractAddress, big.NewInt(int64(tokenID)))
+	tokenURI, err := n.GetTokenURI(contractAddress, big.NewInt(int64(tokenID)))
 	if err != nil {
 		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
 
 		return "", err
 	}
 
-	metadata, err := p.GetTokenMetadata(tokenURI)
+	metadata, err := n.GetTokenMetadata(tokenURI)
 	if err != nil || metadata == nil {
 		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
 
@@ -329,11 +306,11 @@ func (p Node) GetTokenImageURI(contractAddress common.Address, tokenID uint64) (
 	return replaceSchemeWithGateway(metadata.Image, viper.GetString("ipfs.gateway")), nil
 }
 
-func (p Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	gbl.Log.Infof("GetTokenURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
 
 	// get the contractERC721 ABIs
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
 	if err != nil {
 		gbl.Log.Error(err)
 

@@ -1,20 +1,12 @@
-package cmd
+package output
 
 import (
-	"bytes"
-	"crypto/tls"
-	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"github.com/awesome-gocui/gocui"
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
@@ -32,174 +24,27 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
 )
 
-var (
-	Version string
-
-	// BuildDate string
-	// BuiltBy   string.
-
-	apiKeyMoralis string
-
-	// queuePending  = make(chan common.Hash, 1024)
-
-	// queueEvents = make(chan *collections.Event, 1024)
-	queueOutput = make(chan string, 1024)
-
-	stats *ticker.Stats
-
-	// logQueues = make(map[int]*chan types.Log, 0)
-)
-
-type ResponseOwner struct {
-	Status   string   `json:"status"`
-	Total    int      `json:"total"`
-	Page     int      `json:"page"`
-	PageSize int      `json:"page_size"`
-	Cursor   string   `json:"cursor"`
-	Result   []*Owner `json:"result"`
-}
-
-type Owner struct {
-	TokenAddress      string    `json:"token_address"`
-	TokenID           string    `json:"token_id"`
-	ContractType      string    `json:"contract_type"`
-	OwnerOf           string    `json:"owner_of"`
-	BlockNumber       string    `json:"block_number"`
-	BlockNumberMinted string    `json:"block_number_minted"`
-	TokenURI          string    `json:"token_uri"`
-	Metadata          string    `json:"metadata"`
-	Amount            string    `json:"amount"`
-	Name              string    `json:"name"`
-	Symbol            string    `json:"symbol"`
-	TokenHash         string    `json:"token_hash"`
-	LastTokenURISync  time.Time `json:"last_token_uri_sync"`
-	LastMetadataSync  time.Time `json:"last_metadata_sync"`
-}
-
-// func getNodes() *gbnode.Nodes {
-// 	nodesSpinner := style.GetSpinner("setting up nodes connections...")
-// 	_ = nodesSpinner.Start()
-
-// 	// var nodes *gbnode.Nodes
-
-// 	var nodes, nodesOnline gbnode.Nodes
-
-// 	for idx, ep := range viper.Get("endpoints").([]interface{}) {
-// 		config := make(map[string]string, 0)
-
-// 		switch nodeConfig := ep.(type) {
-// 		case string:
-// 			config["endpoint"] = nodeConfig
-
-// 		case map[string]interface{}:
-// 			for k, v := range nodeConfig {
-// 				config[k] = v.(string)
-// 			}
-// 		}
-
-// 		if config["marker"] == "" {
-// 			config["marker"] = fmt.Sprint(" ", idx)
-// 		}
-
-// 		if config["color"] != "" {
-// 			config["marker"] = lipgloss.NewStyle().Foreground(lipgloss.Color(config["color"])).Render(config["marker"])
-// 		}
-
-// 		if config["name"] == "" {
-// 			config["name"] = fmt.Sprint("nodes", idx)
-// 		}
-
-// 		if config["endpoint"] == "" {
-// 			fmt.Printf("endpoint missin config: %+v\n\n", config)
-// 			continue
-// 		}
-
-// 		nodes, err := gbnode.New(idx, config["name"], config["marker"], config["endpoint"])
-
-// 		if err != nil {
-// 			gbl.Log.Warnf("❌ failed to connect to %s | %s:", config["name"], config["endpoint"])
-// 			gbl.Log.Warnf("%s %s", style.PinkBoldStyle.PaddingLeft(3).Render("→"), err)
-// 		} else {
-// 			gbl.Log.Infof("✅ successfully connected to %s", style.BoldStyle.Render(config["endpoint"]))
-
-// 			newNodes[idx] = nodes
-// 		}
-
-// 		nodes = append(nodes, nodes)
-// 	}
-
-// 	numNodes := len(nodes.GetNodes())
-
-// 	// stop spinner
-// 	stopMsg := strings.Builder{}
-// 	stopMsg.WriteString(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(numNodes)), " nodes connected\n"))
-
-// 	for _, nodes := range nodes {
-// 		nodeName := nodes.WebsocketsEndpoint
-
-// 		if nodes.Name != "" {
-// 			nodeName = nodes.Name + " " + style.LightGrayStyle.Render(nodes.WebsocketsEndpoint)
-// 		}
-
-// 		nodeStyle := style.BoldStyle.Copy().PaddingLeft(2)
-// 		// if nodes.Error != nil {
-// 		// if nodes != nil && nodes.Error == "" {
-// 		if nodes.Error == nil {
-// 			nodeStyle.Foreground(style.OwnerGreen)
-
-// 			nodesOnline = append(nodesOnline, nodes)
-// 		} else {
-// 			nodeStyle.Foreground(style.Pink)
-// 		}
-
-// 		stopMsg.WriteString(fmt.Sprintf("%s %s\n", nodeStyle.Render("→"), nodeName))
-// 	}
-
-// 	nodesSpinner.StopMessage(stopMsg.String())
-// 	_ = nodesSpinner.Stop()
-
-// 	if numNodes == 0 {
-// 		gbl.Log.Fatal("No nodes providers found")
-// 	}
-
-// 	return &nodesOnline
-// }
-
-// func getWallets(nodes *nodes.Nodes) *wallet.Wallets {
-// 	// set up spinner
-// 	walletSpinner := style.GetSpinner("setting up wallets...")
-// 	_ = walletSpinner.Start()
-
-// 	wallets := config.GetWalletsFromConfig(viper.GetStringSlice("wallets"), nodes)
-
-// 	// stop spinner
-// 	if len(*wallets) > 0 {
-// 		walletSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(*wallets))), " wallets: ", strings.Join(wallets.FormattedNames(), ", ")) + "\n")
-// 		_ = walletSpinner.Stop()
-// 	} else {
-// 		_ = walletSpinner.StopFail()
-// 	}
-
-// 	return wallets
-// }
-
-func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, wallets *wallet.Wallets, outputLines *chan string, queueOutWS *chan *collections.Event) {
-	eventWithStyle := &collections.EventWithStyle{}
-
+func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
+
+	var (
+		priceStyle      lipgloss.Style
+		priceArrowColor lipgloss.Color
+	)
+
+	eventWithStyle := &collections.EventWithStyle{}
 
 	isMint := event.EventType == collections.Mint
 	isMintOrTransfer := event.EventType == collections.Mint || event.EventType == collections.Transfer
 	isSaleOrMint := event.EventType == collections.Sale || event.EventType == collections.Purchase || event.EventType == collections.Mint
 	isMultiItemTx := event.TxItemCount > 1
 
-	var (
-		priceStyle      lipgloss.Style
-		priceArrowColor lipgloss.Color
-	)
+	// var (
+	// 	priceStyle      lipgloss.Style
+	// 	priceArrowColor lipgloss.Color
+	// )
 
 	var pricePerItem *big.Int
 	if event.EventType == collections.Sale && isMultiItemTx {
@@ -214,13 +59,13 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 	event.CollectionColor = event.Collection.Colors.Primary
 
 	// format price in ether
-	priceEther := nodes.WeiToEther(event.PriceWei)
-	priceEtherPerItem := nodes.WeiToEther(pricePerItem)
+	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
+	priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
 
 	var previousMovingAverage, currentMovingAverage float64
 
 	if event.EventType == collections.Sale {
-		if wallets.Contains(event.To.Address) {
+		if ownWallets.Contains(event.To.Address) {
 			event.EventType = collections.Purchase
 		}
 
@@ -230,11 +75,10 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 
 		// get a color with saturation depending on the tx price
 		priceStyle = style.DarkWhiteStyle
-		fPriceEther, _ := priceEther.Float64()
-		priceArrowColor = style.GetPriceShadeColor(fPriceEther)
+		priceArrowColor = style.GetPriceShadeColor(priceEther)
 
 		eventWithStyle.PriceEtherColor = "#DDDDDD"
-		eventWithStyle.PriceArrowColor = style.GetPriceShadeColor(fPriceEther)
+		eventWithStyle.PriceArrowColor = style.GetPriceShadeColor(priceEther)
 	} else {
 		// if this is a mint/transfer/listing, we don't touch the moving average
 		currentMovingAverage = event.Collection.ArtificialFloor.Value()
@@ -273,9 +117,9 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
 	isOwnCollection := event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration
-	ownWalletInvolved := wallets.Contains(event.From.Address) || wallets.Contains(event.To.Address)
+	ownWalletInvolved := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
 	wwatcherWalletInvolved := wwatcher.Recipients.Contains(event.From.Address) || wwatcher.Recipients.Contains(event.To.Address)
-	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && big.NewFloat(event.Collection.Highlight.ListingsBelowPrice).Cmp(priceEther) > 0
+	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// buyer
 	toStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64()))
@@ -403,13 +247,12 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 	etherscanURL := fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash)
 
 	marker := " "
-	itemPrice, _ := priceEtherPerItem.Float64()
 
 	if listingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
 	} else if isOwnCollection && event.EventType == collections.Sale {
 		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
-		if itemPrice >= viper.GetFloat64("show.min_price") {
+		if priceEtherPerItem >= viper.GetFloat64("show.min_price") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 				eventWithStyle.Marker = "*"
@@ -460,11 +303,10 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 	eventWithStyle.EtherscanURL = etherscanURL
 
 	// price
-	price, _ := priceEther.Float64()
 	if event.EventType == collections.Listing {
-		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", price))))
+		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", priceEther))))
 	} else {
-		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", price)))
+		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", priceEther)))
 	}
 
 	out.WriteString(formattedCurrencySymbol)
@@ -533,7 +375,7 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 
 		gbl.Log.Infof("auto-subscribed to %s after %d sales", event.Collection.Name, event.Collection.Counters.Sales)
 
-		*outputLines <- fmt.Sprintf(
+		queueOutput <- fmt.Sprintf(
 			" %s auto-subscribed to %s after %d sales",
 			style.PinkBoldStyle.Render(">"),
 			event.Collection.Name,
@@ -542,16 +384,16 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 	}
 
 	// counting
-	if stats != nil {
-		if event.EventType == collections.Sale || event.EventType == collections.Purchase {
-			for i := 0; i < int(event.TxItemCount); i++ {
-				go event.Collection.AddSale(event.PriceWei, 1)
-				stats.AddSale(pricePerItem)
-			}
-		} else if event.EventType == collections.Mint {
-			go event.Collection.AddMint()
-		}
-	}
+	// if stats != nil {
+	// 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
+	// 		for i := 0; i < int(event.TxItemCount); i++ {
+	// 			go event.Collection.AddSale(event.PriceWei, 1)
+	// 			stats.AddSale(pricePerItem)
+	// 		}
+	// 	} else if event.EventType == collections.Mint {
+	// 		go event.Collection.AddMint()
+	// 	}
+	// }
 
 	// sales/listings count & salira
 	eventWithStyle.ListingsCount = event.Collection.Counters.Listings
@@ -583,8 +425,7 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 			salira := fmt.Sprint(
 				style.CreateTrendIndicator(previousMASaLiRa, currentMASaLiRa),
 				saLiRaStyle.Render(fmt.Sprintf("%5.3f", currentMASaLiRa)),
-				// style.DarkGrayStyle.Render("slr"),
-				event.Collection.Style().Copy().Faint(true).Render("slr"),
+				style.DarkGrayStyle.Render("slr"),
 			)
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
 		}
@@ -608,39 +449,13 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 		out.WriteString(outputLine)
 	}
 
-	if g != nil {
-		// print to tui
-		gbl.Log.Debugf("updating gui now... %p", g)
+	// print to terminal
+	queueOutput <- out.String()
 
-		g.UpdateAsync(func(g *gocui.Gui) error {
-			streamView, err := g.View("main")
-			if err != nil {
-				gbl.Log.Errorf("error getting streamView: %+v", err.Error())
-
-				return err
-			}
-
-			gbl.Log.Warnf("streamView: %p", streamView)
-
-			if _, err = streamView.Write([]byte(out.String() + "\n")); err != nil {
-				gbl.Log.Errorf("error writing streamView: %+v", err.Error())
-
-				return err
-			}
-
-			return nil
-		})
-
-		gbl.Log.Debugf("...done %p\n", g)
-	} else {
-		// print to terminal
-		*outputLines <- out.String()
-	}
-
-	// send to websockets output
-	if cWatcher != nil && cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
-		*queueOutWS <- event
-	}
+	// // send to websockets output
+	// if cWatcher != nil && cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
+	// 	*queueOutWS <- event
+	// }
 
 	// telegram notification
 	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("telegram.enabled") { // && notifications.TgBot != nil {
@@ -703,84 +518,4 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 			}
 		}()
 	}
-}
-
-func getOwnerPage(client *http.Client, apiToken string, contractAddress common.Address, tokenID int, cursor string) (*ResponseOwner, error) {
-	var responseOwner *ResponseOwner
-
-	var token string
-	if tokenID == -1 {
-		token = ""
-	} else {
-		token = "/" + strconv.Itoa(tokenID)
-	}
-
-	url := fmt.Sprintf("https://deep-index.moralis.io/api/v2/nft/%s%s/owners?chain=eth&format=decimal&marketplace=opensea", contractAddress.String(), token)
-
-	if cursor != "" {
-		url = fmt.Sprintf("%s&cursor=%s", url, cursor)
-	}
-
-	request, _ := createMoralisGetRequest(url, apiToken)
-
-	response, err := client.Do(request)
-	if err != nil {
-		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
-		} else {
-			gbl.Log.Errorf("❌ gas oracle error: %+v", err.Error())
-		}
-
-		return responseOwner, err
-	}
-	defer response.Body.Close()
-
-	responseBody, _ := io.ReadAll(response.Body)
-
-	// validate the data
-	if !json.Valid(responseBody) {
-		gbl.Log.Errorf("❌ invalid json: %+v\n\n", string(responseBody))
-		return responseOwner, errors.New("invalid json")
-	}
-
-	// decode the data
-	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&responseOwner); err != nil {
-		gbl.Log.Errorf("❌ error decoding json: %+v", err.Error())
-		return responseOwner, err
-	}
-
-	return responseOwner, nil
-}
-
-func createMoralisHTTPClient() (*http.Client, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-
-	transport := &http.Transport{
-		TLSClientConfig:     tlsConfig,
-		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     5 * time.Second,
-	}
-
-	// explicitly use http2
-	_ = http2.ConfigureTransport(transport)
-
-	client := &http.Client{
-		Timeout:   15 * time.Second,
-		Transport: transport,
-	}
-
-	return client, nil
-}
-
-func createMoralisGetRequest(url string, apiToken string) (*http.Request, error) {
-	request, _ := http.NewRequest("GET", url, nil)
-
-	headers := http.Header{}
-	headers.Add("Accept", "application/json")
-	headers.Add("Cache-Control", "no-cache")
-	headers.Add("X-API-Key", apiToken)
-
-	request.Header = headers
-
-	return request, nil
 }

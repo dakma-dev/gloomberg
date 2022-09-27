@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"

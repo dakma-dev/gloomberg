@@ -9,7 +9,8 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type ENSMetadataAttribute struct {
@@ -35,6 +36,8 @@ const (
 	ensMetadataAPI     = "https://metadata.ens.domains"
 	ensContractAddress = "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85"
 )
+
+var ENSContract = common.HexToAddress(ensContractAddress)
 
 func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 	if tokenID == nil {

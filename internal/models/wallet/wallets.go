@@ -5,7 +5,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type Wallets map[common.Address]*Wallet
+type (
+	Wallets     map[common.Address]*Wallet
+	WalletGroup []*Wallet
+)
+
+// type WalletGroup struct {
+// 	Name             string    `mapstructure:"name"`
+// 	TelegramUsername string    `mapstructure:"telegram_username"`
+// 	Wallets          []*Wallet `mapstructure:"wallets"`
+// 	Own              bool      `mapstructure:"own"`
+// }
 
 func (ws *Wallets) Addresses() []common.Address {
 	addresses := make([]common.Address, 0)

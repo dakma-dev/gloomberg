@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -60,7 +60,7 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
 	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
 
-	// rpc node
+	// rpc nodes
 	rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
 	_ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
 
@@ -84,7 +84,7 @@ func init() {
 
 	// defaults
 
-	// api keys from node providers & other services
+	// api keys from nodes providers & other services
 	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
 
 	// redis settings

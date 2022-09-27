@@ -4,7 +4,7 @@ import (
 	"regexp"
 	"runtime"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/gen2brain/beeep"
 	"github.com/spf13/viper"
 )

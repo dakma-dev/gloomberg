@@ -164,12 +164,18 @@ type Account struct {
 }
 
 type Trait struct {
-	TraitType   string `mapstructure:"trait_type"`
-	Value       string `mapstructure:"value"`
-	DisplayType string `mapstructure:"display_type"`
-	MaxValue    int    `mapstructure:"max_value"`
-	TraitCount  string `mapstructure:"trait_count"`
-	Order       int    `mapstructure:"order"`
+	// TraitType   string `mapstructure:"trait_type"`
+	// Value       string `mapstructure:"value"`
+	// DisplayType string `mapstructure:"display_type"`
+	// MaxValue    int    `mapstructure:"max_value"`
+	// TraitCount  string `mapstructure:"trait_count"`
+	// Order       int    `mapstructure:"order"`
+	TraitType   interface{} `json:"trait_type"`
+	Value       interface{} `json:"value"`
+	DisplayType interface{} `json:"display_type"`
+	MaxValue    interface{} `json:"max_value"`
+	TraitCount  interface{} `json:"trait_count"`
+	Order       interface{} `json:"order"`
 }
 
 type PaymentToken struct {

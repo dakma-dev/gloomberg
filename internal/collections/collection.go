@@ -6,13 +6,13 @@ import (
 	"math/rand"
 	"sync/atomic"
 
-	"github.com/benleb/gloomberg/internal/server/node"
+	"github.com/benleb/gloomberg/internal/nodes"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -48,6 +48,8 @@ type GbCollection struct {
 	// calculated/generated fields
 	//
 
+	OwnedTokenIDs []uint64
+
 	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
 	// Metadata map[string]interface{} `mapstructure:"metadata"`
 
@@ -59,12 +61,12 @@ type GbCollection struct {
 	} `mapstructure:"colors"`
 
 	Counters struct {
-		Sales       uint64   `mapstructure:"sales"`
-		Mints       uint64   `mapstructure:"mints"`
-		Transfers   uint64   `mapstructure:"transfers"`
-		Listings    uint64   `mapstructure:"listings"`
-		SalesVolume *big.Int `mapstructure:"salesVolume"`
-	} `mapstructure:"counters"`
+		Sales       uint64
+		Mints       uint64
+		Transfers   uint64
+		Listings    uint64
+		SalesVolume *big.Int
+	}
 
 	SaLiRa ewma.MovingAverage `mapstructure:"salira"`
 
@@ -79,7 +81,7 @@ type GbCollection struct {
 // // UnmarshalBinary decodes the Collection from a binary format.
 // func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
 
-func NewCollection(contractAddress common.Address, name string, nodes *node.Nodes, source CollectionSource) *GbCollection {
+func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source CollectionSource) *GbCollection {
 	var collectionName string
 
 	gbCache := cache.New()
@@ -93,7 +95,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *node.Node
 			if name != "" {
 				collectionName = name
 			}
-		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress, nil); err == nil {
+		} else if name, err := nodes.GetRandomNode().GetERC721CollectionName(contractAddress); err == nil {
 			gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 			if name != "" {
@@ -113,8 +115,9 @@ func NewCollection(contractAddress common.Address, name string, nodes *node.Node
 		ContractAddress: contractAddress,
 		Name:            collectionName,
 
-		Metadata: &models.CollectionMetadata{},
-		Source:   source,
+		OwnedTokenIDs: []uint64{},
+		Metadata:      &models.CollectionMetadata{},
+		Source:        source,
 
 		ArtificialFloor: ewma.NewMovingAverage(),
 		SaLiRa:          ewma.NewMovingAverage(),

@@ -7,26 +7,27 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/server/node"
-	"github.com/benleb/gloomberg/internal/server/ws"
+	"github.com/benleb/gloomberg/internal/chainwatcher"
+	"github.com/benleb/gloomberg/internal/config"
+	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/ticker"
+	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/benleb/gloomberg/internal/chainwatcher/subscribe"
+	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/opensea"
-	"github.com/benleb/gloomberg/internal/server"
-	"github.com/benleb/gloomberg/internal/server/subscribe"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/wwatcher"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var cWatcher *server.ChainWatcher
+var cWatcher *chainwatcher.ChainWatcher
 
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
@@ -163,10 +164,17 @@ func live(_ *cobra.Command, _ []string) {
 	queueOutWS := make(chan *collections.Event, 1024)
 	queues["outWS"] = &queueOutWS
 
+	// get eth nodes from config file
+	ethNodes := config.GetNodesFromConfig()
+
+	// get wallets from config file
+	// if nodes are provided we will try to (reverse) resolve the ENS name
+	ownWallets := config.GetOwnWalletsFromConfig(ethNodes)
+
 	// create a new chainserver instance
-	cWatcher = server.New()
+	cWatcher = chainwatcher.New(ethNodes)
 	// subscribe to the chain logs/events and start the workers
-	cWatcher.Subscribe(&queueEvents)
+	cWatcher.SubscribeToSales(&queueEvents)
 
 	// websockets server
 	if viper.GetBool("server.websockets.enabled") {
@@ -174,10 +182,6 @@ func live(_ *cobra.Command, _ []string) {
 		wsServer := ws.New(viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"), &queueOutWS)
 		go wsServer.Start()
 	}
-
-	//
-	// initialize wallets
-	wallets := getWallets(&cWatcher.Nodes)
 
 	// gasline ticker
 	var gasTicker *time.Ticker
@@ -193,7 +197,7 @@ func live(_ *cobra.Command, _ []string) {
 
 	//
 	// initialize the statistics
-	stats = ticker.New(gasTicker, wallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
+	stats = ticker.New(gasTicker, ownWallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
 
 	// start status indicator ticker
 	if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
@@ -214,6 +218,12 @@ func live(_ *cobra.Command, _ []string) {
 		_ = miwSpinner.StopFail()
 	}
 
+	// ownAssets := opensea.GetAllAssetCollections(&ownWallets, &cWatcher.Nodes)
+	// for _, asset := range ownAssets {
+	// 	fmt.Printf("%s: %v\n", style.BoldStyle.Render(asset.Name), asset.OwnedTokenIDs)
+	// }
+	// fmt.Printf("ownAssets: %d\n", len(ownAssets))
+
 	//
 	// initialize collections
 	collectionsSpinner := style.GetSpinner("setting up collections...")
@@ -223,7 +233,7 @@ func live(_ *cobra.Command, _ []string) {
 	collectionsSpinner.Message("setting up config collections...")
 
 	// read collections from config and store in ownCollections
-	configCollections := collections.GetCollectionsFromConfiguration(&cWatcher.Nodes)
+	configCollections := config.GetCollectionsFromConfiguration(&cWatcher.Nodes)
 	configCollectionsNumber := len(configCollections)
 	gbl.Log.Infof("collections from config: %d", configCollectionsNumber)
 
@@ -235,7 +245,7 @@ func live(_ *cobra.Command, _ []string) {
 	collectionsSpinner.Message("setting up wallet collections...")
 
 	// read collections hold in wallets from opensea and store in currentCollections
-	walletCollections := opensea.GetWalletCollections(*wallets, cWatcher.OwnCollections, &cWatcher.Nodes)
+	walletCollections := opensea.GetWalletCollections(*ownWallets, cWatcher.OwnCollections, &cWatcher.Nodes)
 
 	for _, collection := range walletCollections {
 		if cWatcher.OwnCollections.UserCollections[collection.ContractAddress] == nil {
@@ -276,7 +286,7 @@ func live(_ *cobra.Command, _ []string) {
 	// format events and print them to stdout
 	for outputWorkerID := 1; outputWorkerID <= viper.GetInt("workers.output"); outputWorkerID++ {
 		// format events from queueEvents in a pretty way for terminal (and later other "outputs")
-		go workerEventFormatter(outputWorkerID, &cWatcher.Nodes, wallets, &queueEvents, &queueOutput, &queueOutWS)
+		go workerEventFormatter(outputWorkerID, &cWatcher.Nodes, ownWallets, &queueEvents, &queueOutput, &queueOutWS)
 
 		// print formatted events to stdout
 		go workerOutput(outputWorkerID, &queueOutput)
@@ -308,8 +318,10 @@ func live(_ *cobra.Command, _ []string) {
 							}
 						}
 
-						opensea.SubscribeToCollectionSlug(client, collection.OpenseaSlug, streamListingsReceiver)
-						time.Sleep(337 * time.Millisecond)
+						opensea.SubscribeToListingsForCollectionSlug(client, collection.OpenseaSlug, streamListingsReceiver)
+						time.Sleep(137 * time.Millisecond)
+						// opensea.SubscribeToEverythingForCollectionSlug(client, collection.OpenseaSlug, streamListingsReceiver)
+						// time.Sleep(337 * time.Millisecond)
 					}
 				}
 			}
@@ -329,7 +341,7 @@ func streamListingsReceiver(response any) {
 		gbl.Log.Error("mapstructure.Decode failed for incoming stream api event", err)
 	}
 
-	gbl.Log.Debugf("%+v", itemListedEvent)
+	gbl.Log.Infof("received event from opensea: %+v", itemListedEvent.BaseStreamMessage.StreamEvent)
 
 	// var queueLising chan *models.ItemListedEvent = queues["listings"].(*chan *models.ItemListedEvent)
 	*queues["listings"].(*chan *models.ItemListedEvent) <- &itemListedEvent
@@ -337,14 +349,26 @@ func streamListingsReceiver(response any) {
 
 // queueEvents -> queues for Output
 // workerEventFormatter formats sale/listing events from queueEvents and pushes them to the queueOutput channel.
-func workerEventFormatter(workerID int, nodes *node.Nodes, wallets *wallet.Wallets, queueEvents *chan *collections.Event, queueOutput *chan string, queueOutWS *chan *collections.Event) {
+func workerEventFormatter(workerID int, nodes *nodes.Nodes, wallets *wallet.Wallets, queueEvents *chan *collections.Event, queueOutput *chan string, queueOutWS *chan *collections.Event) {
 	gbl.Log.Infof("workerEventFormatter %d/%d started", workerID, viper.GetInt("workers.log_handler"))
 
 	for event := range *queueEvents {
 		gbl.Log.Debugf("%d ~ %d | workerEventFormatter event: %v", workerID, len(*queueEvents), event)
 
 		// atomic.AddUint64(&stats.queueEvents, 1)
-		go formatEvent(nil, event, nodes, wallets, queueOutput, queueOutWS)
+		go FormatEvent(nil, event, nodes, wallets, queueOutput, queueOutWS)
+	}
+}
+
+func WorkerTerminalOutputFormatter(workerID int, nodes *nodes.Nodes, wallets *wallet.Wallets, queueEvents *chan *collections.Event, queueOutput *chan string, queueOutWS *chan *collections.Event) {
+	gbl.Log.Infof("workerEventFormatter %d/%d started", workerID, viper.GetInt("workers.log_handler"))
+
+	for event := range *queueEvents {
+		gbl.Log.Debugf("%d ~ %d | workerEventFormatter event: %v", workerID, len(*queueEvents), event)
+
+		// atomic.AddUint64(&stats.queueEvents, 1)
+		dummyOutWs := make(chan *collections.Event)
+		go FormatEvent(nil, event, nodes, wallets, queueOutput, &dummyOutWs)
 	}
 }
 

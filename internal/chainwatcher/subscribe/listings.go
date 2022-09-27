@@ -9,26 +9,21 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
 
-func StreamListingsHandler(workerID int, gOwnCollections *collections.Collections, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
+func StreamListingsHandler(workerID int, ownCollections *collections.Collections, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
 	gbl.Log.Infof("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings_handler"))
 
 	for event := range *queueListings {
-		gbl.Log.Infof("%d| workerListingsHandler: %s", workerID, event.Payload.Item.Metadata.Name)
-
-		// atomic.AddUint64(&stats.queueEvents, 1)
-
 		patternContractAddress := regexp.MustCompile(`^ethereum/(.*?)/(.*)$`)
 		contractAddress := patternContractAddress.ReplaceAllString(event.Payload.Item.NftID, "$1")
 		gbl.Log.Debugf("contractAddress: %+v", contractAddress)
 
-		// collection := ownCollections.Collections[common.HexToAddress(contractAddress)]
-		collection := gOwnCollections.UserCollections[common.HexToAddress(contractAddress)]
+		collection := ownCollections.UserCollections[common.HexToAddress(contractAddress)]
 		if collection == nil {
 			gbl.Log.Infof("collection not found: %s", event.Payload.Item.Metadata.Name)
 
@@ -48,21 +43,19 @@ func StreamListingsHandler(workerID int, gOwnCollections *collections.Collection
 
 		priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice, 10, 64, big.ToNearestEven)
 		if err != nil {
-			gbl.Log.Errorf("workerListingsHandler: %s", err)
-
+			gbl.Log.Errorf("workerListingsHandler: %s | %s", event.BaseStreamMessage.StreamEvent, err)
 			continue
 		}
 
-		priceWei, _ := priceWeiRaw.Int64()
+		priceWei, _ := priceWeiRaw.Int(nil)
 
 		event := &collections.Event{
-			EventType: collections.Listing,
-			// Collection:  ownCollections.Collections[common.HexToAddress(contractAddress)],
-			Collection:  gOwnCollections.UserCollections[common.HexToAddress(contractAddress)],
+			EventType:   collections.Listing,
+			Collection:  ownCollections.UserCollections[common.HexToAddress(contractAddress)],
 			TokenID:     uint64(tokenID),
 			Permalink:   event.Payload.Item.Permalink,
 			TxItemCount: 1,
-			PriceWei:    big.NewInt(priceWei),
+			PriceWei:    priceWei,
 			Time:        time.Now(),
 			From:        collections.User{},
 			To: collections.User{

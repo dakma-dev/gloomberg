@@ -11,7 +11,7 @@ import (
 	"syscall"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/gobwas/ws"
 	"github.com/gobwas/ws/wsutil"
 )

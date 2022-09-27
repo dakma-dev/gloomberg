@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -71,7 +72,8 @@ type Event struct {
 	// Collection      *Collection
 	Collection      *GbCollection
 	TokenID         uint64
-	DomainENS       string
+	BTokenID        *big.Int
+	ENSMetadata     *external.ENSMetadata
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
 	CollectionColor lipgloss.Color

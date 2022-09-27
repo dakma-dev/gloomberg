@@ -4,14 +4,8 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/benleb/gloomberg/internal/server/node"
-
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/hooks"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/mitchellh/mapstructure"
-	"github.com/spf13/viper"
 )
 
 type CollectionSource int64
@@ -131,54 +125,4 @@ func (cs *Collections) SortedAndColoredNames() []string {
 	}
 
 	return names
-}
-
-func GetCollectionsFromConfiguration(nodes *node.Nodes) []*GbCollection {
-	collections := make([]*GbCollection, 0)
-
-	if viper.IsSet("collections") {
-		gbl.Log.Infof("config | reading collections from config")
-
-		for address, collection := range viper.GetStringMap("collections") {
-			contractAddress := common.HexToAddress(address)
-			currentCollection := NewCollection(contractAddress, "", nodes, Configuration)
-
-			if collection == nil && common.IsHexAddress(address) {
-				gbl.Log.Infof("reading collection without details: %+v", address)
-
-				currentCollection = NewCollection(contractAddress, "", nodes, Configuration)
-				// global settings
-				currentCollection.Show.Listings = viper.GetBool("show.listings")
-				currentCollection.Show.Sales = viper.GetBool("show.sales")
-				currentCollection.Show.Mints = viper.GetBool("show.mints")
-				currentCollection.Show.Transfers = viper.GetBool("show.transfers")
-			} else {
-				gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
-
-				decodeHooks := mapstructure.ComposeDecodeHookFunc(
-					hooks.StringToAddressHookFunc(),
-					hooks.StringToDurationHookFunc(),
-					hooks.StringToLipglossColorHookFunc(),
-				)
-
-				decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-					DecodeHook: decodeHooks,
-					Result:     &currentCollection,
-				})
-
-				err := decoder.Decode(collection)
-				if err != nil {
-					gbl.Log.Errorf("error decoding collection: %+v", err)
-
-					continue
-				}
-			}
-
-			gbl.Log.Debugf("currentCollection: %+v", currentCollection)
-
-			collections = append(collections, currentCollection)
-		}
-	}
-
-	return collections
 }

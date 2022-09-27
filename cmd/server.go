@@ -1,13 +1,15 @@
 package cmd
 
 import (
+	"fmt"
 	"net"
 
+	"github.com/benleb/gloomberg/internal/chainwatcher"
+	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/models/wallet"
-	"github.com/benleb/gloomberg/internal/server/ws"
+	"github.com/benleb/gloomberg/internal/ws"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/server"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -46,8 +48,10 @@ func init() {
 }
 
 func LFG(_ *cobra.Command, _ []string) {
+	ethNodes := config.GetNodesFromConfig()
+
 	// create a new server instance
-	cServer := server.New()
+	cServer := chainwatcher.New(ethNodes)
 
 	// create a queue/channel for the received & parsed events
 	queueEvents := make(chan *collections.Event, 1024)
@@ -57,7 +61,7 @@ func LFG(_ *cobra.Command, _ []string) {
 	queueOutput := make(chan string, 1024)
 
 	// subscribe to the chain logs/events and start the workers
-	cServer.Subscribe(&queueEvents)
+	cServer.SubscribeToSales(&queueEvents)
 
 	// websockets
 	wsServer := ws.New(viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"), &queueOutWS)
@@ -70,6 +74,7 @@ func LFG(_ *cobra.Command, _ []string) {
 		go workerEventFormatter(outputWorkerID, &cServer.Nodes, &wallet.Wallets{}, &queueEvents, &queueOutput, &queueOutWS)
 		// // print formatted events to stdout
 		// go workerOutput(outputWorkerID, &queueOutput)
+		fmt.Println("started output worker", outputWorkerID)
 	}
 
 	select {}

@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/spf13/viper"
 )
 

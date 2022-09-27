@@ -3,8 +3,8 @@ package wwatcher
 import (
 	"fmt"
 
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/hooks"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
