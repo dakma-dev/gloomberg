@@ -320,14 +320,15 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 
 		eventWithStyle.TxItemCount = event.TxItemCount
 	} else if event.Collection.ContractAddress == external.ENSContract {
-		if event.ENSMetadata != nil && event.ENSMetadata.Name == "" {
-			event.ENSMetadata.Name = "Ethereum Name Service"
+		var ensName string
+		if event.ENSMetadata != nil || event.ENSMetadata.Name == "" {
+			ensName = "Ethereum Name Service"
 		}
 
 		tokenInfo = fmt.Sprintf(
 			"%s %s",
 			event.Collection.Style().Copy().Faint(true).Render(event.Collection.Name+":"),
-			event.Collection.Style().Copy().Faint(false).Render(event.ENSMetadata.Name),
+			event.Collection.Style().Copy().Faint(false).Render(ensName),
 		)
 
 		eventWithStyle.TxItemCount = event.TxItemCount
