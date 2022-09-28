@@ -52,7 +52,7 @@ func StreamListingsHandler(workerID int, ownCollections *collections.Collections
 		event := &collections.Event{
 			EventType:   collections.Listing,
 			Collection:  ownCollections.UserCollections[common.HexToAddress(contractAddress)],
-			TokenID:     uint64(tokenID),
+			TokenID:     big.NewInt(tokenID),
 			Permalink:   event.Payload.Item.Permalink,
 			TxItemCount: 1,
 			PriceWei:    priceWei,

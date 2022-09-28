@@ -2,12 +2,13 @@ package internal
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/benleb/gloomberg/internal/collections"
 )
 
-func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint bool, color bool) string {
+func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, faint bool, color bool) string {
 	var (
 		collectionName = collection.Name
 		prefix         = "#"
@@ -33,7 +34,9 @@ func FormatTokenInfo(tokenID uint64, collection *collections.GbCollection, faint
 		prefix = collection.StyleSecondary().Faint(faint).Render(prefix)
 	}
 
-	if (tokenID > 0 && tokenID < 999_999) || collectionName == "" {
+	// convert tokenID to int for more readable comparison
+	// if (tokenID.Int64() > 0 && tokenID.Int64() < 999_999) || collectionName == "" {
+	if (tokenID.Cmp(big.NewInt(0)) > 0 && tokenID.Cmp(big.NewInt(999_999)) < 0) || collectionName == "" {
 		tokenInfo = fmt.Sprintf("%s %s%s", collectionName, prefix, id)
 	} else {
 		tokenInfo = collectionName

@@ -321,7 +321,7 @@ func FormatEvent(g *gocui.Gui, event *collections.Event, ethNodes *nodes.Nodes, 
 		eventWithStyle.TxItemCount = event.TxItemCount
 	} else if event.Collection.ContractAddress == external.ENSContract {
 		var ensName string
-		if event.ENSMetadata != nil || event.ENSMetadata.Name == "" {
+		if event.ENSMetadata != nil && event.ENSMetadata.Name == "" {
 			ensName = "Ethereum Name Service"
 		}
 

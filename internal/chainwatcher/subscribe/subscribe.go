@@ -233,7 +233,7 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 		Topic:       logTopic.String(),
 		TxHash:      subLog.TxHash,
 		Collection:  collection,
-		BTokenID:    tokenID,
+		TokenID:     tokenID,
 		ENSMetadata: ensMetadata,
 		PriceWei:    value,
 		TxItemCount: uint(transco.UniqueTokenIDs()),
@@ -274,14 +274,18 @@ func parseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	}
 
 	// parse token id
-	var rawTokenID *big.Int
-	if logTopic == topic.TransferSingle {
-		rawTokenID = nil
-	} else if len(topics) >= 4 {
+	rawTokenID := big.NewInt(0)
+	if len(topics) >= 4 {
 		rawTokenID = topics[3].Big()
-	} else {
-		rawTokenID = big.NewInt(0)
 	}
+
+	// if logTopic == topic.TransferSingle {
+	// 	rawTokenID = nil
+	// } else if len(topics) >= 4 {
+	// 	rawTokenID = topics[3].Big()
+	// } else {
+	// 	rawTokenID = big.NewInt(0)
+	// }
 
 	return logTopic, fromAddress, toAddress, rawTokenID
 }

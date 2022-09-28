@@ -284,10 +284,10 @@ func (n Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) 
 	return tokenMetadata, nil
 }
 
-func (n Node) GetTokenImageURI(contractAddress common.Address, tokenID uint64) (string, error) {
+func (n Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
 
-	tokenURI, err := n.GetTokenURI(contractAddress, big.NewInt(int64(tokenID)))
+	tokenURI, err := n.GetTokenURI(contractAddress, tokenID)
 	if err != nil {
 		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
 

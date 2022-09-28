@@ -71,8 +71,7 @@ type Event struct {
 	TxHash    common.Hash
 	// Collection      *Collection
 	Collection      *GbCollection
-	TokenID         uint64
-	BTokenID        *big.Int
+	TokenID         *big.Int
 	ENSMetadata     *external.ENSMetadata
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
@@ -108,7 +107,7 @@ type EventWithStyle struct {
 	CollectionName        string
 	CollectionColor       lipgloss.Color
 	CollectionTotalSupply uint64
-	TokenID               uint64
+	TokenID               *big.Int
 
 	PriceEther      string
 	PriceEtherColor lipgloss.Color

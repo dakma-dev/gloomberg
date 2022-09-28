@@ -2,6 +2,7 @@ package cache
 
 import (
 	"errors"
+	"math/big"
 	"sync"
 	"time"
 
@@ -68,7 +69,7 @@ func (c *GbCache) GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
 }
 
-func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID uint64, priceWei uint64, numItems uint, eventTime time.Time, eventType int64) {
+func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID *big.Int, priceWei uint64, numItems uint, eventTime time.Time, eventType int64) {
 	xAddArgs := &redis.XAddArgs{
 		Stream: "sales",
 		MaxLen: 100000,
@@ -86,7 +87,7 @@ func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName stri
 	}
 
 	if c.rdb != nil {
-		gbl.Log.Debugf("redis | adding sale: %s #%d", collectionName, int(tokenID))
+		gbl.Log.Debugf("redis | adding sale: %s #%d", collectionName, tokenID)
 
 		if added, err := c.rdb.XAdd(c.rdb.Context(), xAddArgs).Result(); err == redis.Nil {
 			gbl.Log.Errorf("redis | strange redis.Nil while adding to stream: %s %d -xxx-> %s: %s", collectionName, tokenID, xAddArgs.Stream, err)
