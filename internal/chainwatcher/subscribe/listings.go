@@ -16,7 +16,7 @@ import (
 )
 
 func StreamListingsHandler(workerID int, ownCollections *collections.Collections, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
-	gbl.Log.Infof("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings_handler"))
+	gbl.Log.Infof("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings"))
 
 	for event := range *queueListings {
 		patternContractAddress := regexp.MustCompile(`^ethereum/(.*?)/(.*)$`)
@@ -32,13 +32,13 @@ func StreamListingsHandler(workerID int, ownCollections *collections.Collections
 
 		patternTokenID := regexp.MustCompile(`^(.*?) ?#?(\d*)(/.*)?$`)
 		tokenIDRaw := patternTokenID.ReplaceAllString(event.Payload.Item.Metadata.Name, "$2")
-		gbl.Log.Debugf("tokenIDRaw: %+v", tokenIDRaw)
+		gbl.Log.Infof("tokenIDRaw: %+v", tokenIDRaw)
 
 		tokenIDRaw = strings.TrimPrefix(tokenIDRaw, "#")
 
 		tokenID, err := strconv.ParseInt(tokenIDRaw, 10, 64)
 		if err != nil {
-			gbl.Log.Infof("error parsing tokenIDRaw to big.int: %s | %s | %s", event.Payload.Item.Metadata.Name, tokenIDRaw, err.Error())
+			gbl.Log.Infof("error parsing token ID | payload: %+v | tokenIDRaw: %s | error: %s", event.Payload, tokenIDRaw, err.Error())
 		}
 
 		priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice, 10, 64, big.ToNearestEven)

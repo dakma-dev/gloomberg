@@ -142,8 +142,6 @@ func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	case txValue >= 3.0:
 		priceColor = ShadesPink[6]
 	case txValue >= 5.0:
-		priceColor = ShadesPink[8]
-	case txValue >= 5.0:
 		priceColor = ShadesPink[9]
 	}
 

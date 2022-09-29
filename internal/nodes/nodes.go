@@ -31,7 +31,7 @@ func (nc *Nodes) ConnectAllNodes() {
 			defer wgNodes.Done()
 
 			if err := node.Connect(); err != nil {
-				gbl.Log.Warnf("node %s connection failed: %s", node.NodeID, err)
+				gbl.Log.Warnf("node %d connection failed: %s", node.NodeID, err)
 			} else {
 				atomic.AddUint64(&nodesAvailable, 1)
 			}

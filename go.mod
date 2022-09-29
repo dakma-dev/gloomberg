@@ -4,23 +4,20 @@ go 1.19
 
 require (
 	github.com/VividCortex/ewma v1.2.0
-	github.com/awesome-gocui/gocui v1.1.0
 	github.com/charmbracelet/lipgloss v0.6.0
 	github.com/ethereum/go-ethereum v1.10.25
 	github.com/gen2brain/beeep v0.0.0-20220909211152-5a9ec94374f6
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.1.0
-	github.com/juliangruber/go-intersect v1.1.0
 	github.com/nshafer/phx v0.2.0
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.13.0
 	github.com/theckman/yacspin v0.13.12
 	github.com/wealdtech/go-ens/v3 v3.5.5
 	go.uber.org/zap v1.23.0
-	golang.org/x/exp v0.0.0-20220916125017-b168a2c6b86b
-	golang.org/x/net v0.0.0-20220909164309-bea034e7d591
-	golang.org/x/term v0.0.0-20220722155259-a9ba230a4035
+	golang.org/x/net v0.0.0-20220927171203-f486391704dc
+	golang.org/x/term v0.0.0-20220919170432-7a66f970e087
 )
 
 require (
@@ -31,8 +28,6 @@ require (
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fatih/color v1.13.0 // indirect
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
-	github.com/gdamore/encoding v1.0.0 // indirect
-	github.com/gdamore/tcell/v2 v2.5.3 // indirect
 	github.com/go-ole/go-ole v1.2.6 // indirect
 	github.com/go-stack/stack v1.8.1 // indirect
 	github.com/go-toast/toast v0.0.0-20190211030409-01e6764cf0a4 // indirect

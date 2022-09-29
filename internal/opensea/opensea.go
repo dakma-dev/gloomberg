@@ -237,7 +237,7 @@ func GetAssetsFor(walletAddress common.Address, nodes *nodes.Nodes) map[common.A
 	for ok := true; ok; ok = cursor != "" {
 		gbl.Log.Debugf("fetching assets for %s (cursor: %s | receivedAssets: %d)\n", walletAddress.Hex(), cursor, len(receivedAssets))
 
-		if assetsResponse := fetch_assets(walletAddress, cursor); assetsResponse != nil {
+		if assetsResponse := fetchAssets(walletAddress, cursor); assetsResponse != nil {
 			// set next page cursor
 			cursor = assetsResponse.Next
 
@@ -272,7 +272,7 @@ func GetAssetsFor(walletAddress common.Address, nodes *nodes.Nodes) map[common.A
 	return receivedCollections
 }
 
-func fetch_assets(walletAddress common.Address, cursor string) *models.AssetsResponse {
+func fetchAssets(walletAddress common.Address, cursor string) *models.AssetsResponse {
 	// create the http client & request
 	client, _ := createHTTPClient()
 

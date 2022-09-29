@@ -12,6 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
@@ -26,7 +27,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes *nodes.Nodes, queueOutput chan<- string) {
+func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 
 	var (
@@ -118,7 +119,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes 
 
 	isOwnCollection := event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration
 	ownWalletInvolved := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
-	wwatcherWalletInvolved := wwatcher.Recipients.Contains(event.From.Address) || wwatcher.Recipients.Contains(event.To.Address)
+	wwatcherWalletInvolved := watchUsers.Contains(event.From.Address) || wwatcher.Recipients.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// buyer
@@ -164,14 +165,15 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes 
 
 		eventWithStyle.TxItemCount = event.TxItemCount
 	} else if event.Collection.ContractAddress == external.ENSContract {
-		if event.ENSMetadata.Name == "" {
-			event.ENSMetadata.Name = "Ethereum Name Service"
+		ensName := "Ethereum Name Service"
+		if event.ENSMetadata != nil && event.ENSMetadata.Name != "" {
+			ensName = event.ENSMetadata.Name
 		}
 
 		tokenInfo = fmt.Sprintf(
 			"%s %s",
 			event.Collection.Style().Copy().Faint(true).Render(event.Collection.Name+":"),
-			event.Collection.Style().Copy().Faint(false).Render(event.ENSMetadata.Name),
+			event.Collection.Style().Copy().Faint(false).Render(ensName),
 		)
 
 		eventWithStyle.TxItemCount = event.TxItemCount
@@ -251,8 +253,8 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes 
 	if listingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
 	} else if isOwnCollection && event.EventType == collections.Sale {
-		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_price") {
-		if priceEtherPerItem >= viper.GetFloat64("show.min_price") {
+		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_value") {
+		if priceEtherPerItem >= viper.GetFloat64("show.min_value") {
 			if ownWalletInvolved {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 				eventWithStyle.Marker = "*"
@@ -262,7 +264,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes 
 	}
 
 	// add to event history
-	if isOwnCollection && event.EventType == collections.Sale { // && itemPrice >= viper.GetFloat64("show.min_price") {
+	if isOwnCollection && event.EventType == collections.Sale { // && itemPrice >= viper.GetFloat64("show.min_value") {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if ownWalletInvolved {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
@@ -458,7 +460,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, ethNodes 
 	// }
 
 	// telegram notification
-	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("telegram.enabled") { // && notifications.TgBot != nil {
+	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("notifications.telegram.enabled") { // && notifications.TgBot != nil {
 		gbl.Log.Warn("sending telegram notification...")
 
 		go func() {

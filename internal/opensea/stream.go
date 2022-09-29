@@ -161,7 +161,7 @@ func (s *StreamClient) OnItemListed(collectionSlug string, eventHandler func(ite
 // 	s.on(Cancelled, collectionSlug, eventHandler)
 // }
 
-func (s StreamClient) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
+func (s *StreamClient) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
 	s.on(ReceivedBid, collectionSlug, eventHandler)
 }
 
@@ -169,7 +169,7 @@ func (s *StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler f
 	s.on(ReceivedOffer, collectionSlug, eventHandler)
 }
 
-func (s StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
+func (s *StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
 	s.on(MetadataUpdated, collectionSlug, eventHandler)
 }
 
@@ -208,31 +208,31 @@ func SubscribeToListingsForCollectionSlug(client *StreamClient, slug string, eve
 	}
 }
 
-func SubscribeToEverythingForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
-	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
-
-	if client != nil || streamClient != nil {
-		if client == nil {
-			client = streamClient
-		}
-
-		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
-
-		if eventHandler != nil || client.eventHandler != nil {
-			if eventHandler == nil {
-				eventHandler = client.eventHandler
-			} else {
-				client.eventHandler = eventHandler
-			}
-
-			client.OnItemReceivedBid(slug, eventHandler)
-			gbl.Log.Infof("subscribed to bids for: %s", slug)
-
-			client.OnItemReceivedOffer(slug, eventHandler)
-			gbl.Log.Infof("subscribed to offers for: %s", slug)
-
-			client.OnItemMetadataUpdated(slug, eventHandler)
-			gbl.Log.Infof("subscribed to metadata updates for: %s", slug)
-		}
-	}
-}
+//func SubscribeToEverythingForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
+//	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
+//
+//	if client != nil || streamClient != nil {
+//		if client == nil {
+//			client = streamClient
+//		}
+//
+//		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
+//
+//		if eventHandler != nil || client.eventHandler != nil {
+//			if eventHandler == nil {
+//				eventHandler = client.eventHandler
+//			} else {
+//				client.eventHandler = eventHandler
+//			}
+//
+//			client.OnItemReceivedBid(slug, eventHandler)
+//			gbl.Log.Infof("subscribed to bids for: %s", slug)
+//
+//			client.OnItemReceivedOffer(slug, eventHandler)
+//			gbl.Log.Infof("subscribed to offers for: %s", slug)
+//
+//			client.OnItemMetadataUpdated(slug, eventHandler)
+//			gbl.Log.Infof("subscribed to metadata updates for: %s", slug)
+//		}
+//	}
+//}

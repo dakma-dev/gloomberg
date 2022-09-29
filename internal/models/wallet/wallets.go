@@ -6,11 +6,11 @@ import (
 )
 
 type (
-	Wallets     map[common.Address]*Wallet
-	WalletGroup []*Wallet
+	Wallets map[common.Address]*Wallet
+	Group   []*Wallet
 )
 
-// type WalletGroup struct {
+// type Group struct {
 // 	Name             string    `mapstructure:"name"`
 // 	TelegramUsername string    `mapstructure:"telegram_username"`
 // 	Wallets          []*Wallet `mapstructure:"wallets"`

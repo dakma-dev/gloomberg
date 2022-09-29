@@ -40,13 +40,13 @@ func New(nodes []*nodes.Node) *ChainWatcher {
 }
 
 func (cs *ChainWatcher) GetNodesAsList() []*nodes.Node {
-	var nodes []*nodes.Node
+	var ethNodes []*nodes.Node
 
 	for _, cNode := range cs.Nodes {
-		nodes = append(nodes, cNode)
+		ethNodes = append(ethNodes, cNode)
 	}
 
-	return nodes
+	return ethNodes
 }
 
 func (cs *ChainWatcher) SubscribeToSales(queueEvents *chan *collections.Event) {

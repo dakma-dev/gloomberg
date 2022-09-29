@@ -195,7 +195,7 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 	isTransfer := (value.Cmp(big.NewInt(0)) == 0 && !isMint) && logTopic != topic.TransferSingle
 	showTransfers := viper.GetBool("show.transfers") || collection.Show.Transfers
 
-	if !isMint && !isOwnCollection && nodes.WeiToEther(value).Cmp(big.NewFloat(viper.GetFloat64("show.min_price"))) < 0 {
+	if !isMint && !isOwnCollection && nodes.WeiToEther(value).Cmp(big.NewFloat(viper.GetFloat64("show.min_value"))) < 0 {
 		// atomic.AddUint64(&StatsBTV.DiscardedLowPrice, 1)
 		gbl.Log.Debugf("‼️ DiscardedLowPrice| %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 		return

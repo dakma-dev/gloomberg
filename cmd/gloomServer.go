@@ -50,8 +50,8 @@ func init() {
 	// gloomServerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
 	// show telegram notifications
-	liveCmd.Flags().Bool("notifications-telegram", false, "Send notifications to telegram?")
-	_ = viper.BindPFlag("notifications.telegram", liveCmd.Flags().Lookup("notifications-telegram"))
+	gloomServerCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
+	_ = viper.BindPFlag("notifications.telegram", gloomServerCmd.Flags().Lookup("telegram"))
 
 	// websockets server
 	gloomServerCmd.Flags().Bool("ws", false, "enable websockets server")

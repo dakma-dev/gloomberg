@@ -78,7 +78,7 @@ func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName stri
 		Values: map[string]any{
 			"contractAddress": contractAddress.Hex(),
 			"collectionName":  collectionName,
-			"tokenID":         tokenID,
+			"tokenID":         tokenID.Uint64(),
 			"priceWei":        priceWei,
 			"numItems":        numItems,
 			"eventTime":       eventTime,

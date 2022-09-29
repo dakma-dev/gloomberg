@@ -2,9 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // gloomLiveCmd represents the gloomLive command
@@ -23,12 +25,14 @@ to quickly create a Cobra application.`,
 		// default roles for gloomClient
 		role := internal.RoleMap{
 			ChainWatcher:          true,
-			OsStreamWatcher:       false,
+			OsStreamWatcher:       true,
 			OutputTerminal:        true,
+			OwnCollections:        true,
 			OwnWalletWatcher:      true,
 			StatsTicker:           true,
 			TelegramBot:           false,
 			TelegramNotifications: false,
+			WalletWatcher:         true,
 			WsServer:              false,
 		}
 
@@ -48,4 +52,30 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// gloomLiveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+
+	gloomLiveCmd.Flags().Float64("min-value", 0.0, "minimum value to show sales?")
+	_ = viper.BindPFlag("show.min_value", gloomLiveCmd.Flags().Lookup("min-value"))
+
+	gloomLiveCmd.Flags().Bool("mints", false, "Show mints?")
+	_ = viper.BindPFlag("show.mints", gloomLiveCmd.Flags().Lookup("mints"))
+
+	// notifications
+	gloomLiveCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
+	_ = viper.BindPFlag("notifications.telegram.enabled", gloomLiveCmd.Flags().Lookup("telegram"))
+
+	// worker settings
+	viper.SetDefault("server.workers.subscription_logs", 5)
+	viper.SetDefault("server.workers.output", 3)
+
+	viper.SetDefault("workers.listings", 2)
+
+	viper.SetDefault("opensea.auto_list_min_sales", 50000)
+
+	// ticker
+	viper.SetDefault("ticker.statsbox", time.Second*89)
+	viper.SetDefault("ticker.gasline", time.Second*17)
+	viper.SetDefault("stats.enabled", true)
+	viper.SetDefault("stats.interval", time.Second*90)
+	viper.SetDefault("stats.balances", true)
+	viper.SetDefault("stats.lines", 5)
 }

@@ -30,6 +30,18 @@ import (
 	"golang.org/x/net/http2"
 )
 
+// // ERC165 interface identifier
+// var iERC165 = [4]byte{0x01, 0xff, 0xc9, 0xa7}
+
+// // ERC1155 interface identifier
+// var iERC1155 = [4]byte{0xd9, 0xb6, 0x7a, 0x26}
+
+// // contract.supportsInterface(0x01ffc9a7) as bytes
+// var supportsInterfaceiERC165 = []byte{0x01, 0xff, 0xc9, 0xa7, 0x01, 0xff, 0xc9, 0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
+// // contract.supportsInterface(0xd9b67a26) as bytes
+// var supportsInterfaceiFFFFFF = []byte{0x01, 0xff, 0xc9, 0xa7, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+
 // Node represents a w3 provider configuration.
 type Node struct {
 	NodeID             int            `mapstructure:"id"`
@@ -51,7 +63,7 @@ type GasInfo struct {
 	GasTipWei         *big.Int `json:"gasTip"`
 }
 
-// New returns a new gbnode if connection to the given endpoint succeeds.
+// Connect returns a new node if the connection to the given endpoint succeeds.
 func (n *Node) Connect() error {
 	var err error
 
@@ -76,7 +88,7 @@ func (n *Node) Connect() error {
 }
 
 // GetCurrentGasInfo returns the current gas price and tip
-func (n Node) GetCurrentGasInfo() (*GasInfo, error) {
+func (n *Node) GetCurrentGasInfo() (*GasInfo, error) {
 	ctx := context.Background()
 
 	block, err := n.Client.BlockByNumber(ctx, nil)
@@ -102,35 +114,35 @@ func (n Node) GetCurrentGasInfo() (*GasInfo, error) {
 	}, nil
 }
 
-func (n Node) SubscribeToPendingTransactions(queueLogs chan<- common.Hash) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToPendingTransactions(queueLogs chan<- common.Hash) (ethereum.Subscription, error) {
 	return n.ClientGeth.SubscribePendingTransactions(context.Background(), queueLogs)
 }
 
-func (n Node) SubscribeToContract(queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToContract(queueLogs chan types.Log, contractAddress common.Address) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, nil, []common.Address{contractAddress})
 }
 
-func (n Node) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, nil)
 }
 
-func (n Node) SubscribeToSingleTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToSingleTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, nil)
 }
 
-func (n Node) SubscribeToTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, contractAddresses)
 }
 
-func (n Node) SubscribeToSingleTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToSingleTransfersFor(queueLogs chan types.Log, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.TransferSingle))}}, contractAddresses)
 }
 
-func (n Node) SubscribeToOrdersMatched(queueLogs chan types.Log) (ethereum.Subscription, error) {
+func (n *Node) SubscribeToOrdersMatched(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.OrdersMatched))}}, nil)
 }
 
-func (n Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (n *Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	ctx := context.Background()
 
 	if topics == nil && contractAddresses == nil {
@@ -145,7 +157,7 @@ func (n Node) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, cont
 	return n.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (n Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n *Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	//
 	// ERC1155
 	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
@@ -183,7 +195,7 @@ func (n Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.I
 	return "", errors.New("could not find collection name")
 }
 
-func (n Node) GetERC721CollectionName(contractAddress common.Address) (string, error) {
+func (n *Node) GetERC721CollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABI
 	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
 	if err != nil {
@@ -201,7 +213,7 @@ func (n Node) GetERC721CollectionName(contractAddress common.Address) (string, e
 	return "", nil
 }
 
-func (n Node) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
+func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
 	collectionMetadata := make(map[string]interface{}, 0)
 
 	// get the contractERC721 ABIs
@@ -210,7 +222,53 @@ func (n Node) GetCollectionMetadata(contractAddress common.Address) map[string]i
 		gbl.Log.Error(err)
 	}
 
-	// attributes := []string{"name", "symbol", "totalSupply", "tokenURI"}
+	// ERC standards check
+	// ctx := context.Background()
+	// // check erc165 interface
+	// iERC165Supported := false
+	// queryiERC165Supported := ethereum.CallMsg{
+	// 	To:   &contractAddress,
+	// 	Data: supportsInterfaceiERC165,
+	// }
+
+	// resultERC165, err := n.Client.CallContract(ctx, queryiERC165Supported, nil)
+	// if err != nil {
+	// 	gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
+	// 	return nil
+	// }
+
+	// queryiERCFFFFFFSupported := ethereum.CallMsg{
+	// 	To:   &contractAddress,
+	// 	Data: supportsInterfaceiFFFFFF,
+	// }
+
+	// resultFFFFFF, err := n.Client.CallContract(ctx, queryiERCFFFFFFSupported, nil)
+	// if err != nil {
+	// 	gbl.Log.Warnf("interface FFFFFF check error: %v\n", err)
+	// 	return nil
+	// }
+
+	// if (len(resultERC165)-1 > 0 && len(resultFFFFFF)-1 > 0) && bytes.Equal(resultERC165[len(resultERC165)-1:], []byte{0x01}) && bytes.Equal(resultFFFFFF[len(resultFFFFFF)-1:], []byte{0x00}) {
+	// 	iERC165Supported = true
+	// }
+
+	// // check erc1155 interface
+	// iERC1155Supported := false
+
+	// if iERC165Supported {
+	// 	// get the contractERC1155 ABIs
+	// 	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
+	// 	if err != nil {
+	// 		gbl.Log.Error(err)
+	// 	}
+
+	// 	iERC1155Supported, err = contractERC1155.SupportsInterface(&bind.CallOpts{}, iERC1155)
+	// 	if err != nil {
+	// 		gbl.Log.Debug(err)
+	// 	}
+	// }
+
+	// gbl.Log.Infof("%s: iERC165Supported: %v | 11iERC1155Supported55: %v", contractAddress.String(), iERC165Supported, iERC1155Supported)
 
 	if value, err := contractERC721.Name(&bind.CallOpts{}); err != nil {
 		gbl.Log.Debug(err)
@@ -239,7 +297,7 @@ func (n Node) GetCollectionMetadata(contractAddress common.Address) map[string]i
 	return collectionMetadata
 }
 
-func (n Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
+func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
 	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
 
 	client, _ := createMetadataHTTPClient()
@@ -284,7 +342,7 @@ func (n Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) 
 	return tokenMetadata, nil
 }
 
-func (n Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
 
 	tokenURI, err := n.GetTokenURI(contractAddress, tokenID)
@@ -306,7 +364,7 @@ func (n Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int)
 	return replaceSchemeWithGateway(metadata.Image, viper.GetString("ipfs.gateway")), nil
 }
 
-func (n Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	gbl.Log.Infof("GetTokenURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
 
 	// get the contractERC721 ABIs

@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
@@ -84,6 +85,7 @@ func GetNodesFromConfig() nodes.Nodes {
 
 func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
 	ownWallets := make(map[common.Address]*wallet.Wallet, 0)
+	mu := sync.Mutex{}
 
 	nodesSpinner := style.GetSpinner("setting up own wallets...")
 	_ = nodesSpinner.Start()
@@ -125,7 +127,9 @@ func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
 
 			gbl.Log.Infof("✅ successfully added wallet: %s", newWallet.Render(newWallet.Name))
 
+			mu.Lock()
 			ownWallets[newWallet.Address] = newWallet
+			mu.Unlock()
 		}(walletConfig)
 	}
 
@@ -197,4 +201,73 @@ func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollec
 	}
 
 	return ownCollections
+}
+
+// GetWatcherUsersFromConfig reads configured users to be notified from config
+func GetWatcherUsersFromConfig() map[common.Address]*models.WatcherUser {
+	mu := sync.Mutex{}
+
+	watcherUsers := make(map[string]bool, 0)
+	watcherUsersWallets := make(map[common.Address]*models.WatcherUser, 0)
+
+	watcherSpinner := style.GetSpinner("setting up watched users...")
+	_ = watcherSpinner.Start()
+
+	var wgWatcherUsers sync.WaitGroup
+	for _, watcherUser := range viper.Get("watcher.users").([]interface{}) {
+		wgWatcherUsers.Add(1)
+
+		go func(walletConfig interface{}) {
+			defer wgWatcherUsers.Done()
+
+			var newUser *models.WatcherUser
+
+			decodeHooks := mapstructure.ComposeDecodeHookFunc(
+				hooks.StringToAddressHookFunc(),
+				hooks.StringToLipglossColorHookFunc(),
+			)
+
+			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+				DecodeHook: decodeHooks,
+				Result:     &newUser,
+			})
+
+			err := decoder.Decode(walletConfig)
+			if err != nil {
+				gbl.Log.Warnf("reading wallet group configuration failed: %+v", err)
+				return
+			}
+
+			gbl.Log.Debugf("\n%+v\n", newUser)
+
+			mu.Lock()
+			for _, walletAddress := range newUser.WalletAddresses {
+				watcherUsersWallets[walletAddress] = newUser
+			}
+
+			watcherUsers[newUser.Name] = true
+			mu.Unlock()
+
+			gbl.Log.Infof("✅ successfully added user: %s", newUser.Name)
+		}(watcherUser)
+	}
+
+	// wait for all goroutines to finish
+	wgWatcherUsers.Wait()
+
+	userNames := make([]string, 0)
+	for userName := range watcherUsers {
+		userNames = append(userNames, userName)
+	}
+
+	// build spinner stop msg with all wallet names
+	watcherSpinner.StopMessage(fmt.Sprint(
+		style.BoldStyle.Render(fmt.Sprint(len(watcherUsers))),
+		fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(watcherUsersWallets)))),
+		strings.Join(userNames, ", "),
+	) + "\n")
+
+	_ = watcherSpinner.Stop()
+
+	return watcherUsersWallets
 }

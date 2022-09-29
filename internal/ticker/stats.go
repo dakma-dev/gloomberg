@@ -248,7 +248,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	var secondcolumn []string
 
 	// min price
-	if minPrice := viper.GetFloat64("show.min_price"); minPrice > 0.0 {
+	if minPrice := viper.GetFloat64("show.min_value"); minPrice > 0.0 {
 		label := style.DarkGrayStyle.Render("min price")
 		value := style.GrayStyle.Render(fmt.Sprint(fmt.Sprintf("%6.2f", minPrice), style.DarkGrayStyle.Render("Ξ")))
 

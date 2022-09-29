@@ -22,7 +22,7 @@ const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)
 
 var pattern = regexp.MustCompile(ansi)
 
-// stripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
+// StripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
 func StripANSI(str string) string {
 	return pattern.ReplaceAllString(str, "")
 }
