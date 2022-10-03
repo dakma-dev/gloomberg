@@ -51,12 +51,4 @@ func init() {
 	// show telegram notifications
 	gloomServerCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
 	_ = viper.BindPFlag("notifications.telegram", gloomServerCmd.Flags().Lookup("telegram"))
-
-	// // websockets server
-	// gloomServerCmd.Flags().Bool("ws", false, "enable websockets server")
-	// gloomServerCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
-	// gloomServerCmd.Flags().Uint16("ws-port", 42069, "websockets server port")
-	// _ = viper.BindPFlag("server.websockets.enabled", gloomServerCmd.Flags().Lookup("ws"))
-	// _ = viper.BindPFlag("server.websockets.host", gloomServerCmd.Flags().Lookup("ws-host"))
-	// _ = viper.BindPFlag("server.websockets.port", gloomServerCmd.Flags().Lookup("ws-port"))
 }

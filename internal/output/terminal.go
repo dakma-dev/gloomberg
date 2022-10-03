@@ -388,9 +388,6 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	// counting
 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
 		event.Collection.AddSale(event.PriceWei, event.TxItemCount)
-		// for i := 0; i < int(event.TxItemCount); i++ {
-		// 	go event.Collection.AddSale(event.PriceWei, 1)
-		// }
 	} else if event.EventType == collections.Mint {
 		event.Collection.AddMint()
 	}

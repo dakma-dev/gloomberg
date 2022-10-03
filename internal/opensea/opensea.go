@@ -168,13 +168,6 @@ func GetCollectionSlug(collectionAddress common.Address) string {
 }
 
 func GetAssetContract(contractAddress common.Address) *models.AssetContract {
-	// create the http client & request
-	// client, _ := createHTTPClient()
-
-	// request, _ := createGetRequest(url)
-
-	// response, err := client.Do(request)
-
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/asset_contract/%s", contractAddress.String())
 
 	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
@@ -286,13 +279,6 @@ func GetAssetsFor(walletAddress common.Address, nodes *nodes.Nodes) map[common.A
 }
 
 func fetchAssets(walletAddress common.Address, cursor string) *models.AssetsResponse {
-	// create the http client & request
-	// client, _ := createHTTPClient()
-
-	// request, _ := createGetRequest(url)
-
-	// response, err := client.Do(request)
-
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/assets?limit=30&order_direction=desc&include_orders=false&owner=%s", walletAddress.String())
 
 	if cursor != "" {

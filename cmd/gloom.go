@@ -45,8 +45,6 @@ func gloomberg(_ *cobra.Command, _ []string, role internal.RoleMap) {
 
 	queueEvents := make(chan *collections.Event, 1024)
 
-	queueOutput := make(chan string, 1024)
-
 	// websockets server
 	if viper.GetBool("server.websockets.enabled") {
 		role.WsServer = true
@@ -101,30 +99,6 @@ func gloomberg(_ *cobra.Command, _ []string, role internal.RoleMap) {
 			_ = miwSpinner.Stop()
 		} else {
 			_ = miwSpinner.StopFail()
-		}
-	}
-
-	//
-	// ticker & stats
-	if role.StatsTicker {
-		// gasline ticker
-		var gasTicker *time.Ticker
-
-		if tickerInterval := viper.GetDuration("ticker.gasline"); len(cWatcher.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-			// initial startup delay
-			time.Sleep(tickerInterval / 5)
-
-			// start gasline ticker
-			gasTicker = time.NewTicker(tickerInterval)
-			go ticker.GasTicker(gasTicker, &cWatcher.Nodes, &queueOutput)
-		}
-
-		// statsbox ticker
-		stats := ticker.New(gasTicker, ownWallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
-
-		// start statsbox ticker
-		if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
-			stats.StartTicker(statsInterval)
 		}
 	}
 
@@ -202,6 +176,32 @@ func gloomberg(_ *cobra.Command, _ []string, role internal.RoleMap) {
 				}
 			}(workerID)
 		}
+
+		//
+		// ticker & stats
+		if role.StatsTicker && outputQueues["terminal"] != nil {
+			// gasline ticker
+			var gasTicker *time.Ticker
+
+			// fmt.Printf("ticker.gasline: %v | cWatcher.Nodes.GetLocalNodes(): %v\n", viper.GetDuration("ticker.gasline"), cWatcher.Nodes.GetLocalNodes())
+
+			if tickerInterval := viper.GetDuration("ticker.gasline"); len(cWatcher.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+				// initial startup delay
+				time.Sleep(tickerInterval / 5)
+
+				// start gasline ticker
+				gasTicker = time.NewTicker(tickerInterval)
+				go ticker.GasTicker(gasTicker, &cWatcher.Nodes, &terminalPrinterQueue)
+			}
+
+			// statsbox ticker
+			stats := ticker.New(gasTicker, ownWallets, &cWatcher.Nodes, len(cWatcher.OwnCollections.UserCollections))
+
+			// start statsbox ticker
+			if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
+				stats.StartTicker(statsInterval)
+			}
+		}
 	}
 
 	if role.OsStreamWatcher {
@@ -244,8 +244,6 @@ func gloomberg(_ *cobra.Command, _ []string, role internal.RoleMap) {
 							collection.ResetStats()
 
 							time.Sleep(337 * time.Millisecond)
-							// opensea.SubscribeToEverythingForCollectionSlug(client, collection.OpenseaSlug, streamListingsReceiver)
-							// time.Sleep(337 * time.Millisecond)
 						}
 					}
 				}

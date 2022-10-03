@@ -250,7 +250,7 @@ func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]
 func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
 	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
 
-	response, err := utils.HTTP.Get(tokenURI)
+	response, err := utils.HTTP.GetWithTLS12(tokenURI)
 	if err != nil || response.StatusCode != http.StatusOK {
 		gbl.Log.Warnf("get token metadata error: %+v | response: %+v\n", err, response)
 

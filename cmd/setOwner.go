@@ -148,7 +148,6 @@ func setOwner(_ *cobra.Command, args []string) {
 			multiSetOwners := make(map[common.Address][]analytics.CollectionSet, 0)
 
 			for _, collectionSet := range multiCollectionSet.CollectionSets {
-
 				setOwners, err := analytics.FetchSetOwnersFor(viper.GetString("api_keys.moralis"), &collectionSet)
 				if err != nil {
 					gbl.Log.Errorf("error fetching set owners: %v\n", err)
@@ -196,7 +195,6 @@ func setOwner(_ *cobra.Command, args []string) {
 			}
 
 			fmt.Println(style.BoldStyle.Copy().Padding(1, 0, 1, 2).Render(fmt.Sprintf("set owners: %d\n", len(uniqueMultiSetOwners))))
-
 		}
 
 		artistFile, err := os.Create((path + "/" + artist.ID + ".html"))
@@ -209,9 +207,11 @@ func setOwner(_ *cobra.Command, args []string) {
 		for _, muCoSet := range artist.MultiCollectionSets {
 			artistFile.WriteString("<h3>" + muCoSet.Name + ": <a href=\"" + muCoSet.ID + ".txt\">" + strconv.Itoa(ownersPerMuCoSet[muCoSet.ID]) + " owners</a></h3>")
 			artistFile.WriteString("<ul>")
+
 			for _, set := range muCoSet.CollectionSets {
 				artistFile.WriteString("<li>" + set.Name + ": <a href=\"" + set.ID + ".txt\">" + strconv.Itoa(ownersPerSet[set.ID]) + " owners</a></li>")
 			}
+
 			artistFile.WriteString("</ul>")
 		}
 
@@ -226,9 +226,11 @@ func setOwner(_ *cobra.Command, args []string) {
 	}
 
 	indexFile.WriteString("<html><head><title>Artists</title></head><body>")
+
 	for _, artist := range analytics.Artists {
 		indexFile.WriteString("<h3><a href=\"" + artist.ID + ".html\">" + artist.Name + "</a></h3>")
 	}
+
 	indexFile.WriteString(fmt.Sprint("<p>last update: ", time.Now().Format("2006-01-02 15:04:05"), "</p>"))
 	indexFile.WriteString("</body></html>")
 }
