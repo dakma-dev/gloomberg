@@ -2,11 +2,13 @@ package nodes
 
 import (
 	"errors"
+	"math/big"
 	"math/rand"
 	"sync"
 	"sync/atomic"
 
 	"github.com/benleb/gloomberg/internal/cache"
+	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
@@ -23,6 +25,8 @@ func (nc *Nodes) ConnectAllNodes() {
 
 	var nodesAvailable uint64
 
+	conectedNodes := make(Nodes, 0)
+
 	var wgNodes sync.WaitGroup
 	for _, node := range *nc {
 		wgNodes.Add(1)
@@ -34,11 +38,14 @@ func (nc *Nodes) ConnectAllNodes() {
 				gbl.Log.Warnf("node %d connection failed: %s", node.NodeID, err)
 			} else {
 				atomic.AddUint64(&nodesAvailable, 1)
+				conectedNodes = append(conectedNodes, node)
 			}
 		}(node)
 	}
 
 	wgNodes.Wait()
+
+	(*nc) = conectedNodes
 
 	if nodesAvailable == 0 {
 		gbl.Log.Fatal("no nodes available")
@@ -66,8 +73,16 @@ func (nc *Nodes) GetRandomNode() *Node {
 		return nil
 	}
 
+	nodes := make([]*Node, 0, len(*nc))
+
+	for _, node := range *nc {
+		if node.Client != nil {
+			nodes = append(nodes, node)
+		}
+	}
+
 	//nolint:gosec
-	return (*nc)[rand.Intn(len(*nc))]
+	return nodes[rand.Intn(len(nodes))]
 }
 
 func (nc *Nodes) GetRandomLocalNode() *Node {
@@ -203,4 +218,20 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	}
 
 	return ensName, nil
+}
+
+func (nc *Nodes) GetSupportedStandards(contractAddress common.Address) []standard.Standard {
+	return nc.GetRandomLocalNode().GetSupportedStandards(contractAddress)
+}
+
+func (nc *Nodes) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
+	return nc.GetRandomLocalNode().GetERC1155TokenID(contractAddress, data)
+}
+
+func (nc *Nodes) ERC1155Supported(contractAddress common.Address) bool {
+	if node := nc.GetRandomLocalNode(); node != nil {
+		return node.ERC1155Supported(contractAddress)
+	}
+
+	return false
 }

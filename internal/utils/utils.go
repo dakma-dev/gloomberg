@@ -3,8 +3,10 @@ package utils
 import (
 	"fmt"
 	"regexp"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/viper"
 )
 
 func WalletShortAddress(address common.Address) string {
@@ -25,4 +27,11 @@ var pattern = regexp.MustCompile(ansi)
 // StripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
 func StripANSI(str string) string {
 	return pattern.ReplaceAllString(str, "")
+}
+
+// func replaceSchemeWithGateway(url string, gateway string) string {
+func ReplaceSchemeWithGateway(url string) string {
+	const schemeIPFS = "ipfs://"
+
+	return strings.Replace(url, schemeIPFS, viper.GetString("ipfs.gateway"), 1)
 }

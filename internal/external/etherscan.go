@@ -2,24 +2,22 @@ package external
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"log"
 	"math/big"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/models/wallet"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
 )
 
 type Response struct {
@@ -95,15 +93,17 @@ func GetGasOracle() *GasOracle {
 		log.Fatal("api_keys.etherscan not set")
 	}
 
-	client, _ := createEtherscanHTTPClient()
-
 	url := withAPIKey(fmt.Sprint(apiBaseURL + "?module=gastracker&action=gasoracle"))
 
-	gbl.Log.Debugf("gas oracle url: %s", url)
+	// // client, _ := createEtherscanHTTPClient()
+	// client, _ := utils.DefaultHTTPClient()
 
-	request, _ := http.NewRequest("GET", url, nil)
+	// gbl.Log.Debugf("gas oracle url: %s", url)
 
-	response, err := client.Do(request)
+	// request, _ := http.NewRequest("GET", url, nil)
+
+	// response, err := client.Do(request)
+	response, err := utils.HTTP.GetWithTLS12(url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
@@ -170,17 +170,17 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 		return nil
 	}
 
-	client, _ := createEtherscanHTTPClient()
-
 	addressList := strings.Join(wallets.StringAddresses(), ",")
-
 	url := withAPIKey(fmt.Sprint(apiBaseURL+"?module=account&action=balancemulti&tag=latest&address=", addressList))
 
 	gbl.Log.Debugf("multiAccountBalance url: %s", url)
 
-	request, _ := http.NewRequest("GET", url, nil)
+	// client, _ := createEtherscanHTTPClient()
+	// client, _ := utils.DefaultHTTPClient()
+	// request, _ := http.NewRequest("GET", url, nil)
 
-	response, err := client.Do(request)
+	// response, err := client.Do(request)
+	response, err := utils.HTTP.GetWithTLS12(url)
 	if err != nil {
 		gbl.Log.Warnf("multiAccountBalance error: %+v", err.Error())
 
@@ -235,25 +235,25 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	return balances
 }
 
-func createEtherscanHTTPClient() (*http.Client, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+// func createEtherscanHTTPClient() (*http.Client, error) {
+// 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 
-	transport := &http.Transport{
-		TLSClientConfig:     tlsConfig,
-		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     13 * time.Second,
-	}
+// 	transport := &http.Transport{
+// 		TLSClientConfig:     tlsConfig,
+// 		MaxIdleConnsPerHost: 20,
+// 		IdleConnTimeout:     13 * time.Second,
+// 	}
 
-	// explicitly use http2
-	_ = http2.ConfigureTransport(transport)
+// 	// explicitly use http2
+// 	_ = http2.ConfigureTransport(transport)
 
-	client := &http.Client{
-		Timeout:   13 * time.Second,
-		Transport: transport,
-	}
+// 	client := &http.Client{
+// 		Timeout:   13 * time.Second,
+// 		Transport: transport,
+// 	}
 
-	return client, nil
-}
+// 	return client, nil
+// }
 
 func GetWETHBalance(walletAddress common.Address) (*big.Int, error) {
 	return GetTokenBalance(walletAddress, common.HexToAddress(string(WETH)))
@@ -265,17 +265,19 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 		gbl.Log.Fatal("api_keys.etherscan not set")
 	}
 
-	apiKey := viper.GetString("api_keys.etherscan")
-	url := fmt.Sprintf(
-		apiBaseURL+"?module=account&action=tokenbalance&contractaddress=%s&address=%s&tag=latest&apikey=%s",
-		tokenAddress, walletAddress, apiKey,
-	)
+	url := withAPIKey(fmt.Sprintf(
+		apiBaseURL+"?module=account&action=tokenbalance&contractaddress=%s&address=%s&tag=latest",
+		tokenAddress, walletAddress,
+	))
 
-	// fetch balance
-	request, _ := http.NewRequest("GET", url, nil)
-	client, _ := createEtherscanHTTPClient()
+	// // fetch balance
+	// request, _ := http.NewRequest("GET", url, nil)
+	// // client, _ := createEtherscanHTTPClient()
+	// client, _ := utils.DefaultHTTPClient()
 
-	response, err := client.Do(request)
+	// response, err := client.Do(request)
+
+	response, err := utils.HTTP.GetWithTLS12(url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ token balance · timeout while fetching: %+v", err.Error())

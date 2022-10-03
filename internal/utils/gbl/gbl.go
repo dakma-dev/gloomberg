@@ -10,14 +10,14 @@ var Log *zap.SugaredLogger
 
 func GetSugaredLogger() *zap.SugaredLogger {
 	if Log == nil {
-		Log = InitSugaredLogger()
+		Log = initSugaredLogger()
 	}
 
 	return Log
 }
 
-// InitSugaredLogger initializes the global logger.
-func InitSugaredLogger() *zap.SugaredLogger {
+// initSugaredLogger initializes the global logger.
+func initSugaredLogger() *zap.SugaredLogger {
 	var outputPaths []string
 	// outputPaths = append(outputPaths, "/tmp/gloomberg.log")
 	// outputPaths = append(outputPaths, "stdout")

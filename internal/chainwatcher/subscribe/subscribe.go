@@ -11,10 +11,10 @@ import (
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
-	"github.com/benleb/gloomberg/internal/utils/notifications"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
@@ -23,8 +23,8 @@ import (
 var (
 	mu = &sync.Mutex{}
 
-	totalNumReceived  = uint64(0)
-	totalLastReceived = int64(0)
+	// totalNumReceived  = uint64(0)
+	// totalLastReceived = int64(0)
 
 	knownTransactions     = make(map[common.Hash][]int)
 	transactionCollectors = make(map[common.Hash]*TransactionCollector)
@@ -35,37 +35,37 @@ var (
 func WorkerLogsQueue(workerID int, cNode *nodes.Node, rawNodes []*nodes.Node, ownCollections *collections.Collections, queueLogs *chan types.Log, queueEvents *chan *collections.Event) {
 	var cNodes nodes.Nodes = rawNodes
 
-	gbl.Log.Infof("%d %d| queueLogs worker started - queueLogs: %d", cNode.NodeID, workerID, len(*queueLogs))
+	gbl.Log.Debugf("%d %d| queueLogs worker started - queueLogs: %d", cNode.NodeID, workerID, len(*queueLogs))
 
 	// process new logs received via our subscriptions
 	for subLog := range *queueLogs {
 		// track & count
 		nanoNow := time.Now().UnixNano()
-		// total
-		atomic.AddUint64(&totalNumReceived, 1)
-		atomic.StoreInt64(&totalLastReceived, nanoNow)
+		// // total
+		// atomic.AddUint64(&totalNumReceived, 1)
+		// atomic.StoreInt64(&totalLastReceived, nanoNow)
 		// per nodes
 		atomic.AddUint64(&cNode.NumLogsReceived, 1)
 		atomic.StoreInt64(&cNode.LastLogReceived, nanoNow)
 
-		// TODO: trigger (yet to be implemented) contract- & walletwatcher here
-		if subLog.Address == common.HexToAddress("0x042874309Bf3F6C8E69Be4bf3D251fE9e41CF0d2") {
-			fmt.Println("")
-			fmt.Println("")
-			fmt.Println(" ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 ‼️")
-			fmt.Println("")
-			fmt.Println("  https://foundation.app/collection/impostergram")
-			fmt.Println("")
-			fmt.Println("")
-			// notifications.SendAlert("Impostergram 🤳 💄", "https://foundation.app/collection/impostergram", true)
-			if msg, err := notifications.SendTelegramMessage(1320669206, " @benleb ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 !!\n\nhttps://foundation.app/collection/impostergram", ""); err != nil {
-				gbl.Log.Errorf("failed to send telegram message: %v | imageURI: %s | err: %s\n", msg, "", err)
-			}
-		}
+		// // TODO: trigger (yet to be implemented) contract- & walletwatcher here
+		// if subLog.Address == common.HexToAddress("0x042874309Bf3F6C8E69Be4bf3D251fE9e41CF0d2") {
+		// 	fmt.Println("")
+		// 	fmt.Println("")
+		// 	fmt.Println(" ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 ‼️")
+		// 	fmt.Println("")
+		// 	fmt.Println("  https://foundation.app/collection/impostergram")
+		// 	fmt.Println("")
+		// 	fmt.Println("")
+		// 	// notifications.SendAlert("Impostergram 🤳 💄", "https://foundation.app/collection/impostergram", true)
+		// 	if msg, err := notifications.SendTelegramMessage(1320669206, " @benleb ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 !!\n\nhttps://foundation.app/collection/impostergram", ""); err != nil {
+		// 		gbl.Log.Errorf("failed to send telegram message: %v | imageURI: %s | err: %s\n", msg, "", err)
+		// 	}
+		// }
 
-		// erc721 has 0-3, (erc1155 has topics 2?), erc20 has topics 0-2
+		// erc20: topics 0-2 | erc721/1155: 0-3
 		if len(subLog.Topics) != 4 {
-			gbl.Log.Debugf("🗑️ len(subLog.Topics) != 4 -> %v | %v | TxHash: %v / %d | %+v\n", len(subLog.Topics) != 4, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 4) | %v | TxHash: %v / %d | %+v\n", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
 
@@ -74,7 +74,6 @@ func WorkerLogsQueue(workerID int, cNode *nodes.Node, rawNodes []*nodes.Node, ow
 }
 
 func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *collections.Collections, subLog types.Log, queueEvents *chan *collections.Event) {
-	//
 	// we use a "transaction collector" to "recognize" (wait for) multi-item tx logs
 	var transco *TransactionCollector
 
@@ -125,6 +124,8 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 
 	// parse tx topics
 	logTopic, fromAddress, toAddress, tokenID := parseTopics(subLog.Topics)
+
+	// var txData []byte
 
 	if collection == nil && subLog.Address != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		name := ""
@@ -192,7 +193,7 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 	}
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
-	isTransfer := (value.Cmp(big.NewInt(0)) == 0 && !isMint) && logTopic != topic.TransferSingle
+	isTransfer := value.Cmp(big.NewInt(0)) == 0 && !isMint // && logTopic != topic.TransferSingle
 	showTransfers := viper.GetBool("show.transfers") || collection.Show.Transfers
 
 	if !isMint && !isOwnCollection && nodes.WeiToEther(value).Cmp(big.NewFloat(viper.GetFloat64("show.min_value"))) < 0 {
@@ -227,6 +228,12 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 		}
 	}
 
+	if collection.SupportedStandards.Contains(standard.ERC1155) { // && (tokenID.Cmp(big.NewInt(0)) > 0 && tokenID.Cmp(big.NewInt(999_999)) < 0) {
+		if tID := cNodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
+			tokenID = tID
+		}
+	}
+
 	event := &collections.Event{
 		NodeID:      cNode.NodeID,
 		EventType:   eventType,
@@ -236,7 +243,7 @@ func parseTransferLog(cNode *nodes.Node, cNodes *nodes.Nodes, ownCollections *co
 		TokenID:     tokenID,
 		ENSMetadata: ensMetadata,
 		PriceWei:    value,
-		TxItemCount: uint(transco.UniqueTokenIDs()),
+		TxItemCount: uint64(transco.UniqueTokenIDs()),
 		Time:        time.Now(),
 		From: collections.User{
 			Address:       fromAddress,

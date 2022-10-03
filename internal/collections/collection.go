@@ -6,6 +6,7 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/nodes"
 
 	"github.com/VividCortex/ewma"
@@ -27,6 +28,8 @@ type GbCollection struct {
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
 	OpenseaSlug     string         `mapstructure:"slug"`
+
+	SupportedStandards standard.Standards
 
 	Show struct {
 		Sales     bool `mapstructure:"sales"`
@@ -122,6 +125,16 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 		ArtificialFloor: ewma.NewMovingAverage(),
 		SaLiRa:          ewma.NewMovingAverage(),
 	}
+
+	// go func() {
+	// 	collection.SupportedStandards = nodes.GetSupportedStandards(contractAddress)
+	// }()
+
+	// go func() {
+	// 	if nodes.ERC1155Supported(contractAddress) {
+	// 		collection.SupportedStandards = append(collection.SupportedStandards, standard.ERC1155)
+	// 	}
+	// }()
 
 	go func() {
 		rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)

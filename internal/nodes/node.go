@@ -3,19 +3,19 @@ package nodes
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"io"
 	"math/big"
 	"net/http"
-	"strings"
-	"time"
+	"strconv"
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/topic"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum"
@@ -26,21 +26,19 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
 )
 
-// // ERC165 interface identifier
+// ERC165 interface identifier
 // var iERC165 = [4]byte{0x01, 0xff, 0xc9, 0xa7}
 
-// // ERC1155 interface identifier
-// var iERC1155 = [4]byte{0xd9, 0xb6, 0x7a, 0x26}
+// ERC1155 interface identifier
+var iERC1155 = [4]byte{0xd9, 0xb6, 0x7a, 0x26}
 
-// // contract.supportsInterface(0x01ffc9a7) as bytes
-// var supportsInterfaceiERC165 = []byte{0x01, 0xff, 0xc9, 0xa7, 0x01, 0xff, 0xc9, 0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+// contract.supportsInterface(0x01ffc9a7) as bytes
+var supportsInterfaceiERC165 = []byte{0x01, 0xff, 0xc9, 0xa7, 0x01, 0xff, 0xc9, 0xa7, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
-// // contract.supportsInterface(0xd9b67a26) as bytes
-// var supportsInterfaceiFFFFFF = []byte{0x01, 0xff, 0xc9, 0xa7, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
+// contract.supportsInterface(0xd9b67a26) as bytes
+var supportsInterfaceiFFFFFF = []byte{0x01, 0xff, 0xc9, 0xa7, 0xff, 0xff, 0xff, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 
 // Node represents a w3 provider configuration.
 type Node struct {
@@ -222,54 +220,6 @@ func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]
 		gbl.Log.Error(err)
 	}
 
-	// ERC standards check
-	// ctx := context.Background()
-	// // check erc165 interface
-	// iERC165Supported := false
-	// queryiERC165Supported := ethereum.CallMsg{
-	// 	To:   &contractAddress,
-	// 	Data: supportsInterfaceiERC165,
-	// }
-
-	// resultERC165, err := n.Client.CallContract(ctx, queryiERC165Supported, nil)
-	// if err != nil {
-	// 	gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
-	// 	return nil
-	// }
-
-	// queryiERCFFFFFFSupported := ethereum.CallMsg{
-	// 	To:   &contractAddress,
-	// 	Data: supportsInterfaceiFFFFFF,
-	// }
-
-	// resultFFFFFF, err := n.Client.CallContract(ctx, queryiERCFFFFFFSupported, nil)
-	// if err != nil {
-	// 	gbl.Log.Warnf("interface FFFFFF check error: %v\n", err)
-	// 	return nil
-	// }
-
-	// if (len(resultERC165)-1 > 0 && len(resultFFFFFF)-1 > 0) && bytes.Equal(resultERC165[len(resultERC165)-1:], []byte{0x01}) && bytes.Equal(resultFFFFFF[len(resultFFFFFF)-1:], []byte{0x00}) {
-	// 	iERC165Supported = true
-	// }
-
-	// // check erc1155 interface
-	// iERC1155Supported := false
-
-	// if iERC165Supported {
-	// 	// get the contractERC1155 ABIs
-	// 	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
-	// 	if err != nil {
-	// 		gbl.Log.Error(err)
-	// 	}
-
-	// 	iERC1155Supported, err = contractERC1155.SupportsInterface(&bind.CallOpts{}, iERC1155)
-	// 	if err != nil {
-	// 		gbl.Log.Debug(err)
-	// 	}
-	// }
-
-	// gbl.Log.Infof("%s: iERC165Supported: %v | 11iERC1155Supported55: %v", contractAddress.String(), iERC165Supported, iERC1155Supported)
-
 	if value, err := contractERC721.Name(&bind.CallOpts{}); err != nil {
 		gbl.Log.Debug(err)
 	} else {
@@ -300,14 +250,7 @@ func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]
 func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
 	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
 
-	client, _ := createMetadataHTTPClient()
-
-	// for ipfs use the default "gateway"
-	tokenURI = replaceSchemeWithGateway(tokenURI, viper.GetString("ipfs.gateway"))
-
-	request, _ := http.NewRequest("GET", tokenURI, nil)
-
-	response, err := client.Do(request)
+	response, err := utils.HTTP.Get(tokenURI)
 	if err != nil || response.StatusCode != http.StatusOK {
 		gbl.Log.Warnf("get token metadata error: %+v | response: %+v\n", err, response)
 
@@ -338,6 +281,7 @@ func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error)
 	}
 
 	gbl.Log.Infof("GetTokenMetadata || tokenMetadata: %+v\n", tokenMetadata)
+	gbl.Log.Infof("")
 
 	return tokenMetadata, nil
 }
@@ -352,6 +296,8 @@ func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int
 		return "", err
 	}
 
+	gbl.Log.Infof("GetTokenImageURI || tokenURI: %+v\n", tokenURI)
+
 	metadata, err := n.GetTokenMetadata(tokenURI)
 	if err != nil || metadata == nil {
 		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
@@ -360,8 +306,9 @@ func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int
 	}
 
 	gbl.Log.Infof("GetTokenImageURI || metadata: %+v\n", metadata)
+	gbl.Log.Infof("")
 
-	return replaceSchemeWithGateway(metadata.Image, viper.GetString("ipfs.gateway")), nil
+	return metadata.Image, nil
 }
 
 func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
@@ -383,7 +330,94 @@ func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (st
 		return "", err
 	}
 
+	gbl.Log.Infof("GetTokenURI || tokenURI: %+v\n", tokenURI)
+
 	return tokenURI, nil
+}
+
+func (n *Node) GetSupportedStandards(contractAddress common.Address) []standard.Standard {
+	ctx := context.Background()
+
+	supportedStandards := make([]standard.Standard, 0)
+
+	// check erc165 interface
+	queryiERC165Supported := ethereum.CallMsg{
+		To:   &contractAddress,
+		Data: supportsInterfaceiERC165,
+	}
+
+	resultERC165, err := n.Client.CallContract(ctx, queryiERC165Supported, nil)
+	if err != nil {
+		gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
+		return nil
+	}
+
+	queryiERCFFFFFFSupported := ethereum.CallMsg{
+		To:   &contractAddress,
+		Data: supportsInterfaceiFFFFFF,
+	}
+
+	resultFFFFFF, err := n.Client.CallContract(ctx, queryiERCFFFFFFSupported, nil)
+	if err != nil {
+		gbl.Log.Warnf("interface FFFFFF check error: %v\n", err)
+		return nil
+	}
+
+	if (len(resultERC165)-1 > 0 && len(resultFFFFFF)-1 > 0) && bytes.Equal(resultERC165[len(resultERC165)-1:], []byte{0x01}) && bytes.Equal(resultFFFFFF[len(resultFFFFFF)-1:], []byte{0x00}) {
+		supportedStandards = append(supportedStandards, standard.ERC165)
+	} else {
+		gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
+		return nil
+	}
+
+	// get the contractERC1155 ABI
+	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
+	if err != nil {
+		gbl.Log.Error(err)
+	}
+
+	if iERC1155Supported, err := contractERC1155.SupportsInterface(&bind.CallOpts{}, iERC1155); err != nil {
+		gbl.Log.Debug(err)
+	} else {
+		if iERC1155Supported {
+			supportedStandards = append(supportedStandards, standard.ERC1155)
+		}
+	}
+
+	return supportedStandards
+}
+
+func (n *Node) ERC1155Supported(contractAddress common.Address) bool {
+	// get the contractERC1155 ABI
+	contractERC1155, err := abis.NewERC1155(contractAddress, n.Client)
+	if err != nil {
+		gbl.Log.Error(err)
+	}
+
+	if iERC1155Supported, err := contractERC1155.SupportsInterface(&bind.CallOpts{}, iERC1155); err != nil {
+		gbl.Log.Debug(err)
+	} else {
+		if iERC1155Supported {
+			return true
+		}
+	}
+
+	return false
+}
+
+// type ERC1155Data struct {
+// 	ID    int
+// 	Value int
+// }
+
+func (n *Node) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
+	gbl.Log.Infof("GetERC1155TokenID || contractAddress: %s\n", contractAddress)
+
+	half := int(len(data) / 2)
+	tokenID, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[:half], "\x00"))), 16, 64)
+	// value, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[half:], "\x00"))), 16, 64)
+
+	return big.NewInt(tokenID)
 }
 
 func WeiToEther(wei *big.Int) *big.Float {
@@ -408,28 +442,28 @@ func WeiToGwei(wei *big.Int) *big.Float {
 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.GWei))
 }
 
-func replaceSchemeWithGateway(url string, gateway string) string {
-	const schemeIPFS = "ipfs://"
+// func replaceSchemeWithGateway(url string, gateway string) string {
+// 	const schemeIPFS = "ipfs://"
 
-	return strings.Replace(url, schemeIPFS, gateway, 1)
-}
+// 	return strings.Replace(url, schemeIPFS, gateway, 1)
+// }
 
-func createMetadataHTTPClient() (*http.Client, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
+// func createMetadataHTTPClient() (*http.Client, error) {
+// 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 
-	transport := &http.Transport{
-		TLSClientConfig:     tlsConfig,
-		MaxIdleConnsPerHost: 20,
-		IdleConnTimeout:     5 * time.Second,
-	}
+// 	transport := &http.Transport{
+// 		TLSClientConfig:     tlsConfig,
+// 		MaxIdleConnsPerHost: 20,
+// 		IdleConnTimeout:     5 * time.Second,
+// 	}
 
-	// explicitly use http2
-	_ = http2.ConfigureTransport(transport)
+// 	// explicitly use http2
+// 	_ = http2.ConfigureTransport(transport)
 
-	client := &http.Client{
-		Timeout:   15 * time.Second,
-		Transport: transport,
-	}
+// 	client := &http.Client{
+// 		Timeout:   15 * time.Second,
+// 		Transport: transport,
+// 	}
 
-	return client, nil
-}
+// 	return client, nil
+// }

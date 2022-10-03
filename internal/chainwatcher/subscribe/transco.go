@@ -45,7 +45,7 @@ func (transco *TransactionCollector) AddLog(log *types.Log) {
 	transco.Logs[int(log.Index)] = log
 }
 
-func (transco *TransactionCollector) UniqueTokenIDs() int {
+func (transco *TransactionCollector) UniqueTokenIDs() uint64 {
 	dupeMap := map[uint64]bool{}
 
 	for _, tokenID := range transco.TokenIDs {
@@ -54,7 +54,7 @@ func (transco *TransactionCollector) UniqueTokenIDs() int {
 		}
 	}
 
-	return int(math.Max(float64(len(dupeMap)), 1))
+	return uint64(math.Max(float64(len(dupeMap)), 1))
 }
 
 func getTokenIDFromTopics(topics []common.Hash) uint64 {

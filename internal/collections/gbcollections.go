@@ -16,6 +16,31 @@ const (
 	Stream
 )
 
+func (cs *CollectionSource) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + cs.String() + `"`), nil
+}
+
+func (cs *CollectionSource) UnmarshalJSON(b []byte) error {
+	switch string(b) {
+	case `"configuration"`:
+		*cs = Configuration
+	case `"wallet"`:
+		*cs = Wallet
+	case `"stream"`:
+		*cs = Stream
+	}
+
+	return nil
+}
+
+func (cs *CollectionSource) String() string {
+	return map[CollectionSource]string{
+		Configuration: "configuration",
+		Wallet:        "wWallet",
+		Stream:        "stream",
+	}[*cs]
+}
+
 type AddressCollection []common.Address
 
 // Contains returns true if the given string is in the slice.

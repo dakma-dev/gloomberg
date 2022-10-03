@@ -87,12 +87,21 @@ func init() {
 	// api keys from nodes providers & other services
 	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
 
-	// redis settings
+	// redis cache
 	viper.SetDefault("redis.enabled", false)
 	viper.SetDefault("redis.host", "127.0.0.1")
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.database", 0)
 	viper.SetDefault("redis.password", "")
+
+	// ipfs
+	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
+
+	// opensea settings
+	// viper.SetDefault("opensea.auto_list_min_sales", 50000)
+
+	// number of retries to resolve an ens name to an address or vice versa
+	viper.SetDefault("ens.resolve_max_retries", 5)
 
 	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
 	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
@@ -119,16 +128,13 @@ func initConfig() {
 
 	viper.SetConfigType("yaml")
 
-	// backup config
-	// viper.SetDefault("config.backup_file", "/tmp/.backup_gloomberg.yaml")
-
 	// logging
-	// viper.SetDefault("log.log_file", fmt.Sprint(home, "gloomberg.log"))
 	viper.SetDefault("log.log_file", "/tmp/gloomberg.log")
 
 	// environment variables
 	viper.SetEnvPrefix("GLOOMBERG")
-	viper.AutomaticEnv() // read in environment variables that match
+	// read in environment variables that match
+	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
@@ -142,5 +148,5 @@ func initConfig() {
 		}
 	}
 
-	gbl.InitSugaredLogger()
+	gbl.GetSugaredLogger()
 }

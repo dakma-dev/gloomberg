@@ -69,7 +69,7 @@ func (c *GbCache) GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
 }
 
-func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID *big.Int, priceWei uint64, numItems uint, eventTime time.Time, eventType int64) {
+func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID *big.Int, priceWei uint64, numItems uint64, eventTime time.Time, eventType int64) {
 	xAddArgs := &redis.XAddArgs{
 		Stream: "sales",
 		MaxLen: 100000,

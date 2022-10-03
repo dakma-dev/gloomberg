@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
@@ -56,12 +57,27 @@ func init() {
 	gloomLiveCmd.Flags().Float64("min-value", 0.0, "minimum value to show sales?")
 	_ = viper.BindPFlag("show.min_value", gloomLiveCmd.Flags().Lookup("min-value"))
 
+	// what to show
+	gloomLiveCmd.Flags().Bool("sales", true, "Show sales?")
+	_ = viper.BindPFlag("show.sales", gloomLiveCmd.Flags().Lookup("sales"))
 	gloomLiveCmd.Flags().Bool("mints", false, "Show mints?")
 	_ = viper.BindPFlag("show.mints", gloomLiveCmd.Flags().Lookup("mints"))
+	gloomLiveCmd.Flags().Bool("listings", false, "Show listings?")
+	_ = viper.BindPFlag("show.listings", gloomLiveCmd.Flags().Lookup("listings"))
+	gloomLiveCmd.Flags().Bool("transfers", false, "Show transfers?")
+	_ = viper.BindPFlag("show.transfers", gloomLiveCmd.Flags().Lookup("transfers"))
 
 	// notifications
 	gloomLiveCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
 	_ = viper.BindPFlag("notifications.telegram.enabled", gloomLiveCmd.Flags().Lookup("telegram"))
+
+	// websockets server
+	gloomLiveCmd.Flags().Bool("ws", false, "enable websockets server")
+	gloomLiveCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
+	gloomLiveCmd.Flags().Uint16("ws-port", 42069, "websockets server port")
+	_ = viper.BindPFlag("server.websockets.enabled", gloomLiveCmd.Flags().Lookup("ws"))
+	_ = viper.BindPFlag("server.websockets.host", gloomLiveCmd.Flags().Lookup("ws-host"))
+	_ = viper.BindPFlag("server.websockets.port", gloomLiveCmd.Flags().Lookup("ws-port"))
 
 	// worker settings
 	viper.SetDefault("server.workers.subscription_logs", 5)

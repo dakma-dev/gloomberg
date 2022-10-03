@@ -102,7 +102,14 @@ func (s *WebsocketsServer) writer() {
 		}
 
 		// event := event
+
+		// var wsEvent *collections.Event
+		// copier.Copy(&wsEvent, &event)
+		// wsEvent.Collection.Source = wsEvent.Collection.Source.String()
+
 		marshalledEvent, _ := json.Marshal(event)
+
+		fmt.Printf("event: \n%s\n", string(marshalledEvent))
 
 		// broadcast
 		s.mu.RLock()

@@ -125,7 +125,7 @@ func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
 
 			newWallet.Balance, newWallet.BalanceBefore = big.NewInt(0), big.NewInt(0)
 
-			gbl.Log.Infof("✅ successfully added wallet: %s", newWallet.Render(newWallet.Name))
+			gbl.Log.Infof("✅ successfully added own wallet: %s", newWallet.Render(newWallet.Name))
 
 			mu.Lock()
 			ownWallets[newWallet.Address] = newWallet

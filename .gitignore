@@ -7,6 +7,5 @@ gloomberg
 .github/ttyd.Dockerfile
 
 # misc
-cmd/setOwner.go
 internal/assets
 dev.md

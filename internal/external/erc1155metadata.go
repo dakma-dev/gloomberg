@@ -9,6 +9,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/spf13/viper"
 )
@@ -50,19 +51,21 @@ func GetERC1155MetadataForURI(url string, tokenID *big.Int) (*ERC1155Metadata, e
 
 	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
 
-	client, err := newClient()
-	if err != nil {
-		gbl.Log.Errorf("error creating http client: %+v", err)
-		return nil, err
-	}
+	// client, err := newClient()
+	// if err != nil {
+	// 	gbl.Log.Errorf("error creating http client: %+v", err)
+	// 	return nil, err
+	// }
 
-	request, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		gbl.Log.Errorf("error creating erc1155 metadata request: %+v", err)
-		return nil, err
-	}
+	// request, err := http.NewRequest("GET", url, nil)
+	// if err != nil {
+	// 	gbl.Log.Errorf("error creating erc1155 metadata request: %+v", err)
+	// 	return nil, err
+	// }
 
-	response, err := client.Do(request)
+	// response, err := client.Do(request)
+
+	response, err := utils.HTTP.Get(url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Debugf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())

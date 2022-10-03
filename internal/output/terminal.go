@@ -118,8 +118,8 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
 	isOwnCollection := event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration
-	ownWalletInvolved := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
-	wwatcherWalletInvolved := watchUsers.Contains(event.From.Address) || wwatcher.Recipients.Contains(event.To.Address)
+	isOwnWallet := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
+	isWatchUsersWallet := watchUsers.Contains(event.From.Address) || watchUsers.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// buyer
@@ -196,7 +196,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	}
 
 	// highlight line if the seller or buyer is a wallet from the configured wallets
-	if ownWalletInvolved {
+	if isOwnWallet {
 		if event.EventType == collections.Listing {
 			timeNow = lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Bold(true).Render(currentTime)
 		} else {
@@ -255,7 +255,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	} else if isOwnCollection && event.EventType == collections.Sale {
 		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_value") {
 		if priceEtherPerItem >= viper.GetFloat64("show.min_value") {
-			if ownWalletInvolved {
+			if isOwnWallet {
 				marker = style.OwnerGreenBoldStyle.Render("*")
 				eventWithStyle.Marker = "*"
 				eventWithStyle.MarkerColor = "#73F59F"
@@ -266,7 +266,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	// add to event history
 	if isOwnCollection && event.EventType == collections.Sale { // && itemPrice >= viper.GetFloat64("show.min_value") {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
-	} else if ownWalletInvolved {
+	} else if isOwnWallet {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
 
@@ -386,16 +386,14 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	}
 
 	// counting
-	// if stats != nil {
-	// 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
-	// 		for i := 0; i < int(event.TxItemCount); i++ {
-	// 			go event.Collection.AddSale(event.PriceWei, 1)
-	// 			stats.AddSale(pricePerItem)
-	// 		}
-	// 	} else if event.EventType == collections.Mint {
-	// 		go event.Collection.AddMint()
-	// 	}
-	// }
+	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
+		event.Collection.AddSale(event.PriceWei, event.TxItemCount)
+		// for i := 0; i < int(event.TxItemCount); i++ {
+		// 	go event.Collection.AddSale(event.PriceWei, 1)
+		// }
+	} else if event.EventType == collections.Mint {
+		event.Collection.AddMint()
+	}
 
 	// sales/listings count & salira
 	eventWithStyle.ListingsCount = event.Collection.Counters.Listings
@@ -426,15 +424,16 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 
 			salira := fmt.Sprint(
 				style.CreateTrendIndicator(previousMASaLiRa, currentMASaLiRa),
-				saLiRaStyle.Render(fmt.Sprintf("%5.3f", currentMASaLiRa)),
-				style.DarkGrayStyle.Render("slr"),
+				saLiRaStyle.Render(fmt.Sprintf("%4.2f", currentMASaLiRa)),
+				event.Collection.Style().Copy().Faint(true).Render("slr"),
+				// style.DarkGrayStyle.Render("slr"),
 			)
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
 		}
 	}
 
 	// mark the line if the seller or buyer is a wallet from the configured wallets
-	if ownWalletInvolved {
+	if isOwnWallet {
 		out.WriteString(" " + style.PinkBoldStyle.Render("*"))
 
 		if event.EventType != collections.Listing {
@@ -454,13 +453,8 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	// print to terminal
 	queueOutput <- out.String()
 
-	// // send to websockets output
-	// if cWatcher != nil && cWatcher.WebsocketsServer != nil && cWatcher.WebsocketsServer.ClientsConnected() > 0 {
-	// 	*queueOutWS <- event
-	// }
-
 	// telegram notification
-	if isSaleOrMint && wwatcherWalletInvolved && viper.GetBool("notifications.telegram.enabled") { // && notifications.TgBot != nil {
+	if isSaleOrMint && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") { // && notifications.TgBot != nil {
 		gbl.Log.Warn("sending telegram notification...")
 
 		go func() {
@@ -470,7 +464,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 
 			// linkURL := etherscanURL
 
-			if wwatcher.Recipients.Contains(event.To.Address) {
+			if watchUsers.Contains(event.To.Address) {
 				triggerAddress = event.To.Address
 
 				// else if event.EventType == collections.Listing {
@@ -485,13 +479,11 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 				triggerAddress = event.From.Address
 			}
 
-			gbl.Log.Warnf("tg wwatcher address: %s\n", triggerAddress.Hex())
-
 			var userName string
-			if name := wwatcher.Recipients[triggerAddress].TgUsername; name != "" {
+			if name := watchUsers[triggerAddress].TgUsername; name != "" {
 				userName = "@" + name
 			} else {
-				userName = wwatcher.Recipients[triggerAddress].Name
+				userName = watchUsers[triggerAddress].Name
 			}
 
 			msgTelegram := strings.Builder{}
@@ -510,11 +502,11 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 			if uri, err := ethNodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil || strings.HasSuffix(uri, ".gif") {
 				gbl.Log.Warnf("error getting token image uri: %v", err)
 			} else {
-				imageURI = strings.Replace(uri, "ipfs://", "https://ipfs.io/ipfs/", 1)
+				imageURI = utils.ReplaceSchemeWithGateway(uri)
 			}
 
 			if msg, err := notifications.SendTelegramMessage(chatID, msgTelegram.String(), imageURI); err != nil {
-				gbl.Log.Warnf("failed to send telegram message: '%s' | imageURI: %s | err: %s\n", msgTelegram.String(), imageURI, err)
+				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s\n", imageURI, msgTelegram.String(), err)
 			} else {
 				gbl.Log.Infof("sent telegram message: '%s'\n", msg.Text)
 			}

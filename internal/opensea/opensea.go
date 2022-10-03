@@ -2,7 +2,6 @@ package opensea
 
 import (
 	"bytes"
-	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/utils"
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
@@ -21,53 +21,61 @@ import (
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
-	"golang.org/x/net/http2"
 )
 
-func createOpenSeaHeaders() (*http.Header, error) {
-	headers := &http.Header{}
-
-	headers.Add("Accept", "application/json")
-	headers.Add("Cache-Control", "no-cache")
-
+func openSeaHeader() http.Header {
+	header := http.Header{}
 	if viper.IsSet("api_keys.opensea") {
-		headers.Add("X-API-KEY", viper.GetString("api_keys.opensea"))
+		header.Add("X-API-KEY", viper.GetString("api_keys.opensea"))
 	}
 
-	return headers, nil
+	return header
 }
 
-func createHTTPClient() (*http.Client, error) {
-	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS13}
+// func createOpenSeaHeaders() (*http.Header, error) {
+// 	headers := &http.Header{}
 
-	transport := &http.Transport{
-		MaxIdleConnsPerHost:   25,
-		TLSClientConfig:       tlsConfig,
-		IdleConnTimeout:       17 * time.Second,
-		ResponseHeaderTimeout: 7 * time.Second,
-		TLSHandshakeTimeout:   5 * time.Second,
-	}
+// 	headers.Add("Accept", "application/json")
+// 	headers.Add("Cache-Control", "no-cache")
 
-	// explicitly use http2
-	_ = http2.ConfigureTransport(transport)
+// 	if viper.IsSet("api_keys.opensea") {
+// 		headers.Add("X-API-KEY", viper.GetString("api_keys.opensea"))
+// 	}
 
-	client := &http.Client{
-		Timeout:   9 * time.Second,
-		Transport: transport,
-	}
+// 	return headers, nil
+// }
 
-	return client, nil
-}
+// func createHTTPClient() (*http.Client, error) {
+// 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS13}
 
-func createGetRequest(url string) (*http.Request, error) {
-	req, _ := http.NewRequest("GET", url, nil)
+// 	transport := &http.Transport{
+// 		MaxIdleConnsPerHost:   25,
+// 		TLSClientConfig:       tlsConfig,
+// 		IdleConnTimeout:       17 * time.Second,
+// 		ResponseHeaderTimeout: 7 * time.Second,
+// 		TLSHandshakeTimeout:   5 * time.Second,
+// 	}
 
-	if httpHeader, _ := createOpenSeaHeaders(); httpHeader != nil {
-		req.Header = *httpHeader
-	}
+// 	// explicitly use http2
+// 	_ = http2.ConfigureTransport(transport)
 
-	return req, nil
-}
+// 	client := &http.Client{
+// 		Timeout:   9 * time.Second,
+// 		Transport: transport,
+// 	}
+
+// 	return client, nil
+// }
+
+// func createGetRequest(url string) (*http.Request, error) {
+// 	req, _ := http.NewRequest("GET", url, nil)
+
+// 	if httpHeader, _ := createOpenSeaHeaders(); httpHeader != nil {
+// 		req.Header = *httpHeader
+// 	}
+
+// 	return req, nil
+// }
 
 // GetWalletCollections returns the collections a wallet owns at least one item of.
 func GetWalletCollections(wallets map[common.Address]*wallet.Wallet, userCollections *collections.Collections, nodes *nodes.Nodes) []*collections.GbCollection {
@@ -85,12 +93,15 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 	receivedCollections := make([]*collections.GbCollection, 0)
 
 	// create the http client & request
-	client, _ := createHTTPClient()
+	// client, _ := createHTTPClient()
+
+	// request, _ := createGetRequest(url)
+
+	// response, err := client.Do(request)
 
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/collections?asset_owner=%s&offset=0&limit=300", walletAddress)
-	request, _ := createGetRequest(url)
 
-	response, err := client.Do(request)
+	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
 	if os.IsTimeout(err) {
 		backoffSeconds := try * 2
 		sleepTime := time.Duration(backoffSeconds) * time.Second
@@ -158,13 +169,15 @@ func GetCollectionSlug(collectionAddress common.Address) string {
 
 func GetAssetContract(contractAddress common.Address) *models.AssetContract {
 	// create the http client & request
-	client, _ := createHTTPClient()
+	// client, _ := createHTTPClient()
+
+	// request, _ := createGetRequest(url)
+
+	// response, err := client.Do(request)
 
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/asset_contract/%s", contractAddress.String())
 
-	request, _ := createGetRequest(url)
-
-	response, err := client.Do(request)
+	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
 	if err != nil {
 		// if os.IsTimeout(err) {
 		// 	// dalog.Warn("TIMEOUT while fetching listings, trying again next round... ", collectionSlug)
@@ -274,7 +287,11 @@ func GetAssetsFor(walletAddress common.Address, nodes *nodes.Nodes) map[common.A
 
 func fetchAssets(walletAddress common.Address, cursor string) *models.AssetsResponse {
 	// create the http client & request
-	client, _ := createHTTPClient()
+	// client, _ := createHTTPClient()
+
+	// request, _ := createGetRequest(url)
+
+	// response, err := client.Do(request)
 
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/assets?limit=30&order_direction=desc&include_orders=false&owner=%s", walletAddress.String())
 
@@ -282,9 +299,7 @@ func fetchAssets(walletAddress common.Address, cursor string) *models.AssetsResp
 		url = fmt.Sprintf("%s&cursor=%s", url, cursor)
 	}
 
-	request, _ := createGetRequest(url)
-
-	response, err := client.Do(request)
+	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
 	if err != nil {
 		gbl.Log.Errorf("⌛️ error while fetching assets for %s: %s", walletAddress.Hex(), err)
 		// if os.IsTimeout(err) {

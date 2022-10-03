@@ -78,7 +78,7 @@ type Event struct {
 	CollectionColor lipgloss.Color
 	// MultiItemTx bool
 	Permalink   string
-	TxItemCount uint
+	TxItemCount uint64
 	Time        time.Time
 	From        User
 	FromENS     string
@@ -115,7 +115,7 @@ type EventWithStyle struct {
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
 
-	TxItemCount uint
+	TxItemCount uint64
 
 	EtherscanURL string
 	OpenseaURL   string
