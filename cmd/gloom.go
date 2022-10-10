@@ -34,6 +34,9 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
+	// global defaults
+	viper.Set("http.timeout", 17*time.Second)
+
 	// show listings for own collections if an opensea api key is set
 	if viper.IsSet("api_keys.opensea") && !viper.IsSet("show.listings") {
 		viper.Set("show.listings", true)

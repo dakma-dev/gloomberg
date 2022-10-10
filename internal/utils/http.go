@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
 
@@ -26,11 +27,9 @@ func (h *HTTPClient) GetWithHeader(url string, customHeader http.Header) (*http.
 }
 
 func (h *HTTPClient) httpGet(url string, customHeader http.Header, tlsVersion uint16) (*http.Response, error) {
-	requestTimeout := time.Second * 7
-
 	url = ReplaceSchemeWithGateway(url)
 
-	client, err := createHTTPClient(requestTimeout, tlsVersion)
+	client, err := createHTTPClient(viper.GetDuration("http.timeout"), tlsVersion)
 	if err != nil {
 		return nil, err
 	}
