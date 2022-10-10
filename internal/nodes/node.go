@@ -407,8 +407,8 @@ func (n *Node) ERC1155Supported(contractAddress common.Address) bool {
 func (n *Node) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
 	gbl.Log.Infof("GetERC1155TokenID || contractAddress: %s", contractAddress)
 
-	half := int(len(data) / 2)
-	tokenID, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[:half], "\x00"))), 16, 64)
+	half := len(data) / 2
+	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
 	// value, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[half:], "\x00"))), 16, 64)
 
 	return big.NewInt(tokenID)

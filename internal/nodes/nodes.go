@@ -46,7 +46,7 @@ func (nc *Nodes) ConnectAllNodes() *Nodes {
 
 	wgNodes.Wait()
 
-	(*nc) = conectedNodes
+	*nc = conectedNodes
 
 	if nodesAvailable == 0 {
 		gbl.Log.Fatal("no nodes available")

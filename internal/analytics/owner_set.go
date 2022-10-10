@@ -36,7 +36,7 @@ type Artist struct {
 	MultiCollectionSets []MultiCollectionSet `json:"multicollectionsets"`
 }
 
-func GetSetOwner(_ *cobra.Command, args []string) {
+func GetSetOwner(_ *cobra.Command, _ []string) {
 	// create clean output dir
 	path := "dist/www"
 	if err := os.RemoveAll(path); err != nil {
@@ -129,7 +129,7 @@ func GetSetOwner(_ *cobra.Command, args []string) {
 				// }
 			}
 
-			f, err := os.Create((path + "/" + multiCollectionSet.ID + ".txt"))
+			f, err := os.Create(path + "/" + multiCollectionSet.ID + ".txt")
 			if err != nil {
 				gbl.Log.Errorf("error creating file: %v\n", err)
 			}
@@ -144,7 +144,7 @@ func GetSetOwner(_ *cobra.Command, args []string) {
 			fmt.Println(style.BoldStyle.Copy().Padding(1, 0, 1, 4).Render(fmt.Sprintf("set owners: %d\n", len(tokenOwners[multiCollectionSet.ID]))))
 		}
 
-		artistFile, err := os.Create((path + "/" + artist.ID + ".html"))
+		artistFile, err := os.Create(path + "/" + artist.ID + ".html")
 		if err != nil {
 			gbl.Log.Errorf("error creating file: %v\n", err)
 		}
@@ -167,12 +167,12 @@ func GetSetOwner(_ *cobra.Command, args []string) {
 	}
 
 	// write index html
-	indexFile, err := os.Create((path + "/index.html"))
+	indexFile, err := os.Create(path + "/index.html")
 	if err != nil {
 		gbl.Log.Errorf("error creating file: %v\n", err)
 	}
 
-	indexFile.WriteString("<html><head><title>Artists</title></head><body>")
+	indexFile.WriteString("<html lang=\"en\"><head><title>Artists</title></head><body>")
 
 	for _, artist := range Artists {
 		indexFile.WriteString("<h3><a href=\"" + artist.ID + ".html\">" + artist.Name + "</a></h3>")

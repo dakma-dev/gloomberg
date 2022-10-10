@@ -50,7 +50,7 @@ func ConnectToServer(connectHost string, queueEvents *chan *collections.Event) {
 			}
 
 			var event *collections.Event
-			if err := json.Unmarshal([]byte(msg), &event); err != nil {
+			if err := json.Unmarshal(msg, &event); err != nil {
 				log.Fatal(err)
 			}
 

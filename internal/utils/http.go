@@ -26,12 +26,11 @@ func (h *HTTPClient) GetWithHeader(url string, customHeader http.Header) (*http.
 }
 
 func (h *HTTPClient) httpGet(url string, customHeader http.Header, tlsVersion uint16) (*http.Response, error) {
-	maxIdleConnsPerHost := 23
 	requestTimeout := time.Second * 7
 
 	url = ReplaceSchemeWithGateway(url)
 
-	client, err := createHTTPClient(requestTimeout, maxIdleConnsPerHost, tlsVersion)
+	client, err := createHTTPClient(requestTimeout, tlsVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -66,7 +65,7 @@ func createGetRequest(url string, customHeader http.Header) (*http.Request, erro
 	return request, nil
 }
 
-func createHTTPClient(requestTimeout time.Duration, maxIdleConnsPerHost int, tlsVersion uint16) (*http.Client, error) {
+func createHTTPClient(requestTimeout time.Duration, tlsVersion uint16) (*http.Client, error) {
 	tlsConfig := &tls.Config{MinVersion: tlsVersion}
 
 	transport := &http.Transport{

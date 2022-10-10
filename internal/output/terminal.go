@@ -16,7 +16,6 @@ import (
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
-	"github.com/benleb/gloomberg/internal/openrarity"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -27,7 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var rarities = openrarity.LoadRaritiesFromJSONs()
+//var rarities = openrarity.LoadRaritiesFromJSONs()
 
 func FormatEvent(event *collections.Event, collectionDB *collections.CollectionDB, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
@@ -383,13 +382,12 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 	out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
 
 	// price per item
-	if false && event.EventType == collections.Listing && rarities[event.Collection.OpenseaSlug] != nil {
-		rank := rarities[event.Collection.OpenseaSlug][int(event.TokenID.Int64())].Rank
-		out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("%4d", rank)) + " ")
-	} else {
-		out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(pricePerItem))))
-		out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
-	}
+	//if false && event.EventType == collections.Listing && rarities[event.Collection.OpenseaSlug] != nil {
+	//	rank := rarities[event.Collection.OpenseaSlug][int(event.TokenID.Int64())].Rank
+	//	out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("%4d", rank)) + " ")
+	//} else {
+	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(pricePerItem))))
+	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
 
 	// collection/token info
 	out.WriteString("  " + tokenInfo)

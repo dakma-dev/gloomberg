@@ -72,12 +72,12 @@ func (cw *ChainWatcher) SubscribeToSales(queueEvents *chan *collections.Event) {
 
 		// create a defined number of workers/handlers per cNode to receive and process incoming events/logs
 		for workerID := 1; workerID <= viper.GetInt("server.workers.subscription_logs"); workerID++ {
-			go cw.logHandler(workerID, node, queueEvents)
+			go cw.logHandler(node, queueEvents)
 		}
 	}
 }
 
-func (cw *ChainWatcher) logHandler(workerID int, node *nodes.Node, queueEvents *chan *collections.Event) {
+func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collections.Event) {
 	// process new logs received via our subscriptions
 	for subLog := range *cw.queueLogs {
 		// track & count
@@ -285,7 +285,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		TokenID:         tokenID,
 		ENSMetadata:     ensMetadata,
 		PriceWei:        value,
-		TxItemCount:     uint64(transco.UniqueTokenIDs()),
+		TxItemCount:     transco.UniqueTokenIDs(),
 		Time:            time.Now(),
 		From: collections.User{
 			Address:       fromAddress,

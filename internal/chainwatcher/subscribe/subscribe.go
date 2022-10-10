@@ -1,24 +1,5 @@
 package subscribe
 
-import (
-	"sync"
-
-	"github.com/benleb/gloomberg/internal/models/transactioncollector"
-	"github.com/ethereum/go-ethereum/common"
-)
-
-var (
-	mu = &sync.Mutex{}
-
-	// totalNumReceived  = uint64(0)
-	// totalLastReceived = int64(0)
-
-	knownTransactions     = make(map[common.Hash][]int)
-	transactionCollectors = make(map[common.Hash]*transactioncollector.TransactionCollector)
-
-	zeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-)
-
 // func WorkerLogsQueue(workerID int, cNode *nodes.Node, rawNodes []*nodes.Node, ownCollections *collections.CollectionDB, queueLogs *chan types.Log, queueEvents *chan *collections.Event) {
 // 	var cNodes nodes.Nodes = rawNodes
 

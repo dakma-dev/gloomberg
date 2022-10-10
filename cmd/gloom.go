@@ -49,11 +49,6 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		role.TelegramNotifications = true
 	}
 
-	// websockets server
-	if viper.GetBool("server.websockets.enabled") {
-		role.WsServer = true
-	}
-
 	gb := &gloomberg.Gloomberg{
 		ChainWatcher: nil,
 		CollectionDB: collections.New(),
@@ -148,7 +143,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 	}
 
 	//
-	// wallet watcher & MIWs
+	// wallet watcher (todo) & MIWs
 	if role.WalletWatcher {
 		watchUsers = config.GetWatcherUsersFromConfig()
 

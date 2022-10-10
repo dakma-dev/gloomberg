@@ -29,7 +29,7 @@ func StripANSI(str string) string {
 	return pattern.ReplaceAllString(str, "")
 }
 
-// func replaceSchemeWithGateway(url string, gateway string) string {
+// ReplaceSchemeWithGateway func replaceSchemeWithGateway(url string, gateway string) string {
 func ReplaceSchemeWithGateway(url string) string {
 	const schemeIPFS = "ipfs://"
 
