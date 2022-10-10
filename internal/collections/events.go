@@ -70,6 +70,7 @@ type Event struct {
 	Topic     string
 	TxHash    common.Hash
 	// Collection      *Collection
+	ContractAddress common.Address
 	Collection      *GbCollection
 	TokenID         *big.Int
 	ENSMetadata     *external.ENSMetadata
@@ -85,6 +86,27 @@ type Event struct {
 	To          User
 	ToENS       string
 	WorkerID    int
+}
+
+type PushEvent struct {
+	NodeID          int
+	EventType       EventType
+	Topic           string
+	TxHash          common.Hash
+	CollectionName  string
+	ContractAddress common.Address
+	TokenID         *big.Int
+	ENSMetadata     *external.ENSMetadata
+	PriceWei        *big.Int
+	PricePerItem    *big.Int
+	CollectionColor lipgloss.Color
+	Permalink       string
+	TxItemCount     uint64
+	Time            time.Time
+	From            User
+	FromENS         string
+	To              User
+	ToENS           string
 }
 
 type EventWithStyle struct {

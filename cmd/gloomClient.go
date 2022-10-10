@@ -1,11 +1,8 @@
 package cmd
 
 import (
-	"fmt"
-
-	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // gloomClientCmd represents the gloomClient command
@@ -19,20 +16,22 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("gloomClient called")
-
-		// default roles for gloomClient
-		role := internal.RoleMap{}
-
-		// default role settings
-		role.OutputTerminal = true
-
-		// opensea stream api to subscribe to new listings for own collections
-		if openseaToken := viper.GetString("api_keys.opensea"); openseaToken != "" {
-			role.OsStreamWatcher = true
+		// default roles for gloomberg live
+		role := gloomberg.RoleMap{
+			ChainWatcher:          false,
+			GloomClient:           true,
+			OsStreamWatcher:       true,
+			OutputTerminal:        true,
+			CollectionDB:          true,
+			OwnWalletWatcher:      true,
+			StatsTicker:           true,
+			TelegramBot:           false,
+			TelegramNotifications: false,
+			WalletWatcher:         true,
+			WsServer:              false,
 		}
 
-		gloomberg(cmd, args, role)
+		runGloomberg(cmd, args, role)
 	},
 }
 

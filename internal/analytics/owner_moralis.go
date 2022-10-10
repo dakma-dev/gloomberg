@@ -46,13 +46,14 @@ type Owner struct {
 
 func FetchSetOwnersFor(apiToken string, set *CollectionSet) ([]common.Address, error) {
 	tokenOwner := make(map[common.Address][]int, 0)
-	setOwners := make([]common.Address, 0)
 
 	for _, tokenID := range set.TokenIDs {
 		owners, err := FetchOwnersFor(apiToken, set.ContractAddress, tokenID)
 		if err != nil {
 			gbl.Log.Errorf("❌ error fetching owners: %+v", err.Error())
-			return setOwners, err
+			fmt.Printf("❌ error fetching owners: %+v\n", err.Error())
+			// return setOwners, err
+			continue
 		}
 
 		for _, owner := range owners {
@@ -60,14 +61,26 @@ func FetchSetOwnersFor(apiToken string, set *CollectionSet) ([]common.Address, e
 			tokenOwner[ownerAddress] = append(tokenOwner[ownerAddress], tokenID)
 		}
 
-		time.Sleep(time.Second * 2)
+		// fmt.Printf("token: %d | tokenOwner: %v | setOwners: %v\n", tokenID, len(tokenOwner), len(setOwners))
+
+		time.Sleep(time.Millisecond * 3337)
 	}
 
+	// fmt.Printf("tokenOwner: %v\n", len(tokenOwner))
+
+	setOwners := make([]common.Address, 0)
+
 	for ownerAddress, tokenIDs := range tokenOwner {
-		if len(tokenIDs) == len(set.TokenIDs) {
+		if set.Any {
 			setOwners = append(setOwners, ownerAddress)
+		} else {
+			if len(tokenIDs) == len(set.TokenIDs) {
+				setOwners = append(setOwners, ownerAddress)
+			}
 		}
 	}
+
+	// fmt.Printf("tokenOwner: %v | setOwners: %v\n", len(tokenOwner), len(setOwners))
 
 	return setOwners, nil
 }
@@ -80,9 +93,11 @@ func FetchOwnersFor(apiToken string, contractAddress common.Address, tokenID int
 	for {
 		ownerResponse, err := getOwnersPage(apiToken, contractAddress, tokenID, cursor)
 		if err != nil {
+			fmt.Printf("❌ error getOwnersPage: %+v\n", err.Error())
 			gbl.Log.Fatal(err)
 		}
 
+		// fmt.Println("ownerResponse.Result: ", len(ownerResponse.Result))
 		// fmt.Printf("contractAddress: %s | token: %d | %s | %v\n", contractAddress, tokenID, apiToken, ownerResponse.Result)
 
 		for _, owner := range ownerResponse.Result {
@@ -95,8 +110,10 @@ func FetchOwnersFor(apiToken string, contractAddress common.Address, tokenID int
 
 		cursor = ownerResponse.Cursor
 
-		time.Sleep(time.Second * 1)
+		time.Sleep(time.Millisecond * 3737)
 	}
+
+	// fmt.Printf("uniqueOwner: %v\n", len(uniqueOwner))
 
 	return uniqueOwner, nil
 }
@@ -144,6 +161,8 @@ func getOwnersPage(apiToken string, contractAddress common.Address, tokenID int,
 		gbl.Log.Errorf("❌ error decoding json: %+v", err.Error())
 		return responseOwner, err
 	}
+
+	// fmt.Println("responseOwner: ", responseOwner)
 
 	return responseOwner, nil
 }

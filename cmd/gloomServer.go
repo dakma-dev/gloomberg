@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -22,7 +22,7 @@ to quickly create a Cobra application.`,
 		fmt.Println("gloomServer called")
 
 		// default roles for gloomClient
-		role := internal.RoleMap{
+		role := gloomberg.RoleMap{
 			ChainWatcher:          true,
 			OsStreamWatcher:       false,
 			WsServer:              false,
@@ -31,7 +31,7 @@ to quickly create a Cobra application.`,
 			OutputTerminal:        false,
 		}
 
-		gloomberg(cmd, args, role)
+		runGloomberg(cmd, args, role)
 	},
 }
 

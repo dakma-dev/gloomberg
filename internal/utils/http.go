@@ -51,16 +51,11 @@ func createGetRequest(url string, customHeader http.Header) (*http.Request, erro
 		return nil, err
 	}
 
-	gbl.Log.Infof("request: %+v", request)
-
 	header := &http.Header{}
-
-	gbl.Log.Infof("header: %+v", header)
-
 	header.Add("Accept", "application/json")
 	header.Add("Cache-Control", "no-cache")
 
-	gbl.Log.Infof("header: %+v", header)
+	gbl.Log.Debugf("request: %+v | header: %+v", request, header)
 
 	for h := range customHeader {
 		header.Add(h, customHeader.Get(h))

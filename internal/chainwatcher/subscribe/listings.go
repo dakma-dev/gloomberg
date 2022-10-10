@@ -15,15 +15,15 @@ import (
 	"github.com/spf13/viper"
 )
 
-func StreamListingsHandler(workerID int, ownCollections *collections.Collections, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
-	gbl.Log.Infof("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings"))
+func StreamListingsHandler(workerID int, ownCollections *collections.CollectionDB, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
+	gbl.Log.Debugf("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings"))
 
 	for event := range *queueListings {
 		patternContractAddress := regexp.MustCompile(`^ethereum/(.*?)/(.*)$`)
 		contractAddress := patternContractAddress.ReplaceAllString(event.Payload.Item.NftID, "$1")
 		gbl.Log.Debugf("contractAddress: %+v", contractAddress)
 
-		collection := ownCollections.UserCollections[common.HexToAddress(contractAddress)]
+		collection := ownCollections.Collections[common.HexToAddress(contractAddress)]
 		if collection == nil {
 			gbl.Log.Infof("collection not found: %s", event.Payload.Item.Metadata.Name)
 
@@ -31,13 +31,12 @@ func StreamListingsHandler(workerID int, ownCollections *collections.Collections
 		}
 
 		patternTokenID := regexp.MustCompile(`^(.*?) ?#?(\d*)(/.*)?$`)
-		tokenIDRaw := patternTokenID.ReplaceAllString(event.Payload.Item.Metadata.Name, "$2")
-		gbl.Log.Infof("tokenIDRaw: %+v", tokenIDRaw)
+		tokenIDRaw := strings.TrimPrefix(patternTokenID.ReplaceAllString(event.Payload.Item.Metadata.Name, "$2"), "#")
 
-		tokenIDRaw = strings.TrimPrefix(tokenIDRaw, "#")
+		var tokenID int64
 
 		tokenID, err := strconv.ParseInt(tokenIDRaw, 10, 64)
-		if err != nil {
+		if err != nil && tokenIDRaw != "" {
 			gbl.Log.Infof("error parsing token ID | payload: %+v | tokenIDRaw: %s | error: %s", event.Payload, tokenIDRaw, err.Error())
 		}
 
@@ -51,7 +50,7 @@ func StreamListingsHandler(workerID int, ownCollections *collections.Collections
 
 		event := &collections.Event{
 			EventType:   collections.Listing,
-			Collection:  ownCollections.UserCollections[common.HexToAddress(contractAddress)],
+			Collection:  ownCollections.Collections[common.HexToAddress(contractAddress)],
 			TokenID:     big.NewInt(tokenID),
 			Permalink:   event.Payload.Item.Permalink,
 			TxItemCount: 1,

@@ -193,7 +193,7 @@ func (s *Stats) Print() {
 }
 
 func (s *Stats) Reset() {
-	gbl.Log.Infof("resetting statistics...")
+	gbl.Log.Debug("resetting statistics...")
 
 	s.sales = 0
 	s.mints = 0
@@ -382,7 +382,7 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration) {
 	intervalPrintStats = viper.GetDuration("stats.interval")
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
-	gbl.Log.Infof("starting stats ticker - updating every %s", intervalPrintStats)
+	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
 
 	go func() {
 		time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))

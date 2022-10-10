@@ -20,8 +20,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-func GetNodesFromConfig() nodes.Nodes {
-	ethNodes := make([]*nodes.Node, 0)
+func GetNodesFromConfig() *nodes.Nodes {
+	// ethNodes := make([]*nodes.Node, 0)
+	var ethNodes nodes.Nodes
 
 	nodesSpinner := style.GetSpinner("setting up node connections...")
 	_ = nodesSpinner.Start()
@@ -80,10 +81,10 @@ func GetNodesFromConfig() nodes.Nodes {
 
 	_ = nodesSpinner.Stop()
 
-	return ethNodes
+	return &ethNodes
 }
 
-func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
+func GetOwnWalletsFromConfig(ethNodes *nodes.Nodes) *wallet.Wallets {
 	ownWallets := make(map[common.Address]*wallet.Wallet, 0)
 	mu := sync.Mutex{}
 
@@ -91,7 +92,7 @@ func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
 	_ = nodesSpinner.Start()
 
 	var wgWallets sync.WaitGroup
-	for _, walletConfig := range viper.Get("ownWallets").([]interface{}) {
+	for _, walletConfig := range viper.Get("wallets").([]interface{}) {
 		wgWallets.Add(1)
 
 		go func(walletConfig interface{}) {
@@ -137,6 +138,8 @@ func GetOwnWalletsFromConfig(ethNodes nodes.Nodes) *wallet.Wallets {
 	wgWallets.Wait()
 
 	// resolve addresses to ens names if nodes are available
+	gbl.Log.Debugf("ethNodes != nil: %v | %+v | %+v", ethNodes != nil, ethNodes, ownWallets)
+
 	if ethNodes != nil {
 		ethNodes.ReverseResolveAllENS((*wallet.Wallets)(&ownWallets))
 	}
@@ -157,16 +160,14 @@ func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollec
 	ownCollections := make([]*collections.GbCollection, 0)
 
 	if viper.IsSet("collections") {
-		gbl.Log.Infof("config | reading collections from config")
-
 		for address, collection := range viper.GetStringMap("collections") {
 			contractAddress := common.HexToAddress(address)
-			currentCollection := collections.NewCollection(contractAddress, "", nodes, collections.Configuration)
+			currentCollection := collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 
 			if collection == nil && common.IsHexAddress(address) {
 				gbl.Log.Infof("reading collection without details: %+v", address)
 
-				currentCollection = collections.NewCollection(contractAddress, "", nodes, collections.Configuration)
+				currentCollection = collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 				// global settings
 				currentCollection.Show.Listings = viper.GetBool("show.listings")
 				currentCollection.Show.Sales = viper.GetBool("show.sales")
@@ -248,7 +249,7 @@ func GetWatcherUsersFromConfig() map[common.Address]*models.WatcherUser {
 			watcherUsers[newUser.Name] = true
 			mu.Unlock()
 
-			gbl.Log.Infof("✅ successfully added user: %s", newUser.Name)
+			gbl.Log.Infof("✅ successfully added user: %s", style.BoldStyle.Render(newUser.Name))
 		}(watcherUser)
 	}
 
@@ -257,7 +258,7 @@ func GetWatcherUsersFromConfig() map[common.Address]*models.WatcherUser {
 
 	userNames := make([]string, 0)
 	for userName := range watcherUsers {
-		userNames = append(userNames, userName)
+		userNames = append(userNames, style.BoldStyle.Render(userName))
 	}
 
 	// build spinner stop msg with all wallet names

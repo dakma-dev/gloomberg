@@ -1,11 +1,10 @@
 package cmd
 
 import (
-	"fmt"
 	"net"
 	"time"
 
-	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -21,14 +20,13 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("gloomLive called")
-
-		// default roles for gloomClient
-		role := internal.RoleMap{
+		// default roles for gloomberg live
+		role := gloomberg.RoleMap{
 			ChainWatcher:          true,
+			GloomClient:           false,
 			OsStreamWatcher:       true,
 			OutputTerminal:        true,
-			OwnCollections:        true,
+			CollectionDB:          true,
 			OwnWalletWatcher:      true,
 			StatsTicker:           true,
 			TelegramBot:           false,
@@ -37,7 +35,7 @@ to quickly create a Cobra application.`,
 			WsServer:              false,
 		}
 
-		gloomberg(cmd, args, role)
+		runGloomberg(cmd, args, role)
 	},
 }
 
@@ -83,13 +81,13 @@ func init() {
 	viper.SetDefault("server.workers.subscription_logs", 5)
 	viper.SetDefault("server.workers.output", 3)
 
-	viper.SetDefault("workers.listings", 2)
+	viper.SetDefault("server.workers.listings", 2)
 
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
-	viper.SetDefault("ticker.gasline", time.Second*17)
+	viper.SetDefault("ticker.gasline", time.Second*29)
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.interval", time.Second*90)
 	viper.SetDefault("stats.balances", true)

@@ -16,7 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
-	"github.com/benleb/gloomberg/internal/opensea"
+	"github.com/benleb/gloomberg/internal/openrarity"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -27,8 +27,49 @@ import (
 	"github.com/spf13/viper"
 )
 
-func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
+var rarities = openrarity.LoadRaritiesFromJSONs()
+
+func FormatEvent(event *collections.Event, collectionDB *collections.CollectionDB, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
+
+	var collection *collections.GbCollection
+
+	if event.Collection == nil {
+		gbl.Log.Warnf("FormatEvent | event.Collection is nil")
+
+		//
+		// collection information
+		collectionDB.RWMu.RLock()
+		collection = collectionDB.Collections[event.ContractAddress]
+		collectionDB.RWMu.RUnlock()
+
+		if collection == nil && event.ContractAddress != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+			name := ""
+
+			if topic.Topic(event.Topic) == topic.TransferSingle && ethNodes != nil {
+				if tokenName, err := ethNodes.GetRandomNode().GetERC1155TokenName(event.ContractAddress, event.TokenID); err == nil && tokenName != "" {
+					name = tokenName
+					gbl.Log.Debugf("found token name: %s | %s", name, event.ContractAddress.String())
+				} else if err != nil {
+					gbl.Log.Debugf("failed to get collection name: %s", err)
+				}
+			}
+
+			collection = collections.NewCollection(event.ContractAddress, name, ethNodes, models.FromStream)
+
+			if collection != nil {
+				collectionDB.RWMu.Lock()
+				collectionDB.Collections[event.ContractAddress] = collection
+				collectionDB.RWMu.Unlock()
+			} else {
+				// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
+				gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d\n", collectionDB.Collections[event.ContractAddress], event.ContractAddress.String(), event.TxHash, event.TxItemCount)
+				return
+			}
+		}
+
+		event.Collection = collection
+	}
 
 	var (
 		priceStyle      lipgloss.Style
@@ -117,7 +158,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	trendIndicator := style.CreateTrendIndicator(previousMovingAverage, currentMovingAverage)
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
-	isOwnCollection := event.Collection.Source == collections.Wallet || event.Collection.Source == collections.Configuration
+	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
 	isOwnWallet := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
 	isWatchUsersWallet := watchUsers.Contains(event.From.Address) || watchUsers.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
@@ -128,26 +169,47 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 
 	var ensName string
 
-	gbCache := cache.New()
-
 	// check if the ENS name is already in the cache
-	if name, err := gbCache.GetENSName(event.To.Address); err == nil && name != "" {
+	if name, err := cache.GetENSName(event.To.Address); err == nil && name != "" {
 		gbl.Log.Debugf("cache | cached ENS name: %s", name)
-
 		ensName = name
-	}
+	} else {
+		gbl.Log.Debugf("cache | no cached ENS name for %s | trying to resolve...", event.To.Address.String())
 
-	if ensName == "" && viper.IsSet("api_keys.etherscan") {
-		if ensName, err := ethNodes.GetENSForAddress(event.To.Address); err == nil && ensName != "" {
-			gbl.Log.Debugf("ensName from etherscan: %s", ensName)
-			to = toStyle.Render(ensName)
-			event.ToENS = ensName
+		// if not, try to resolve it
+		if viper.IsSet("api_keys.etherscan") && ethNodes != nil {
+			gbl.Log.Debugf("cache | ENS name not cached, trying to resolve...")
 
-			gbCache.CacheENSName(event.To.Address, ensName)
-		} else if event.ToENS != "" {
-			to = toStyle.Render(event.ToENS)
+			if name, err := ethNodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
+				gbl.Log.Debugf("cache | resolved ENS name: %s", name)
+				ensName = name
+			}
 		}
 	}
+
+	if ensName != "" {
+		to = toStyle.Render(ensName)
+		event.ToENS = ensName
+		cache.StoreENSName(event.To.Address, ensName)
+	} else if event.ToENS != "" {
+		to = toStyle.Render(event.ToENS)
+	}
+
+	// if ensName == "" && viper.IsSet("api_keys.etherscan") && ethNodes != nil {
+	// 	gbl.Log.Infof("cache | ENS name not cached, trying to resolve...")
+
+	// 	if name, err := ethNodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
+	// 		gbl.Log.Infof("cache | resolved ENS name: %s", name)
+
+	// 		ensName = name
+	// 		to = toStyle.Render(ensName)
+	// 		event.ToENS = ensName
+
+	// 		cache.StoreENSName(event.To.Address, ensName)
+	// 	} else if event.ToENS != "" {
+	// 		to = toStyle.Render(event.ToENS)
+	// 	}
+	// }
 
 	// WEN...??
 	now := time.Now()
@@ -281,10 +343,13 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 
 			eventWithStyle.Source = "OS"
 			eventWithStyle.SourceColor = "#20293d"
-		} else {
+		} else if ethNodes != nil && len(*ethNodes) > 0 {
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(ethNodes.GetNodeByID(event.NodeID).Marker)))
 
 			eventWithStyle.Source = utils.StripANSI(fmt.Sprint(ethNodes.GetNodeByID(event.NodeID).Marker))
+			eventWithStyle.SourceColor = "#1A1A1A"
+		} else {
+			eventWithStyle.Source = lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(event.NodeID))
 			eventWithStyle.SourceColor = "#1A1A1A"
 		}
 
@@ -318,8 +383,13 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 	out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
 
 	// price per item
-	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(pricePerItem))))
-	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
+	if false && event.EventType == collections.Listing && rarities[event.Collection.OpenseaSlug] != nil {
+		rank := rarities[event.Collection.OpenseaSlug][int(event.TokenID.Int64())].Rank
+		out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("%4d", rank)) + " ")
+	} else {
+		out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(pricePerItem))))
+		out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
+	}
 
 	// collection/token info
 	out.WriteString("  " + tokenInfo)
@@ -369,21 +439,21 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 		out.WriteString(" | " + topic.Topic(event.Topic).String())
 	}
 
-	// automatically fetch listings for collections with more than opensea.auto_list_min_sales sales
-	if event.Collection.Counters.Sales == viper.GetUint64("opensea.auto_list_min_sales") {
-		slug := opensea.GetCollectionSlug(event.Collection.ContractAddress)
-		opensea.SubscribeToListingsForCollectionSlug(nil, slug, nil)
-		event.Collection.ResetStats()
+	// // automatically fetch listings for collections with more than opensea.auto_list_min_sales sales
+	// if event.Collection.Counters.Sales == viper.GetUint64("opensea.auto_list_min_sales") {
+	// 	slug := opensea.GetCollectionSlug(event.Collection.ContractAddress)
+	// 	ossw.SubscribeToListingsForCollectionSlug(nil, slug, nil)
+	// 	event.Collection.ResetStats()
 
-		gbl.Log.Infof("auto-subscribed to %s after %d sales", event.Collection.Name, event.Collection.Counters.Sales)
+	// 	gbl.Log.Infof("auto-subscribed to %s after %d sales", event.Collection.Name, event.Collection.Counters.Sales)
 
-		queueOutput <- fmt.Sprintf(
-			" %s auto-subscribed to %s after %d sales",
-			style.PinkBoldStyle.Render(">"),
-			event.Collection.Name,
-			event.Collection.Counters.Sales,
-		)
-	}
+	// 	queueOutput <- fmt.Sprintf(
+	// 		" %s auto-subscribed to %s after %d sales",
+	// 		style.PinkBoldStyle.Render(">"),
+	// 		event.Collection.Name,
+	// 		event.Collection.Counters.Sales,
+	// 	)
+	// }
 
 	// counting
 	if event.EventType == collections.Sale || event.EventType == collections.Purchase {
@@ -505,7 +575,7 @@ func FormatEvent(event *collections.Event, ownWallets *wallet.Wallets, watchUser
 			if msg, err := notifications.SendTelegramMessage(chatID, msgTelegram.String(), imageURI); err != nil {
 				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s\n", imageURI, msgTelegram.String(), err)
 			} else {
-				gbl.Log.Infof("sent telegram message: '%s'\n", msg.Text)
+				gbl.Log.Infof("sent telegram message: '%s'\n", strings.Replace(msg.Text, "\n", " | ", -1))
 			}
 		}()
 	}

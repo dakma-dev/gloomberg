@@ -107,7 +107,9 @@ func (s *WebsocketsServer) writer() {
 		// copier.Copy(&wsEvent, &event)
 		// wsEvent.Collection.Source = wsEvent.Collection.Source.String()
 
-		marshalledEvent, _ := json.Marshal(event)
+		pushEvent := eventToPushEvent(event)
+
+		marshalledEvent, _ := json.Marshal(pushEvent)
 
 		fmt.Printf("event: \n%s\n", string(marshalledEvent))
 
@@ -222,4 +224,27 @@ func (s *WebsocketsServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 	gbl.Log.Infof("new client connected: %s | %p\n", conn.RemoteAddr(), conn)
 
 	s.Register(conn)
+}
+
+func eventToPushEvent(event *collections.Event) *collections.PushEvent {
+	return &collections.PushEvent{
+		EventType:       event.EventType,
+		CollectionName:  event.Collection.Name,
+		ContractAddress: event.Collection.ContractAddress,
+
+		NodeID:          event.NodeID,
+		Topic:           event.Topic,
+		TxHash:          event.TxHash,
+		TokenID:         event.TokenID,
+		ENSMetadata:     event.ENSMetadata,
+		PriceWei:        event.PriceWei,
+		PricePerItem:    event.PricePerItem,
+		CollectionColor: event.Collection.Colors.Primary,
+		TxItemCount:     event.TxItemCount,
+		Time:            event.Time,
+		From:            event.From,
+		FromENS:         event.FromENS,
+		To:              event.To,
+		ToENS:           event.ToENS,
+	}
 }

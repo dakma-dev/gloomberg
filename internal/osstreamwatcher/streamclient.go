@@ -1,11 +1,13 @@
-package opensea
+package osstreamwatcher
 
 import (
 	"fmt"
 	"net/url"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
 )
 
@@ -24,17 +26,18 @@ const (
 
 const StreamAPIEndpoint = "wss://stream.openseabeta.com/socket"
 
-type StreamClient struct {
-	socket       *phx.Socket
-	channels     map[string]*phx.Channel
-	eventHandler func(event any)
+type OSStreamWatcher struct {
+	QueueListings chan *models.ItemListedEvent
+	socket        *phx.Socket
+	channels      map[string]*phx.Channel
+	// eventHandler  func(event any)
 }
 
-var streamClient *StreamClient
+var osStreamWatcher *OSStreamWatcher
 
-func NewStreamClient(token string, onError func(error)) *StreamClient {
-	if streamClient != nil {
-		return streamClient
+func NewStreamWatcher(token string, onError func(error)) *OSStreamWatcher {
+	if osStreamWatcher != nil {
+		return osStreamWatcher
 	}
 
 	endpointURL := fmt.Sprint(StreamAPIEndpoint, "?token=", token)
@@ -53,6 +56,10 @@ func NewStreamClient(token string, onError func(error)) *StreamClient {
 		return time.Duration(attempt) * 2 * time.Second
 	}
 
+	if onError == nil {
+		onError = func(err error) { gbl.Log.Error(err) }
+	}
+
 	socket.OnError(onError)
 	socket.OnClose(func() {
 		err := socket.Reconnect()
@@ -61,9 +68,10 @@ func NewStreamClient(token string, onError func(error)) *StreamClient {
 		}
 	})
 
-	client := &StreamClient{
-		socket:   socket,
-		channels: make(map[string]*phx.Channel),
+	client := &OSStreamWatcher{
+		QueueListings: make(chan *models.ItemListedEvent, 1024),
+		socket:        socket,
+		channels:      make(map[string]*phx.Channel),
 	}
 	if err := client.Connect(); err != nil {
 		gbl.Log.Error(err)
@@ -71,16 +79,16 @@ func NewStreamClient(token string, onError func(error)) *StreamClient {
 		return nil
 	}
 
-	streamClient = client
+	osStreamWatcher = client
 
 	return client
 }
 
-func (s *StreamClient) Connect() error {
+func (s *OSStreamWatcher) Connect() error {
 	return s.socket.Connect()
 }
 
-func (s *StreamClient) Disconnect() error {
+func (s *OSStreamWatcher) Disconnect() error {
 	// s.socket.OnError()
 	gbl.Log.Info("Successfully disconnected from socket")
 
@@ -89,7 +97,7 @@ func (s *StreamClient) Disconnect() error {
 	return s.socket.Disconnect()
 }
 
-func (s *StreamClient) createChannel(topic string) *phx.Channel {
+func (s *OSStreamWatcher) createChannel(topic string) *phx.Channel {
 	channel := s.socket.Channel(topic, nil)
 
 	join, err := channel.Join()
@@ -112,7 +120,7 @@ func (s *StreamClient) createChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (s *StreamClient) getChannel(topic string) *phx.Channel {
+func (s *OSStreamWatcher) getChannel(topic string) *phx.Channel {
 	channel, ok := s.channels[topic]
 	if !ok {
 		channel = s.createChannel(topic)
@@ -121,7 +129,7 @@ func (s *StreamClient) getChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (s *StreamClient) on(eventType StreamEventType, collectionSlug string, eventHandler func(payload any)) func() {
+func (s *OSStreamWatcher) on(eventType StreamEventType, collectionSlug string, eventHandler func(payload any)) func() {
 	topic := fmt.Sprintf("collection:%s", collectionSlug)
 
 	gbl.Log.Debugf("Fetching channel %s", topic)
@@ -145,7 +153,11 @@ func (s *StreamClient) on(eventType StreamEventType, collectionSlug string, even
 	}
 }
 
-func (s *StreamClient) OnItemListed(collectionSlug string, eventHandler func(itemListedEvent any)) {
+func (s *OSStreamWatcher) OnItemListed(collectionSlug string, eventHandler func(itemListedEvent any)) {
+	if eventHandler == nil {
+		eventHandler = s.handlerListing
+	}
+
 	s.on(Listed, collectionSlug, eventHandler)
 }
 
@@ -161,78 +173,33 @@ func (s *StreamClient) OnItemListed(collectionSlug string, eventHandler func(ite
 // 	s.on(Cancelled, collectionSlug, eventHandler)
 // }
 
-func (s *StreamClient) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
+func (s *OSStreamWatcher) OnItemReceivedBid(collectionSlug string, eventHandler func(itemReceivedBidEvent any)) {
 	s.on(ReceivedBid, collectionSlug, eventHandler)
 }
 
-func (s *StreamClient) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
+func (s *OSStreamWatcher) OnItemReceivedOffer(collectionSlug string, eventHandler func(itemReceivedOfferEvent any)) {
 	s.on(ReceivedOffer, collectionSlug, eventHandler)
 }
 
-func (s *StreamClient) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
+func (s *OSStreamWatcher) OnItemMetadataUpdated(collectionSlug string, eventHandler func(itemMetadataUpdatedEvent any)) {
 	s.on(MetadataUpdated, collectionSlug, eventHandler)
 }
 
-// func SubscribeToCollectionSlugs(apiToken string, slugs []string, eventHandler func(itemListedEvent any)) {
-//	if client := NewStreamClient(apiToken, func(err error) {
-//		gbl.Log.Error(err)
-//	}); client != nil {
-//		for _, slug := range slugs {
-//			SubscribeToCollectionSlug(client, slug, eventHandler)
-//		}
-//	}
-//}
-
-func SubscribeToListingsForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
-	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
-
-	if client != nil || streamClient != nil {
-		if client == nil {
-			client = streamClient
-		}
-
-		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
-
-		if eventHandler != nil || client.eventHandler != nil {
-			if eventHandler == nil {
-				eventHandler = client.eventHandler
-			} else {
-				client.eventHandler = eventHandler
-			}
-
-			client.OnItemListed(slug, eventHandler)
-			// client.OnItemReceivedOffer(slug, eventHandler)
-
-			gbl.Log.Debugf("subscribed to listings for: %s", slug)
-		}
-	}
+func (s *OSStreamWatcher) SubscribeToListingsFor(slug string) {
+	s.OnItemListed(slug, s.handlerListing)
+	gbl.Log.Debugf("subscribed to listings for: %s", slug)
 }
 
-//func SubscribeToEverythingForCollectionSlug(client *StreamClient, slug string, eventHandler func(itemListedEvent any)) {
-//	gbl.Log.Debugf("client %+v | streamClient: %+v\n", client, streamClient)
-//
-//	if client != nil || streamClient != nil {
-//		if client == nil {
-//			client = streamClient
-//		}
-//
-//		gbl.Log.Debugf("eventHandler %p | client.eventHandler: %p\n", eventHandler, client.eventHandler)
-//
-//		if eventHandler != nil || client.eventHandler != nil {
-//			if eventHandler == nil {
-//				eventHandler = client.eventHandler
-//			} else {
-//				client.eventHandler = eventHandler
-//			}
-//
-//			client.OnItemReceivedBid(slug, eventHandler)
-//			gbl.Log.Infof("subscribed to bids for: %s", slug)
-//
-//			client.OnItemReceivedOffer(slug, eventHandler)
-//			gbl.Log.Infof("subscribed to offers for: %s", slug)
-//
-//			client.OnItemMetadataUpdated(slug, eventHandler)
-//			gbl.Log.Infof("subscribed to metadata updates for: %s", slug)
-//		}
-//	}
-//}
+func (s *OSStreamWatcher) handlerListing(response any) {
+	var itemListedEvent models.ItemListedEvent
+
+	err := mapstructure.Decode(response, &itemListedEvent)
+	if err != nil {
+		gbl.Log.Error("mapstructure.Decode failed for incoming stream api event", err)
+		return
+	}
+
+	gbl.Log.Debugf("received event from opensea: %+v", itemListedEvent.BaseStreamMessage.StreamEvent)
+
+	s.QueueListings <- &itemListedEvent
+}

@@ -6,18 +6,21 @@ import (
 	"math/rand"
 	"sync/atomic"
 
+	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/nodes"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
-	"github.com/benleb/gloomberg/internal/models"
+
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
+
+type BaseCollection struct{}
 
 // GbCollection represents the collections configured by the user.
 type GbCollection struct {
@@ -56,7 +59,7 @@ type GbCollection struct {
 	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
 	// Metadata map[string]interface{} `mapstructure:"metadata"`
 
-	Source CollectionSource `mapstructure:"source"`
+	Source models.CollectionSource `mapstructure:"source"`
 
 	Colors struct {
 		Primary   lipgloss.Color `mapstructure:"primary"`
@@ -71,7 +74,7 @@ type GbCollection struct {
 		SalesVolume *big.Int
 	}
 
-	SaLiRa ewma.MovingAverage `mapstructure:"salira"`
+	SaLiRa ewma.MovingAverage `json:"salira"`
 
 	// exponential moving average of the actual sale prices
 	ArtificialFloor         ewma.MovingAverage `mapstructure:"artificialFloor"`
@@ -84,7 +87,7 @@ type GbCollection struct {
 // // UnmarshalBinary decodes the Collection from a binary format.
 // func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
 
-func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source CollectionSource) *GbCollection {
+func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
 	var collectionName string
 
 	gbCache := cache.New()
@@ -98,15 +101,17 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 			if name != "" {
 				collectionName = name
 			}
-		} else if name, err := nodes.GetRandomNode().GetERC721CollectionName(contractAddress); err == nil {
-			gbl.Log.Debugf("chain | collection name via chain call: %s", name)
+		} else if nodes != nil {
+			if name, err := nodes.GetRandomNode().GetERC721CollectionName(contractAddress); err == nil {
+				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
-			if name != "" {
-				collectionName = name
+				if name != "" {
+					collectionName = name
+				}
+
+				// cache collection name
+				gbCache.CacheCollectionName(contractAddress, collectionName)
 			}
-
-			// cache collection name
-			gbCache.CacheCollectionName(contractAddress, collectionName)
 		} else {
 			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
 
@@ -136,42 +141,44 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 	// 	}
 	// }()
 
-	go func() {
-		rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
+	if nodes != nil {
+		go func() {
+			rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
 
-		metadata := &models.CollectionMetadata{}
+			metadata := &models.CollectionMetadata{}
 
-		if name := rawMetaDatas["name"]; name != nil {
-			metadata.ContractName = name.(string)
-		}
+			if name := rawMetaDatas["name"]; name != nil {
+				metadata.ContractName = name.(string)
+			}
 
-		if symbol := rawMetaDatas["symbol"]; symbol != nil {
-			metadata.Symbol = symbol.(string)
-		}
+			if symbol := rawMetaDatas["symbol"]; symbol != nil {
+				metadata.Symbol = symbol.(string)
+			}
 
-		if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
-			metadata.TotalSupply = totalSupply.(uint64)
-		}
+			if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
+				metadata.TotalSupply = totalSupply.(uint64)
+			}
 
-		if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
-			metadata.TokenURI = tokenURI.(string)
-		}
+			if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
+				metadata.TokenURI = tokenURI.(string)
+			}
 
-		collection.Metadata = metadata
-	}()
+			collection.Metadata = metadata
+		}()
+	}
 
-	if source == Wallet || source == Stream {
+	if source == models.FromWallet || source == models.FromStream {
 		collection.Show.Sales = viper.GetBool("show.sales")
 		collection.Show.Mints = viper.GetBool("show.mints")
 		collection.Show.Transfers = viper.GetBool("show.transfers")
 
-		if source == Wallet {
+		if source == models.FromWallet {
 			if viper.IsSet("api_keys.opensea") {
 				collection.Show.Listings = viper.GetBool("show.listings")
 			}
 		}
 
-		if source == Stream {
+		if source == models.FromStream {
 			collection.Show.Listings = false
 		}
 	}

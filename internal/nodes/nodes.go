@@ -10,6 +10,7 @@ import (
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/wallet"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 
@@ -18,9 +19,9 @@ import (
 
 type Nodes []*Node
 
-func (nc *Nodes) ConnectAllNodes() {
+func (nc *Nodes) ConnectAllNodes() *Nodes {
 	if len(*nc) == 0 {
-		return
+		return nil
 	}
 
 	var nodesAvailable uint64
@@ -50,10 +51,12 @@ func (nc *Nodes) ConnectAllNodes() {
 	if nodesAvailable == 0 {
 		gbl.Log.Fatal("no nodes available")
 	}
+
+	return &conectedNodes
 }
 
 func (nc *Nodes) GetLocalNodes() []*Node {
-	if len(*nc) == 0 {
+	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}
 
@@ -69,7 +72,7 @@ func (nc *Nodes) GetLocalNodes() []*Node {
 }
 
 func (nc *Nodes) GetRandomNode() *Node {
-	if len(*nc) == 0 {
+	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}
 
@@ -86,7 +89,7 @@ func (nc *Nodes) GetRandomNode() *Node {
 }
 
 func (nc *Nodes) GetRandomLocalNode() *Node {
-	if len(*nc) == 0 {
+	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}
 
@@ -102,7 +105,7 @@ func (nc *Nodes) GetRandomLocalNode() *Node {
 
 // GetNodeByID rer
 func (nc *Nodes) GetNodeByID(nodeID int) *Node {
-	if len(*nc) == 0 {
+	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}
 
@@ -212,7 +215,8 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	}
 
 	if resolvedAddress != address {
-		gbl.Log.Warnf("addresses do not match: %s != %s", resolvedAddress.Hex(), address.Hex())
+		gbl.Log.Warnf("addresses do not match for: %s", style.BoldStyle.Render(ensName))
+		gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
 
 		return "", errors.New("ens forward and reverse resolved addresses do not match")
 	}

@@ -184,7 +184,7 @@ func (n *Node) GetERC1155TokenName(contractAddress common.Address, tokenID *big.
 				name = metadata.CreatedBy + " | " + name
 			}
 
-			gbl.Log.Debugf("found collection name via erc1155 metadata: %v\n", name)
+			gbl.Log.Debugf("found collection name via erc1155 metadata: %v", name)
 
 			return name, nil
 		}
@@ -248,11 +248,11 @@ func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]
 }
 
 func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
-	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v\n", tokenURI)
+	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v", tokenURI)
 
 	response, err := utils.HTTP.GetWithTLS12(tokenURI)
 	if err != nil || response.StatusCode != http.StatusOK {
-		gbl.Log.Warnf("get token metadata error: %+v | response: %+v\n", err, response)
+		gbl.Log.Warnf("get token metadata error: %+v | response: %+v", err, response)
 
 		return nil, err
 	}
@@ -268,51 +268,50 @@ func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error)
 
 	// decode the data
 	if err != nil || !json.Valid(responseBody) {
-		gbl.Log.Warnf("get token metadata invalid json: %s\n", err)
+		gbl.Log.Warnf("get token metadata invalid json: %s", err)
 
 		return nil, err
 	}
 
 	// decode the data
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&tokenMetadata); err != nil {
-		gbl.Log.Warnf("get token metadata decode error: %s\n", err.Error())
+		gbl.Log.Warnf("get token metadata decode error: %s", err.Error())
 
 		return nil, err
 	}
 
-	gbl.Log.Infof("GetTokenMetadata || tokenMetadata: %+v\n", tokenMetadata)
+	gbl.Log.Infof("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
 	gbl.Log.Infof("")
 
 	return tokenMetadata, nil
 }
 
 func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
-	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
+	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	tokenURI, err := n.GetTokenURI(contractAddress, tokenID)
 	if err != nil {
-		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
+		gbl.Log.Errorf("get token image uri error: %+v", err.Error())
 
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenImageURI || tokenURI: %+v\n", tokenURI)
+	gbl.Log.Infof("GetTokenImageURI || tokenURI: %+v", tokenURI)
 
 	metadata, err := n.GetTokenMetadata(tokenURI)
 	if err != nil || metadata == nil {
-		gbl.Log.Errorf("get token image uri error: %+v\n", err.Error())
+		gbl.Log.Errorf("get token image uri error: %+v", err)
 
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenImageURI || metadata: %+v\n", metadata)
-	gbl.Log.Infof("")
+	gbl.Log.Infof("GetTokenImageURI || metadata: %+v", metadata)
 
 	return metadata.Image, nil
 }
 
 func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
-	gbl.Log.Infof("GetTokenURI || contractAddress: %s | tokenID: %d\n", contractAddress, tokenID)
+	gbl.Log.Infof("GetTokenURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
@@ -330,7 +329,7 @@ func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (st
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenURI || tokenURI: %+v\n", tokenURI)
+	gbl.Log.Infof("GetTokenURI || tokenURI: %+v", tokenURI)
 
 	return tokenURI, nil
 }
@@ -348,7 +347,7 @@ func (n *Node) GetSupportedStandards(contractAddress common.Address) []standard.
 
 	resultERC165, err := n.Client.CallContract(ctx, queryiERC165Supported, nil)
 	if err != nil {
-		gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
+		gbl.Log.Warnf("interface ERC165 check error: %v", err)
 		return nil
 	}
 
@@ -359,14 +358,14 @@ func (n *Node) GetSupportedStandards(contractAddress common.Address) []standard.
 
 	resultFFFFFF, err := n.Client.CallContract(ctx, queryiERCFFFFFFSupported, nil)
 	if err != nil {
-		gbl.Log.Warnf("interface FFFFFF check error: %v\n", err)
+		gbl.Log.Warnf("interface FFFFFF check error: %v", err)
 		return nil
 	}
 
 	if (len(resultERC165)-1 > 0 && len(resultFFFFFF)-1 > 0) && bytes.Equal(resultERC165[len(resultERC165)-1:], []byte{0x01}) && bytes.Equal(resultFFFFFF[len(resultFFFFFF)-1:], []byte{0x00}) {
 		supportedStandards = append(supportedStandards, standard.ERC165)
 	} else {
-		gbl.Log.Warnf("interface ERC165 check error: %v\n", err)
+		gbl.Log.Warnf("interface ERC165 check error: %v", err)
 		return nil
 	}
 
@@ -405,13 +404,8 @@ func (n *Node) ERC1155Supported(contractAddress common.Address) bool {
 	return false
 }
 
-// type ERC1155Data struct {
-// 	ID    int
-// 	Value int
-// }
-
 func (n *Node) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
-	gbl.Log.Infof("GetERC1155TokenID || contractAddress: %s\n", contractAddress)
+	gbl.Log.Infof("GetERC1155TokenID || contractAddress: %s", contractAddress)
 
 	half := int(len(data) / 2)
 	tokenID, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[:half], "\x00"))), 16, 64)
@@ -441,29 +435,3 @@ func WeiToGwei(wei *big.Int) *big.Float {
 
 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.GWei))
 }
-
-// func replaceSchemeWithGateway(url string, gateway string) string {
-// 	const schemeIPFS = "ipfs://"
-
-// 	return strings.Replace(url, schemeIPFS, gateway, 1)
-// }
-
-// func createMetadataHTTPClient() (*http.Client, error) {
-// 	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
-
-// 	transport := &http.Transport{
-// 		TLSClientConfig:     tlsConfig,
-// 		MaxIdleConnsPerHost: 20,
-// 		IdleConnTimeout:     5 * time.Second,
-// 	}
-
-// 	// explicitly use http2
-// 	_ = http2.ConfigureTransport(transport)
-
-// 	client := &http.Client{
-// 		Timeout:   15 * time.Second,
-// 		Transport: transport,
-// 	}
-
-// 	return client, nil
-// }

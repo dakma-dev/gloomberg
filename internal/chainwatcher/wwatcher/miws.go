@@ -10,16 +10,29 @@ type MIWCollection struct {
 	WeightedMIWs map[common.Address]int
 }
 
+func GetMIWs() map[common.Address]int {
+	// miwAddresses := make(map[common.Address]bool, 0)
+	miwWeightedAddresses := make(map[common.Address]int, 0)
+
+	for _, addresses := range addressCollections {
+		for _, address := range addresses {
+			miwWeightedAddresses[address]++
+		}
+	}
+
+	return miwWeightedAddresses
+}
+
 func LoadMIWs() {
 	miwAddresses := make(map[common.Address]bool, 0)
 	miwWeightedAddresses := make(map[common.Address]int, 0)
 
 	for _, addresses := range addressCollections {
-		for _, address := range *addresses {
+		for _, address := range addresses {
 			miwWeightedAddresses[address]++
 		}
 
-		for _, address := range *addresses {
+		for _, address := range addresses {
 			if !miwAddresses[address] {
 				miwAddresses[address] = true
 			}
@@ -39,7 +52,7 @@ func LoadMIWs() {
 var (
 	MIWC = MIWCollection{}
 	// MIWs               = collections.AddressCollection{}.
-	addressCollections = map[string]*collections.AddressCollection{
+	addressCollections = map[string][]common.Address{
 		"handpicked": {
 			common.HexToAddress("0x05576913eea5d79B83f28f0Cb0D12BE54Fdae8dC"), //  Unc1epennybags
 			common.HexToAddress("0x115894b2859E58419D1eF4787A79a431CE2615C3"), //  mikedausend

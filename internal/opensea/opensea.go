@@ -78,10 +78,10 @@ func openSeaHeader() http.Header {
 // }
 
 // GetWalletCollections returns the collections a wallet owns at least one item of.
-func GetWalletCollections(wallets map[common.Address]*wallet.Wallet, userCollections *collections.Collections, nodes *nodes.Nodes) []*collections.GbCollection {
+func GetWalletCollections(wallets *wallet.Wallets, userCollections *collections.CollectionDB, nodes *nodes.Nodes) []*collections.GbCollection {
 	gbCollections := make([]*collections.GbCollection, 0)
 
-	for _, w := range wallets {
+	for _, w := range *wallets {
 		gbCollections = append(gbCollections, GetCollectionsFor(w.Address, userCollections, nodes, 1)...)
 	}
 
@@ -89,7 +89,7 @@ func GetWalletCollections(wallets map[common.Address]*wallet.Wallet, userCollect
 }
 
 // GetCollectionsFor returns the collections a wallet owns at least one item of.
-func GetCollectionsFor(walletAddress common.Address, userCollections *collections.Collections, nodes *nodes.Nodes, try int) []*collections.GbCollection {
+func GetCollectionsFor(walletAddress common.Address, userCollections *collections.CollectionDB, nodes *nodes.Nodes, try int) []*collections.GbCollection {
 	receivedCollections := make([]*collections.GbCollection, 0)
 
 	// create the http client & request
@@ -139,7 +139,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 		for _, contract := range collection.PrimaryAssetContracts {
 			contractAddress := common.HexToAddress(contract.Address)
 
-			if userCollections.UserCollections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
+			if userCollections.Collections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
 				continue
 			}
 
@@ -147,7 +147,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 				continue
 			}
 
-			userCollection := collections.NewCollection(contractAddress, collection.Name, nodes, collections.Wallet)
+			userCollection := collections.NewCollection(contractAddress, collection.Name, nodes, models.FromWallet)
 			userCollection.OpenseaSlug = collection.Slug
 
 			receivedCollections = append(receivedCollections, userCollection)
@@ -264,7 +264,7 @@ func GetAssetsFor(walletAddress common.Address, nodes *nodes.Nodes) map[common.A
 		}
 
 		if collection := receivedCollections[contractAddress]; collection == nil {
-			receivedCollections[contractAddress] = collections.NewCollection(contractAddress, asset.Collection.Name, nodes, collections.Wallet)
+			receivedCollections[contractAddress] = collections.NewCollection(contractAddress, asset.Collection.Name, nodes, models.FromWallet)
 		}
 
 		collection := receivedCollections[contractAddress]

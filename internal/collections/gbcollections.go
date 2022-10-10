@@ -8,39 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type CollectionSource int64
-
-const (
-	Configuration CollectionSource = iota
-	Wallet
-	Stream
-)
-
-func (cs *CollectionSource) MarshalJSON() ([]byte, error) {
-	return []byte(`"` + cs.String() + `"`), nil
-}
-
-func (cs *CollectionSource) UnmarshalJSON(b []byte) error {
-	switch string(b) {
-	case `"configuration"`:
-		*cs = Configuration
-	case `"wallet"`:
-		*cs = Wallet
-	case `"stream"`:
-		*cs = Stream
-	}
-
-	return nil
-}
-
-func (cs *CollectionSource) String() string {
-	return map[CollectionSource]string{
-		Configuration: "configuration",
-		Wallet:        "wWallet",
-		Stream:        "stream",
-	}[*cs]
-}
-
 type AddressCollection []common.Address
 
 // Contains returns true if the given string is in the slice.
@@ -54,8 +21,8 @@ func (ac *AddressCollection) Contains(address common.Address) bool {
 	return false
 }
 
-type Collections struct {
-	UserCollections map[common.Address]*GbCollection
+type CollectionDB struct {
+	Collections map[common.Address]*GbCollection
 	// DiscoveredCollections map[common.Address]*GbCollection
 
 	// 'queue' to store collections to be processed
@@ -63,14 +30,14 @@ type Collections struct {
 	RWMu *sync.RWMutex
 }
 
-func New() *Collections {
-	return &Collections{
-		UserCollections: make(map[common.Address]*GbCollection),
-		RWMu:            &sync.RWMutex{},
+func New() *CollectionDB {
+	return &CollectionDB{
+		Collections: make(map[common.Address]*GbCollection),
+		RWMu:        &sync.RWMutex{},
 	}
 }
 
-func (cs *Collections) Addresses() []common.Address {
+func (cs *CollectionDB) Addresses() []common.Address {
 	addresses := make([]common.Address, 0)
 	addresses = append(addresses, cs.UserCollectionsAddresses()...)
 
@@ -78,10 +45,10 @@ func (cs *Collections) Addresses() []common.Address {
 }
 
 // OpenseaSlugs returns a slice of slugs for collections with enabled listings.
-func (cs *Collections) OpenseaSlugs() []string {
+func (cs *CollectionDB) OpenseaSlugs() []string {
 	slugs := make([]string, 0)
 
-	for _, c := range cs.UserCollections {
+	for _, c := range cs.Collections {
 		if slug := c.OpenseaSlug; slug != "" {
 			slugs = append(slugs, c.OpenseaSlug)
 		}
@@ -91,10 +58,10 @@ func (cs *Collections) OpenseaSlugs() []string {
 }
 
 // ListingsAddresses returns a slice of addresses.
-func (cs *Collections) ListingsAddresses() []common.Address {
+func (cs *CollectionDB) ListingsAddresses() []common.Address {
 	addresses := make([]common.Address, 0)
 
-	for _, c := range cs.UserCollections {
+	for _, c := range cs.Collections {
 		if c.Show.Listings {
 			addresses = append(addresses, c.ContractAddress)
 		}
@@ -103,20 +70,20 @@ func (cs *Collections) ListingsAddresses() []common.Address {
 	return addresses
 }
 
-func (cs *Collections) UserCollectionsAddresses() []common.Address {
+func (cs *CollectionDB) UserCollectionsAddresses() []common.Address {
 	addresses := make([]common.Address, 0)
-	for _, c := range cs.UserCollections {
+	for _, c := range cs.Collections {
 		addresses = append(addresses, c.ContractAddress)
 	}
 
 	return addresses
 }
 
-func (cs *Collections) userCollectionNames() []string {
+func (cs *CollectionDB) userCollectionNames() []string {
 	namesIndex := make(map[string]bool, 0)
 	names := make([]string, 0)
 
-	for _, c := range cs.UserCollections {
+	for _, c := range cs.Collections {
 		if !namesIndex[c.Name] {
 			namesIndex[c.Name] = true
 
@@ -127,16 +94,16 @@ func (cs *Collections) userCollectionNames() []string {
 	return names
 }
 
-func (cs *Collections) colorsByName() map[string]lipgloss.Color {
+func (cs *CollectionDB) colorsByName() map[string]lipgloss.Color {
 	colorNames := make(map[string]lipgloss.Color, 0)
-	for _, c := range cs.UserCollections {
+	for _, c := range cs.Collections {
 		colorNames[c.Name] = c.Colors.Primary
 	}
 
 	return colorNames
 }
 
-func (cs *Collections) SortedAndColoredNames() []string {
+func (cs *CollectionDB) SortedAndColoredNames() []string {
 	names := make([]string, 0)
 	colorNames := cs.colorsByName()
 
