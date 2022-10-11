@@ -281,7 +281,6 @@ func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error)
 	}
 
 	gbl.Log.Infof("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
-	gbl.Log.Infof("")
 
 	return tokenMetadata, nil
 }

@@ -56,8 +56,10 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 
 	if photoURL != "" {
 		// test if photoURL points to a valid image
-		if response, err := http.Head(photoURL); err != nil || response.StatusCode != 200 {
-			gbl.Log.Error(err)
+		if response, err := http.Head(photoURL); err != nil {
+			gbl.Log.Errorf("error while checking photoURL: %s | %s", err, photoURL)
+		} else if response.StatusCode != 200 {
+			gbl.Log.Errorf("photoURL is not valid: %s | %s", response.Status, photoURL)
 		} else {
 			msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(photoURL))
 			msg.Caption = text

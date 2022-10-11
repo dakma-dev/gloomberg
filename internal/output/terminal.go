@@ -26,8 +26,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-//var rarities = openrarity.LoadRaritiesFromJSONs()
-
+// var rarities = openrarity.LoadRaritiesFromJSONs()
 func FormatEvent(event *collections.Event, collectionDB *collections.CollectionDB, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 
@@ -62,7 +61,7 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 				collectionDB.RWMu.Unlock()
 			} else {
 				// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
-				gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d\n", collectionDB.Collections[event.ContractAddress], event.ContractAddress.String(), event.TxHash, event.TxItemCount)
+				gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d", collectionDB.Collections[event.ContractAddress], event.ContractAddress.String(), event.TxHash, event.TxItemCount)
 				return
 			}
 		}
@@ -518,32 +517,19 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 	// print to terminal
 	queueOutput <- out.String()
 
+	//
 	// telegram notification
-	if isSaleOrMint && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") { // && notifications.TgBot != nil {
-		gbl.Log.Warn("sending telegram notification...")
-
+	if isSaleOrMint && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
 		go func() {
-			gbl.Log.Warnf("tg wwatcher address found: %s | %s\n", event.From.Address, event.To.Address)
-
+			// did someone buy or sell something?
 			var triggerAddress common.Address
-
-			// linkURL := etherscanURL
-
-			if watchUsers.Contains(event.To.Address) {
+			if event.EventType == collections.Purchase {
 				triggerAddress = event.To.Address
-
-				// else if event.EventType == collections.Listing {
-				// 	// currently not reachable as Listing events are filtered before here
-				// 	// linkURL = openseaURL
-				// }
-
-				if event.EventType == collections.Sale {
-					event.EventType = collections.Purchase
-				}
 			} else {
 				triggerAddress = event.From.Address
 			}
 
+			// get the username of the wallet that triggered the notification
 			var userName string
 			if name := watchUsers[triggerAddress].TgUsername; name != "" {
 				userName = "@" + name
@@ -551,29 +537,36 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 				userName = watchUsers[triggerAddress].Name
 			}
 
+			// build the message to send
 			msgTelegram := strings.Builder{}
 			msgTelegram.WriteString(event.EventType.Icon())
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
-			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, false))
+			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, false, false))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
 			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
 			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
 
-			chatID := viper.GetInt64("telegram_chat_id")
-
+			// try to get the token image url from its metadata
 			var imageURI string
 
-			if uri, err := ethNodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil || strings.HasSuffix(uri, ".gif") {
+			if uri, err := ethNodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
 				gbl.Log.Warnf("error getting token image uri: %v", err)
+			} else if strings.HasSuffix(uri, ".gif") {
+				gbl.Log.Warnf("token image uri is a gif: %s", uri)
 			} else {
 				imageURI = utils.ReplaceSchemeWithGateway(uri)
 			}
 
-			if msg, err := notifications.SendTelegramMessage(chatID, msgTelegram.String(), imageURI); err != nil {
-				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s\n", imageURI, msgTelegram.String(), err)
+			// send telegram message
+			if msg, err := notifications.SendTelegramMessage(viper.GetInt64("telegram_chat_id"), msgTelegram.String(), imageURI); err != nil {
+				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
 			} else {
-				gbl.Log.Infof("sent telegram message: '%s'\n", strings.Replace(msg.Text, "\n", " | ", -1))
+				rawMsg := msgTelegram.String()
+				if msg.Text != "" {
+					rawMsg = msg.Text
+				}
+				gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
 			}
 		}()
 	}
