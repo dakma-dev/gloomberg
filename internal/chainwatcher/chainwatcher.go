@@ -224,7 +224,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		// get the transaction details - we don't do this for mints to save a lot of calls
 		tx, _, err := cw.Nodes.GetRandomNode().Client.TransactionByHash(context.Background(), subLog.TxHash)
 		if err != nil {
-			gbl.Log.Warnf("🗑️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+			gbl.Log.Debugf("🗑️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
 			return
 		}

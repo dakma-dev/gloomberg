@@ -209,7 +209,7 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	// do a lookup for the ensName to validate its authenticity
 	resolvedAddress, err := ens.Resolve(client, ensName)
 	if err != nil {
-		gbl.Log.Warnf("ens resolve error: %s -> %s: %s", ensName, address, err)
+		gbl.Log.Debugf("ens resolve error: %s -> %s: %s", ensName, address, err)
 
 		return "", err
 	}
