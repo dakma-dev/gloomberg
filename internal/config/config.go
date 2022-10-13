@@ -205,7 +205,7 @@ func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollec
 }
 
 // GetWatcherUsersFromConfig reads configured users to be notified from config
-func GetWatcherUsersFromConfig() map[common.Address]*models.WatcherUser {
+func GetWatcherUsersFromConfig() *models.WatcherUsers {
 	mu := sync.Mutex{}
 
 	watcherUsers := make(map[string]bool, 0)
@@ -270,5 +270,5 @@ func GetWatcherUsersFromConfig() map[common.Address]*models.WatcherUser {
 
 	_ = watcherSpinner.Stop()
 
-	return watcherUsersWallets
+	return (*models.WatcherUsers)(&watcherUsersWallets)
 }

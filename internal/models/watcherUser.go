@@ -1,4 +1,4 @@
-package wwatcher
+package models
 
 import (
 	"github.com/ethereum/go-ethereum/common"
@@ -6,10 +6,10 @@ import (
 
 type NotificationRecipients map[common.Address]*User
 
-//var Recipients NotificationRecipients = make(map[common.Address]*User)
+// var Recipients NotificationRecipients = make(map[common.Address]*User)
 
 // User representsa user who can own multiple wallets.
-type User struct {
+type WatchUser struct {
 	Name            string           `mapstructure:"name"`
 	WalletAddresses []common.Address `mapstructure:"wallets"`
 	TgUsername      string           `mapstructure:"telegram"`

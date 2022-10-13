@@ -13,6 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
@@ -27,7 +28,7 @@ import (
 )
 
 // var rarities = openrarity.LoadRaritiesFromJSONs()
-func FormatEvent(event *collections.Event, collectionDB *collections.CollectionDB, ownWallets *wallet.Wallets, watchUsers models.WatcherUsers, ethNodes *nodes.Nodes, queueOutput chan<- string) {
+func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *wallet.Wallets, ethNodes *nodes.Nodes, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 
 	var collection *collections.GbCollection
@@ -37,9 +38,9 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 
 		//
 		// collection information
-		collectionDB.RWMu.RLock()
-		collection = collectionDB.Collections[event.ContractAddress]
-		collectionDB.RWMu.RUnlock()
+		gb.CollectionDB.RWMu.RLock()
+		collection = gb.CollectionDB.Collections[event.ContractAddress]
+		gb.CollectionDB.RWMu.RUnlock()
 
 		if collection == nil && event.ContractAddress != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 			name := ""
@@ -56,12 +57,12 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 			collection = collections.NewCollection(event.ContractAddress, name, ethNodes, models.FromStream)
 
 			if collection != nil {
-				collectionDB.RWMu.Lock()
-				collectionDB.Collections[event.ContractAddress] = collection
-				collectionDB.RWMu.Unlock()
+				gb.CollectionDB.RWMu.Lock()
+				gb.CollectionDB.Collections[event.ContractAddress] = collection
+				gb.CollectionDB.RWMu.Unlock()
 			} else {
 				// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
-				gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d", collectionDB.Collections[event.ContractAddress], event.ContractAddress.String(), event.TxHash, event.TxItemCount)
+				gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d", gb.CollectionDB.Collections[event.ContractAddress], event.ContractAddress.String(), event.TxHash, event.TxItemCount)
 				return
 			}
 		}
@@ -158,7 +159,7 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 
 	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
 	isOwnWallet := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
-	isWatchUsersWallet := watchUsers.Contains(event.From.Address) || watchUsers.Contains(event.To.Address)
+	isWatchUsersWallet := gb.WatchUsers.Contains(event.From.Address) || gb.WatchUsers.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// buyer
@@ -523,7 +524,8 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 		go func() {
 			// did someone buy or sell something?
 			var triggerAddress common.Address
-			if event.EventType == collections.Purchase {
+
+			if gb.WatchUsers.Contains(event.To.Address) {
 				triggerAddress = event.To.Address
 			} else {
 				triggerAddress = event.From.Address
@@ -531,10 +533,18 @@ func FormatEvent(event *collections.Event, collectionDB *collections.CollectionD
 
 			// get the username of the wallet that triggered the notification
 			var userName string
-			if name := watchUsers[triggerAddress].TgUsername; name != "" {
-				userName = "@" + name
+
+			if user := (*gb.WatchUsers)[triggerAddress]; user != nil {
+				if user.TgUsername != "" {
+					userName = "@" + user.TgUsername
+				} else {
+					userName = (*gb.WatchUsers)[triggerAddress].Name
+				}
 			} else {
-				userName = watchUsers[triggerAddress].Name
+				userName = "⸘Unknown‽"
+
+				gbl.Log.Warnf("could not find user for address %s", triggerAddress.Hex())
+				fmt.Printf("could not find user for address %s\n", triggerAddress.Hex())
 			}
 
 			// build the message to send

@@ -21,7 +21,6 @@ import (
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/benleb/gloomberg/internal/ws"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -56,11 +55,10 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		ChainWatcher: nil,
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
+		WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
 		Role:         role,
 	}
-
-	watchUsers := make(map[common.Address]*models.WatcherUser)
 
 	queueEvents := make(chan *collections.Event, 1024)
 
@@ -148,7 +146,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 	//
 	// wallet watcher (todo) & MIWs
 	if role.WalletWatcher {
-		watchUsers = config.GetWatcherUsersFromConfig()
+		gb.WatchUsers = config.GetWatcherUsersFromConfig()
 
 		//
 		// MIWs
@@ -165,7 +163,6 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		}
 	}
 
-	fmt.Println()
 	fmt.Println()
 
 	//
@@ -209,7 +206,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 				for event := range gb.OutputQueues["terminal"] {
 					gbl.Log.Debugf("terminal formatter %d (queue: %d): %v", workerID, len(gb.OutputQueues["terminal"]), event)
 
-					go output.FormatEvent(event, gb.CollectionDB, gb.OwnWallets, watchUsers, gb.Nodes, terminalPrinterQueue)
+					go output.FormatEvent(gb, event, gb.OwnWallets, gb.Nodes, terminalPrinterQueue)
 				}
 			}(workerID)
 		}
