@@ -265,7 +265,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		if err == nil && metadata != nil {
 			ensMetadata = metadata
 		} else {
-			gbl.Log.Warnf("getting ens metadata failed for %s: %v", fmt.Sprint(tokenID), err)
+			gbl.Log.Debugf("getting ens metadata failed: %s | %v", fmt.Sprint(tokenID), err)
 		}
 	}
 

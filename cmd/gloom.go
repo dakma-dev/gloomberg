@@ -206,7 +206,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 				for event := range gb.OutputQueues["terminal"] {
 					gbl.Log.Debugf("terminal formatter %d (queue: %d): %v", workerID, len(gb.OutputQueues["terminal"]), event)
 
-					go output.FormatEvent(gb, event, gb.OwnWallets, gb.Nodes, terminalPrinterQueue)
+					go output.FormatEvent(gb, event, terminalPrinterQueue)
 				}
 			}(workerID)
 		}

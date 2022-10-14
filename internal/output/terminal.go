@@ -15,7 +15,6 @@ import (
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/models/topic"
-	"github.com/benleb/gloomberg/internal/models/wallet"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
@@ -28,7 +27,7 @@ import (
 )
 
 // var rarities = openrarity.LoadRaritiesFromJSONs()
-func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *wallet.Wallets, ethNodes *nodes.Nodes, queueOutput chan<- string) {
+func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 
 	var collection *collections.GbCollection
@@ -45,8 +44,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 		if collection == nil && event.ContractAddress != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 			name := ""
 
-			if topic.Topic(event.Topic) == topic.TransferSingle && ethNodes != nil {
-				if tokenName, err := ethNodes.GetRandomNode().GetERC1155TokenName(event.ContractAddress, event.TokenID); err == nil && tokenName != "" {
+			if topic.Topic(event.Topic) == topic.TransferSingle && gb.Nodes != nil {
+				if tokenName, err := gb.Nodes.GetRandomNode().GetERC1155TokenName(event.ContractAddress, event.TokenID); err == nil && tokenName != "" {
 					name = tokenName
 					gbl.Log.Debugf("found token name: %s | %s", name, event.ContractAddress.String())
 				} else if err != nil {
@@ -54,7 +53,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 				}
 			}
 
-			collection = collections.NewCollection(event.ContractAddress, name, ethNodes, models.FromStream)
+			collection = collections.NewCollection(event.ContractAddress, name, gb.Nodes, models.FromStream)
 
 			if collection != nil {
 				gb.CollectionDB.RWMu.Lock()
@@ -106,7 +105,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 	var previousMovingAverage, currentMovingAverage float64
 
 	if event.EventType == collections.Sale {
-		if ownWallets.Contains(event.To.Address) {
+		if gb.OwnWallets.Contains(event.To.Address) {
 			event.EventType = collections.Purchase
 		}
 
@@ -158,7 +157,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
 	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
-	isOwnWallet := ownWallets.Contains(event.From.Address) || ownWallets.Contains(event.To.Address)
+	isOwnWallet := gb.OwnWallets.Contains(event.From.Address) || gb.OwnWallets.Contains(event.To.Address)
 	isWatchUsersWallet := gb.WatchUsers.Contains(event.From.Address) || gb.WatchUsers.Contains(event.To.Address)
 	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
@@ -176,10 +175,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 		gbl.Log.Debugf("cache | no cached ENS name for %s | trying to resolve...", event.To.Address.String())
 
 		// if not, try to resolve it
-		if viper.IsSet("api_keys.etherscan") && ethNodes != nil {
+		if viper.IsSet("api_keys.etherscan") && gb.Nodes != nil {
 			gbl.Log.Debugf("cache | ENS name not cached, trying to resolve...")
 
-			if name, err := ethNodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
+			if name, err := gb.Nodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
 				gbl.Log.Debugf("cache | resolved ENS name: %s", name)
 				ensName = name
 			}
@@ -194,10 +193,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 		to = toStyle.Render(event.ToENS)
 	}
 
-	// if ensName == "" && viper.IsSet("api_keys.etherscan") && ethNodes != nil {
+	// if ensName == "" && viper.IsSet("api_keys.etherscan") && gb.Nodes != nil {
 	// 	gbl.Log.Infof("cache | ENS name not cached, trying to resolve...")
 
-	// 	if name, err := ethNodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
+	// 	if name, err := gb.Nodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
 	// 		gbl.Log.Infof("cache | resolved ENS name: %s", name)
 
 	// 		ensName = name
@@ -342,10 +341,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 
 			eventWithStyle.Source = "OS"
 			eventWithStyle.SourceColor = "#20293d"
-		} else if ethNodes != nil && len(*ethNodes) > 0 {
-			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(ethNodes.GetNodeByID(event.NodeID).Marker)))
+		} else if gb.Nodes != nil && len(*gb.Nodes) > 0 {
+			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker)))
 
-			eventWithStyle.Source = utils.StripANSI(fmt.Sprint(ethNodes.GetNodeByID(event.NodeID).Marker))
+			eventWithStyle.Source = utils.StripANSI(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker))
 			eventWithStyle.SourceColor = "#1A1A1A"
 		} else {
 			eventWithStyle.Source = lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(event.NodeID))
@@ -560,10 +559,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, ownWallets *
 			// try to get the token image url from its metadata
 			var imageURI string
 
-			if uri, err := ethNodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
-				gbl.Log.Warnf("error getting token image uri: %v", err)
+			if uri, err := gb.Nodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
+				gbl.Log.Warnf("error getting token image (uri): %v", err)
 			} else if strings.HasSuffix(uri, ".gif") {
-				gbl.Log.Warnf("token image uri is a gif: %s", uri)
+				gbl.Log.Infof("token image uri is a gif -> not usable in tg msg: %s", uri)
 			} else {
 				imageURI = utils.ReplaceSchemeWithGateway(uri)
 			}

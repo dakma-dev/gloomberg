@@ -280,13 +280,13 @@ func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error)
 		return nil, err
 	}
 
-	gbl.Log.Infof("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
+	gbl.Log.Debugf("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
 
 	return tokenMetadata, nil
 }
 
 func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
-	gbl.Log.Infof("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
+	gbl.Log.Debugf("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	tokenURI, err := n.GetTokenURI(contractAddress, tokenID)
 	if err != nil {
@@ -295,16 +295,16 @@ func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenImageURI || tokenURI: %+v", tokenURI)
+	gbl.Log.Debugf("GetTokenImageURI || tokenURI: %+v", tokenURI)
 
 	metadata, err := n.GetTokenMetadata(tokenURI)
 	if err != nil || metadata == nil {
-		gbl.Log.Errorf("get token image uri error: %+v", err)
+		gbl.Log.Debugf("get token image uri error: %+v", err)
 
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenImageURI || metadata: %+v", metadata)
+	gbl.Log.Debugf("GetTokenImageURI || metadata: %+v", metadata)
 
 	return metadata.Image, nil
 }

@@ -3,6 +3,7 @@ package utils
 import (
 	"crypto/tls"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/utils/gbl"
@@ -34,7 +35,7 @@ func (h *HTTPClient) httpGet(url string, customHeader http.Header, tlsVersion ui
 		return nil, err
 	}
 
-	request, err := createGetRequest(url, customHeader)
+	request, err := createGetRequest(strings.TrimSpace(url), customHeader)
 	if err != nil {
 		return nil, err
 	}
@@ -45,7 +46,7 @@ func (h *HTTPClient) httpGet(url string, customHeader http.Header, tlsVersion ui
 func createGetRequest(url string, customHeader http.Header) (*http.Request, error) {
 	request, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		gbl.Log.Error("❌ error creating request for %s: %s", url, err)
+		gbl.Log.Errorf("❌ error creating request for %s: %s", url, err)
 		return nil, err
 	}
 
