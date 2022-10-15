@@ -102,7 +102,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
 	priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
 
-	var previousMovingAverage, currentMovingAverage float64
+	// var previousMovingAverage, currentMovingAverage float64
 
 	if event.EventType == collections.Sale {
 		if gb.OwnWallets.Contains(event.To.Address) {
@@ -110,8 +110,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		}
 
 		// recalculate moving average
-		itemPrice, _ := nodes.WeiToEther(pricePerItem).Float64()
-		previousMovingAverage, currentMovingAverage = event.Collection.CalculateArtificialFloor(itemPrice)
+		// itemPrice, _ := nodes.WeiToEther(pricePerItem).Float64()
+		// previousMovingAverage, currentMovingAverage = event.Collection.CalculateArtificialFloor(itemPrice)
 
 		// get a color with saturation depending on the tx price
 		priceStyle = style.DarkWhiteStyle
@@ -121,8 +121,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		eventWithStyle.PriceArrowColor = style.GetPriceShadeColor(priceEther)
 	} else {
 		// if this is a mint/transfer/listing, we don't touch the moving average
-		currentMovingAverage = event.Collection.ArtificialFloor.Value()
-		previousMovingAverage = currentMovingAverage
+		// currentMovingAverage = event.Collection.ArtificialFloor.Value()
+		// previousMovingAverage = currentMovingAverage
 
 		priceStyle = style.GrayStyle
 		priceArrowColor = "#333333"
@@ -151,9 +151,9 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	priceCurrencyStyle := event.Collection.Style().Copy().Faint(isMintOrTransfer)
 	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
-	currentMovingAverageStyle := style.GrayStyle.Copy().Faint(isMintOrTransfer)
+	// currentMovingAverageStyle := style.GrayStyle.Copy().Faint(isMintOrTransfer)
 
-	trendIndicator := style.CreateTrendIndicator(previousMovingAverage, currentMovingAverage)
+	// trendIndicator := style.CreateTrendIndicator(previousMovingAverage, currentMovingAverage)
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
 
 	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
@@ -376,9 +376,9 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	out.WriteString(formattedCurrencySymbol)
 
-	// moving average (artificial) floor price
-	out.WriteString("  " + trendIndicator)
-	out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
+	// // moving average (artificial) floor price
+	// out.WriteString("  " + trendIndicator)
+	// out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
 
 	// price per item
 	//if false && event.EventType == collections.Listing && rarities[event.Collection.OpenseaSlug] != nil {
@@ -489,7 +489,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			salira := fmt.Sprint(
 				style.CreateTrendIndicator(previousMASaLiRa, currentMASaLiRa),
 				saLiRaStyle.Render(fmt.Sprintf("%4.2f", currentMASaLiRa)),
-				event.Collection.Style().Copy().Faint(true).Render("slr"),
+				event.Collection.Render("slr"),
+				// event.Collection.Style().Copy().Faint(true).Render("slr"),
 				// style.DarkGrayStyle.Render("slr"),
 			)
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)

@@ -7,7 +7,6 @@ import (
 	"sync/atomic"
 
 	"github.com/benleb/gloomberg/internal/models"
-	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/nodes"
 
 	"github.com/VividCortex/ewma"
@@ -25,14 +24,12 @@ type BaseCollection struct{}
 // GbCollection represents the collections configured by the user.
 type GbCollection struct {
 	//
-	// user-configurable fields
-	//
-
+	// configurable fields
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
 	OpenseaSlug     string         `mapstructure:"slug"`
 
-	SupportedStandards standard.Standards
+	// SupportedStandards standard.Standards
 
 	Show struct {
 		Sales     bool `mapstructure:"sales"`
@@ -52,12 +49,7 @@ type GbCollection struct {
 
 	//
 	// calculated/generated fields
-	//
-
-	OwnedTokenIDs []uint64
-
 	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
-	// Metadata map[string]interface{} `mapstructure:"metadata"`
 
 	Source models.CollectionSource `mapstructure:"source"`
 
@@ -80,12 +72,6 @@ type GbCollection struct {
 	ArtificialFloor         ewma.MovingAverage `mapstructure:"artificialFloor"`
 	PreviousArtificialFloor float64            `mapstructure:"artificialFloor"`
 }
-
-// // MarshalBinary encodes the Collection into a binary format.
-// func (uc *Collection) MarshalBinary() ([]byte, error) { return json.Marshal(uc) }
-
-// // UnmarshalBinary decodes the Collection from a binary format.
-// func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
 
 func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
 	var collectionName string
@@ -123,9 +109,9 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 		ContractAddress: contractAddress,
 		Name:            collectionName,
 
-		OwnedTokenIDs: []uint64{},
-		Metadata:      &models.CollectionMetadata{},
-		Source:        source,
+		// OwnedTokenIDs: []uint64{},
+		Metadata: &models.CollectionMetadata{},
+		Source:   source,
 
 		ArtificialFloor: ewma.NewMovingAverage(),
 		SaLiRa:          ewma.NewMovingAverage(),

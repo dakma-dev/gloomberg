@@ -12,7 +12,6 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models"
-	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/transactioncollector"
 	"github.com/benleb/gloomberg/internal/nodes"
@@ -207,6 +206,8 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 
 	// value is just fetched for sales, not for mints
 	value := big.NewInt(0)
+	// cost = gas * gasPrice + value
+	// cost := big.NewInt(0)
 
 	var eventType collections.EventType
 
@@ -229,8 +230,21 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 			return
 		}
 
+		// cost = tx.Cost()
+
+		// fmt.Println()
+		// fmt.Printf("cost: %v\n", tx.Cost())
+
+		// mb, _ := tx.MarshalBinary()
+		// mj, _ := tx.MarshalJSON()
+		// fmt.Printf("tx.MarshalBinary(): %s\n", mb)
+		// fmt.Printf("tx.MarshalJSON(): %s\n", mj)
+
+		// fmt.Println()
+
 		// set to actual tx value
 		value = tx.Value()
+		// value = tx.Cost()
 	}
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
@@ -269,11 +283,24 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		}
 	}
 
-	if collection.SupportedStandards.Contains(standard.ERC1155) { // && (tokenID.Cmp(big.NewInt(0)) > 0 && tokenID.Cmp(big.NewInt(999_999)) < 0) {
+	gbl.Log.Infof("")
+	gbl.Log.Infof("tokenID: %s", tokenID)
+
+	if logTopic == topic.TransferSingle {
 		if tID := cw.Nodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
+			gbl.Log.Infof("try tID for tokenID: %s", tokenID)
 			tokenID = tID
+			gbl.Log.Infof("got tID for tokenID: %s", tID)
 		}
 	}
+
+	gbl.Log.Infof("")
+
+	// if collection.SupportedStandards.Contains(standard.ERC1155) { // && (tokenID.Cmp(big.NewInt(0)) > 0 && tokenID.Cmp(big.NewInt(999_999)) < 0) {
+	// 	if tID := cw.Nodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
+	// 		tokenID = tID
+	// 	}
+	// }
 
 	event := &collections.Event{
 		NodeID:          nodeID,
