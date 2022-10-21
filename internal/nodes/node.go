@@ -120,6 +120,10 @@ func (n *Node) SubscribeToContract(queueLogs chan types.Log, contractAddress com
 	return n.subscribeTo(queueLogs, nil, []common.Address{contractAddress})
 }
 
+func (n *Node) SubscribeToOrderFulfilled(queueLogs chan types.Log) (ethereum.Subscription, error) {
+	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.OrderFulfilled))}}, nil)
+}
+
 func (n *Node) SubscribeToTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	return n.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer))}}, nil)
 }
@@ -248,7 +252,7 @@ func (n *Node) GetCollectionMetadata(contractAddress common.Address) map[string]
 }
 
 func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error) {
-	gbl.Log.Infof("GetTokenMetadata || tokenURI: %+v", tokenURI)
+	gbl.Log.Debugf("GetTokenMetadata || tokenURI: %+v", tokenURI)
 
 	response, err := utils.HTTP.GetWithTLS12(tokenURI)
 	if err != nil || response.StatusCode != http.StatusOK {
@@ -257,7 +261,7 @@ func (n *Node) GetTokenMetadata(tokenURI string) (*models.MetadataERC721, error)
 		return nil, err
 	}
 
-	gbl.Log.Infof("get token metadata status: %s", response.Status)
+	gbl.Log.Debugf("get token metadata status: %s", response.Status)
 
 	defer response.Body.Close()
 
@@ -310,7 +314,7 @@ func (n *Node) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int
 }
 
 func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
-	gbl.Log.Infof("GetTokenURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
+	gbl.Log.Debugf("GetTokenURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
@@ -328,7 +332,7 @@ func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (st
 		return "", err
 	}
 
-	gbl.Log.Infof("GetTokenURI || tokenURI: %+v", tokenURI)
+	gbl.Log.Debugf("GetTokenURI || tokenURI: %+v", tokenURI)
 
 	return tokenURI, nil
 }
@@ -404,8 +408,6 @@ func (n *Node) ERC1155Supported(contractAddress common.Address) bool {
 }
 
 func (n *Node) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
-	gbl.Log.Infof("GetERC1155TokenID || contractAddress: %s", contractAddress)
-
 	half := len(data) / 2
 	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
 	// value, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[half:], "\x00"))), 16, 64)

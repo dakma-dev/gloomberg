@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
@@ -41,6 +42,13 @@ var (
 	zeroAddress           = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
+type GItem struct {
+	ItemType   uint8          `json:"itemType"`
+	Token      common.Address `json:"token"`
+	Identifier *big.Int       `json:"identifier"`
+	Amount     *big.Int       `json:"amount"`
+}
+
 func New(nodes *nodes.Nodes, collectiondb *collections.CollectionDB) *ChainWatcher {
 	// create a queue/channel for the received logs
 	queueLogs := make(chan types.Log, 1024)
@@ -67,6 +75,22 @@ func (cw *ChainWatcher) SubscribeToSales(queueEvents *chan *collections.Event) {
 		// subscribe to all events where first topic is the "SingleTransfer" topic
 		if _, err := node.SubscribeToSingleTransfers(*cw.queueLogs); err != nil {
 			gbl.Log.Warnf("SingleTransfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
+		}
+
+		// create a defined number of workers/handlers per cNode to receive and process incoming events/logs
+		for workerID := 1; workerID <= viper.GetInt("server.workers.subscription_logs"); workerID++ {
+			go cw.logHandler(node, queueEvents)
+		}
+	}
+}
+
+func (cw *ChainWatcher) SubscribeToOrderFulfilled(queueEvents *chan *collections.Event) {
+	for _, node := range *cw.Nodes {
+		gbl.Log.Debugf("%s: subscribing to chain events | QueueEvents: %d", node.Name, len(*queueEvents))
+
+		// subscribe to all events where first topic is the "Transfer" topic
+		if _, err := node.SubscribeToOrderFulfilled(*cw.queueLogs); err != nil {
+			gbl.Log.Warnf("Transfers subscribe to %s failed: %s", node.WebsocketsEndpoint, err)
 		}
 
 		// create a defined number of workers/handlers per cNode to receive and process incoming events/logs
@@ -104,7 +128,7 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 		// }
 
 		// erc20: topics 0-2 | erc721/1155: 0-3
-		if len(subLog.Topics) != 4 {
+		if topic.Topic(subLog.Topics[0].String()) != topic.OrderFulfilled && len(subLog.Topics) != 4 {
 			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 4) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
@@ -114,6 +138,32 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 }
 
 func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
+	if topic.Topic(subLog.Topics[0].String()) == topic.OrderFulfilled {
+		// parse the log
+
+		// get the contractERC721 ABIs
+		abiSeaport, err := abis.NewSeaport(subLog.Address, cw.Nodes.GetRandomLocalNode().Client)
+		if err != nil {
+			gbl.Log.Error(err)
+		}
+
+		// seaportABIFile, _ := os.Open("internal/abis/seaport11.json")
+		// seaport, _ := abi.JSON(seaportABIFile)
+
+		// dataMap := make(map[string]interface{})
+
+		// if err := seaport.UnpackIntoMap(dataMap, "OrderFulfilled", subLog.Data); err != nil {
+		// 	gbl.Log.Errorf("error unpacking into map: %s", err)
+		// 	fmt.Printf("error unpacking into map: %s\n", err)
+		// }
+
+		orderFulilled, _ := abiSeaport.ParseOrderFulfilled(subLog)
+		fmt.Printf("orderFulilled: %+v\n", orderFulilled)
+
+		return
+
+	}
+
 	// we use a "transaction collector" to "recognize" (wait for) multi-item tx logs
 	var transco *transactioncollector.TransactionCollector
 
@@ -194,8 +244,11 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 
 	// create a collection name if we can't find one
 	if collection.Name == "" {
-		preSuffix := collection.StyleSecondary().Copy().Faint(true).Render("??")
-		name := collection.Style().Copy().Faint(true).Italic(true).Render("Unknown " + logTopic.String())
+		// preSuffix := collection.StyleSecondary().Copy().Faint(true).Render("??")
+		// name := collection.Style().Copy().Faint(true).Italic(true).Render("Unknown " + logTopic.String())
+		// collection.Name = preSuffix + " " + name + " " + preSuffix
+		preSuffix := "??"
+		name := "Unknown " + logTopic.String()
 		collection.Name = preSuffix + " " + name + " " + preSuffix
 	}
 
@@ -283,18 +336,11 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		}
 	}
 
-	gbl.Log.Infof("")
-	gbl.Log.Infof("tokenID: %s", tokenID)
-
 	if logTopic == topic.TransferSingle {
 		if tID := cw.Nodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
-			gbl.Log.Infof("try tID for tokenID: %s", tokenID)
 			tokenID = tID
-			gbl.Log.Infof("got tID for tokenID: %s", tID)
 		}
 	}
-
-	gbl.Log.Infof("")
 
 	// if collection.SupportedStandards.Contains(standard.ERC1155) { // && (tokenID.Cmp(big.NewInt(0)) > 0 && tokenID.Cmp(big.NewInt(999_999)) < 0) {
 	// 	if tID := cw.Nodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
@@ -335,11 +381,10 @@ func parseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	logTopic := topic.Topic(topics[0].Hex())
 
 	// parse from/to addresses
-	var fromAddress, toAddress common.Address
-	if logTopic == topic.Transfer {
-		fromAddress = common.HexToAddress(topics[1].Hex())
-		toAddress = common.HexToAddress(topics[2].Hex())
-	} else if logTopic == topic.TransferSingle {
+	fromAddress := common.HexToAddress(topics[1].Hex())
+	toAddress := common.HexToAddress(topics[2].Hex())
+
+	if logTopic == topic.TransferSingle {
 		fromAddress = common.HexToAddress(topics[2].Hex())
 		toAddress = common.HexToAddress(topics[3].Hex())
 	}

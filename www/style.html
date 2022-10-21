@@ -1,0 +1,124 @@
+{{ define "style" }}
+
+<style>
+    html {
+        margin: 0;
+        overflow: hidden;
+        padding: 0;
+    }
+
+    body {
+        background-color: #030303;
+        color: #dddddd;
+        height: 100vh;
+        margin: 0;
+        padding: 0;
+    }
+
+    main {
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+
+    .window {
+        height: 90vh;
+        overflow-y: scroll;
+    }
+
+    .message {
+        align-items: center;
+        display: flex;
+        height: 1.2rem;
+    }
+
+    .message span {
+        /* width: 10rem; */
+        color: #999999;
+        font-family: monospace;
+        font-size: .8rem;
+        /* margin: 0 0.5rem; */
+        text-align: right;
+    }
+
+    .message span.time {
+        color: #333333;
+        margin-left: 0.5rem;
+        min-width: 3.8rem;
+        text-align: right;
+    }
+
+    .message span.typemoji {
+        color: #333333;
+        margin-left: 0.7rem;
+    }
+
+
+    .message span.pricearrow {
+        color: #333333;
+        margin-left: 0.7rem;
+    }
+
+    .message span.item span {
+        margin-left: 0.8rem;
+        width: 20rem;
+        text-align: left;
+        text-overflow: ellipsis;
+    }
+
+    .message span.item span.tokenid {
+        margin-left: 0;
+    }
+
+    .message pre {
+        white-space: normal;
+    }
+
+    .actions {
+        align-items: center;
+        display: flex;
+        height: 10vh;
+        padding: 0 1rem;
+    }
+
+    .actions form {
+        align-items: center;
+        display: flex;
+        justify-content: space-between;
+        width: 100%;
+    }
+
+    .actions form input[type=text] {
+        background-color: #090909;
+        border-radius: 0.2rem;
+        border: 1px solid black;
+        color: #666666;
+        flex: 1 0 90%;
+        padding: .5rem;
+        pointer-events: none;
+    }
+
+    .actions form button[type=submit] {
+        /* background-color: black; */
+        background-color: #090909;
+        border-radius: 0.2rem;
+        border: 1px solid black;
+        color: #222222;
+        margin-left: .5rem;
+        padding: .5rem;
+        pointer-events: none;
+    }
+
+    body.live-connected .actions form input {
+        /* background-color: initial; */
+        pointer-events: initial;
+    }
+
+    body.live-connected .actions form button {
+        /* background-color: initial; */
+        pointer-events: initial;
+    }
+
+</style>
+
+{{ end }}

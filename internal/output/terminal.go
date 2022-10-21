@@ -105,7 +105,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// var previousMovingAverage, currentMovingAverage float64
 
 	if event.EventType == collections.Sale {
-		if gb.OwnWallets.Contains(event.To.Address) {
+		if gb.OwnWallets.Contains(event.To.Address) || gb.WatchUsers.Contains(event.To.Address) {
 			event.EventType = collections.Purchase
 		}
 

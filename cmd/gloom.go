@@ -20,6 +20,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -272,6 +273,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 	// subscribe to the chain logs/events and start the workers
 	if role.ChainWatcher {
 		gb.ChainWatcher.SubscribeToSales(&queueEvents)
+		// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
 	}
 
 	//
@@ -284,6 +286,17 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		go wsServer.Start()
 		fmt.Printf("🔎 wsServer started: %v\n", wsServer)
 	}
+
+	//
+	// web server
+	// if role.WsServer {
+	queueWeb := make(chan *collections.Event, 1024)
+	gb.OutputQueues["web"] = queueWeb
+
+	eventStream := web.New(&queueWeb)
+	go eventStream.Start()
+	fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
+	// }
 
 	//
 	// distribution of the events to the outputs
@@ -310,6 +323,18 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 	// 	fmt.Printf("logs received: %d || %s\n", logsReceivedTotal, strings.Join(logsPerNodeFormatted, " | "))
 	// 	gbl.Log.Infof("logs received: %d", logsReceivedTotal)
 	// }
+
+	// go func() {
+	// 	// Run the server
+	// 	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), web.NewEventHandler()))
+	// 	http.Handle("/live.js", live.Javascript{})
+	// 	http.Handle("/auto.js.map", live.JavascriptMap{})
+
+	// 	if err := http.ListenAndServe(":18080", nil); err != nil {
+	// 		fmt.Printf("error: %s", err)
+	// 		gbl.Log.Error(err)
+	// 	}
+	// }()
 
 	// loop forever
 	select {}

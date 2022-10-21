@@ -1,0 +1,47 @@
+{{ define "title" }} gloomberg {{ end }}
+{{ define "view" }}
+
+<main>
+    <div class="window" live-update="append" live-hook="eventstream">
+
+        {{ range $msg := .Assigns.Events }}
+
+        <div id="{{$msg.ID}}" class="message">
+            <span class="time">{{$msg.Time}}</span>
+            <span class="typemoji">{{$msg.Typemoji}}</span>
+            <span class="pricearrow">→</span>
+            <span class="item"><span style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}}</span> <span style="color: {{$msg.ColorSecondary}};">#</span><span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span></span>
+            <pre>{{$msg.Msg}}</pre>
+        </div>
+
+        {{ end }}
+
+    </div>
+
+    <div class="actions">
+        <form id="chatinput" live-submit="send" live-hook="input">
+            <input autocomplete="off" type="text" name="message">
+            <button type="submit">go</button>
+        </form>
+    </div>
+
+</main>
+
+<script>
+    window.Hooks = {
+        "input": {
+            mounted: function() {
+                // clear text field
+                this.el.addEventListener("submit", () => {
+                    this.el.querySelector("input").value = "";
+                });
+            }
+        },
+        "eventstream": {
+            // auto-scroll to bottom
+            updated: function() { this.el.scrollTop = this.el.scrollHeight; }
+        }
+    };
+</script>
+
+{{ end }}
