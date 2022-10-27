@@ -1,6 +1,7 @@
 package osstreamwatcher
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"time"
@@ -61,10 +62,13 @@ func NewStreamWatcher(token string, onError func(error)) *OSStreamWatcher {
 	}
 
 	socket.OnError(onError)
+
 	socket.OnClose(func() {
+		gbl.Log.Warnf("opensea stream socket closed, reconnecting...")
+
 		err := socket.Reconnect()
 		if err != nil {
-			onError(err)
+			onError(errors.New("opensea stream socket reconnecting failed: " + err.Error()))
 		}
 	})
 
@@ -73,9 +77,9 @@ func NewStreamWatcher(token string, onError func(error)) *OSStreamWatcher {
 		socket:        socket,
 		channels:      make(map[string]*phx.Channel),
 	}
-	if err := client.Connect(); err != nil {
-		gbl.Log.Error(err)
 
+	if err := client.Connect(); err != nil {
+		gbl.Log.Error(errors.New("opensea stream socket connection failed: " + err.Error()))
 		return nil
 	}
 

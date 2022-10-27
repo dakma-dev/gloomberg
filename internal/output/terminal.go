@@ -2,7 +2,6 @@ package output
 
 import (
 	"fmt"
-	"math/big"
 	"strconv"
 	"strings"
 	"time"
@@ -15,7 +14,6 @@ import (
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/models/topic"
-	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -74,64 +72,48 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		priceArrowColor lipgloss.Color
 	)
 
-	eventWithStyle := &collections.EventWithStyle{}
+	//
+	// conditions (review needed Oo)
+	isMultiItemTx := event.TxItemCount > 1
 
 	isMint := event.EventType == collections.Mint
 	isMintOrTransfer := event.EventType == collections.Mint || event.EventType == collections.Transfer
-	isSaleOrMint := event.EventType == collections.Sale || event.EventType == collections.Purchase || event.EventType == collections.Mint
-	isMultiItemTx := event.TxItemCount > 1
+	isMintOrSale := event.EventType == collections.Sale || event.EventType == collections.Purchase || event.EventType == collections.Mint
 
-	// var (
-	// 	priceStyle      lipgloss.Style
-	// 	priceArrowColor lipgloss.Color
-	// )
+	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
 
-	var pricePerItem *big.Int
-	if event.EventType == collections.Sale && isMultiItemTx {
-		// pricePerItem = event.PriceWei.Div() / big.NewInt(event.TxItemCount)
-		pricePerItem = big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxItemCount)))
+	isOwnWallet := false
+	if isMultiItemTx {
+		isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 	} else {
-		// pricePerItem = event.PriceWei.Uint64()
-		pricePerItem = event.PriceWei
+		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.WatchUsers.Contains(event.To.Address)
 	}
 
-	event.PricePerItem = pricePerItem
-	event.CollectionColor = event.Collection.Colors.Primary
+	isWatchUsersWallet := gb.WatchUsers.ContainsOneOf(event.FromAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 
-	// format price in ether
-	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
-	priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
+	isListingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= event.PriceEther
 
-	// var previousMovingAverage, currentMovingAverage float64
+	// set type to purchase if "we" are on the buyer side
+	if event.EventType == collections.Sale && (gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress) {
+		event.EventType = collections.Purchase
+	}
 
+	//
+	// price-dependent styling
 	if event.EventType == collections.Sale {
-		if gb.OwnWallets.Contains(event.To.Address) || gb.WatchUsers.Contains(event.To.Address) {
-			event.EventType = collections.Purchase
-		}
-
-		// recalculate moving average
-		// itemPrice, _ := nodes.WeiToEther(pricePerItem).Float64()
-		// previousMovingAverage, currentMovingAverage = event.Collection.CalculateArtificialFloor(itemPrice)
+		priceStyle = style.DarkWhiteStyle
 
 		// get a color with saturation depending on the tx price
-		priceStyle = style.DarkWhiteStyle
-		priceArrowColor = style.GetPriceShadeColor(priceEther)
-
-		eventWithStyle.PriceEtherColor = "#DDDDDD"
-		eventWithStyle.PriceArrowColor = style.GetPriceShadeColor(priceEther)
+		priceArrowColor = style.GetPriceShadeColor(event.PriceEther)
 	} else {
-		// if this is a mint/transfer/listing, we don't touch the moving average
-		// currentMovingAverage = event.Collection.ArtificialFloor.Value()
-		// previousMovingAverage = currentMovingAverage
-
 		priceStyle = style.GrayStyle
 		priceArrowColor = "#333333"
-
-		eventWithStyle.PriceEtherColor = "#666666"
-		eventWithStyle.PriceArrowColor = "#333333"
 	}
 
-	// item number style
+	priceCurrencyStyle := event.Collection.Style().Copy().Faint(isMintOrTransfer)
+	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
+	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
+
 	var numberStyle, pricePerItemStyle lipgloss.Style
 
 	switch {
@@ -149,22 +131,12 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		pricePerItemStyle = style.DarkGrayStyle
 	}
 
-	priceCurrencyStyle := event.Collection.Style().Copy().Faint(isMintOrTransfer)
-	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
-	// currentMovingAverageStyle := style.GrayStyle.Copy().Faint(isMintOrTransfer)
-
-	// trendIndicator := style.CreateTrendIndicator(previousMovingAverage, currentMovingAverage)
-	divider := style.Sharrow.Copy().Foreground(priceArrowColor).String()
-
-	isOwnCollection := event.Collection.Source == models.FromWallet || event.Collection.Source == models.FromConfiguration
-	isOwnWallet := gb.OwnWallets.Contains(event.From.Address) || gb.OwnWallets.Contains(event.To.Address)
-	isWatchUsersWallet := gb.WatchUsers.Contains(event.From.Address) || gb.WatchUsers.Contains(event.To.Address)
-	listingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
-
-	// buyer
+	// buyer styling
 	toStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64()))
 	to := style.ShortenAddressStyled(&event.To.Address, toStyle)
 
+	//
+	// ens
 	var ensName string
 
 	// check if the ENS name is already in the cache
@@ -193,37 +165,15 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		to = toStyle.Render(event.ToENS)
 	}
 
-	// if ensName == "" && viper.IsSet("api_keys.etherscan") && gb.Nodes != nil {
-	// 	gbl.Log.Infof("cache | ENS name not cached, trying to resolve...")
-
-	// 	if name, err := gb.Nodes.GetENSForAddress(event.To.Address); err == nil && name != "" {
-	// 		gbl.Log.Infof("cache | resolved ENS name: %s", name)
-
-	// 		ensName = name
-	// 		to = toStyle.Render(ensName)
-	// 		event.ToENS = ensName
-
-	// 		cache.StoreENSName(event.To.Address, ensName)
-	// 	} else if event.ToENS != "" {
-	// 		to = toStyle.Render(event.ToENS)
-	// 	}
-	// }
-
 	// WEN...??
 	now := time.Now()
 	currentTime := now.Format("15:04:05")
 	timeNow := style.GrayStyle.Copy().Faint(true).Render(currentTime)
-	eventWithStyle.Time = now
-	eventWithStyle.TimeColor = "#999999"
-
-	eventWithStyle.CollectionName = event.Collection.Name
 
 	// WHAT...??
 	var tokenInfo string
 	if isMultiItemTx {
 		tokenInfo = fmt.Sprintf("%s %s", numberStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), event.Collection.Style().Faint(isMint).Render(event.Collection.Name))
-
-		eventWithStyle.TxItemCount = event.TxItemCount
 	} else if event.Collection.ContractAddress == external.ENSContract {
 		ensName := "Ethereum Name Service"
 		if event.ENSMetadata != nil && event.ENSMetadata.Name != "" {
@@ -235,21 +185,15 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			event.Collection.Style().Copy().Faint(true).Render(event.Collection.Name+":"),
 			event.Collection.Style().Copy().Faint(false).Render(ensName),
 		)
-
-		eventWithStyle.TxItemCount = event.TxItemCount
 	} else {
 		tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, true)
-
-		eventWithStyle.TokenID = event.TokenID
 	}
 
 	// PRETTY...??
 	collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
-	eventWithStyle.CollectionColor = event.Collection.Colors.Primary
 
 	if event.EventType == collections.Sale && isOwnCollection {
 		timeNow = collectionStyle.Render(currentTime)
-		eventWithStyle.TimeColor = eventWithStyle.CollectionColor
 
 		notifications.SendNotification(event.Collection.Name, tokenInfo)
 		gbl.Log.Debugf("SendNotification | collection: %s, tokenInfo: %s", event.Collection.Name, tokenInfo)
@@ -262,21 +206,17 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		} else {
 			timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
 		}
-
-		eventWithStyle.TimeColor = lipgloss.Color(style.OwnerGreen.Dark)
 	}
 
 	// check if listing is below configured max. price
-	if listingBelowPrice {
+	if isListingBelowPrice {
 		var timeStyle lipgloss.Style
 
 		if event.EventType == collections.Listing {
 			timeStyle = style.PinkBoldStyle
 			priceStyle = style.BoldStyle
-			eventWithStyle.TimeColor = lipgloss.Color(style.Pink.Dark)
 		} else {
 			timeStyle = lipgloss.NewStyle().Foreground(style.ShadesPink[3])
-			eventWithStyle.TimeColor = style.ShadesPink[3]
 		}
 
 		timeNow = timeStyle.Render(currentTime)
@@ -285,13 +225,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	switch {
 	case event.EventType == collections.Sale && event.Collection.Highlight.Sales != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Sales).Render(currentTime)
-		eventWithStyle.TimeColor = event.Collection.Highlight.Sales
 	case event.EventType == collections.Listing && event.Collection.Highlight.Listings != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Listings).Render(currentTime)
-		eventWithStyle.TimeColor = event.Collection.Highlight.Listings
 	case event.Collection.Highlight.Color != "":
 		timeNow = lipgloss.NewStyle().Foreground(event.Collection.Highlight.Color).Render(currentTime)
-		eventWithStyle.TimeColor = event.Collection.Highlight.Color
 	}
 
 	arrow := style.DividerArrowRight
@@ -310,82 +247,53 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	marker := " "
 
-	if listingBelowPrice {
+	if isListingBelowPrice {
 		marker = style.PinkBoldStyle.Render("*")
 	} else if isOwnCollection && event.EventType == collections.Sale {
-		// if itemPrice, _ := priceEtherPerItem.Float64(); itemPrice >= viper.GetFloat64("show.min_value") {
-		if priceEtherPerItem >= viper.GetFloat64("show.min_value") {
+		if event.PriceEtherPerItem >= viper.GetFloat64("show.min_value") {
 			if isOwnWallet {
 				marker = style.OwnerGreenBoldStyle.Render("*")
-				eventWithStyle.Marker = "*"
-				eventWithStyle.MarkerColor = "#73F59F"
 			}
 		}
 	}
 
 	// add to event history
-	if isOwnCollection && event.EventType == collections.Sale { // && itemPrice >= viper.GetFloat64("show.min_value") {
+	if isOwnCollection && event.EventType == collections.Sale {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if isOwnWallet {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
+	} else if gb.OwnWallets.Contains(event.To.Address) {
+		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
-
-	eventWithStyle.Verbose = viper.GetBool("log.verbose")
-
 	// build the line to be displayed
 	out := strings.Builder{}
 
 	if viper.GetBool("log.verbose") {
 		if event.EventType == collections.Listing {
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#20293d")).Render("OS"))
-
-			eventWithStyle.Source = "OS"
-			eventWithStyle.SourceColor = "#20293d"
 		} else if gb.Nodes != nil && len(*gb.Nodes) > 0 {
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker)))
-
-			eventWithStyle.Source = utils.StripANSI(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker))
-			eventWithStyle.SourceColor = "#1A1A1A"
-		} else {
-			eventWithStyle.Source = lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(event.NodeID))
-			eventWithStyle.SourceColor = "#1A1A1A"
 		}
 
 		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
 	}
 
+	// time & type
 	out.WriteString(timeNow)
 	out.WriteString(marker + event.EventType.Icon())
 	out.WriteString(" " + divider)
 
-	eventWithStyle.EventType = event.EventType
-	eventWithStyle.EventEmoji = event.EventType.Icon()
-	eventWithStyle.Marker = marker
-
-	eventWithStyle.PriceEther = fmt.Sprintf("%6.3f", priceEther)
-
-	eventWithStyle.OpenseaURL = openseaURL
-	eventWithStyle.EtherscanURL = etherscanURL
-
 	// price
 	if event.EventType == collections.Listing {
-		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", priceEther))))
+		out.WriteString(" " + priceStyle.Render(style.TerminalLink(openseaURL, fmt.Sprintf("%6.3f", event.PriceEther))))
 	} else {
-		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", priceEther)))
+		out.WriteString(" " + priceStyle.Render(fmt.Sprintf("%6.3f", event.PriceEther)))
 	}
 
 	out.WriteString(formattedCurrencySymbol)
 
-	// // moving average (artificial) floor price
-	// out.WriteString("  " + trendIndicator)
-	// out.WriteString(currentMovingAverageStyle.Render(fmt.Sprintf("%6.3f", currentMovingAverage)))
-
 	// price per item
-	//if false && event.EventType == collections.Listing && rarities[event.Collection.OpenseaSlug] != nil {
-	//	rank := rarities[event.Collection.OpenseaSlug][int(event.TokenID.Int64())].Rank
-	//	out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("%4d", rank)) + " ")
-	//} else {
-	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(pricePerItem))))
+	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", event.PriceEtherPerItem)))
 	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
 
 	// collection/token info
@@ -401,8 +309,6 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			outputTotalSupply = fmt.Sprintf("%dK", uint(totalSupply/1000))
 			totalSupplyStyle = collectionStyle.Copy().Faint(true)
 		}
-
-		eventWithStyle.CollectionTotalSupply = totalSupply
 
 		out.WriteString(style.DarkGrayStyle.Render(" /") + totalSupplyStyle.Render(outputTotalSupply))
 	}
@@ -460,9 +366,6 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	}
 
 	// sales/listings count & salira
-	eventWithStyle.ListingsCount = event.Collection.Counters.Listings
-	eventWithStyle.SalesCount = event.Collection.Counters.Sales
-
 	if event.Collection.Counters.Sales+event.Collection.Counters.Listings > 0 {
 		var salesAndListings string
 
@@ -478,10 +381,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 		out.WriteString(" | " + salesAndListings)
 
-		// coloring  moving average salira
-		saLiRaStyle := style.TrendGreenStyle
-
 		if previousMASaLiRa, currentMASaLiRa := event.Collection.CalculateSaLiRa(); currentMASaLiRa > 0 {
+			// coloring moving average salira
+			saLiRaStyle := style.TrendGreenStyle
+
 			if previousMASaLiRa > currentMASaLiRa {
 				saLiRaStyle = style.TrendRedStyle
 			}
@@ -490,9 +393,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 				style.CreateTrendIndicator(previousMASaLiRa, currentMASaLiRa),
 				saLiRaStyle.Render(fmt.Sprintf("%4.2f", currentMASaLiRa)),
 				event.Collection.Render("slr"),
-				// event.Collection.Style().Copy().Faint(true).Render("slr"),
-				// style.DarkGrayStyle.Render("slr"),
 			)
+
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
 		}
 	}
@@ -509,26 +411,30 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	}
 
 	// mark the line if the listing is below configured max. price
-	if listingBelowPrice && event.EventType == collections.Listing {
+	if isListingBelowPrice && event.EventType == collections.Listing {
 		outputLine := "\n" + out.String() + "\n"
 		out.Reset()
 		out.WriteString(outputLine)
 	}
 
 	// print to terminal
-	queueOutput <- out.String()
+	if event.PrintEvent {
+		queueOutput <- out.String()
+	}
 
 	//
 	// telegram notification
-	if isSaleOrMint && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
+	if isMintOrSale && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
 		go func() {
 			// did someone buy or sell something?
 			var triggerAddress common.Address
 
-			if gb.WatchUsers.Contains(event.To.Address) {
-				triggerAddress = event.To.Address
+			if trigger := gb.WatchUsers.ContainsOneOf(event.ToAddresses); trigger != utils.ZeroAddress {
+				triggerAddress = trigger
+			} else if trigger := gb.WatchUsers.ContainsOneOf(event.FromAddresses); trigger != utils.ZeroAddress {
+				triggerAddress = trigger
 			} else {
-				triggerAddress = event.From.Address
+				return
 			}
 
 			// get the username of the wallet that triggered the notification
@@ -553,7 +459,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
 			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, false, false))
-			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
+			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", event.PriceEther) + "Ξ**")
 			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
 			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
 

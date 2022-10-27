@@ -24,11 +24,16 @@ type EventMessage struct {
 	Msg            string
 	Time           string
 	Typemoji       string
+	Price          string
+	PricePerItem   float64
 	CollectionName string
 	TokenID        *big.Int
 	ColorPrimary   string
 	ColorSecondary string
 	Event          *collections.Event
+	SalesCount     uint64
+	ListingsCount  uint64
+	SaLiRa         float64
 }
 
 func NewEvent(data interface{}) EventMessage {
@@ -36,12 +41,6 @@ func NewEvent(data interface{}) EventMessage {
 	switch m := data.(type) {
 	case EventMessage:
 		return m
-		// case map[string]interface{}:
-		// 	return Message{
-		// 		ID:   m["ID"].(string),
-		// 		User: m["User"].(string),
-		// 		Msg:  m["Msg"].(string),
-		// 	}
 	}
 
 	return EventMessage{}
@@ -65,7 +64,7 @@ func (es *EventStream) Start() {
 
 	gbl.Log.Infof("starting http server...")
 
-	if err := http.ListenAndServe(":18080", nil); err != nil {
+	if err := http.ListenAndServe(":42069", nil); err != nil {
 		fmt.Printf("error: %s", err)
 		gbl.Log.Error(err)
 	}
@@ -76,16 +75,26 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 		for event := range *es.queueOutWeb {
 			gbl.Log.Debugf("outWeb event: %+v", event)
 
+			if !event.PrintEvent {
+				gbl.Log.Infof("outWeb discarded event: %+v", event)
+				continue
+			}
+
 			data := EventMessage{
 				ID: live.NewID(),
 				// User: live.SessionID(s.Session()),
 				Time:           event.Time.Format("15:04:05"),
 				Typemoji:       event.EventType.Icon(),
+				Price:          fmt.Sprintf("%6.3f", event.PriceEther),
+				PricePerItem:   event.PriceEtherPerItem,
 				CollectionName: event.Collection.Name,
 				TokenID:        event.TokenID,
 				ColorPrimary:   string(event.Collection.Colors.Primary),
 				ColorSecondary: string(event.Collection.Colors.Secondary),
 				Event:          event,
+				SalesCount:     event.Collection.Counters.Sales,
+				ListingsCount:  event.Collection.Counters.Listings,
+				SaLiRa:         event.Collection.SaLiRa.Value(),
 			}
 
 			if err := s.Broadcast(wnewmessage, data); err != nil {
@@ -103,6 +112,8 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 			// },
 		}
 	}
+
+	m.Events = []EventMessage{}
 
 	return m
 }

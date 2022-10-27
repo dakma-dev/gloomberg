@@ -20,7 +20,6 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
-	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -77,12 +76,17 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		} else {
 			gb.ChainWatcher = cWatcher
 		}
+
+		//
+		// subscribe to the chain logs/events and start the workers
+		// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
+		gb.ChainWatcher.SubscribeToSales(&queueEvents)
 	}
 
 	//
 	// websockets client to get events from a server instead directly from the chain (nodes)
 	if role.GloomClient {
-		gloomclient.ConnectToServer("ws://10.0.0.99:42069/", &queueEvents)
+		gloomclient.ConnectToServer("ws://10.0.0.99:42068/", &queueEvents)
 	}
 
 	//
@@ -269,12 +273,25 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		}
 	}
 
+	// //
+	// // web server
+	// // if role.WsServer {
+	// go func() {
+	// 	queueWeb := make(chan *collections.Event, 1024)
+	// 	gb.OutputQueues["web"] = queueWeb
+
+	// 	eventStream := web.New(&queueWeb)
+	// 	go eventStream.Start()
+	// 	fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
+	// }()
+	// // }
+
 	//
 	// subscribe to the chain logs/events and start the workers
-	if role.ChainWatcher {
-		gb.ChainWatcher.SubscribeToSales(&queueEvents)
-		// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
-	}
+	// if role.ChainWatcher {
+	// 	gb.ChainWatcher.SubscribeToSales(&queueEvents)
+	// 	// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
+	// }
 
 	//
 	// websockets server
@@ -286,17 +303,6 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		go wsServer.Start()
 		fmt.Printf("🔎 wsServer started: %v\n", wsServer)
 	}
-
-	//
-	// web server
-	// if role.WsServer {
-	queueWeb := make(chan *collections.Event, 1024)
-	gb.OutputQueues["web"] = queueWeb
-
-	eventStream := web.New(&queueWeb)
-	go eventStream.Start()
-	fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
-	// }
 
 	//
 	// distribution of the events to the outputs

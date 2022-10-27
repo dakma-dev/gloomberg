@@ -9,6 +9,16 @@ func (wu *WatcherUsers) Contains(address common.Address) bool {
 	return (*wu)[address] != nil
 }
 
+func (wu *WatcherUsers) ContainsOneOf(addresses map[common.Address]bool) common.Address {
+	for address := range addresses {
+		if (*wu).Contains(address) {
+			return address
+		}
+	}
+
+	return common.Address{}
+}
+
 // WatcherUser representsa user who can own multiple wallets.
 type WatcherUser struct {
 	Name            string           `mapstructure:"name"`

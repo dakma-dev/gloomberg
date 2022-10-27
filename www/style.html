@@ -23,6 +23,7 @@
 
     .window {
         height: 90vh;
+        margin-top: 0.3rem;
         overflow-y: scroll;
     }
 
@@ -36,7 +37,7 @@
         /* width: 10rem; */
         color: #999999;
         font-family: monospace;
-        font-size: .8rem;
+        font-size: 1rem;
         /* margin: 0 0.5rem; */
         text-align: right;
     }
@@ -53,17 +54,26 @@
         margin-left: 0.7rem;
     }
 
+    .message span.price {
+        color: #F9F9F9;
+        margin-left: 0.9rem;
+        width: 3.37rem;
+    }
 
     .message span.pricearrow {
         color: #333333;
         margin-left: 0.7rem;
     }
 
-    .message span.item span {
+    .message span.item {
         margin-left: 0.8rem;
-        width: 20rem;
         text-align: left;
+        display: inline-block;
+        margin-left: 0.8rem;
+        width: 25rem;
+        max-width: 25rem;
         text-overflow: ellipsis;
+        overflow: auto;
     }
 
     .message span.item span.tokenid {

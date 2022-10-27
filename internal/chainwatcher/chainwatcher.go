@@ -8,7 +8,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
@@ -16,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/transactioncollector"
 	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
@@ -39,7 +39,6 @@ var (
 	mu                    = &sync.Mutex{}
 	knownTransactions     = make(map[common.Hash][]int)
 	transactionCollectors = make(map[common.Hash]*transactioncollector.TransactionCollector)
-	zeroAddress           = common.HexToAddress("0x0000000000000000000000000000000000000000")
 )
 
 type GItem struct {
@@ -138,35 +137,35 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 }
 
 func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
-	if topic.Topic(subLog.Topics[0].String()) == topic.OrderFulfilled {
-		// parse the log
+	printEvent := true
 
-		// get the contractERC721 ABIs
-		abiSeaport, err := abis.NewSeaport(subLog.Address, cw.Nodes.GetRandomLocalNode().Client)
-		if err != nil {
-			gbl.Log.Error(err)
-		}
+	// parse log topics
+	logTopic, fromAddress, toAddress, tokenID := utils.ParseTopics(subLog.Topics)
 
-		// seaportABIFile, _ := os.Open("internal/abis/seaport11.json")
-		// seaport, _ := abi.JSON(seaportABIFile)
+	// if logTopic == topic.OrderFulfilled {
+	// 	// get the contractERC721 ABIs
+	// 	_, err := abis.NewSeaport(subLog.Address, cw.Nodes.GetRandomLocalNode().Client)
+	// 	if err != nil {
+	// 		gbl.Log.Error(err)
+	// 	}
 
-		// dataMap := make(map[string]interface{})
+	// 	// seaportABIFile, _ := os.Open("internal/abis/seaport11.json")
+	// 	// seaport, _ := abi.JSON(seaportABIFile)
 
-		// if err := seaport.UnpackIntoMap(dataMap, "OrderFulfilled", subLog.Data); err != nil {
-		// 	gbl.Log.Errorf("error unpacking into map: %s", err)
-		// 	fmt.Printf("error unpacking into map: %s\n", err)
-		// }
+	// 	// dataMap := make(map[string]interface{})
 
-		orderFulilled, _ := abiSeaport.ParseOrderFulfilled(subLog)
-		fmt.Printf("orderFulilled: %+v\n", orderFulilled)
+	// 	// if err := seaport.UnpackIntoMap(dataMap, "OrderFulfilled", subLog.Data); err != nil {
+	// 	// 	gbl.Log.Errorf("error unpacking into map: %s", err)
+	// 	// 	fmt.Printf("error unpacking into map: %s\n", err)
+	// 	// }
 
-		return
+	// 	// orderFulilled, _ := abiSeaport.ParseOrderFulfilled(subLog)
+	// 	// fmt.Printf("orderFulilled: %+v\n", orderFulilled)
+	// 	// return
+	// }
 
-	}
-
+	//
 	// we use a "transaction collector" to "recognize" (wait for) multi-item tx logs
-	var transco *transactioncollector.TransactionCollector
-
 	mu.Lock()
 
 	// check if we already have a collector for this tx hash
@@ -179,13 +178,13 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	}
 
 	// if we don't have a collector, we create a new one for this tx hash
-	transco = transactioncollector.NewTransactionCollector(&subLog)
+	transco := transactioncollector.NewTransactionCollector(&subLog)
 	transactionCollectors[subLog.TxHash] = transco
 
 	mu.Unlock()
 
 	// wait for all logs of this tx to be received
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(137 * time.Millisecond)
 
 	//
 	// check if we have seen this logIndex for this transaction before
@@ -211,11 +210,6 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	cw.CollectionDB.RWMu.RLock()
 	collection := cw.CollectionDB.Collections[subLog.Address]
 	cw.CollectionDB.RWMu.RUnlock()
-
-	// parse tx topics
-	logTopic, fromAddress, toAddress, tokenID := parseTopics(subLog.Topics)
-
-	// var txData []byte
 
 	if collection == nil && subLog.Address != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		name := ""
@@ -253,16 +247,13 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	}
 
 	// further (tx) information as booleans
-	isMint := fromAddress == zeroAddress
+	isMint := fromAddress == utils.ZeroAddress
 	showMints := viper.GetBool("show.mints") || collection.Show.Mints
 	isOwnCollection := collection.Source == models.FromWallet || collection.Source == models.FromConfiguration
 
-	// value is just fetched for sales, not for mints
-	value := big.NewInt(0)
-	// cost = gas * gasPrice + value
-	// cost := big.NewInt(0)
-
 	var eventType collections.EventType
+
+	value := big.NewInt(0)
 
 	if isMint {
 		eventType = collections.Mint
@@ -270,7 +261,8 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		if !showMints {
 			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
 			gbl.Log.Debugf("🗑️ showMints -> %v | collection.Show.Mints -> %v | %v | TxHash: %v / %d | %+v", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
-			return
+			// return
+			printEvent = false
 		}
 	} else {
 		eventType = collections.Sale
@@ -283,21 +275,8 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 			return
 		}
 
-		// cost = tx.Cost()
-
-		// fmt.Println()
-		// fmt.Printf("cost: %v\n", tx.Cost())
-
-		// mb, _ := tx.MarshalBinary()
-		// mj, _ := tx.MarshalJSON()
-		// fmt.Printf("tx.MarshalBinary(): %s\n", mb)
-		// fmt.Printf("tx.MarshalJSON(): %s\n", mj)
-
-		// fmt.Println()
-
 		// set to actual tx value
 		value = tx.Value()
-		// value = tx.Cost()
 	}
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
@@ -307,7 +286,8 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	if !isMint && !isOwnCollection && nodes.WeiToEther(value).Cmp(big.NewFloat(viper.GetFloat64("show.min_value"))) < 0 {
 		// atomic.AddUint64(&StatsBTV.DiscardedLowPrice, 1)
 		gbl.Log.Debugf("‼️ DiscardedLowPrice| %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
-		return
+
+		printEvent = false
 	}
 
 	if isTransfer {
@@ -316,7 +296,8 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		if !showTransfers {
 			// atomic.AddUint64(&StatsBTV.DiscardedTransfers, 1)
 			gbl.Log.Debugf("‼️ transfer not shown %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
-			return
+
+			printEvent = false
 		}
 	}
 
@@ -348,18 +329,41 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	// 	}
 	// }
 
+	numItems := transco.UniqueTokenIDs()
+	priceEther, _ := nodes.WeiToEther(value).Float64()
+	// priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(value).Div(value, big.NewInt(int64(numItems)))).Float64()
+	priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(value.Uint64() / numItems))).Float64()
+
+	// priceEtherPerItem, _ := nodes.WeiToEther(pricePI).Float64()
+
+	fromAddresses := make(map[common.Address]bool, 0)
+	fromAddresses[fromAddress] = true
+
+	for _, address := range transco.FromAddresses {
+		fromAddresses[address] = true
+	}
+
+	toAddresses := make(map[common.Address]bool, 0)
+	toAddresses[toAddress] = true
+
+	for _, address := range transco.ToAddresses {
+		toAddresses[address] = true
+	}
+
 	event := &collections.Event{
-		NodeID:          nodeID,
-		EventType:       eventType,
-		Topic:           logTopic.String(),
-		TxHash:          subLog.TxHash,
-		Collection:      collection,
-		ContractAddress: collection.ContractAddress,
-		TokenID:         tokenID,
-		ENSMetadata:     ensMetadata,
-		PriceWei:        value,
-		TxItemCount:     transco.UniqueTokenIDs(),
-		Time:            time.Now(),
+		NodeID:            nodeID,
+		EventType:         eventType,
+		Topic:             logTopic.String(),
+		TxHash:            subLog.TxHash,
+		Collection:        collection,
+		ContractAddress:   collection.ContractAddress,
+		TokenID:           tokenID,
+		ENSMetadata:       ensMetadata,
+		PriceWei:          value,
+		PriceEther:        priceEther,
+		PriceEtherPerItem: priceEtherPerItem,
+		TxItemCount:       numItems,
+		Time:              time.Now(),
 		From: collections.User{
 			Address:       fromAddress,
 			OpenseaUserID: "",
@@ -368,6 +372,9 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 			Address:       toAddress,
 			OpenseaUserID: "",
 		},
+		FromAddresses: fromAddresses,
+		ToAddresses:   toAddresses,
+		PrintEvent:    printEvent,
 	}
 
 	// send to formatting
@@ -375,25 +382,4 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 
 	gbCache := cache.New()
 	gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, int64(eventType))
-}
-
-func parseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
-	logTopic := topic.Topic(topics[0].Hex())
-
-	// parse from/to addresses
-	fromAddress := common.HexToAddress(topics[1].Hex())
-	toAddress := common.HexToAddress(topics[2].Hex())
-
-	if logTopic == topic.TransferSingle {
-		fromAddress = common.HexToAddress(topics[2].Hex())
-		toAddress = common.HexToAddress(topics[3].Hex())
-	}
-
-	// parse token id
-	rawTokenID := big.NewInt(0)
-	if len(topics) >= 4 {
-		rawTokenID = topics[3].Big()
-	}
-
-	return logTopic, fromAddress, toAddress, rawTokenID
 }

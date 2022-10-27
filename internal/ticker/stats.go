@@ -328,7 +328,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 			var rowStyle lipgloss.Style
 
-			collectionStyle := lipgloss.NewStyle().Foreground(event.CollectionColor)
+			collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
 			timeAgo := time.Since(event.Time)
 			glickerEpoch := viper.GetDuration("stats.interval")
@@ -362,7 +362,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			historyLine := strings.Builder{}
 			historyLine.WriteString(timeNow)
 			historyLine.WriteString(" " + event.EventType.Icon())
-			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", nodes.WeiToEther(event.PricePerItem))))
+			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", event.PriceEtherPerItem)))
 			historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
 			historyLine.WriteString(" " + tokenInfo)
 

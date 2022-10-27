@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -53,6 +54,16 @@ func (ws *Wallets) Contains(address common.Address) bool {
 	}
 
 	return false
+}
+
+func (ws *Wallets) ContainsOneOf(addresses map[common.Address]bool) common.Address {
+	for address := range addresses {
+		if (*ws)[address] != nil {
+			return address
+		}
+	}
+
+	return utils.ZeroAddress
 }
 
 func (ws *Wallets) GetAll() WalletsSlice {

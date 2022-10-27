@@ -124,9 +124,6 @@ func GetSetOwner(_ *cobra.Command, _ []string) {
 				if len(multiCollectionSet.CollectionSets) == len(sets) {
 					tokenOwners[multiCollectionSet.ID] = append(tokenOwners[multiCollectionSet.ID], ownerAddress)
 				}
-				//  else {
-				// 	fmt.Printf("owner %s does not own all sets: %v\n", ownerAddress.Hex(), sets)
-				// }
 			}
 
 			f, err := os.Create(path + "/" + multiCollectionSet.ID + ".txt")

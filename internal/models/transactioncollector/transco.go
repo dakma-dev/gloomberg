@@ -2,19 +2,23 @@ package transactioncollector
 
 import (
 	"math"
+	"math/big"
 	"sync"
 
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
 type TransactionCollector struct {
-	TxID       common.Hash
-	LogIndices []int
-	Logs       map[int]*types.Log
-	TokenIDs   []uint64
-	RWMu       *sync.RWMutex
-	TX         *types.Transaction
+	TxID          common.Hash
+	LogIndices    []int
+	Logs          map[int]*types.Log
+	TokenIDs      []*big.Int
+	FromAddresses []common.Address
+	ToAddresses   []common.Address
+	RWMu          *sync.RWMutex
+	TX            *types.Transaction
 }
 
 func NewTransactionCollector(log *types.Log) *TransactionCollector {
@@ -26,12 +30,18 @@ func NewTransactionCollector(log *types.Log) *TransactionCollector {
 		TX:         nil,
 	}
 
-	tokenID := getTokenIDFromTopics(log.Topics)
+	transco.AddLog(log)
 
-	transco.LogIndices = append(transco.LogIndices, int(log.Index))
-	transco.TokenIDs = append(transco.TokenIDs, tokenID)
+	// // parse log topics
+	// _, fromAddress, toAddress, tokenID := utils.ParseTopics(log.Topics)
 
-	transco.Logs[int(log.Index)] = log
+	// transco.LogIndices = append(transco.LogIndices, int(log.Index))
+	// transco.TokenIDs = append(transco.TokenIDs, tokenID)
+
+	// transco.FromAddresses = append(transco.FromAddresses, fromAddress)
+	// transco.ToAddresses = append(transco.ToAddresses, toAddress)
+
+	// transco.Logs[int(log.Index)] = log
 
 	return transco
 }
@@ -40,13 +50,22 @@ func (transco *TransactionCollector) AddLog(log *types.Log) {
 	transco.RWMu.Lock()
 	defer transco.RWMu.Unlock()
 
+	// parse log topics
+	_, fromAddress, toAddress, tokenID := utils.ParseTopics(log.Topics)
+
 	transco.LogIndices = append(transco.LogIndices, int(log.Index))
-	transco.TokenIDs = append(transco.TokenIDs, getTokenIDFromTopics(log.Topics))
+
+	// transco.TokenIDs = append(transco.TokenIDs, getTokenIDFromTopics(log.Topics))
+	transco.TokenIDs = append(transco.TokenIDs, tokenID)
+
+	transco.FromAddresses = append(transco.FromAddresses, fromAddress)
+	transco.ToAddresses = append(transco.ToAddresses, toAddress)
+
 	transco.Logs[int(log.Index)] = log
 }
 
 func (transco *TransactionCollector) UniqueTokenIDs() uint64 {
-	dupeMap := map[uint64]bool{}
+	dupeMap := map[*big.Int]bool{}
 
 	for _, tokenID := range transco.TokenIDs {
 		if !dupeMap[tokenID] {
@@ -55,16 +74,4 @@ func (transco *TransactionCollector) UniqueTokenIDs() uint64 {
 	}
 
 	return uint64(math.Max(float64(len(dupeMap)), 1))
-}
-
-func getTokenIDFromTopics(topics []common.Hash) uint64 {
-	// parse token id
-	var tokenID uint64
-	if len(topics) >= 4 {
-		tokenID = topics[3].Big().Uint64()
-	} else {
-		tokenID = 0
-	}
-
-	return tokenID
 }

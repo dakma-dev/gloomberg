@@ -72,7 +72,7 @@ func init() {
 	// websockets server
 	gloomLiveCmd.Flags().Bool("ws", false, "enable websockets server")
 	gloomLiveCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
-	gloomLiveCmd.Flags().Uint16("ws-port", 42069, "websockets server port")
+	gloomLiveCmd.Flags().Uint16("ws-port", 42068, "websockets server port")
 	_ = viper.BindPFlag("server.websockets.enabled", gloomLiveCmd.Flags().Lookup("ws"))
 	_ = viper.BindPFlag("server.websockets.host", gloomLiveCmd.Flags().Lookup("ws-host"))
 	_ = viper.BindPFlag("server.websockets.port", gloomLiveCmd.Flags().Lookup("ws-port"))

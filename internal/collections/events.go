@@ -70,22 +70,27 @@ type Event struct {
 	Topic     string
 	TxHash    common.Hash
 	// Collection      *Collection
-	ContractAddress common.Address
-	Collection      *GbCollection
-	TokenID         *big.Int
-	ENSMetadata     *external.ENSMetadata
-	PriceWei        *big.Int
-	PricePerItem    *big.Int
-	CollectionColor lipgloss.Color
+	ContractAddress   common.Address
+	Collection        *GbCollection
+	TokenID           *big.Int
+	ENSMetadata       *external.ENSMetadata
+	PriceWei          *big.Int
+	PricePerItem      *big.Int
+	PriceEther        float64
+	PriceEtherPerItem float64
+	CollectionColor   lipgloss.Color
 	// MultiItemTx bool
-	Permalink   string
-	TxItemCount uint64
-	Time        time.Time
-	From        User
-	FromENS     string
-	To          User
-	ToENS       string
-	WorkerID    int
+	Permalink     string
+	TxItemCount   uint64
+	Time          time.Time
+	From          User
+	FromENS       string
+	To            User
+	ToENS         string
+	FromAddresses map[common.Address]bool
+	ToAddresses   map[common.Address]bool
+	WorkerID      int
+	PrintEvent    bool
 }
 
 type PushEvent struct {

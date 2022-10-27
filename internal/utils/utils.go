@@ -2,12 +2,16 @@ package utils
 
 import (
 	"fmt"
+	"math/big"
 	"regexp"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
+
+var ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 
 func WalletShortAddress(address common.Address) string {
 	addressBytes := address.Bytes()
@@ -34,4 +38,34 @@ func ReplaceSchemeWithGateway(url string) string {
 	const schemeIPFS = "ipfs://"
 
 	return strings.Replace(url, schemeIPFS, viper.GetString("ipfs.gateway"), 1)
+}
+
+// func PrettyString(str []byte) string {
+// 	var prettyJSON bytes.Buffer
+// 	if err := json.Indent(&prettyJSON, str, "", "  "); err != nil {
+// 		return err.Error()
+// 	}
+
+// 	return prettyJSON.String()
+// }
+
+func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
+	logTopic := topic.Topic(topics[0].Hex())
+
+	// parse from/to addresses
+	fromAddress := common.HexToAddress(topics[1].Hex())
+	toAddress := common.HexToAddress(topics[2].Hex())
+
+	if logTopic == topic.TransferSingle {
+		fromAddress = common.HexToAddress(topics[2].Hex())
+		toAddress = common.HexToAddress(topics[3].Hex())
+	}
+
+	// parse token id
+	rawTokenID := big.NewInt(0)
+	if len(topics) >= 4 {
+		rawTokenID = topics[3].Big()
+	}
+
+	return logTopic, fromAddress, toAddress, rawTokenID
 }

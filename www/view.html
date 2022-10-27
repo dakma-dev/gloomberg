@@ -10,8 +10,11 @@
             <span class="time">{{$msg.Time}}</span>
             <span class="typemoji">{{$msg.Typemoji}}</span>
             <span class="pricearrow">→</span>
-            <span class="item"><span style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}}</span> <span style="color: {{$msg.ColorSecondary}};">#</span><span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span></span>
-            <pre>{{$msg.Msg}}</pre>
+            <span class="price">{{$msg.Price}}</span>
+            <span style="color: {{$msg.ColorPrimary}};">Ξ</span>
+            <span class="item"><span class="collection" style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}} <span style="color: {{$msg.ColorSecondary}};">#</span><span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span></span></span>
+            <span> | </span>
+            <span class="salira">{{$msg.SaLiRa}}</span>
         </div>
 
         {{ end }}

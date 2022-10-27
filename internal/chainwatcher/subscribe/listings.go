@@ -10,6 +10,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -47,6 +48,7 @@ func StreamListingsHandler(workerID int, ownCollections *collections.CollectionD
 		}
 
 		priceWei, _ := priceWeiRaw.Int(nil)
+		priceEther, _ := nodes.WeiToEther(priceWei).Float64()
 
 		event := &collections.Event{
 			EventType:   collections.Listing,
@@ -55,13 +57,15 @@ func StreamListingsHandler(workerID int, ownCollections *collections.CollectionD
 			Permalink:   event.Payload.Item.Permalink,
 			TxItemCount: 1,
 			PriceWei:    priceWei,
+			PriceEther:  priceEther,
 			Time:        time.Now(),
 			From:        collections.User{},
 			To: collections.User{
 				Address:       common.HexToAddress(event.Payload.Maker.Address),
 				OpenseaUserID: "",
 			},
-			WorkerID: workerID,
+			WorkerID:   workerID,
+			PrintEvent: true,
 		}
 
 		*queueEvents <- event
