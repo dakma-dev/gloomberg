@@ -173,7 +173,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		// if we have a collector, we can add this log/logindex to the collector
 		tc.AddLog(&subLog)
 		mu.Unlock()
-		// and return
+
 		return
 	}
 
@@ -184,7 +184,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 	mu.Unlock()
 
 	// wait for all logs of this tx to be received
-	time.Sleep(137 * time.Millisecond)
+	time.Sleep(97 * time.Millisecond)
 
 	//
 	// check if we have seen this logIndex for this transaction before
@@ -215,7 +215,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		name := ""
 
 		if logTopic == topic.TransferSingle {
-			if tokenName, err := cw.Nodes.GetRandomNode().GetERC1155TokenName(subLog.Address, tokenID); err == nil && tokenName != "" {
+			if tokenName, err := cw.Nodes.GetERC1155TokenName(subLog.Address, tokenID); err == nil && tokenName != "" {
 				name = tokenName
 				gbl.Log.Debugf("found token name: %s | %s", name, subLog.Address.String())
 			} else if err != nil {
@@ -268,7 +268,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 		eventType = collections.Sale
 
 		// get the transaction details - we don't do this for mints to save a lot of calls
-		tx, _, err := cw.Nodes.GetRandomNode().Client.TransactionByHash(context.Background(), subLog.TxHash)
+		tx, _, err := cw.Nodes.GetTransactionByHash(context.Background(), subLog.TxHash)
 		if err != nil {
 			gbl.Log.Debugf("🗑️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
@@ -331,10 +331,7 @@ func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *cha
 
 	numItems := transco.UniqueTokenIDs()
 	priceEther, _ := nodes.WeiToEther(value).Float64()
-	// priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(value).Div(value, big.NewInt(int64(numItems)))).Float64()
 	priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(value.Uint64() / numItems))).Float64()
-
-	// priceEtherPerItem, _ := nodes.WeiToEther(pricePI).Float64()
 
 	fromAddresses := make(map[common.Address]bool, 0)
 	fromAddresses[fromAddress] = true

@@ -88,7 +88,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 				collectionName = name
 			}
 		} else if nodes != nil {
-			if name, err := nodes.GetRandomNode().GetERC721CollectionName(contractAddress); err == nil {
+			if name, err := nodes.GetERC721CollectionName(contractAddress); err == nil {
 				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 				if name != "" {
@@ -129,7 +129,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 
 	if nodes != nil {
 		go func() {
-			rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
+			rawMetaDatas := nodes.GetCollectionMetadata(contractAddress)
 
 			metadata := &models.CollectionMetadata{}
 

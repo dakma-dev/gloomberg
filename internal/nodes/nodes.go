@@ -1,6 +1,7 @@
 package nodes
 
 import (
+	"context"
 	"errors"
 	"math/big"
 	"math/rand"
@@ -13,6 +14,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/wealdtech/go-ens/v3"
 )
@@ -55,6 +57,20 @@ func (nc *Nodes) ConnectAllNodes() *Nodes {
 	return &conectedNodes
 }
 
+func (nc *Nodes) getNode() *Node {
+	if *nc != nil && len(*nc) == 0 {
+		return nil
+	}
+
+	if node := nc.GetRandomLocalNode(); node != nil {
+		return node
+	} else if node := nc.getRandomNode(); node != nil {
+		return node
+	} else {
+		return nil
+	}
+}
+
 func (nc *Nodes) GetLocalNodes() []*Node {
 	if *nc != nil && len(*nc) == 0 {
 		return nil
@@ -71,7 +87,7 @@ func (nc *Nodes) GetLocalNodes() []*Node {
 	return nodes
 }
 
-func (nc *Nodes) GetRandomNode() *Node {
+func (nc *Nodes) getRandomNode() *Node {
 	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}
@@ -131,7 +147,7 @@ func (nc *Nodes) ReverseResolveAllENS(wallets *wallet.Wallets) {
 				gbl.Log.Warnf("❌ failed to resolve ENS name for %s: %s", w.Address.Hex(), err)
 				return
 			} else {
-				if ensName, err := ens.NewName(nc.GetRandomNode().Client, name); err != nil {
+				if ensName, err := ens.NewName(nc.getNode().Client, name); err != nil {
 					gbl.Log.Warnf("failed to create ENS %s: %s", name, err)
 				} else {
 					w.ENS = ensName
@@ -195,7 +211,7 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 
 	var err error
 
-	client := nc.GetRandomNode().Client
+	client := nc.getNode().Client
 
 	// lookup the ens ensName for an address
 	ensName, err = ens.ReverseResolve(client, address)
@@ -224,12 +240,36 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	return ensName, nil
 }
 
+func (nc *Nodes) GetCurrentGasInfo() (*GasInfo, error) {
+	return nc.getNode().GetCurrentGasInfo()
+}
+
+func (nc *Nodes) GetTransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error) {
+	return nc.getNode().Client.TransactionByHash(ctx, hash)
+}
+
+func (nc *Nodes) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
+	return nc.getNode().GetCollectionMetadata(contractAddress)
+}
+
+func (nc *Nodes) GetTokenImageURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
+	return nc.getNode().GetTokenImageURI(contractAddress, tokenID)
+}
+
 func (nc *Nodes) GetSupportedStandards(contractAddress common.Address) []standard.Standard {
 	return nc.GetRandomLocalNode().GetSupportedStandards(contractAddress)
 }
 
+func (nc *Nodes) GetERC721CollectionName(contractAddress common.Address) (string, error) {
+	return nc.getNode().GetERC721CollectionName(contractAddress)
+}
+
 func (nc *Nodes) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
 	return nc.GetRandomLocalNode().GetERC1155TokenID(contractAddress, data)
+}
+
+func (nc *Nodes) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {
+	return nc.getNode().GetERC1155TokenName(contractAddress, tokenID)
 }
 
 func (nc *Nodes) ERC1155Supported(contractAddress common.Address) bool {

@@ -43,7 +43,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			name := ""
 
 			if topic.Topic(event.Topic) == topic.TransferSingle && gb.Nodes != nil {
-				if tokenName, err := gb.Nodes.GetRandomNode().GetERC1155TokenName(event.ContractAddress, event.TokenID); err == nil && tokenName != "" {
+				if tokenName, err := gb.Nodes.GetERC1155TokenName(event.ContractAddress, event.TokenID); err == nil && tokenName != "" {
 					name = tokenName
 					gbl.Log.Debugf("found token name: %s | %s", name, event.ContractAddress.String())
 				} else if err != nil {
@@ -466,7 +466,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			// try to get the token image url from its metadata
 			var imageURI string
 
-			if uri, err := gb.Nodes.GetRandomNode().GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
+			if uri, err := gb.Nodes.GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
 				gbl.Log.Warnf("error getting token image (uri): %v", err)
 			} else if strings.HasSuffix(uri, ".gif") {
 				gbl.Log.Infof("token image uri is a gif -> not usable in tg msg: %s", uri)
