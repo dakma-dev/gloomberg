@@ -41,16 +41,6 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		viper.Set("show.listings", true)
 	}
 
-	// // websockets server
-	// if viper.GetBool("server.websockets.enabled") {
-	// 	role.WsServer = true
-	// }
-
-	// // telegram notifications
-	// if viper.GetBool("telegram.enabled") && viper.IsSet("telegram.token") && viper.IsSet("telegram.chat_id") {
-	// 	role.TelegramNotifications = true
-	// }
-
 	gb := &gloomberg.Gloomberg{
 		ChainWatcher: nil,
 		CollectionDB: collections.New(),
