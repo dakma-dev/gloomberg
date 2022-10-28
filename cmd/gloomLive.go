@@ -10,8 +10,9 @@ import (
 
 // gloomLiveCmd represents the gloomLive command
 var gloomLiveCmd = &cobra.Command{
-	Use:   "gloomLive",
-	Short: "A brief description of your command",
+	Use:     "gloomLive",
+	Aliases: []string{"live"},
+	Short:   "A brief description of your command",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
@@ -35,17 +36,6 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// gloomLiveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
-	// client := gloomberg.RoleMap{
-	// 	GloomClient:           true,
-
-	// 	OwnWalletWatcher:      true,
-	// 	StatsTicker:           true,
-	// 	TelegramBot:           false,
-	// 	TelegramNotifications: false,
-	// 	WalletWatcher:         true,
-
-	// }
 
 	// main
 	gloomLiveCmd.Flags().Bool("sales", true, "get sales")
