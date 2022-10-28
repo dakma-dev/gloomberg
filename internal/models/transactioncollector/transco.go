@@ -32,7 +32,7 @@ func NewTransactionCollector(log *types.Log) *TransactionCollector {
 		Logs:       map[int]*types.Log{},
 		RWMu:       &sync.RWMutex{},
 		TX:         nil,
-		Style:      lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(int64(log.TxHash.Big().Int64()))),
+		Style:      lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(log.TxHash.Big().Int64())),
 	}
 
 	go transco.AddLog(log)

@@ -8,7 +8,7 @@ type NotificationRecipients map[common.Address]*User
 
 // var Recipients NotificationRecipients = make(map[common.Address]*User)
 
-// User representsa user who can own multiple wallets.
+// WatchUser representsa user who can own multiple wallets.
 type WatchUser struct {
 	Name            string           `mapstructure:"name"`
 	WalletAddresses []common.Address `mapstructure:"wallets"`

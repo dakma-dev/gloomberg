@@ -183,10 +183,10 @@ func StoreBlurSlug(contractAddress common.Address, slug string) {
 	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
 }
 
-func GetOSSlug(contractAddress common.Address) (string, error) {
-	c := New()
-	return c.getName(contractAddress, keyOSSlug)
-}
+//func GetOSSlug(contractAddress common.Address) (string, error) {
+//	c := New()
+//	return c.getName(contractAddress, keyOSSlug)
+//}
 
 func GetBlurSlug(contractAddress common.Address) (string, error) {
 	c := New()

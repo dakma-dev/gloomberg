@@ -24,7 +24,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-// var rarities = openrarity.LoadRaritiesFromJSONs()
 func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput chan<- string) {
 	gbl.Log.Debugf("FormatEvent | event: %+v", event)
 

@@ -407,7 +407,7 @@ func (n *Node) ERC1155Supported(contractAddress common.Address) bool {
 	return false
 }
 
-func (n *Node) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
+func (n *Node) GetERC1155TokenID(data []byte) *big.Int {
 	half := len(data) / 2
 	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
 	// value, _ := strconv.ParseInt(string(common.Bytes2Hex(bytes.Trim(data[half:], "\x00"))), 16, 64)

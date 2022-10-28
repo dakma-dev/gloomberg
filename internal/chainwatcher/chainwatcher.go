@@ -303,7 +303,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		}
 	}
 
-	// if its an ENS nft, we try to get the name from the ens metadata service
+	// if it is an ENS nft, we try to get the name from the ens metadata service
 	var ensMetadata *external.ENSMetadata = nil
 
 	if collection.ContractAddress == external.ENSContract {
@@ -320,7 +320,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	if logTopic == topic.TransferSingle {
-		if tID := cw.Nodes.GetERC1155TokenID(subLog.Address, subLog.Data); tID != nil {
+		if tID := cw.Nodes.GetERC1155TokenID(subLog.Data); tID != nil {
 			tokenID = tID
 		}
 	}

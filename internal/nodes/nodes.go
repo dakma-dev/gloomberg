@@ -264,8 +264,8 @@ func (nc *Nodes) GetERC721CollectionName(contractAddress common.Address) (string
 	return nc.getNode().GetERC721CollectionName(contractAddress)
 }
 
-func (nc *Nodes) GetERC1155TokenID(contractAddress common.Address, data []byte) *big.Int {
-	return nc.GetRandomLocalNode().GetERC1155TokenID(contractAddress, data)
+func (nc *Nodes) GetERC1155TokenID(data []byte) *big.Int {
+	return nc.GetRandomLocalNode().GetERC1155TokenID(data)
 }
 
 func (nc *Nodes) GetERC1155TokenName(contractAddress common.Address, tokenID *big.Int) (string, error) {

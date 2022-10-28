@@ -3,7 +3,6 @@ package utils
 import (
 	"fmt"
 	"math/big"
-	"regexp"
 	"strings"
 
 	"github.com/benleb/gloomberg/internal/models/topic"
@@ -24,14 +23,15 @@ func WalletShortAddress(address common.Address) string {
 	)
 }
 
-const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
+//
+//const ansi = "[\u001B\u009B][[\\]()#;?]*(?:(?:(?:[a-zA-Z\\d]*(?:;[a-zA-Z\\d]*)*)?\u0007)|(?:(?:\\d{1,4}(?:;\\d{0,4})*)?[\\dA-PRZcf-ntqry=><~]))"
+//
+//var pattern = regexp.MustCompile(ansi)
 
-var pattern = regexp.MustCompile(ansi)
-
-// StripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
-func StripANSI(str string) string {
-	return pattern.ReplaceAllString(str, "")
-}
+//// StripANSI removes ANSI escape sequences from a string. From https://github.com/acarl005/stripansi
+//func StripANSI(str string) string {
+//	return pattern.ReplaceAllString(str, "")
+//}
 
 // ReplaceSchemeWithGateway func replaceSchemeWithGateway(url string, gateway string) string {
 func ReplaceSchemeWithGateway(url string) string {

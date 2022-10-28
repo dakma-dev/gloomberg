@@ -51,11 +51,11 @@ type EventStream struct {
 	queueOutWeb *chan *collections.Event
 }
 
-func New(queueWeb *chan *collections.Event) *EventStream {
-	return &EventStream{
-		queueOutWeb: queueWeb,
-	}
-}
+//func New(queueWeb *chan *collections.Event) *EventStream {
+//	return &EventStream{
+//		queueOutWeb: queueWeb,
+//	}
+//}
 
 func (es *EventStream) Start() {
 	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), es.NewEventHandler()))
@@ -98,7 +98,7 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 			}
 
 			if err := s.Broadcast(wnewmessage, data); err != nil {
-				gbl.Log.Errorf("failed braodcasting new message: %w", err)
+				gbl.Log.Errorf("failed braodcasting new message: %s", err)
 			}
 		}
 	}()
