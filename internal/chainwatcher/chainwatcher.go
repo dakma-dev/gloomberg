@@ -108,14 +108,15 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 		atomic.AddUint64(&node.NumLogsReceived, 1)
 		atomic.StoreInt64(&node.LastLogReceived, nanoNow)
 
-		// parse log topics
-		logTopic, _, _, _ := utils.ParseTopics(subLog.Topics)
-
 		// discard Transfer/TransferSingle logs for non-NFT transfers | erc20: topics 0-2 | erc721/1155: 0-3
-		if (logTopic == topic.Transfer || logTopic == topic.TransferSingle) && len(subLog.Topics) < 4 {
+		// if (logTopic == topic.Transfer || logTopic == topic.TransferSingle) && len(subLog.Topics) < 4 {
+		if len(subLog.Topics) < 4 {
 			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 4) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
+
+		// parse log topics
+		logTopic, _, _, _ := utils.ParseTopics(subLog.Topics)
 
 		//
 		// distribute to parser depending on log topic

@@ -50,6 +50,11 @@ func ReplaceSchemeWithGateway(url string) string {
 // }
 
 func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
+	if len(topics) < 4 {
+		fmt.Printf("Invalid number of topics: %d", len(topics))
+		return "", ZeroAddress, ZeroAddress, nil
+	}
+
 	logTopic := topic.Topic(topics[0].Hex())
 
 	// parse from/to addresses
