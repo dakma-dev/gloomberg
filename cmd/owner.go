@@ -15,7 +15,6 @@ import (
 var (
 	paramContract string
 	paramToken    int
-	apiKeyMoralis string
 )
 
 // ownerCmd represents the owner command.
@@ -47,8 +46,8 @@ func init() {
 	ownerCmd.Flags().Bool("raw", false, "Only show the owner addresses")
 	_ = viper.BindPFlag("owner.raw", ownerCmd.Flags().Lookup("raw"))
 
-	ownerCmd.Flags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
-	_ = viper.BindPFlag("api_keys.moralis", ownerCmd.Flags().Lookup("moralis"))
+	// ownerCmd.Flags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
+	// _ = viper.BindPFlag("api_keys.moralis", ownerCmd.Flags().Lookup("moralis"))
 
 	// apis
 	ownerCmd.Flags().StringVar(&paramContract, "contract", "", "Contract address")

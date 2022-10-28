@@ -27,7 +27,7 @@ import (
 
 var Version string
 
-func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
+func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// print header
 	header := style.GetHeader(Version)
 	fmt.Println(header)
@@ -41,15 +41,15 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		viper.Set("show.listings", true)
 	}
 
-	// websockets server
-	if viper.GetBool("server.websockets.enabled") {
-		role.WsServer = true
-	}
+	// // websockets server
+	// if viper.GetBool("server.websockets.enabled") {
+	// 	role.WsServer = true
+	// }
 
-	// telegram notifications
-	if viper.GetBool("notifications.telegram") {
-		role.TelegramNotifications = true
-	}
+	// // telegram notifications
+	// if viper.GetBool("telegram.enabled") && viper.IsSet("telegram.token") && viper.IsSet("telegram.chat_id") {
+	// 	role.TelegramNotifications = true
+	// }
 
 	gb := &gloomberg.Gloomberg{
 		ChainWatcher: nil,
@@ -57,35 +57,34 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 		OwnWallets:   &wallet.Wallets{},
 		WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
-		Role:         role,
 	}
 
 	queueEvents := make(chan *collections.Event, 1024)
 
 	//
 	// connect to ethereum nodes and create the chainwatcher
-	if role.ChainWatcher {
-		// read nodes from config & establish connections to the nodes
-		if ethNodes := config.GetNodesFromConfig(); ethNodes.ConnectAllNodes() != nil {
-			gb.Nodes = ethNodes
-		}
+	// if role.ChainWatcher {
+	// read nodes from config & establish connections to the nodes
+	if ethNodes := config.GetNodesFromConfig(); ethNodes.ConnectAllNodes() != nil {
+		gb.Nodes = ethNodes
+	}
 
-		// create chainserver
-		if cWatcher := chainwatcher.New(gb.Nodes, gb.CollectionDB); cWatcher == nil {
-			gbl.Log.Fatal("❌ running chainwatcher failed, exiting")
-		} else {
-			gb.ChainWatcher = cWatcher
-		}
-
-		//
-		// subscribe to the chain logs/events and start the workers
-		// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
-		gb.ChainWatcher.SubscribeToSales(&queueEvents)
+	// create chainserver
+	if cWatcher := chainwatcher.New(gb.Nodes, gb.CollectionDB); cWatcher == nil {
+		gbl.Log.Fatal("❌ running chainwatcher failed, exiting")
+	} else {
+		gb.ChainWatcher = cWatcher
 	}
 
 	//
+	// subscribe to the chain logs/events and start the workers
+	// gb.ChainWatcher.SubscribeToOrderFulfilled(&queueEvents)
+	gb.ChainWatcher.SubscribeToSales(&queueEvents)
+	// }
+
+	//
 	// websockets client to get events from a server instead directly from the chain (nodes)
-	if role.GloomClient {
+	if viper.GetBool("client") {
 		gloomclient.ConnectToServer("ws://10.0.0.99:42068/", &queueEvents)
 	}
 
@@ -112,13 +111,13 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 
 	//
 	// get own wallets from config file
-	if role.OwnWalletWatcher {
+	if viper.GetBool("sales.enabled") {
 		gb.OwnWallets = config.GetOwnWalletsFromConfig(gb.Nodes)
 	}
 
 	//
 	// initialize collections database
-	if role.CollectionDB {
+	if viper.GetBool("sales.enabled") {
 		collectionsSpinner := style.GetSpinner("setting up collections...")
 		_ = collectionsSpinner.Start()
 
@@ -150,7 +149,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 
 	//
 	// wallet watcher (todo) & MIWs
-	if role.WalletWatcher {
+	if viper.GetBool("sales.enabled") {
 		gb.WatchUsers = config.GetWatcherUsersFromConfig()
 
 		//
@@ -172,13 +171,14 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 
 	//
 	// print to terminal
-	if role.OutputTerminal {
+	if !viper.GetBool("ui.headless") {
 		gb.OutputQueues["terminal"] = make(chan *collections.Event, 1024)
 
 		terminalPrinterQueue := make(chan string, 1024)
 
 		// ticker & stats
-		if role.StatsTicker && gb.OutputQueues["terminal"] != nil {
+		// if role.StatsTicker && gb.OutputQueues["terminal"] != nil {
+		if gb.OutputQueues["terminal"] != nil {
 			// gasline ticker
 			var gasTicker *time.Ticker
 
@@ -238,7 +238,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 
 	//
 	// opensea stream api watcher
-	if role.OsStreamWatcher {
+	if viper.GetBool("listings.enabled") {
 		// subscribe to sales on the stream api for all collections discovered in wallets and configuration
 		if openseaToken := viper.GetString("api_keys.opensea"); openseaToken != "" {
 			streamWatcher := ossw.NewStreamWatcher(openseaToken, nil)
@@ -295,7 +295,7 @@ func runGloomberg(_ *cobra.Command, _ []string, role gloomberg.RoleMap) {
 
 	//
 	// websockets server
-	if role.WsServer {
+	if viper.GetBool("server.websockets.enabled") {
 		queueWS := make(chan *collections.Event, 1024)
 		gb.OutputQueues["websockets"] = queueWS
 

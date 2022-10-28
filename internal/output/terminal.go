@@ -424,7 +424,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	//
 	// telegram notification
-	if isMintOrSale && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
+	if isMintOrSale && isWatchUsersWallet && viper.GetBool("telegram.enabled") {
 		go func() {
 			// did someone buy or sell something?
 			var triggerAddress common.Address
@@ -475,7 +475,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			}
 
 			// send telegram message
-			if msg, err := notifications.SendTelegramMessage(viper.GetInt64("telegram_chat_id"), msgTelegram.String(), imageURI); err != nil {
+			if msg, err := notifications.SendTelegramMessage(viper.GetInt64("telegram.chat_id"), msgTelegram.String(), imageURI); err != nil {
 				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
 			} else {
 				rawMsg := msgTelegram.String()

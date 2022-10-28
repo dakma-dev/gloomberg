@@ -4,7 +4,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -20,22 +19,7 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		// default roles for gloomberg live
-		role := gloomberg.RoleMap{
-			ChainWatcher:          true,
-			GloomClient:           false,
-			OsStreamWatcher:       true,
-			OutputTerminal:        true,
-			CollectionDB:          true,
-			OwnWalletWatcher:      true,
-			StatsTicker:           true,
-			TelegramBot:           false,
-			TelegramNotifications: false,
-			WalletWatcher:         true,
-			WsServer:              false,
-		}
-
-		runGloomberg(cmd, args, role)
+		runGloomberg(cmd, args)
 	},
 }
 
@@ -52,35 +36,58 @@ func init() {
 	// is called directly, e.g.:
 	// gloomLiveCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
+	// client := gloomberg.RoleMap{
+	// 	GloomClient:           true,
+
+	// 	OwnWalletWatcher:      true,
+	// 	StatsTicker:           true,
+	// 	TelegramBot:           false,
+	// 	TelegramNotifications: false,
+	// 	WalletWatcher:         true,
+
+	// }
+
+	// main
+	gloomLiveCmd.Flags().Bool("sales", true, "get sales")
+	_ = viper.BindPFlag("sales.enabled", gloomLiveCmd.Flags().Lookup("sales"))
+	gloomLiveCmd.Flags().Bool("listings", false, "get (opensea) listings for own collections")
+	_ = viper.BindPFlag("listings.enabled", gloomLiveCmd.Flags().Lookup("listings"))
+	gloomLiveCmd.Flags().Bool("websockets", false, "enable websockets server")
+	_ = viper.BindPFlag("server.websockets.enabled", gloomLiveCmd.Flags().Lookup("websockets"))
+
+	// websockets options
+	gloomLiveCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
+	_ = viper.BindPFlag("server.websockets.host", gloomLiveCmd.Flags().Lookup("ws-host"))
+	gloomLiveCmd.Flags().Uint16("ws-port", 42068, "websockets server port")
+	_ = viper.BindPFlag("server.websockets.port", gloomLiveCmd.Flags().Lookup("ws-port"))
+
+	// notifications
+	gloomLiveCmd.Flags().Bool("telegram", false, "send telegram notifications")
+	_ = viper.BindPFlag("telegram.enabled", gloomLiveCmd.Flags().Lookup("telegram"))
+
+	// ui
+	gloomLiveCmd.Flags().Bool("headless", false, "run without terminal output")
+	_ = viper.BindPFlag("ui.headless", gloomLiveCmd.Flags().Lookup("headless"))
+	gloomLiveCmd.Flags().Bool("webui", false, "enable web ui")
+	_ = viper.BindPFlag("ui.webui", gloomLiveCmd.Flags().Lookup("webui"))
+
+	// min value for sales to be shown
 	gloomLiveCmd.Flags().Float64("min-value", 0.0, "minimum value to show sales?")
 	_ = viper.BindPFlag("show.min_value", gloomLiveCmd.Flags().Lookup("min-value"))
 
 	// what to show
-	gloomLiveCmd.Flags().Bool("sales", true, "Show sales?")
-	_ = viper.BindPFlag("show.sales", gloomLiveCmd.Flags().Lookup("sales"))
-	gloomLiveCmd.Flags().Bool("mints", false, "Show mints?")
-	_ = viper.BindPFlag("show.mints", gloomLiveCmd.Flags().Lookup("mints"))
-	gloomLiveCmd.Flags().Bool("listings", false, "Show listings?")
-	_ = viper.BindPFlag("show.listings", gloomLiveCmd.Flags().Lookup("listings"))
-	gloomLiveCmd.Flags().Bool("transfers", false, "Show transfers?")
-	_ = viper.BindPFlag("show.transfers", gloomLiveCmd.Flags().Lookup("transfers"))
-
-	// notifications
-	gloomLiveCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
-	_ = viper.BindPFlag("notifications.telegram.enabled", gloomLiveCmd.Flags().Lookup("telegram"))
-
-	// websockets server
-	gloomLiveCmd.Flags().Bool("ws", false, "enable websockets server")
-	gloomLiveCmd.Flags().IP("ws-host", net.IPv4(0, 0, 0, 0), "websockets listen address")
-	gloomLiveCmd.Flags().Uint16("ws-port", 42068, "websockets server port")
-	_ = viper.BindPFlag("server.websockets.enabled", gloomLiveCmd.Flags().Lookup("ws"))
-	_ = viper.BindPFlag("server.websockets.host", gloomLiveCmd.Flags().Lookup("ws-host"))
-	_ = viper.BindPFlag("server.websockets.port", gloomLiveCmd.Flags().Lookup("ws-port"))
+	gloomLiveCmd.Flags().Bool("show-mints", false, "Show mints?")
+	_ = viper.BindPFlag("show.mints", gloomLiveCmd.Flags().Lookup("show-mints"))
+	gloomLiveCmd.Flags().Bool("show-transfers", false, "Show transfers?")
+	_ = viper.BindPFlag("show.transfers", gloomLiveCmd.Flags().Lookup("show-transfers"))
+	// gloomLiveCmd.Flags().Bool("sales", true, "Show sales?")
+	// _ = viper.BindPFlag("show.sales", gloomLiveCmd.Flags().Lookup("sales"))
+	// gloomLiveCmd.Flags().Bool("listings", false, "Show listings?")
+	// _ = viper.BindPFlag("show.listings", gloomLiveCmd.Flags().Lookup("listings"))
 
 	// worker settings
 	viper.SetDefault("server.workers.subscription_logs", 5)
 	viper.SetDefault("server.workers.output", 3)
-
 	viper.SetDefault("server.workers.listings", 2)
 
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
@@ -88,6 +95,7 @@ func init() {
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
 	viper.SetDefault("ticker.gasline", time.Second*29)
+
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.interval", time.Second*90)
 	viper.SetDefault("stats.balances", true)

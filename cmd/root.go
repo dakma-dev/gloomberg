@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	apiKeyEtherscan, apiKeyOpensea, cfgFile string
-	endpoints, ownWallets                   []string
+	apiKeyEtherscan, apiKeyMoralis, apiKeyOpensea, cfgFile string
+	endpoints, ownWallets                                  []string
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -71,6 +71,8 @@ func init() {
 	// apis
 	rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
 	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
+	rootCmd.PersistentFlags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
+	_ = viper.BindPFlag("api_keys.moralis", rootCmd.Flags().Lookup("moralis"))
 	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
 	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
 
@@ -84,8 +86,11 @@ func init() {
 
 	// defaults
 
-	// api keys from nodes providers & other services
-	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
+	// logging
+	viper.SetDefault("log.log_file", "/tmp/gloomberg.log")
+
+	// // api keys from nodes providers & other services
+	// viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
 
 	// redis cache
 	viper.SetDefault("redis.enabled", false)
@@ -98,17 +103,13 @@ func init() {
 	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
 
 	// opensea settings
-	// viper.SetDefault("opensea.auto_list_min_sales", 50000)
+	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
 
 	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
-	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
-	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
-	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
-
-	viper.SetDefault("server.websockets.enabled", false)
+	viper.SetDefault("cache.ens_ttl", 1*24*time.Hour)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -121,18 +122,17 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in home directory with name ".btv" (without extension).
+		// Search config in home directory with name ".gloomberg.yaml"
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".gloomberg.yaml")
 	}
 
+	// config format
 	viper.SetConfigType("yaml")
-
-	// logging
-	viper.SetDefault("log.log_file", "/tmp/gloomberg.log")
 
 	// environment variables
 	viper.SetEnvPrefix("GLOOMBERG")
+
 	// read in environment variables that match
 	viper.AutomaticEnv()
 

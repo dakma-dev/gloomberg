@@ -22,6 +22,4 @@ type Gloomberg struct {
 	OutputQueues map[string]chan *collections.Event
 
 	BasicMIWs map[common.Address]int
-
-	Role RoleMap
 }

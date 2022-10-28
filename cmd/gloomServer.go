@@ -3,9 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 // gloomServerCmd represents the gloomServer command
@@ -21,17 +19,17 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("gloomServer called")
 
-		// default roles for gloomClient
-		role := gloomberg.RoleMap{
-			ChainWatcher:          true,
-			OsStreamWatcher:       false,
-			WsServer:              false,
-			TelegramBot:           false,
-			TelegramNotifications: false,
-			OutputTerminal:        false,
-		}
+		// // default roles for gloomClient
+		// role := gloomberg.RoleMap{
+		// 	ChainWatcher:          true,
+		// 	OsStreamWatcher:       false,
+		// 	WsServer:              false,
+		// 	TelegramBot:           false,
+		// 	TelegramNotifications: false,
+		// 	OutputTerminal:        false,
+		// }
 
-		runGloomberg(cmd, args, role)
+		runGloomberg(cmd, args) //, role)
 	},
 }
 
@@ -48,7 +46,7 @@ func init() {
 	// is called directly, e.g.:
 	// gloomServerCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
 
-	// show telegram notifications
-	gloomServerCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
-	_ = viper.BindPFlag("notifications.telegram", gloomServerCmd.Flags().Lookup("telegram"))
+	// // show telegram notifications
+	// gloomServerCmd.Flags().Bool("telegram", false, "Send notifications to telegram?")
+	// _ = viper.BindPFlag("telegram.enabled", gloomServerCmd.Flags().Lookup("telegram"))
 }

@@ -104,39 +104,40 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 	for subLog := range *cw.queueLogs {
 		// track & count
 		nanoNow := time.Now().UnixNano()
-		// // total
-		// atomic.AddUint64(&totalNumReceived, 1)
-		// atomic.StoreInt64(&totalLastReceived, nanoNow)
-		// per nodes
+		// logs per node
 		atomic.AddUint64(&node.NumLogsReceived, 1)
 		atomic.StoreInt64(&node.LastLogReceived, nanoNow)
 
-		// // TODO: trigger (yet to be implemented) contract- & walletwatcher here
-		// if subLog.Address == common.HexToAddress("0x042874309Bf3F6C8E69Be4bf3D251fE9e41CF0d2") {
-		// 	fmt.Println("")
-		// 	fmt.Println("")
-		// 	fmt.Println(" ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 ‼️")
-		// 	fmt.Println("")
-		// 	fmt.Println("  https://foundation.app/collection/impostergram")
-		// 	fmt.Println("")
-		// 	fmt.Println("")
-		// 	// notifications.SendAlert("Impostergram 🤳 💄", "https://foundation.app/collection/impostergram", true)
-		// 	if msg, err := notifications.SendTelegramMessage(1320669206, " @benleb ‼️ 🤳 Impostergram 💄 Impostergram 🤳 Impostergram 💄 Impostergram 🤳 !!\n\nhttps://foundation.app/collection/impostergram", ""); err != nil {
-		// 		gbl.Log.Errorf("failed to send telegram message: %v | imageURI: %s | err: %s", msg, "", err)
-		// 	}
-		// }
+		// parse log topics
+		logTopic, _, _, _ := utils.ParseTopics(subLog.Topics)
 
-		// erc20: topics 0-2 | erc721/1155: 0-3
-		if topic.Topic(subLog.Topics[0].String()) != topic.OrderFulfilled && len(subLog.Topics) != 4 {
+		// discard Transfer/TransferSingle logs for non-NFT transfers | erc20: topics 0-2 | erc721/1155: 0-3
+		if (logTopic == topic.Transfer || logTopic == topic.TransferSingle) && len(subLog.Topics) < 4 {
 			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 4) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
 
-		go cw.logParser(node.NodeID, subLog, queueEvents)
+		//
+		// distribute to parser depending on log topic
+		switch logTopic {
+		case topic.Transfer, topic.TransferSingle:
+			// parse generic transfer topics
+			go cw.logParserTransfers(node.NodeID, subLog, queueEvents)
+			// case topic.OrderFulfilled:
+			// 	// parse opensea seaport OrderFulfilled logs
+			// 	go cw.logParserOrderFulfilled(node.NodeID, subLog, queueEvents)
+		}
+
+		//
+		// distribute to parser depending on initiator addresses
+		// if WatchedWallets.Contain(fromAddress) ...
+		//
+		// distribute to parser depending on target/contract addresses
+		// if WatchedContracts.Contain(toAddress) ...
 	}
 }
 
-func (cw *ChainWatcher) logParser(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
+func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
 	printEvent := true
 
 	// parse log topics
