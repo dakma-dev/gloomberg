@@ -185,6 +185,8 @@ func GetAssetContract(contractAddress common.Address) *models.AssetContract {
 
 	responseBody, _ := io.ReadAll(response.Body)
 
+	// fmt.Printf("response: %d | body: %s\n", response.StatusCode, responseBody)
+
 	// decode the data
 	if !json.Valid(responseBody) {
 		return nil

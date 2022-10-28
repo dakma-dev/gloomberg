@@ -20,6 +20,6 @@ type Gloomberg struct {
 	WatchUsers *models.WatcherUsers
 
 	OutputQueues map[string]chan *collections.Event
-
-	BasicMIWs map[common.Address]int
+	QueueSlugs   chan common.Address
+	BasicMIWs    map[common.Address]int
 }

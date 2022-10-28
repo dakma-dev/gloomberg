@@ -21,6 +21,7 @@ import (
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/benleb/gloomberg/internal/ws"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -37,8 +38,9 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	viper.Set("http.timeout", 17*time.Second)
 
 	// show listings for own collections if an opensea api key is set
-	if viper.IsSet("api_keys.opensea") && !viper.IsSet("show.listings") {
-		viper.Set("show.listings", true)
+	if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
+		viper.Set("listings.enabled", true)
+		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
 
 	gb := &gloomberg.Gloomberg{
@@ -47,6 +49,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		OwnWallets:   &wallet.Wallets{},
 		WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
+		QueueSlugs:   make(chan common.Address, 1024),
 	}
 
 	queueEvents := make(chan *collections.Event, 1024)
@@ -158,6 +161,9 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	}
 
 	fmt.Println()
+
+	slugTicker := time.NewTicker(5 * time.Second)
+	go chainwatcher.SlugWorker(slugTicker, &gb.QueueSlugs)
 
 	//
 	// print to terminal

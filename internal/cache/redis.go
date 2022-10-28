@@ -13,6 +13,8 @@ import (
 const (
 	prefixContractName string = "contractName"
 	prefixENS          string = "ensDomain"
+	prefixOSSlug       string = "osslug"
+	prefixBlurSlug     string = "blurslug"
 	keyDelimiter       string = ":"
 )
 
@@ -22,6 +24,14 @@ func keyContract(contractAddress common.Address) string {
 
 func keyENS(address common.Address) string {
 	return fmt.Sprint(prefixENS, keyDelimiter, address.Hex())
+}
+
+func keyOSSlug(address common.Address) string {
+	return fmt.Sprint(prefixOSSlug, keyDelimiter, address.Hex())
+}
+
+func keyBlurSlug(address common.Address) string {
+	return fmt.Sprint(prefixBlurSlug, keyDelimiter, address.Hex())
 }
 
 func NewRedisClient() *redis.Client {

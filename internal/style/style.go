@@ -23,6 +23,7 @@ var (
 	darkerGray = lipgloss.Color("#222")
 
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
+	BlurOrange           = lipgloss.Color("#FF8700")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))

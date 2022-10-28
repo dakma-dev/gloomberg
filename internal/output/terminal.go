@@ -243,6 +243,16 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
 	}
 
+	// blur.io link
+	var blurURL string
+	if slug, err := cache.GetBlurSlug(event.Collection.ContractAddress); err == nil && slug != "" {
+		blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(slug), " ", "", -1))
+	} else if event.Collection.OpenseaSlug != "" {
+		blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(event.Collection.OpenseaSlug), " ", "", -1))
+	} else {
+		gb.QueueSlugs <- event.Collection.ContractAddress
+	}
+
 	etherscanURL := fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash)
 
 	marker := " "
@@ -316,9 +326,14 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// link opensea
 	out.WriteString(" | " + style.GrayBoldStyle.Copy().Foreground(style.OpenseaToneBlue).Render(style.TerminalLink(openseaURL, "OpenSea")))
 
+	// link blur
+	if blurURL != "" {
+		out.WriteString(" | " + style.GrayBoldStyle.Copy().Foreground(style.BlurOrange).Faint(true).Render(style.TerminalLink(blurURL, "blur")))
+	}
+
 	// link etherscan
 	if event.EventType != collections.Listing {
-		out.WriteString(" | " + style.GrayStyle.Render(style.TerminalLink(etherscanURL, "Etherscan")))
+		out.WriteString(" | " + style.GrayStyle.Render(style.TerminalLink(etherscanURL, "ES")))
 	}
 
 	// buyer
