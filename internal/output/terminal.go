@@ -244,13 +244,17 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	// blur.io link
 	var blurURL string
-	if slug, err := cache.GetBlurSlug(event.Collection.ContractAddress); err == nil && slug != "" {
-		blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(slug), " ", "", -1))
-	} else if event.Collection.OpenseaSlug != "" {
-		blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(event.Collection.OpenseaSlug), " ", "", -1))
-	} else {
-		gb.QueueSlugs <- event.Collection.ContractAddress
-	}
+
+	// if slug, err := cache.GetBlurSlug(event.Collection.ContractAddress); err == nil && slug != "" {
+	// 	gbl.Log.Infof("cache | cached blur slug: %s", slug)
+	// 	blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(slug), " ", "", -1))
+	// } else if event.Collection.OpenseaSlug != "" {
+	// 	gbl.Log.Infof("cache | no cached blur slug for %s | trying to resolve...", event.Collection.ContractAddress)
+	// 	blurURL = fmt.Sprintf("https://blur.io/collection/%s", strings.Replace(strings.ToLower(event.Collection.OpenseaSlug), " ", "", -1))
+	// } else {
+	// 	gbl.Log.Infof("cache | no cached blur slug for %s | queuing to fetch...", event.Collection.ContractAddress)
+	// 	gb.QueueSlugs <- event.Collection.ContractAddress
+	// }
 
 	etherscanURL := fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash)
 

@@ -22,7 +22,6 @@ func StreamListingsHandler(workerID int, ownCollections *collections.CollectionD
 	for event := range *queueListings {
 		patternContractAddress := regexp.MustCompile(`^ethereum/(.*?)/(.*)$`)
 		contractAddress := patternContractAddress.ReplaceAllString(event.Payload.Item.NftID, "$1")
-		gbl.Log.Debugf("contractAddress: %+v", contractAddress)
 
 		collection := ownCollections.Collections[common.HexToAddress(contractAddress)]
 		if collection == nil {

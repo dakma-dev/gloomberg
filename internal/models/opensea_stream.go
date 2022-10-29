@@ -18,7 +18,8 @@ type PayloadItemAndColl struct {
 }
 
 type CollectionSlug struct {
-	Slug string `mapstructure:"slug"`
+	CollectionName string `json:"collection_name"`
+	CollectionSlug string `json:"collection_slug"`
 }
 
 type Chain struct {

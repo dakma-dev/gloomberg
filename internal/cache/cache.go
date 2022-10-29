@@ -23,9 +23,10 @@ var gbCache *GbCache
 const noENSName = "NO-ENS-NAME"
 
 type GbCache struct {
-	mu            *sync.RWMutex
-	rdb           *redis.Client
-	addressToName map[common.Address]string
+	mu  *sync.RWMutex
+	rdb *redis.Client
+	// addressToName map[common.Address]string
+	localCache map[string]string
 }
 
 func New() *GbCache {
@@ -34,8 +35,9 @@ func New() *GbCache {
 	}
 
 	gbCache = &GbCache{
-		mu:            &sync.RWMutex{},
-		addressToName: make(map[common.Address]string),
+		mu: &sync.RWMutex{},
+		// addressToName: make(map[common.Address]string),
+		localCache: make(map[string]string),
 	}
 
 	if viper.GetBool("redis.enabled") {
@@ -105,7 +107,8 @@ func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address)
 	}
 
 	c.mu.Lock()
-	c.addressToName[address] = value
+	// c.addressToName[address] = value
+	c.localCache[keyFunc(address)] = value
 	c.mu.Unlock()
 
 	if c.rdb != nil {
@@ -123,7 +126,8 @@ func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address)
 
 func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) string) (string, error) {
 	c.mu.RLock()
-	name := c.addressToName[address]
+	// name := c.addressToName[address]
+	name := c.localCache[keyFunc(address)]
 	c.mu.RUnlock()
 
 	if name != "" {
@@ -143,7 +147,8 @@ func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) s
 			gbl.Log.Debugf("redis | using cached name: %s", name)
 
 			c.mu.Lock()
-			c.addressToName[address] = name
+			// c.addressToName[address] = name
+			c.localCache[keyFunc(address)] = name
 			c.mu.Unlock()
 
 			if name == noENSName {
@@ -173,16 +178,6 @@ func GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
 }
 
-func StoreOSSlug(contractAddress common.Address, slug string) {
-	c := New()
-	c.cacheName(contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
-}
-
-func StoreBlurSlug(contractAddress common.Address, slug string) {
-	c := New()
-	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
-}
-
 //func GetOSSlug(contractAddress common.Address) (string, error) {
 //	c := New()
 //	return c.getName(contractAddress, keyOSSlug)
@@ -191,4 +186,14 @@ func StoreBlurSlug(contractAddress common.Address, slug string) {
 func GetBlurSlug(contractAddress common.Address) (string, error) {
 	c := New()
 	return c.getName(contractAddress, keyBlurSlug)
+}
+
+func StoreOSSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
+}
+
+func StoreBlurSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
 }

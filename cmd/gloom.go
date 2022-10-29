@@ -20,8 +20,10 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gookit/goutil/dump"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -42,6 +44,10 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		viper.Set("listings.enabled", true)
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
+
+	dump.P(viper.AllSettings())
+	fmt.Println()
+	fmt.Println()
 
 	gb := &gloomberg.Gloomberg{
 		ChainWatcher: nil,
@@ -162,7 +168,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 	fmt.Println()
 
-	slugTicker := time.NewTicker(5 * time.Second)
+	slugTicker := time.NewTicker(7 * time.Second)
 	go chainwatcher.SlugWorker(slugTicker, &gb.QueueSlugs)
 
 	//
@@ -269,19 +275,6 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		}
 	}
 
-	// //
-	// // web server
-	// // if role.WsServer {
-	// go func() {
-	// 	queueWeb := make(chan *collections.Event, 1024)
-	// 	gb.OutputQueues["web"] = queueWeb
-
-	// 	eventStream := web.New(&queueWeb)
-	// 	go eventStream.Start()
-	// 	fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
-	// }()
-	// // }
-
 	//
 	// subscribe to the chain logs/events and start the workers
 	// if role.ChainWatcher {
@@ -297,7 +290,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 		wsServer := ws.New(viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"), &queueWS)
 		go wsServer.Start()
-		fmt.Printf("🔎 wsServer started: %v\n", wsServer)
+		fmt.Printf("📡 websockets server started on %s:%d\n", viper.GetString("server.websockets.host"), viper.GetUint("server.websockets.port"))
 	}
 
 	//
@@ -326,17 +319,18 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// 	gbl.Log.Infof("logs received: %d", logsReceivedTotal)
 	// }
 
-	// go func() {
-	// 	// Run the server
-	// 	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), web.NewEventHandler()))
-	// 	http.Handle("/live.js", live.Javascript{})
-	// 	http.Handle("/auto.js.map", live.JavascriptMap{})
+	//
+	// web ui
+	if viper.GetBool("ui.web.enabled") {
+		go func() {
+			queueWeb := make(chan *collections.Event, 1024)
+			gb.OutputQueues["web"] = queueWeb
 
-	// 	if err := http.ListenAndServe(":18080", nil); err != nil {
-	// 		fmt.Printf("error: %s", err)
-	// 		gbl.Log.Error(err)
-	// 	}
-	// }()
+			eventStream := web.New(&queueWeb)
+			go eventStream.Start()
+			fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
+		}()
+	}
 
 	// loop forever
 	select {}

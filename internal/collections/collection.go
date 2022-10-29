@@ -43,7 +43,7 @@ type GbCollection struct {
 		Sales              lipgloss.Color `mapstructure:"show.sales"`
 		Mints              lipgloss.Color `mapstructure:"mints"`
 		Transfers          lipgloss.Color `mapstructure:"transfers"`
-		Listings           lipgloss.Color `mapstructure:"show.listings"`
+		Listings           lipgloss.Color `mapstructure:"listings.enabled"`
 		ListingsBelowPrice float64        `mapstructure:"listings_below_price"`
 	}
 
@@ -160,7 +160,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 
 		if source == models.FromWallet {
 			if viper.IsSet("api_keys.opensea") {
-				collection.Show.Listings = viper.GetBool("show.listings")
+				collection.Show.Listings = viper.GetBool("listings.enabled")
 			}
 		}
 

@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"strings"
@@ -40,14 +42,14 @@ func ReplaceSchemeWithGateway(url string) string {
 	return strings.Replace(url, schemeIPFS, viper.GetString("ipfs.gateway"), 1)
 }
 
-// func PrettyString(str []byte) string {
-// 	var prettyJSON bytes.Buffer
-// 	if err := json.Indent(&prettyJSON, str, "", "  "); err != nil {
-// 		return err.Error()
-// 	}
+func PrettyString(str []byte) string {
+	var prettyJSON bytes.Buffer
+	if err := json.Indent(&prettyJSON, str, "", "  "); err != nil {
+		return err.Error()
+	}
 
-// 	return prettyJSON.String()
-// }
+	return prettyJSON.String()
+}
 
 func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
 	if len(topics) < 4 {

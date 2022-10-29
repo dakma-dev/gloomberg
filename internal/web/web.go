@@ -11,6 +11,7 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/jfyne/live"
+	"github.com/spf13/viper"
 )
 
 const (
@@ -47,15 +48,19 @@ func NewEvent(data interface{}) EventMessage {
 }
 
 type EventStream struct {
+	ctx         context.Context
 	Events      []EventMessage
 	queueOutWeb *chan *collections.Event
 }
 
-//func New(queueWeb *chan *collections.Event) *EventStream {
-//	return &EventStream{
-//		queueOutWeb: queueWeb,
-//	}
-//}
+func New(queueWeb *chan *collections.Event) *EventStream {
+	ctx := context.Background()
+
+	return &EventStream{
+		ctx:         ctx,
+		queueOutWeb: queueWeb,
+	}
+}
 
 func (es *EventStream) Start() {
 	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), es.NewEventHandler()))
@@ -64,7 +69,11 @@ func (es *EventStream) Start() {
 
 	gbl.Log.Infof("starting http server...")
 
-	if err := http.ListenAndServe(":42069", nil); err != nil {
+	listenAddress := viper.GetString("ui.web.host") + ":" + viper.GetString("ui.web.port")
+
+	gbl.Log.Infof("starting http server on %s", listenAddress)
+
+	if err := http.ListenAndServe(listenAddress, nil); err != nil {
 		fmt.Printf("error: %s", err)
 		gbl.Log.Error(err)
 	}
@@ -76,7 +85,7 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 			gbl.Log.Debugf("outWeb event: %+v", event)
 
 			if !event.PrintEvent {
-				gbl.Log.Infof("outWeb discarded event: %+v", event)
+				gbl.Log.Debugf("outWeb discarded event: %+v", event)
 				continue
 			}
 

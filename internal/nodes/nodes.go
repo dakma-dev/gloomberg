@@ -147,12 +147,10 @@ func (nc *Nodes) ReverseResolveAllENS(wallets *wallet.Wallets) {
 				gbl.Log.Warnf("❌ failed to resolve ENS name for %s: %s", w.Address.Hex(), err)
 				return
 			} else {
-				if ensName, err := ens.NewName(nc.getNode().Client, name); err != nil {
-					gbl.Log.Warnf("failed to create ENS %s: %s", name, err)
-				} else {
-					w.ENS = ensName
-					w.Name = ensName.Name
+				w.ENS = &ens.Name{
+					Name: name,
 				}
+				w.Name = w.ENS.Name
 			}
 		}(w)
 	}
@@ -242,6 +240,10 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 
 func (nc *Nodes) GetCurrentGasInfo() (*GasInfo, error) {
 	return nc.getNode().GetCurrentGasInfo()
+}
+
+func (nc *Nodes) GetTransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	return nc.getNode().Client.TransactionReceipt(ctx, txHash)
 }
 
 func (nc *Nodes) GetTransactionByHash(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error) {

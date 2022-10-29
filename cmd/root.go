@@ -46,12 +46,6 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// viper.Set("show.all", true)
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gloomberg.yaml)")
 
 	// logging
@@ -64,10 +58,6 @@ func init() {
 	rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
 	_ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
 
-	// wallets
-	rootCmd.PersistentFlags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
-	_ = viper.BindPFlag("wallets", rootCmd.Flags().Lookup("wallets"))
-
 	// apis
 	rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
 	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
@@ -75,6 +65,11 @@ func init() {
 	_ = viper.BindPFlag("api_keys.moralis", rootCmd.Flags().Lookup("moralis"))
 	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
 	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
+
+	rootCmd.DebugFlags()
+	// rootCmd.AddGroup(&cobra.Group{ID: "logging", Title: "logging"})
+	// rootCmd.AddCommand(&cobraCommand{Use: "cmd1", GroupID: "group1", Run: emptyRun})
+	// rootCmd.AddGroup(&cobra.Group{ID: "apikeys", Title: "api keys"})
 
 	// // websockets server
 	// rootCmd.PersistentFlags().Bool("server", false, "Start websockets server")
