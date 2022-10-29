@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
@@ -354,7 +353,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			if event.TxItemCount > 1 {
 				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
 			} else {
-				tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, printFaint, true)
+				tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
 			}
 
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))

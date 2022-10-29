@@ -8,11 +8,11 @@ import (
 
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/style"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
 
-	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"

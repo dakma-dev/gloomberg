@@ -1,18 +1,18 @@
-package internal
+package style
 
 import (
 	"fmt"
 	"math/big"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/charmbracelet/lipgloss"
 )
 
-func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, faint bool, color bool) string {
+// func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, faint bool, color bool) string {
+func FormatTokenInfo(tokenID *big.Int, collectionName string, primaryStyle lipgloss.Style, secondaryStyle lipgloss.Style, faint bool, color bool) string {
 	var (
-		collectionName = collection.Name
-		prefix         = "#"
-		id             = fmt.Sprint(tokenID)
+		prefix = "#"
+		id     = fmt.Sprint(tokenID)
 
 		tokenInfo string
 	)
@@ -29,9 +29,9 @@ func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, fai
 	collectionName = strings.ReplaceAll(collectionName, " Collection", "")
 
 	if color {
-		collectionName = collection.Style().Faint(faint).Render(collectionName)
-		id = collection.Style().Faint(faint).Render(fmt.Sprint(id))
-		prefix = collection.StyleSecondary().Faint(faint).Render(prefix)
+		collectionName = primaryStyle.Faint(faint).Render(collectionName)
+		id = primaryStyle.Faint(faint).Render(fmt.Sprint(id))
+		prefix = secondaryStyle.Faint(faint).Render(prefix)
 	}
 
 	// convert tokenID to int for more readable comparison

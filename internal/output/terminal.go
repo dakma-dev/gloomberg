@@ -6,7 +6,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -185,7 +184,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			event.Collection.Style().Copy().Faint(false).Render(ensName),
 		)
 	} else {
-		tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, isMint, true)
+		tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), isMint, true)
 	}
 
 	// PRETTY...??
@@ -476,7 +475,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			msgTelegram.WriteString(event.EventType.Icon())
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
-			msgTelegram.WriteString(" " + internal.FormatTokenInfo(event.TokenID, event.Collection, false, false))
+			msgTelegram.WriteString(" " + style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, false))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", event.PriceEther) + "Ξ**")
 			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
 			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
