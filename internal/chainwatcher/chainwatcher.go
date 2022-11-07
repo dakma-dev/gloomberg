@@ -13,7 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/topic"
-	"github.com/benleb/gloomberg/internal/models/transactioncollector"
+	"github.com/benleb/gloomberg/internal/models/txlogcollector"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
@@ -36,9 +36,9 @@ type ChainWatcher struct {
 }
 
 var (
-	mu                    = &sync.Mutex{}
-	knownTransactions     = make(map[common.Hash][]int)
-	transactionCollectors = make(map[common.Hash]*transactioncollector.TransactionCollector)
+	mu                = &sync.Mutex{}
+	knownTransactions = make(map[common.Hash][]int)
+	logCollectors     = make(map[common.Hash]*txlogcollector.TxLogCollector)
 )
 
 type GItem struct {
@@ -171,7 +171,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	mu.Lock()
 
 	// check if we already have a collector for this tx hash
-	if tc := transactionCollectors[subLog.TxHash]; tc != nil {
+	if tc := logCollectors[subLog.TxHash]; tc != nil {
 		// if we have a collector, we can add this log/logindex to the collector
 		tc.AddLog(&subLog)
 		mu.Unlock()
@@ -180,8 +180,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	// if we don't have a collector, we create a new one for this tx hash
-	transco := transactioncollector.NewTransactionCollector(&subLog)
-	transactionCollectors[subLog.TxHash] = transco
+	txLogCollector := txlogcollector.NewTxLogCollector(&subLog)
+	logCollectors[subLog.TxHash] = txLogCollector
 
 	mu.Unlock()
 
@@ -331,38 +331,39 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	// 	}
 	// }
 
-	numItems := transco.UniqueTokenIDs()
-	priceEther, _ := nodes.WeiToEther(value).Float64()
-	priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(value.Uint64() / numItems))).Float64()
+	numItems := txLogCollector.UniqueTokenIDs()
+	// numItems := len(txLogCollector.Logs)
+	// numItems := len(txLogCollector.TokenIDs)
+	// numItems := uint64(math.Max(float64(len(txLogCollector.UniqueTokenIDs())), 1))
 
 	fromAddresses := make(map[common.Address]bool, 0)
 	fromAddresses[fromAddress] = true
 
-	for _, address := range transco.FromAddresses {
+	for _, address := range txLogCollector.FromAddresses {
 		fromAddresses[address] = true
 	}
 
 	toAddresses := make(map[common.Address]bool, 0)
 	toAddresses[toAddress] = true
 
-	for _, address := range transco.ToAddresses {
+	for _, address := range txLogCollector.ToAddresses {
 		toAddresses[address] = true
 	}
 
 	event := &collections.Event{
-		NodeID:            nodeID,
-		EventType:         eventType,
-		Topic:             logTopic.String(),
-		TxHash:            subLog.TxHash,
-		Collection:        collection,
-		ContractAddress:   collection.ContractAddress,
-		TokenID:           tokenID,
-		ENSMetadata:       ensMetadata,
-		PriceWei:          value,
-		PriceEther:        priceEther,
-		PriceEtherPerItem: priceEtherPerItem,
-		TxItemCount:       numItems,
-		Time:              time.Now(),
+		NodeID:    nodeID,
+		EventType: eventType,
+		Topic:     logTopic.String(),
+		TxHash:    subLog.TxHash,
+		// TransactionCollector: txLogCollector,
+		Collection:      collection,
+		ContractAddress: collection.ContractAddress,
+		TokenID:         tokenID,
+		ENSMetadata:     ensMetadata,
+		PriceWei:        value,
+		TxLogCount:      uint64(numItems),
+		// UniqueTokenIDs:  txLogCollector.UniqueTokenIDs(),
+		Time: time.Now(),
 		From: collections.User{
 			Address:       fromAddress,
 			OpenseaUserID: "",
@@ -380,5 +381,5 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	*queueEvents <- event
 
 	gbCache := cache.New()
-	gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxItemCount, event.Time, int64(eventType))
+	gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxLogCount, event.Time, int64(eventType))
 }

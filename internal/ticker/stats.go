@@ -350,18 +350,19 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			}
 
 			var tokenInfo string
-			if event.TxItemCount > 1 {
-				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
+			if event.TxLogCount > 1 {
+				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxLogCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
 			} else {
 				tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
 			}
 
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
+			priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
 
 			historyLine := strings.Builder{}
 			historyLine.WriteString(timeNow)
 			historyLine.WriteString(" " + event.EventType.Icon())
-			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", event.PriceEtherPerItem)))
+			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
 			historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
 			historyLine.WriteString(" " + tokenInfo)
 

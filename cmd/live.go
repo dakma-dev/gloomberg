@@ -24,7 +24,6 @@ import (
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gookit/goutil/dump"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -53,7 +52,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	gbl.Log.Info(header)
 
 	// global defaults
-	viper.Set("http.timeout", 17*time.Second)
+	viper.Set("http.timeout", 27*time.Second)
 
 	// show listings for own collections if an opensea api key is set
 	if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
@@ -61,7 +60,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
 
-	dump.P(viper.AllSettings())
+	// dump.P(viper.AllSettings())
 	fmt.Println()
 	fmt.Println()
 
@@ -181,8 +180,6 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			_ = miwSpinner.StopFail()
 		}
 	}
-
-	fmt.Println()
 
 	slugTicker := time.NewTicker(7 * time.Second)
 	go chainwatcher.SlugWorker(slugTicker, &gb.QueueSlugs)
@@ -310,13 +307,40 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	}
 
 	//
+	// web ui
+	if viper.GetBool("ui.web.enabled") {
+		webSpinner := style.GetSpinner("setting up web ui...")
+		_ = webSpinner.Start()
+
+		queueWeb := make(chan *collections.Event, 1024)
+		gb.OutputQueues["web"] = queueWeb
+
+		listenAddress := viper.GetString("ui.web.host") + ":" + viper.GetString("ui.web.port")
+		gb.WebEventStream = web.New(&queueWeb, listenAddress)
+
+		go gb.WebEventStream.Start()
+
+		uiURL := fmt.Sprintf("http://%s", listenAddress)
+		uiLink := style.TerminalLink(uiURL, style.BoldStyle.Render(uiURL))
+
+		webSpinner.StopMessage(fmt.Sprintf("web ui running: %s", uiLink))
+
+		// stop spinner
+		_ = webSpinner.Stop()
+	}
+
+	fmt.Println()
+	fmt.Println()
+
+	//
 	// distribution of the events to the outputs
 	for workerID := 1; workerID <= viper.GetInt("server.workers.output"); workerID++ {
 		go func(workerID int) {
 			for event := range queueEvents {
-				gbl.Log.Debugf("%d ~ %d | pushing event to outputs: %v", workerID, len(queueEvents), event)
+				gbl.Log.Debugf("%d ~ %d | pushing event to outputs...", workerID, len(queueEvents)) // , event)
 
-				for _, outputQueue := range gb.OutputQueues {
+				for outputName, outputQueue := range gb.OutputQueues {
+					gbl.Log.Debugf("%d ~ %d | pushing event to %s queue", workerID, len(queueEvents), outputName)
 					outputQueue <- event
 				}
 			}
@@ -334,19 +358,6 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// 	fmt.Printf("logs received: %d || %s\n", logsReceivedTotal, strings.Join(logsPerNodeFormatted, " | "))
 	// 	gbl.Log.Infof("logs received: %d", logsReceivedTotal)
 	// }
-
-	//
-	// web ui
-	if viper.GetBool("ui.web.enabled") {
-		go func() {
-			queueWeb := make(chan *collections.Event, 1024)
-			gb.OutputQueues["web"] = queueWeb
-
-			eventStream := web.New(&queueWeb)
-			go eventStream.Start()
-			fmt.Printf("🔎 event stream webserver started: %v\n", eventStream)
-		}()
-	}
 
 	// loop forever
 	select {}

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/models/txlogcollector"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -65,32 +66,31 @@ func (et EventType) ActionName() string {
 }
 
 type Event struct {
-	NodeID    int
-	EventType EventType
-	Topic     string
-	TxHash    common.Hash
-	// Collection      *Collection
-	ContractAddress   common.Address
-	Collection        *GbCollection
-	TokenID           *big.Int
-	ENSMetadata       *external.ENSMetadata
-	PriceWei          *big.Int
-	PricePerItem      *big.Int
-	PriceEther        float64
-	PriceEtherPerItem float64
-	CollectionColor   lipgloss.Color
-	// MultiItemTx bool
-	Permalink     string
-	TxItemCount   uint64
-	Time          time.Time
-	From          User
-	FromENS       string
-	To            User
-	ToENS         string
-	FromAddresses map[common.Address]bool
-	ToAddresses   map[common.Address]bool
-	WorkerID      int
-	PrintEvent    bool
+	NodeID               int
+	EventType            EventType
+	Topic                string
+	TxHash               common.Hash
+	TransactionCollector *txlogcollector.TxLogCollector
+	ContractAddress      common.Address
+	Collection           *GbCollection
+	TokenID              *big.Int
+	UniqueTokenIDs       []*big.Int
+	ENSMetadata          *external.ENSMetadata
+	PriceWei             *big.Int
+	PriceArrowColor      lipgloss.Color
+	CollectionColor      lipgloss.Color
+	Permalink            string
+	TxLogCount           uint64
+	Time                 time.Time
+	From                 User
+	FromENS              string
+	To                   User
+	ToColor              lipgloss.Color
+	ToENS                string
+	FromAddresses        map[common.Address]bool
+	ToAddresses          map[common.Address]bool
+	WorkerID             int
+	PrintEvent           bool
 }
 
 type PushEvent struct {

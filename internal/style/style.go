@@ -59,7 +59,7 @@ var (
 )
 
 var ShadesPink = []lipgloss.Color{
-	"#ffffff",
+	"#fff1f6",
 	"#ffe5f4",
 	"#ffccea",
 	"#ffb2e0",
@@ -128,22 +128,22 @@ func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	var priceColor lipgloss.Color
 
 	switch {
-	case txValue >= 0:
-		priceColor = "#333333"
-	case txValue >= 0.25:
-		priceColor = ShadesPink[0]
-	case txValue >= 0.5:
-		priceColor = ShadesPink[1]
-	case txValue >= 0.75:
-		priceColor = ShadesPink[2]
-	case txValue >= 1.0:
-		priceColor = ShadesPink[3]
-	case txValue >= 2.0:
-		priceColor = ShadesPink[5]
-	case txValue >= 3.0:
-		priceColor = ShadesPink[6]
-	case txValue >= 5.0:
+	case txValue >= 10.0:
 		priceColor = ShadesPink[9]
+	case txValue >= 5.0:
+		priceColor = ShadesPink[8]
+	case txValue >= 2.0:
+		priceColor = ShadesPink[6]
+	case txValue >= 1.0:
+		priceColor = ShadesPink[4]
+	case txValue >= 0.5:
+		priceColor = ShadesPink[2]
+	case txValue >= 0.25:
+		priceColor = ShadesPink[1]
+	case txValue >= 0.1:
+		priceColor = ShadesPink[0]
+	default:
+		priceColor = "#333333"
 	}
 
 	return priceColor

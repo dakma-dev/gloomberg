@@ -66,7 +66,7 @@ func init() {
 	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
 	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
 
-	rootCmd.DebugFlags()
+	// rootCmd.DebugFlags()
 	// rootCmd.AddGroup(&cobra.Group{ID: "logging", Title: "logging"})
 	// rootCmd.AddCommand(&cobraCommand{Use: "cmd1", GroupID: "group1", Run: emptyRun})
 	// rootCmd.AddGroup(&cobra.Group{ID: "apikeys", Title: "api keys"})

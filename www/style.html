@@ -1,5 +1,6 @@
 {{ define "style" }}
 
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono">
 <style>
     html {
         margin: 0;
@@ -8,11 +9,51 @@
     }
 
     body {
-        background-color: #030303;
+        background-color: #110000;
+        animation: bgRLD 0.5s infinite;
         color: #dddddd;
         height: 100vh;
         margin: 0;
         padding: 0;
+
+        /*font-family: -apple-system,BlinkMacSystemFont,Segoe UI,Helvetica,Arial,sans-serif,Apple Color Emoji,Segoe UI Emoji;*/
+        font-family: 'JetBrains Mono', monospace;
+        font-variation-settings: 'wght' 200;
+        font-weight: lighter;
+        /*border-top:  4px dashed darkred;*/
+        /* padding: 1rem;*/
+    }
+    body.live-connected {
+        border-top: none;
+        background-color: #030303;
+        animation: none;
+        /*border-top: 5px solid green;*/
+    }
+
+    @keyframes blinkingBackground{
+        0%      { background-color: #110000;}
+        25%     { background-color: #330000;}
+        50%     { background-color: #080000;}
+        75%     { background-color: #240000;}
+        100%    { background-color: #090000;}
+    }
+
+    @keyframes bgRLD{
+        0%     { background-color: #D23469;}
+        10%     { background-color: #400817;}
+        20%     { background-color: #8D1537;}
+        30%     { background-color: #120407;}
+        40%     { background-color: #6A0F27;}
+        50%     { background-color: #F6C3DE;}
+        60%     { background-color: #6F2B4E;}
+        70%     { background-color: #A14C7C;}
+        80%     { background-color: #A46C8C;}
+        90%     { background-color: #6C3441;}
+        100%     { background-color: #400817;}
+    }  
+
+    a:hover {
+        cursor: crosshair;
     }
 
     main {
@@ -30,53 +71,99 @@
     .message {
         align-items: center;
         display: flex;
-        height: 1.2rem;
+        height: 1.337rem;
+        
     }
 
     .message span {
-        /* width: 10rem; */
         color: #999999;
         font-family: monospace;
         font-size: 1rem;
-        /* margin: 0 0.5rem; */
+        margin-left: 0.5rem;
+        overflow: hidden;
         text-align: right;
+        vertical-align: middle;
+        white-space: nowrap;
     }
 
     .message span.time {
         color: #333333;
-        margin-left: 0.5rem;
-        min-width: 3.8rem;
+        min-width: 5rem;
+        width: 5rem;
         text-align: right;
     }
 
     .message span.typemoji {
         color: #333333;
         margin-left: 0.7rem;
+        min-width: 1rem;
+        width: 1rem;
     }
 
     .message span.price {
         color: #F9F9F9;
         margin-left: 0.9rem;
-        width: 3.37rem;
+        min-width: 3.5rem;
+        width: 3.5rem;
+    }
+
+    .message span.currency {
+        margin-left: 0rem;
     }
 
     .message span.pricearrow {
         color: #333333;
         margin-left: 0.7rem;
+        min-width: 1rem;
+        width: 1rem;
     }
 
     .message span.item {
-        text-align: left;
-        display: inline-block;
         margin-left: 0.8rem;
-        width: 25rem;
-        max-width: 25rem;
-        text-overflow: ellipsis;
-        overflow: auto;
+        line-height: 1.2rem;
     }
 
-    .message span.item span.tokenid {
-        margin-left: 0;
+    .message span.collection {
+        max-width: 32em;
+        text-align: left;
+        text-overflow: ellipsis;
+    }
+
+    .message span.hashtag {
+        min-width: 1rem;
+        width: 1rem;
+    }
+
+    .message span.tokenid {
+        margin-left: 0rem;
+        max-width: 4em;
+        min-width: 3em;
+        text-align: left;
+        text-overflow: ellipsis;
+    }
+
+    .message span.divider {
+        color: #373737;
+        margin: 0 0.3rem;
+    }
+
+    .message a {
+        text-decoration: none;
+        font-weight: lighter;
+    }
+    .message a:hover {
+        text-decoration: underline;
+        text-decoration-color: #ff009969;
+        text-decoration-style: dotted;
+        text-decoration-thickness: 0.25em;
+    }
+    .message a.etherscan {
+        font-size: 0.9rem;
+        color: #666666;
+    }
+    .message a.opensea {
+        font-size: 0.9rem;
+        color: #5f7699;
     }
 
     .message pre {
@@ -86,8 +173,7 @@
     .actions {
         align-items: center;
         display: flex;
-        height: 10vh;
-        padding: 0 1rem;
+        padding: 1rem;
     }
 
     .actions form {
@@ -97,22 +183,34 @@
         width: 100%;
     }
 
+    .actions form input, .actions form button {
+        color: #ff009969;
+    }
+
     .actions form input[type=text] {
-        background-color: #090909;
+        background-color: #0c0c0c;
         border-radius: 0.2rem;
         border: 1px solid black;
-        color: #666666;
-        flex: 1 0 90%;
+        display: flex;
+        flex: 1 0 80%;
         padding: .5rem;
         pointer-events: none;
+        opacity: 50%;
     }
+
+    .actions form input[type=text]:focus {
+        box-shadow: none;
+        outline-color: #ff009969;
+        outline-style: dotted;
+        outline-width: thin;
+      }
 
     .actions form button[type=submit] {
         /* background-color: black; */
         background-color: #090909;
         border-radius: 0.2rem;
         border: 1px solid black;
-        color: #222222;
+        display: flex;
         margin-left: .5rem;
         padding: .5rem;
         pointer-events: none;

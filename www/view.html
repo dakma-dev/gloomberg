@@ -9,12 +9,28 @@
         <div id="{{$msg.ID}}" class="message">
             <span class="time">{{$msg.Time}}</span>
             <span class="typemoji">{{$msg.Typemoji}}</span>
-            <span class="pricearrow">→</span>
+            <span class="pricearrow" style="color: {{$msg.PriceArrowColor}};">→</span>
+
             <span class="price">{{$msg.Price}}</span>
-            <span style="color: {{$msg.ColorPrimary}};">Ξ</span>
-            <span class="item"><span class="collection" style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}} <span style="color: {{$msg.ColorSecondary}};">#</span><span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span></span></span>
-            <span> | </span>
-            <span class="salira">{{$msg.SaLiRa}}</span>
+            <span class="currency" style="color: {{$msg.ColorPrimary}};">Ξ</span>
+
+            <span class="collection" style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}}</span>
+            <span class="hashtag" style="color: {{$msg.ColorSecondary}};">#</span>
+            <span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span>
+
+            <span class="divider">|</span>
+            <a class="opensea" href="{{$msg.LinkOpenSea}}" target="_blank">OpenSea</a>
+
+            <span class="divider">|</span>
+            <a class="etherscan" href="{{$msg.LinkEtherscan}}" target="_blank">ES</a>
+
+            <span class="divider">|</span><span class="divider">→</span>
+            <span class="to" style="color: {{$msg.ToColor}};">{{$msg.To}}</span>
+
+            {{ if $msg.SaLiRa | gt 0.0 }}
+            <span class="divider">|</span>
+            <span>{{ printf "%4.2f" $msg.SaLiRa }}</span>
+            {{- end }}
         </div>
 
         {{ end }}
@@ -23,9 +39,7 @@
 
     <div class="actions">
         <form id="chatinput" live-submit="send" live-hook="input">
-            <label>
-                <input autocomplete="off" type="text" name="message">
-            </label>
+            <input autocomplete="off" type="text" name="message">
             <button type="submit">go</button>
         </form>
     </div>

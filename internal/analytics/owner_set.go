@@ -207,12 +207,13 @@ var CollectionSets = map[string]*CollectionSet{
 		TokenIDs:        []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35},
 		Any:             true,
 	},
-	// "DistillerySL": {
-	// 	ID:              "DistillerySL",
-	// 	Name:            "Distillery - sangsom & lemonade",
-	// 	ContractAddress: common.HexToAddress("0x26c7de7d475aad40cf8211c0e9ad8469aa4e6878"),
-	// 	TokenIDs:        []int{36, 37, 38, 39, 40},
-	// },
+	"DistillerySL": {
+		ID:              "DistillerySL",
+		Name:            "Distillery - sangsom & lemonade",
+		ContractAddress: common.HexToAddress("0x26c7de7d475aad40cf8211c0e9ad8469aa4e6878"),
+		TokenIDs:        []int{36, 37, 38, 39, 40},
+		Any:             true,
+	},
 }
 
 var MultiCollectionSets = map[string]*MultiCollectionSet{
@@ -231,13 +232,18 @@ var MultiCollectionSets = map[string]*MultiCollectionSet{
 		Name:           "RLD & Editions & 7 Sins & Private Party",
 		CollectionSets: []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"]},
 	},
+	"OSFRLDEditionsSinsPPLemonade": {
+		ID:             "OSFRLDEditionsSinsPPLemonade",
+		Name:           "RLD & Editions & 7 Sins & Private Party & Lemonade",
+		CollectionSets: []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"], *CollectionSets["DistillerySL"]},
+	},
 }
 
 var Artists = map[string]*Artist{
 	"OSF": {
 		ID:                  "OSF",
 		Name:                "OSF",
-		CollectionSets:      []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"]},
-		MultiCollectionSets: []MultiCollectionSet{*MultiCollectionSets["OSFRLDEditions"], *MultiCollectionSets["OSFRLDEditionsSins"], *MultiCollectionSets["OSFRLDEditionsSinsPP"]},
+		CollectionSets:      []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"], *CollectionSets["DistillerySL"]},
+		MultiCollectionSets: []MultiCollectionSet{*MultiCollectionSets["OSFRLDEditions"], *MultiCollectionSets["OSFRLDEditionsSins"], *MultiCollectionSets["OSFRLDEditionsSinsPP"], *MultiCollectionSets["OSFRLDEditionsSinsPPLemonade"]},
 	},
 }
