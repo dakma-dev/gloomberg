@@ -10,12 +10,13 @@ import (
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
 
-func StreamListingsHandler(workerID int, ownCollections *collections.CollectionDB, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
+func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, ownCollections *collections.CollectionDB, queueListings *chan *models.ItemListedEvent, queueEvents *chan *collections.Event) {
 	gbl.Log.Debugf("workerListingsHandler %d/%d started", workerID, viper.GetInt("workers.listings"))
 
 	for event := range *queueListings {
@@ -46,7 +47,6 @@ func StreamListingsHandler(workerID int, ownCollections *collections.CollectionD
 		}
 
 		priceWei, _ := priceWeiRaw.Int(nil)
-		// priceEther, _ := nodes.WeiToEther(priceWei).Float64()
 
 		event := &collections.Event{
 			EventType:  collections.Listing,

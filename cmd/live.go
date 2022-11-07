@@ -283,7 +283,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			}
 			// processes new listings from the opensea stream api
 			for listingsWorkerID := 1; listingsWorkerID <= viper.GetInt("server.workers.listings"); listingsWorkerID++ {
-				go subscribe.StreamListingsHandler(listingsWorkerID, gb.CollectionDB, &streamWatcher.QueueListings, &queueEvents)
+				go subscribe.StreamListingsHandler(gb, listingsWorkerID, gb.CollectionDB, &streamWatcher.QueueListings, &queueEvents)
 			}
 		}
 	}
@@ -357,6 +357,15 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// 	}
 	// 	fmt.Printf("logs received: %d || %s\n", logsReceivedTotal, strings.Join(logsPerNodeFormatted, " | "))
 	// 	gbl.Log.Infof("logs received: %d", logsReceivedTotal)
+	// }
+
+	// // buy test
+	// time.Sleep(10 * time.Second)
+	// tx, err := seaport.FulfillBasicOrder(gb, &models.SeaportOrder{}, viper.GetString("buy.privateKey"))
+	// if err != nil {
+	// 	gbl.Log.Error("❌ purchase failed: ", err)
+	// } else {
+	// 	gbl.Log.Info("✅ purchase succeeded: ", tx)
 	// }
 
 	// loop forever
