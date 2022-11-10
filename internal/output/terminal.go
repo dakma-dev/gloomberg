@@ -534,6 +534,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			msgTelegram := strings.Builder{}
 			msgTelegram.WriteString(event.EventType.Icon())
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
+			msgTelegram.WriteString(" (" + style.ShortenAddress(&event.To.Address) + ")")
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
 			msgTelegram.WriteString(" " + style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, false))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")

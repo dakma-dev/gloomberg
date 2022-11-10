@@ -120,7 +120,7 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 }
 
 func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
-	gbl.Log.Info("webWorker started for session %+v", live.SessionID((*s).Session()))
+	gbl.Log.Infof("webWorker started for session %v", live.SessionID((*s).Session()))
 
 	for event := range *queueOutWeb {
 		gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
@@ -190,7 +190,7 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 		}
 	}
 
-	gbl.Log.Info("webWorker closed for session %+v", live.SessionID((*s).Session()))
+	gbl.Log.Infof("webWorker closed for session %+v", live.SessionID((*s).Session()))
 }
 
 func GasLineMessage(s *live.Socket, webGasTicker *time.Ticker, ethNodes *nodes.Nodes) {
