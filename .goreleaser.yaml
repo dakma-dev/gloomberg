@@ -86,7 +86,7 @@ announce:
   telegram:
     # Whether its enabled or not.
     # Defaults to false.
-    enabled: false
+    enabled: true
 
     # Integer representation of your channel
     chat_id: -575512868
