@@ -447,6 +447,7 @@ func init() {
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
 	viper.SetDefault("ticker.gasline", time.Second*37)
+	viper.SetDefault("ticker.divider", time.Second*89)
 
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)

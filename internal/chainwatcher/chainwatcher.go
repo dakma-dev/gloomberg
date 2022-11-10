@@ -257,7 +257,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	var eventType collections.EventType
 
-	value := big.NewInt(0)
+	var tx *types.Transaction
+
+	var txErr error
 
 	if isMint {
 		eventType = collections.Mint
@@ -270,18 +272,23 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		}
 	} else {
 		eventType = collections.Sale
-
-		// get the transaction details - we don't do this for mints to save a lot of calls
-		tx, _, err := cw.Nodes.GetTransactionByHash(context.Background(), subLog.TxHash)
-		if err != nil {
-			gbl.Log.Debugf("🗑️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
-			// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
-			return
-		}
-
-		// set to actual tx value
-		value = tx.Value()
 	}
+
+	// get the transaction details - we do this for mints to save a lot of calls
+	if isMint {
+		tx, _, txErr = cw.Nodes.GetTransactionByHashFromLocalNode(context.Background(), subLog.TxHash)
+	} else {
+		tx, _, txErr = cw.Nodes.GetTransactionByHash(context.Background(), subLog.TxHash)
+	}
+
+	if txErr != nil {
+		gbl.Log.Debugf("🗑️ getting tx details failed | %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+		// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
+		return
+	}
+
+	// set to actual tx value
+	value := tx.Value()
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
 	isTransfer := value.Cmp(big.NewInt(0)) == 0 && !isMint // && logTopic != topic.TransferSingle
@@ -353,6 +360,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	var priceArrowColor lipgloss.Color
+
 	if eventType == collections.Sale {
 		// get a color with saturation depending on the tx price
 		priceEther, _ := nodes.WeiToEther(value).Float64()
