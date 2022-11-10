@@ -3,6 +3,7 @@ package hooks
 import (
 	"errors"
 	"reflect"
+	"strconv"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
@@ -51,6 +52,26 @@ func StringToDurationHookFunc() mapstructure.DecodeHookFunc {
 
 		// Convert it by parsing
 		return time.ParseDuration(data.(string))
+	}
+}
+
+// StringToInt64HookFunc is a mapstructure hook function that converts a string to a common.Address.
+func StringToInt64HookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data any,
+	) (any, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+
+		if t != reflect.TypeOf(int64(0)) {
+			return data, nil
+		}
+
+		// Convert it by parsing
+		return strconv.ParseInt(data.(string), 10, 64)
 	}
 }
 

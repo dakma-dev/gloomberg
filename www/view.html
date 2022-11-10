@@ -1,66 +1,86 @@
-{{ define "title" }} gloomberg {{ end }}
-{{ define "view" }}
+{{ define "title" }} gloomberg {{ end }} {{ define "view" }}
+
+{{/* <header>
+  <p>gloomberg</p>
+</header> */}}
 
 <main>
-    <div class="window" live-update="append" live-hook="eventstream">
+  <div class="window" live-update="append" live-hook="eventstream">
+    {{ range $event := .Assigns.Events }}
 
-        {{ range $msg := .Assigns.Events }}
+    {{ if .GasLine }}
+    <hr class="gasline" />
+    {{ else }}
 
-        <div id="{{$msg.ID}}" class="message">
-            <span class="time">{{$msg.Time}}</span>
-            <span class="typemoji">{{$msg.Typemoji}}</span>
-            <span class="pricearrow" style="color: {{$msg.PriceArrowColor}};">→</span>
+    <div id="{{.ID}}" class="message">
+      <span class="time">{{.Time}}</span>
+      <span class="typemoji">{{.Typemoji}}</span>
 
-            <span class="price">{{$msg.Price}}</span>
-            <span class="currency" style="color: {{$msg.ColorPrimary}};">Ξ</span>
+      {{ if .Msg }}
+      <span>{{.ID}}:</span>
+      <span>{{.Msg}}</span>
+      {{ else }}
 
-            <span class="collection" style="color: {{$msg.ColorPrimary}};">{{$msg.CollectionName}}</span>
-            <span class="hashtag" style="color: {{$msg.ColorSecondary}};">#</span>
-            <span class="tokenid" style="color: {{$msg.ColorPrimary}};">{{$msg.TokenID}}</span>
+      <span class="pricearrow" style="color: {{.PriceArrowColor}};">→</span>
 
-            <span class="divider">|</span>
-            <a class="opensea" href="{{$msg.LinkOpenSea}}" target="_blank">OpenSea</a>
+      <span class="price">{{.Price}}</span>
+      <span class="currency" style="color: {{.ColorPrimary}};">Ξ</span>
 
-            <span class="divider">|</span>
-            <a class="etherscan" href="{{$msg.LinkEtherscan}}" target="_blank">ES</a>
+      {{ if gt .TxLogCount 1 }}
+      <span style="color: {{.TxLogCountColor}};">{{.TxLogCount}}x</span>
+      {{- end }}
 
-            <span class="divider">|</span><span class="divider">→</span>
-            <span class="to" style="color: {{$msg.ToColor}};">{{$msg.To}}</span>
+      <span class="collection" style="color: {{.ColorPrimary}};">{{.CollectionName}}</span>
+      <span class="hashtag" style="color: {{.ColorSecondary}};">#</span>
+      <span class="tokenid" style="color: {{.ColorPrimary}};">{{.TokenID}}</span>
 
-            {{ if $msg.SaLiRa | gt 0.0 }}
-            <span class="divider">|</span>
-            <span>{{ printf "%4.2f" $msg.SaLiRa }}</span>
-            {{- end }}
-        </div>
+      <span class="divider">|</span>
+      <a class="opensea" href="{{.LinkOpenSea}}" target="_blank">OS</a>
 
-        {{ end }}
+      <span class="divider">|</span>
+      <a class="etherscan" href="{{.LinkEtherscan}}" target="_blank">ES</a>
 
+      <span class="divider">|</span><span class="divider">→</span>
+      <span class="to" style="color: {{.ToColor}};">{{.To}}</span>
+
+      {{ if gt .SaLiRa 0.0 }}
+      <span class="divider">|</span>
+      <span>{{ printf "%4.2f" .SaLiRa }}</span>
+      {{- end }}
+
+      {{- end }}
     </div>
 
-    <div class="actions">
-        <form id="chatinput" live-submit="send" live-hook="input">
-            <input autocomplete="off" type="text" name="message">
-            <button type="submit">go</button>
-        </form>
-    </div>
+    {{- end }}
 
+    {{ end }}
+  </div>
+
+  <div class="actions">
+    <form id="chatinput" live-submit="send" live-hook="input">
+      <input autocomplete="off" type="text" name="message" autofocus />
+      <button type="submit">go</button>
+    </form>
+  </div>
 </main>
 
 <script>
-    window.Hooks = {
-        "input": {
-            mounted: function() {
-                // clear text field
-                this.el.addEventListener("submit", () => {
-                    this.el.querySelector("input").value = "";
-                });
-            }
-        },
-        "eventstream": {
-            // auto-scroll to bottom
-            updated: function() { this.el.scrollTop = this.el.scrollHeight; }
-        }
-    };
+  window.Hooks = {
+    input: {
+      mounted: function () {
+        // clear text field
+        this.el.addEventListener("submit", () => {
+          this.el.querySelector("input").value = "";
+        });
+      },
+    },
+    eventstream: {
+      // auto-scroll to bottom
+      updated: function () {
+        this.el.scrollTop = this.el.scrollHeight;
+      },
+    },
+  };
 </script>
 
 {{ end }}

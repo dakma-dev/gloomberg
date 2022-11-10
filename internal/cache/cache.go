@@ -183,10 +183,10 @@ func GetENSName(walletAddress common.Address) (string, error) {
 //	return c.getName(contractAddress, keyOSSlug)
 //}
 
-func GetBlurSlug(contractAddress common.Address) (string, error) {
-	c := New()
-	return c.getName(contractAddress, keyBlurSlug)
-}
+//func GetBlurSlug(contractAddress common.Address) (string, error) {
+//	c := New()
+//	return c.getName(contractAddress, keyBlurSlug)
+//}
 
 func StoreOSSlug(contractAddress common.Address, slug string) {
 	c := New()

@@ -38,26 +38,26 @@ type SeaportMakerFees struct {
 type SeaportConsiderationItem struct {
 	ItemType             int            `json:"itemType"`
 	Token                string         `json:"token"`
-	IdentifierOrCriteria int64          `json:"identifierOrCriteria"`
-	StartAmount          int64          `json:"startAmount"`
-	EndAmount            int64          `json:"endAmount"`
+	IdentifierOrCriteria string         `json:"identifierOrCriteria"`
+	StartAmount          string         `json:"startAmount"`
+	EndAmount            string         `json:"endAmount"`
 	Recipient            common.Address `json:"recipient"`
 }
 
 type SeaportOffer struct {
 	ItemType             int            `json:"itemType"`
 	Token                common.Address `json:"token"`
-	IdentifierOrCriteria int64          `json:"identifierOrCriteria"`
-	StartAmount          int64          `json:"startAmount"`
-	EndAmount            int64          `json:"endAmount"`
+	IdentifierOrCriteria string         `json:"identifierOrCriteria"`
+	StartAmount          string         `json:"startAmount"`
+	EndAmount            string         `json:"endAmount"`
 }
 
 type SeaportParameters struct {
 	Offerer                         common.Address             `json:"offerer"`
 	Offer                           []SeaportOffer             `json:"offer"`
 	Consideration                   []SeaportConsiderationItem `json:"consideration"`
-	StartTime                       int64                      `json:"startTime"`
-	EndTime                         int64                      `json:"endTime"`
+	StartTime                       string                     `json:"startTime"`
+	EndTime                         string                     `json:"endTime"`
 	OrderType                       int                        `json:"orderType"`
 	Zone                            common.Address             `json:"zone"`
 	ZoneHash                        common.Hash                `json:"zoneHash"`
@@ -187,7 +187,7 @@ type SeaportOrder struct {
 	ProtocolAddress  string              `json:"protocol_address"`
 	Maker            SeaportAccount      `json:"maker"`
 	Taker            interface{}         `json:"taker"`
-	CurrentPrice     int64               `json:"current_price"`
+	CurrentPrice     string              `json:"current_price"`
 	MakerFees        []SeaportMakerFees  `json:"maker_fees"`
 	TakerFees        []interface{}       `json:"taker_fees"`
 	Side             string              `json:"side"`

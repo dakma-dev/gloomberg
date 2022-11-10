@@ -69,8 +69,11 @@ type GbCollection struct {
 	SaLiRa ewma.MovingAverage `json:"salira"`
 
 	// exponential moving average of the actual sale prices
-	ArtificialFloor         ewma.MovingAverage `mapstructure:"artificialFloor"`
-	PreviousArtificialFloor float64            `mapstructure:"artificialFloor"`
+	// FloorPrice         ewmabig.MovingAverage `mapstructure:"artificialFloor"`
+	// PreviousFloorPrice *big.Int              `mapstructure:"artificialFloor"`
+
+	FloorPrice         ewma.MovingAverage `mapstructure:"floorPrice"`
+	PreviousFloorPrice float64            `mapstructure:"previousFloorPrice"`
 }
 
 func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
@@ -113,8 +116,10 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 		Metadata: &models.CollectionMetadata{},
 		Source:   source,
 
-		ArtificialFloor: ewma.NewMovingAverage(),
-		SaLiRa:          ewma.NewMovingAverage(),
+		FloorPrice:         ewma.NewMovingAverage(),
+		PreviousFloorPrice: 0,
+
+		SaLiRa: ewma.NewMovingAverage(),
 	}
 
 	// go func() {
@@ -195,7 +200,7 @@ func (uc *GbCollection) AddSale(value *big.Int, numItems uint64) float64 {
 	uc.Counters.SalesVolume.Add(uc.Counters.SalesVolume, value)
 	atomic.AddUint64(&uc.Counters.Sales, numItems)
 
-	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("stats.interval").Seconds()))
+	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("ticker.statsbox").Seconds()))
 }
 
 func (uc *GbCollection) AddMint() {
@@ -223,14 +228,14 @@ func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
 	return previousSaLiRa, currentSaLiRa
 }
 
-// CalculateArtificialFloor updates the moving average of a given collection.
-func (uc *GbCollection) CalculateArtificialFloor(tokenPrice float64) (float64, float64) {
+// CalculateFloorPrice updates the moving average of a given collection.
+func (uc *GbCollection) CalculateFloorPrice(tokenPrice float64) (float64, float64) {
 	// update the moving average
-	uc.PreviousArtificialFloor = uc.ArtificialFloor.Value()
-	uc.ArtificialFloor.Add(tokenPrice)
-	currentMovingAverage := uc.ArtificialFloor.Value()
+	uc.PreviousFloorPrice = uc.FloorPrice.Value()
+	uc.FloorPrice.Add(tokenPrice)
+	currentFloorPrice := uc.FloorPrice.Value()
 
-	return uc.PreviousArtificialFloor, currentMovingAverage
+	return uc.PreviousFloorPrice, currentFloorPrice
 }
 
 func (uc *GbCollection) ResetStats() {

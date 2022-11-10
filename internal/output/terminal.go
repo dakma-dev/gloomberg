@@ -90,6 +90,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	isOwnWallet := false
 	if isMultiItemTx {
+		// isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 		isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 	} else {
 		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.WatchUsers.Contains(event.To.Address)
@@ -104,16 +105,25 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		event.EventType = collections.Purchase
 	}
 
+	var previousFloorPrice, currentFloorPrice float64
+
 	//
 	// price-dependent styling
 	if event.EventType == collections.Sale {
+		// recalculate moving average
+		previousFloorPrice, currentFloorPrice = event.Collection.CalculateFloorPrice(priceEtherPerItem)
+
 		priceStyle = style.DarkWhiteStyle
 
 		// get a color with saturation depending on the tx price
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
 	} else {
+		// if this is a mint/transfer/listing, we don't touch the moving average
+		currentFloorPrice = event.Collection.FloorPrice.Value()
+		previousFloorPrice = currentFloorPrice
+
 		priceStyle = style.GrayStyle
-		priceArrowColor = lipgloss.Color("#333333")
+		priceArrowColor = "#333333"
 	}
 
 	event.PriceArrowColor = priceArrowColor
@@ -121,6 +131,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	priceCurrencyStyle := event.Collection.Style().Copy().Faint(isMintOrTransfer)
 	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
 	divider := style.Sharrow.Copy().Foreground(priceArrowColor).Faint(true).String()
+
+	currentFloorPriceStyle := style.GrayStyle.Copy().Faint(true)
+
+	trendIndicator := style.CreateTrendIndicator(previousFloorPrice, currentFloorPrice)
 
 	var numberStyle, pricePerItemStyle lipgloss.Style
 
@@ -319,6 +333,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
 	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
 
+	// (artificial) floor price
+	out.WriteString("  " + trendIndicator)
+	out.WriteString(currentFloorPriceStyle.Render(fmt.Sprintf("%6.3f", currentFloorPrice)))
+
 	// collection/token info
 	out.WriteString("  " + tokenInfo)
 
@@ -334,6 +352,28 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		}
 
 		out.WriteString(style.DarkGrayStyle.Render(" /") + totalSupplyStyle.Render(outputTotalSupply))
+	}
+
+	// listing price in relation to the collection floor
+	if (event.EventType == collections.Listing || event.EventType == collections.Purchase || isOwnCollection) && currentFloorPrice > 0 {
+		if fpRatio := (priceEtherPerItem / currentFloorPrice) * 100; fpRatio > 0 {
+			var fpStyle lipgloss.Style
+
+			fpRatioDifference := int(fpRatio - 100)
+
+			if fpRatioDifference > 0 {
+				fpStyle = style.TrendRedStyle.Copy()
+			} else if fpRatioDifference < 0 {
+				fpStyle = style.TrendGreenStyle.Copy()
+			} else {
+				fpStyle = style.GrayStyle.Copy()
+			}
+
+			// out.WriteString(" " + style.PinkBoldStyle.Render("·") + " ")
+			// out.WriteString(" " + style.DarkGrayStyle.Render("·") + " ")
+			out.WriteString("  ")
+			out.WriteString(fpStyle.Bold(false).Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
+		}
 	}
 
 	// link opensea
@@ -460,7 +500,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	//
 	// telegram notification
-	if isMintOrSale && isWatchUsersWallet && viper.GetBool("telegram.enabled") {
+	if isMintOrSale && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
 		go func() {
 			// did someone buy or sell something?
 			var triggerAddress common.Address
@@ -476,9 +516,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			// get the username of the wallet that triggered the notification
 			var userName string
 
-			if user := (*gb.WatchUsers)[triggerAddress]; user != nil {
-				if user.TgUsername != "" {
-					userName = "@" + user.TgUsername
+			user := (*gb.WatchUsers)[triggerAddress]
+			if user != nil {
+				if user.TelegramUsername != "" {
+					userName = "@" + user.TelegramUsername
 				} else {
 					userName = (*gb.WatchUsers)[triggerAddress].Name
 				}
@@ -511,7 +552,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			}
 
 			// send telegram message
-			if msg, err := notifications.SendTelegramMessage(viper.GetInt64("telegram.chat_id"), msgTelegram.String(), imageURI); err != nil {
+			if msg, err := notifications.SendTelegramMessage(user.Group.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
 				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
 			} else {
 				rawMsg := msgTelegram.String()

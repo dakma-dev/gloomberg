@@ -15,9 +15,11 @@ import (
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"github.com/benleb/gloomberg/internal/models/txlogcollector"
 	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/benleb/gloomberg/internal/ws"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
@@ -161,8 +163,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	// 	// 	fmt.Printf("error unpacking into map: %s\n", err)
 	// 	// }
 
-	// 	// orderFulilled, _ := abiSeaport.ParseOrderFulfilled(subLog)
-	// 	// fmt.Printf("orderFulilled: %+v\n", orderFulilled)
+	// 	// orderFulfilled, _ := abiSeaport.ParseOrderFulfilled(subLog)
+	// 	// fmt.Printf("orderFulfilled: %+v\n", orderFulfilled)
 	// 	// return
 	// }
 
@@ -172,7 +174,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	// check if we already have a collector for this tx hash
 	if tc := logCollectors[subLog.TxHash]; tc != nil {
-		// if we have a collector, we can add this log/logindex to the collector
+		// if we have a collector, we can add this log/log index to the collector
 		tc.AddLog(&subLog)
 		mu.Unlock()
 
@@ -195,8 +197,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	mu.Lock()
 
 	// check if the log is already known to us
-	for _, lidx := range knownTransactions[subLog.TxHash] {
-		if lidx == logIndex {
+	for _, lIdx := range knownTransactions[subLog.TxHash] {
+		if lIdx == logIndex {
 			mu.Unlock()
 			return
 		}
@@ -350,6 +352,15 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		toAddresses[address] = true
 	}
 
+	var priceArrowColor lipgloss.Color
+	if eventType == collections.Sale {
+		// get a color with saturation depending on the tx price
+		priceEther, _ := nodes.WeiToEther(value).Float64()
+		priceArrowColor = style.GetPriceShadeColor(priceEther)
+	} else {
+		priceArrowColor = "#333333"
+	}
+
 	event := &collections.Event{
 		NodeID:    nodeID,
 		EventType: eventType,
@@ -361,6 +372,7 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		TokenID:         tokenID,
 		ENSMetadata:     ensMetadata,
 		PriceWei:        value,
+		PriceArrowColor: priceArrowColor,
 		TxLogCount:      uint64(numItems),
 		// UniqueTokenIDs:  txLogCollector.UniqueTokenIDs(),
 		Time: time.Now(),

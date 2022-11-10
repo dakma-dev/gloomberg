@@ -146,21 +146,44 @@ func GetSetOwner(_ *cobra.Command, _ []string) {
 			gbl.Log.Errorf("error creating file: %v\n", err)
 		}
 
-		artistFile.WriteString("<html><head><title>" + artist.Name + " Sets</title></head><body>")
-
-		for _, muCoSet := range artist.MultiCollectionSets {
-			artistFile.WriteString("<h3>" + muCoSet.Name + ": <a href=\"" + muCoSet.ID + ".txt\">" + strconv.Itoa(len(tokenOwners[muCoSet.ID])) + " owners</a></h3>")
-			artistFile.WriteString("<ul>")
-
-			for _, set := range muCoSet.CollectionSets {
-				artistFile.WriteString("<li>" + set.Name + ": <a href=\"" + set.ID + ".txt\">" + strconv.Itoa(len(tokenOwners[set.ID])) + " owners</a></li>")
-			}
-
-			artistFile.WriteString("</ul>")
+		_, err = artistFile.WriteString("<html><head><title>" + artist.Name + " Sets</title></head><body>")
+		if err != nil {
+			gbl.Log.Errorf("❌ error writing to file: %v\n", err)
 		}
 
-		artistFile.WriteString(fmt.Sprint("<p>last update: ", time.Now().Format("2006-01-02 15:04:05"), "</p>"))
-		artistFile.WriteString("</body></html>")
+		for _, muCoSet := range artist.MultiCollectionSets {
+			_, err = artistFile.WriteString("<h3>" + muCoSet.Name + ": <a href=\"" + muCoSet.ID + ".txt\">" + strconv.Itoa(len(tokenOwners[muCoSet.ID])) + " owners</a></h3>")
+			if err != nil {
+				gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+			}
+
+			_, err = artistFile.WriteString("<ul>")
+			if err != nil {
+				gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+			}
+
+			for _, set := range muCoSet.CollectionSets {
+				_, err = artistFile.WriteString("<li>" + set.Name + ": <a href=\"" + set.ID + ".txt\">" + strconv.Itoa(len(tokenOwners[set.ID])) + " owners</a></li>")
+				if err != nil {
+					gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+				}
+			}
+
+			_, err = artistFile.WriteString("</ul>")
+			if err != nil {
+				gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+			}
+		}
+
+		_, err = artistFile.WriteString(fmt.Sprint("<p>last update: ", time.Now().Format("2006-01-02 15:04:05"), "</p>"))
+		if err != nil {
+			gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+		}
+
+		_, err = artistFile.WriteString("</body></html>")
+		if err != nil {
+			gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+		}
 	}
 
 	// write index html
@@ -169,14 +192,27 @@ func GetSetOwner(_ *cobra.Command, _ []string) {
 		gbl.Log.Errorf("error creating file: %v\n", err)
 	}
 
-	indexFile.WriteString("<html lang=\"en\"><head><title>Artists</title></head><body>")
-
-	for _, artist := range Artists {
-		indexFile.WriteString("<h3><a href=\"" + artist.ID + ".html\">" + artist.Name + "</a></h3>")
+	_, err = indexFile.WriteString("<html lang=\"en\"><head><title>Artists</title></head><body>")
+	if err != nil {
+		gbl.Log.Errorf("❌ error writing to file: %v\n", err)
 	}
 
-	indexFile.WriteString(fmt.Sprint("<p>last update: ", time.Now().Format("2006-01-02 15:04:05"), "</p>"))
-	indexFile.WriteString("</body></html>")
+	for _, artist := range Artists {
+		_, err = indexFile.WriteString("<h3><a href=\"" + artist.ID + ".html\">" + artist.Name + "</a></h3>")
+		if err != nil {
+			gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+		}
+	}
+
+	_, err = indexFile.WriteString(fmt.Sprint("<p>last update: ", time.Now().Format("2006-01-02 15:04:05"), "</p>"))
+	if err != nil {
+		gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+	}
+
+	_, err = indexFile.WriteString("</body></html>")
+	if err != nil {
+		gbl.Log.Errorf("❌ error writing to file: %v\n", err)
+	}
 
 	fmt.Println()
 }

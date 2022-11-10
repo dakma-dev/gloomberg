@@ -75,7 +75,7 @@ func (transco *TxLogCollector) UniqueTokenIDs() int {
 	statusUniqueTokenIDs.WriteString("\n")
 
 	if len(transco.TokenIDs) != len(uniqueTokenIDs) {
-		gbl.Log.Info(statusUniqueTokenIDs.String())
+		gbl.Log.Debugf(statusUniqueTokenIDs.String())
 	}
 
 	if len(uniqueTokenIDs) <= 0 {

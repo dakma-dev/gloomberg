@@ -330,7 +330,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
 			timeAgo := time.Since(event.Time)
-			glickerEpoch := viper.GetDuration("stats.interval")
+			glickerEpoch := viper.GetDuration("ticker.statsbox")
 
 			printFaint := false
 
@@ -379,7 +379,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 }
 
 func (s *Stats) StartTicker(intervalPrintStats time.Duration) {
-	intervalPrintStats = viper.GetDuration("stats.interval")
+	intervalPrintStats = viper.GetDuration("ticker.statsbox")
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
 	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)

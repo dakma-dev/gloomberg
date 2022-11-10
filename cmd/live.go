@@ -68,6 +68,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		ChainWatcher: nil,
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
+		Watcher:      &models.Watcher{},
 		WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
 		QueueSlugs:   make(chan common.Address, 1024),
@@ -164,7 +165,10 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	//
 	// wallet watcher (todo) & MIWs
 	if viper.GetBool("sales.enabled") {
-		gb.WatchUsers = config.GetWatcherUsersFromConfig()
+		// gb.WatchUsers = config.GetWatcherUsersFromConfig()
+		// gb.WatchUsers = config.GetWatchRulesFromConfig()
+		watcher := config.GetWatchRulesFromConfig()
+		gb.Watcher = &watcher
 
 		//
 		// MIWs
@@ -210,7 +214,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			stats := ticker.New(gasTicker, gb.OwnWallets, gb.Nodes, len(gb.CollectionDB.Collections))
 
 			// start statsbox ticker
-			if statsInterval := viper.GetDuration("stats.interval"); viper.GetBool("stats.enabled") {
+			if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
 				stats.StartTicker(statsInterval)
 			}
 		}
@@ -283,7 +287,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			}
 			// processes new listings from the opensea stream api
 			for listingsWorkerID := 1; listingsWorkerID <= viper.GetInt("server.workers.listings"); listingsWorkerID++ {
-				go subscribe.StreamListingsHandler(gb, listingsWorkerID, gb.CollectionDB, &streamWatcher.QueueListings, &queueEvents)
+				go subscribe.StreamListingsHandler(gb, listingsWorkerID, &streamWatcher.QueueListings, &queueEvents)
 			}
 		}
 	}
@@ -316,7 +320,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		gb.OutputQueues["web"] = queueWeb
 
 		listenAddress := viper.GetString("ui.web.host") + ":" + viper.GetString("ui.web.port")
-		gb.WebEventStream = web.New(&queueWeb, listenAddress)
+		gb.WebEventStream = web.New(&queueWeb, listenAddress, gb.Nodes)
 
 		go gb.WebEventStream.Start()
 
@@ -401,7 +405,7 @@ func init() {
 
 	// notifications
 	liveCmd.Flags().Bool("telegram", false, "send telegram notifications")
-	_ = viper.BindPFlag("telegram.enabled", liveCmd.Flags().Lookup("telegram"))
+	_ = viper.BindPFlag("notifications.telegram.enabled", liveCmd.Flags().Lookup("telegram"))
 
 	// no ui
 	liveCmd.Flags().Bool("headless", false, "run without terminal output")
@@ -442,10 +446,9 @@ func init() {
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
-	viper.SetDefault("ticker.gasline", time.Second*29)
+	viper.SetDefault("ticker.gasline", time.Second*37)
 
 	viper.SetDefault("stats.enabled", true)
-	viper.SetDefault("stats.interval", time.Second*90)
 	viper.SetDefault("stats.balances", true)
 	viper.SetDefault("stats.lines", 5)
 }

@@ -204,71 +204,145 @@ func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollec
 	return ownCollections
 }
 
-// GetWatcherUsersFromConfig reads configured users to be notified from config
-func GetWatcherUsersFromConfig() *models.WatcherUsers {
+//
+//// GetWatcherUsersFromConfig reads configured users to be notified from config
+//func GetWatcherUsersFromConfig() *models.WatcherUsers {
+//	mu := sync.Mutex{}
+//
+//	watcherUsers := make(map[string]bool, 0)
+//	watcherUsersWallets := make(map[common.Address]*models.WatchUser, 0)
+//
+//	watcherSpinner := style.GetSpinner("setting up watched users...")
+//	_ = watcherSpinner.Start()
+//
+//	var wgWatcherUsers sync.WaitGroup
+//	for _, watcherUser := range viper.Get("watcher.users").([]interface{}) {
+//		wgWatcherUsers.Add(1)
+//
+//		go func(walletConfig interface{}) {
+//			defer wgWatcherUsers.Done()
+//
+//			var newUser *models.WatchUser
+//
+//			decodeHooks := mapstructure.ComposeDecodeHookFunc(
+//				hooks.StringToAddressHookFunc(),
+//				hooks.StringToLipglossColorHookFunc(),
+//			)
+//
+//			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+//				DecodeHook: decodeHooks,
+//				Result:     &newUser,
+//			})
+//
+//			err := decoder.Decode(walletConfig)
+//			if err != nil {
+//				gbl.Log.Warnf("reading wallet group configuration failed: %+v", err)
+//				return
+//			}
+//
+//			gbl.Log.Debugf("\n%+v\n", newUser)
+//
+//			mu.Lock()
+//			for _, walletAddress := range newUser.WalletAddresses {
+//				watcherUsersWallets[walletAddress] = newUser
+//			}
+//
+//			watcherUsers[newUser.Name] = true
+//			mu.Unlock()
+//
+//			gbl.Log.Infof("✅ successfully added user: %s", style.BoldStyle.Render(newUser.Name))
+//		}(watcherUser)
+//	}
+//
+//	// wait for all goroutines to finish
+//	wgWatcherUsers.Wait()
+//
+//	userNames := make([]string, 0)
+//	for userName := range watcherUsers {
+//		userNames = append(userNames, style.BoldStyle.Render(userName))
+//	}
+//
+//	// build spinner stop msg with all wallet names
+//	watcherSpinner.StopMessage(fmt.Sprint(
+//		style.BoldStyle.Render(fmt.Sprint(len(watcherUsers))),
+//		fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(watcherUsersWallets)))),
+//		strings.Join(userNames, ", "),
+//	) + "\n")
+//
+//	_ = watcherSpinner.Stop()
+//
+//	return (*models.WatcherUsers)(&watcherUsersWallets)
+//}
+
+// GetWatchRulesFromConfig reads configured users to be notified from config
+func GetWatchRulesFromConfig() models.Watcher {
 	mu := sync.Mutex{}
 
-	watcherUsers := make(map[string]bool, 0)
-	watcherUsersWallets := make(map[common.Address]*models.WatcherUser, 0)
-
-	watcherSpinner := style.GetSpinner("setting up watched users...")
-	_ = watcherSpinner.Start()
-
-	var wgWatcherUsers sync.WaitGroup
-	for _, watcherUser := range viper.Get("watcher.users").([]interface{}) {
-		wgWatcherUsers.Add(1)
-
-		go func(walletConfig interface{}) {
-			defer wgWatcherUsers.Done()
-
-			var newUser *models.WatcherUser
-
-			decodeHooks := mapstructure.ComposeDecodeHookFunc(
-				hooks.StringToAddressHookFunc(),
-				hooks.StringToLipglossColorHookFunc(),
-			)
-
-			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-				DecodeHook: decodeHooks,
-				Result:     &newUser,
-			})
-
-			err := decoder.Decode(walletConfig)
-			if err != nil {
-				gbl.Log.Warnf("reading wallet group configuration failed: %+v", err)
-				return
-			}
-
-			gbl.Log.Debugf("\n%+v\n", newUser)
-
-			mu.Lock()
-			for _, walletAddress := range newUser.WalletAddresses {
-				watcherUsersWallets[walletAddress] = newUser
-			}
-
-			watcherUsers[newUser.Name] = true
-			mu.Unlock()
-
-			gbl.Log.Infof("✅ successfully added user: %s", style.BoldStyle.Render(newUser.Name))
-		}(watcherUser)
+	watcher := models.Watcher{
+		UserAddresses:   make(map[common.Address]*models.WatchGroup, 0),
+		WalletAddresses: make(map[common.Address]*models.WatchGroup, 0),
+		Groups:          make(map[string]*models.WatchGroup, 0),
 	}
 
-	// wait for all goroutines to finish
-	wgWatcherUsers.Wait()
+	watchSpinner := style.GetSpinner("setting up watch rules...")
+	_ = watchSpinner.Start()
+
+	for _, group := range viper.Get("watch").([]interface{}) {
+
+		var newWatchGroup *models.WatchGroup
+
+		decodeHooks := mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToLipglossColorHookFunc(),
+		)
+
+		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: decodeHooks,
+			Result:     &newWatchGroup,
+		})
+
+		err := decoder.Decode(group)
+		if err != nil {
+			gbl.Log.Warnf("reading watchGroup configuration failed: %+v", err)
+			continue
+		}
+
+		mu.Lock()
+		watcher.Groups[newWatchGroup.Name] = newWatchGroup
+
+		for _, user := range newWatchGroup.Users {
+			for _, userWallet := range user.Wallets {
+				watcher.UserAddresses[userWallet.Address] = watcher.Groups[newWatchGroup.Name]
+			}
+		}
+		mu.Unlock()
+
+		gbl.Log.Infof("✅ successfully added group: %s", style.BoldStyle.Render(newWatchGroup.Name))
+	}
 
 	userNames := make([]string, 0)
-	for userName := range watcherUsers {
-		userNames = append(userNames, style.BoldStyle.Render(userName))
+	userWallets := make([]common.Address, 0)
+
+	for _, group := range watcher.Groups {
+		for _, user := range group.Users {
+			for _, userWallet := range user.Wallets {
+				userWallets = append(userWallets, userWallet.Address)
+			}
+
+			user.Group = group
+
+			userNames = append(userNames, style.BoldStyle.Render(user.Name))
+		}
 	}
 
 	// build spinner stop msg with all wallet names
-	watcherSpinner.StopMessage(fmt.Sprint(
-		style.BoldStyle.Render(fmt.Sprint(len(watcherUsers))),
-		fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(watcherUsersWallets)))),
+	watchSpinner.StopMessage(fmt.Sprint(
+		style.BoldStyle.Render(fmt.Sprint(len(userNames))),
+		fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(userWallets)))),
 		strings.Join(userNames, ", "),
 	) + "\n")
 
-	_ = watcherSpinner.Stop()
+	_ = watchSpinner.Stop()
 
-	return (*models.WatcherUsers)(&watcherUsersWallets)
+	return watcher
 }

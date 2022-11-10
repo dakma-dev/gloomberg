@@ -12,7 +12,7 @@ import (
 var tgBot *tgbotapi.BotAPI
 
 func getBot() (*tgbotapi.BotAPI, error) {
-	token := viper.GetString("telegram.token")
+	token := viper.GetString("notifications.telegram.token")
 	if token == "" {
 		gbl.Log.Error("no telegram API token found in config file")
 		return nil, fmt.Errorf("no telegram API token found in config file")
@@ -45,8 +45,9 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 		}
 	}
 
+	// if no photo is provided, send to the global channel
 	if chatID == 0 {
-		chatID = viper.GetInt64("telegram.chat_id")
+		chatID = viper.GetInt64("notifications.telegram.chat_id")
 	}
 
 	// message
@@ -79,8 +80,8 @@ func SendTelegramMessage(chatID int64, text string, photoURL string) (tgbotapi.M
 }
 
 // func RunTelegramBot() {
-// 	token := viper.GetString("telegram.token")
-// 	chatID := viper.GetInt64("telegram.chat_id")
+// 	token := viper.GetString("notifications.telegram.token")
+// 	chatID := viper.GetInt64("notifications.telegram.chat_id")
 
 // 	bot, err := tgbotapi.NewBotAPI(token)
 // 	if err != nil {

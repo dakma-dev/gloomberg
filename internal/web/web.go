@@ -4,19 +4,25 @@ import (
 	"context"
 	"fmt"
 	"html/template"
+	"math"
 	"math/big"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/jfyne/live"
+	"github.com/spf13/viper"
 )
 
 const (
 	wsend       = "send"
 	wnewmessage = "newmessage"
+	glbGasLine  = "gasline"
 )
 
 type EventMessage struct {
@@ -25,6 +31,8 @@ type EventMessage struct {
 	Msg             string
 	Time            string
 	Typemoji        string
+	TxLogCount      uint64
+	TxLogCountColor lipgloss.Color
 	Price           string
 	PricePerItem    float64
 	PriceArrowColor string
@@ -40,6 +48,7 @@ type EventMessage struct {
 	SaLiRa          float64
 	LinkOpenSea     string
 	LinkEtherscan   string
+	GasLine         string
 }
 
 func NewEvent(data interface{}) EventMessage {
@@ -58,9 +67,10 @@ type EventStream struct {
 	ctx           context.Context
 	Events        []EventMessage
 	queueOutWeb   *chan *collections.Event
+	Nodes         *nodes.Nodes
 }
 
-func New(queueWeb *chan *collections.Event, listenAddress string) *EventStream {
+func New(queueWeb *chan *collections.Event, listenAddress string, nodes *nodes.Nodes) *EventStream {
 	ctx := context.Background()
 
 	return &EventStream{
@@ -68,6 +78,7 @@ func New(queueWeb *chan *collections.Event, listenAddress string) *EventStream {
 		ListenAddress: listenAddress,
 		ctx:           ctx,
 		queueOutWeb:   queueWeb,
+		Nodes:         nodes,
 	}
 }
 
@@ -85,22 +96,27 @@ func (es *EventStream) Start() {
 }
 
 func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
-	m, ok := s.Assigns().(*EventStream)
+	eventStream, ok := s.Assigns().(*EventStream)
 
 	if !ok {
+		// return &EventStream{
+		// 	ID: live.NewID(),
+		// 	// Events: []EventMessage{},
+		// 	Events: make([]EventMessage, 0),
+		// 	// 	{ID: live.NewID(), User: "Muh", Msg: "Welcome to chat " + live.SessionID(s.Session())},
+		// 	// },
+		// }
 		return &EventStream{
-			ID:     live.NewID(),
-			Events: []EventMessage{},
-			// 	{ID: live.NewID(), User: "Muh", Msg: "Welcome to chat " + live.SessionID(s.Session())},
-			// },
+			ID: live.NewID(),
+			// Events: make([]EventMessage, 0),
 		}
 	}
 
-	m.Events = []EventMessage{}
+	eventStream.Events = make([]EventMessage, 0)
 
 	// go startWorker(s, es.queueOutWeb)
 
-	return m
+	return eventStream
 }
 
 func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
@@ -131,10 +147,25 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 			openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
 		}
 
+		var TxLogCountColor lipgloss.Color
+
+		switch {
+		case event.TxLogCount > 7:
+			TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
+		case event.TxLogCount > 4:
+			TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
+		case event.TxLogCount > 1:
+			TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
+		default:
+			TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
+		}
+
 		data := EventMessage{
 			ID:              live.NewID(),
 			Time:            event.Time.Format("15:04:05"),
 			Typemoji:        event.EventType.Icon(),
+			TxLogCount:      event.TxLogCount,
+			TxLogCountColor: TxLogCountColor,
 			Price:           fmt.Sprintf("%6.3f", priceEther),
 			PricePerItem:    priceEtherPerItem,
 			PriceArrowColor: string(event.PriceArrowColor),
@@ -152,6 +183,8 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 			LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
 		}
 
+		gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
+
 		if err := (*s).Broadcast(wnewmessage, data); err != nil {
 			gbl.Log.Errorf("failed braodcasting new message: %s", err)
 		}
@@ -160,19 +193,88 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 	gbl.Log.Info("webWorker closed for session %+v", live.SessionID((*s).Session()))
 }
 
+func GasLineMessage(s *live.Socket, webGasTicker *time.Ticker, ethNodes *nodes.Nodes) {
+	oldGasPrice := 0
+
+	for range webGasTicker.C {
+		gasNode := ethNodes.GetRandomLocalNode()
+		gasLine := strings.Builder{}
+
+		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
+			// gas price
+			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
+				gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
+				gasPrice := int(math.Round(gasPriceGwei))
+
+				if math.Abs(float64(gasPrice-oldGasPrice)) < 2.0 {
+					continue
+				}
+
+				oldGasPrice = gasPrice
+
+				// // tip / priority fee
+				// var gasTip int
+				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
+				// 	gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
+				// 	gasTip = int(math.Round(gasTipGwei))
+				// 	fmt.Printf("gasInfo.GasTipWei: %+v | gasTipGwei: %+v | gasTip: %+v\n", gasInfo.GasTipWei, gasTipGwei, gasTip)
+				// }
+
+				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
+				outro := style.DarkerGrayStyle.Render("   ~   ~")
+				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
+
+				formattedGas := style.GrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
+				formattedGasAndTip := formattedGas
+
+				// if gasTip > 0 {
+				// 	formattedGasAndTip = formattedGas + "|" + style.GrayStyle.Render(fmt.Sprintf("%d", gasTip)) + style.DarkGrayStyle.Render("gw")
+				// }
+
+				gasLine.WriteString(intro + formattedGas + divider + formattedGasAndTip + divider + formattedGas + outro)
+
+				data := EventMessage{
+					GasLine: gasLine.String(),
+				}
+
+				if err := (*s).Broadcast(wnewmessage, data); err != nil {
+					gbl.Log.Errorf("failed braodcasting new message: %s", err)
+				}
+			}
+		}
+
+		// *queueOutput <- gasLine.String()
+	}
+}
+
 func (es *EventStream) NewEventHandler() live.Handler {
 	t, err := template.ParseFiles("www/layout.html", "www/style.html", "www/view.html")
+	// t, err := template.ParseFiles("www/gLayout.html", "www/gStyle.html", "www/gView.html")
 	if err != nil {
 		gbl.Log.Error(err)
 	}
 
 	handler := live.NewHandler(live.WithTemplateRenderer(t))
 
+	handler.HandleError(func(ctx context.Context, err error) {
+		gbl.Log.Error("HandleError: %+v", err)
+	})
+
 	// Set the mount function for this handler.
 	handler.HandleMount(func(ctx context.Context, s live.Socket) (interface{}, error) {
 		gbl.Log.Debugf("handle mount socket: %+v", s)
+
+		gbl.Log.Infof("user connected: %+v", live.SessionID(s.Session()))
+
 		// This will initialise the chat for this socket.
 		go startWorker(&s, es.queueOutWeb)
+
+		if tickerInterval := viper.GetDuration("ticker.statsbox"); es.Nodes != nil && len(es.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+			// start gasline ticker
+			webGasTicker := time.NewTicker(tickerInterval)
+			go GasLineMessage(&s, webGasTicker, es.Nodes)
+		}
+
 		return es.NewEventstreamInstance(s), nil
 	})
 
@@ -186,10 +288,15 @@ func (es *EventStream) NewEventHandler() live.Handler {
 			gbl.Log.Warnf("empty message")
 			return m, nil
 		}
+
+		gbl.Log.Infof("msg from user %s: %+v", live.SessionID(s.Session()), msg)
+
 		data := EventMessage{
-			ID:   live.NewID(),
-			User: live.SessionID(s.Session()),
-			Msg:  msg,
+			ID:       live.NewID(),
+			User:     live.SessionID(s.Session()),
+			Time:     time.Now().Format("15:04:05"),
+			Typemoji: "🗣️",
+			Msg:      msg,
 		}
 
 		if err := s.Broadcast(wnewmessage, data); err != nil {
@@ -202,6 +309,7 @@ func (es *EventStream) NewEventHandler() live.Handler {
 	// Handle the broadcasted events.
 	handler.HandleSelf(wnewmessage, func(ctx context.Context, s live.Socket, data interface{}) (interface{}, error) {
 		gbl.Log.Debugf("handle self data: %+v", data)
+		gbl.Log.Debugf("broadcasting to %s: %+v", live.SessionID(s.Session()), data)
 
 		m := es.NewEventstreamInstance(s)
 

@@ -23,6 +23,11 @@ require (
 )
 
 require (
+	github.com/gookit/color v1.5.2 // indirect
+	github.com/xo/terminfo v0.0.0-20210125001918-ca9a967f8778 // indirect
+)
+
+require (
 	github.com/aymanbagabas/go-osc52 v1.0.3 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
@@ -40,6 +45,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
+	github.com/gookit/goutil v0.5.15
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect

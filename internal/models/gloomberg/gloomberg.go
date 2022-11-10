@@ -16,11 +16,15 @@ type Gloomberg struct {
 	ChainWatcher   *chainwatcher.ChainWatcher
 	StreamWatcher  *ossw.OSStreamWatcher
 	WebEventStream *web.EventStream
+	Watcher        *models.Watcher
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
 
 	WatchUsers *models.WatcherUsers
+
+	// WatchGroups *models.WatchGroups
+	// WatchRules  *models.WatchRules
 
 	OutputQueues map[string]chan *collections.Event
 	QueueSlugs   chan common.Address

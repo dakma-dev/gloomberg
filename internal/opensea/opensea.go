@@ -90,13 +90,6 @@ func GetWalletCollections(wallets *wallet.Wallets, userCollections *collections.
 func GetCollectionsFor(walletAddress common.Address, userCollections *collections.CollectionDB, nodes *nodes.Nodes, try int) []*collections.GbCollection {
 	receivedCollections := make([]*collections.GbCollection, 0)
 
-	// create the http client & request
-	// client, _ := createHTTPClient()
-
-	// request, _ := createGetRequest(url)
-
-	// response, err := client.Do(request)
-
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/collections?asset_owner=%s&offset=0&limit=300", walletAddress)
 
 	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
@@ -204,4 +197,56 @@ func GetAssetContract(contractAddress common.Address) *models.AssetContract {
 	}
 
 	return assetContract
+}
+
+func GetListings(contractAddress common.Address, tokenID int64) []models.SeaportOrder {
+	url := fmt.Sprintf("https://api.opensea.io/v2/orders/ethereum/seaport/listings?asset_contract_address=%s&token_ids=%d&order_by=created_date&order_direction=desc", contractAddress.String(), tokenID)
+
+	response, err := utils.HTTP.GetWithHeader(url, openSeaHeader())
+	if err != nil {
+		gbl.Log.Errorf("❌ error while fetching listings for %s/%d: %s", contractAddress.Hex(), tokenID, err)
+		// if os.IsTimeout(err) {
+		// 	// dalog.Warn("TIMEOUT while fetching listings, trying again next round... ", collectionSlug)
+		// } else {
+		// 	// dalog.Warn("ooopsss an error occurred while fetching asset events, please try again:", err)
+		// }
+		return nil
+	}
+
+	defer response.Body.Close()
+
+	// create a variable of the same type as our model
+	var listingsResponse *models.OpenSeaListingsResponse
+
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		gbl.Log.Errorf("❌ error reading listings response body for %s/%d: %s", contractAddress.Hex(), tokenID, err)
+		return nil
+	}
+
+	// fmt.Printf("response: %d | body: %s\n", response.StatusCode, responseBody)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		gbl.Log.Errorf("❌ error listings response json for %s/%d is invalid: %v", contractAddress.Hex(), tokenID, string(responseBody))
+		return nil
+	}
+
+	// decode the data
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&listingsResponse); err != nil {
+		gbl.Log.Errorf("❌ error while decoding listings for %s/%d: %s", contractAddress.Hex(), tokenID, err)
+		return nil
+	}
+
+	if listingsResponse == nil {
+		gbl.Log.Errorf("❌ error while decoding listings response for %s - %d: %s", contractAddress.Hex(), tokenID, err)
+		return nil
+	}
+
+	if len(listingsResponse.Orders) == 0 {
+		gbl.Log.Debugf("🤷‍♀️ no listings found for %s #%d", contractAddress.Hex(), tokenID)
+		return nil
+	}
+
+	return listingsResponse.Orders
 }
