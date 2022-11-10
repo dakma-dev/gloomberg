@@ -78,7 +78,7 @@ func New(gasTicker *time.Ticker, wallets *wallet.Wallets, nodes *nodes.Nodes, nu
 		gasTicker: gasTicker,
 
 		numCollections: uint(numCollections),
-		interval:       viper.GetDuration("stats.interval"),
+		interval:       viper.GetDuration("ticker.statsbox"),
 	}
 
 	stats.Reset()
