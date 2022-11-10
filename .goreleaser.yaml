@@ -86,14 +86,14 @@ announce:
   telegram:
     # Whether its enabled or not.
     # Defaults to false.
-    enabled: true
+    enabled: false
 
     # Integer representation of your channel
     chat_id: -575512868
 
     # Message template to use while publishing.
     # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
-    message_template: '''💸 🚀 🙌  {{  replace .ProjectName "." "\." }} {{ replace .Tag "." "\." }} is out! → {{ replace .ReleaseURL "." "\." }} 🙌 🚀 💸'''
+    message_template: "💸 🚀 🙌  {{ .ProjectName }} {{.Tag}} is out\\! → {{ .ReleaseURL }} 🙌 🚀 💸"
 
 # gomod:
 #   # Proxy a module from proxy.golang.org, making the builds verifiable.
