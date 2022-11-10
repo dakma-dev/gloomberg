@@ -9,20 +9,21 @@ import (
 	"os"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/term"
 )
 
 var (
-	Pink                 = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
-	OwnerGreen           = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
-	Subtle               = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
-	darkGray             = lipgloss.Color("#333")
-	darkerGray           = lipgloss.Color("#222")
-	darkestGray          = lipgloss.Color("#111")
+	Pink       = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
+	OwnerGreen = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
+	Subtle     = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
+	darkGray   = lipgloss.Color("#333")
+	darkerGray = lipgloss.Color("#222")
+
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
+	BlurOrange           = lipgloss.Color("#FF8700")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))
@@ -34,7 +35,6 @@ var (
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
 	DarkGrayStyle        = lipgloss.NewStyle().Foreground(darkGray)
 	DarkerGrayStyle      = lipgloss.NewStyle().Foreground(darkerGray)
-	DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
 	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
 	OwnerGreenBoldStyle  = BoldStyle.Copy().Foreground(OwnerGreen)
@@ -42,6 +42,10 @@ var (
 	Sharrow              = BoldStyle.Copy().SetString("→")
 	DividerArrowRight    = GrayBoldStyle.SetString("→")
 	DividerArrowLeft     = GrayBoldStyle.SetString("←")
+
+	// darkestGray          = lipgloss.Color("#111")
+	// DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
+
 	// PinkStyle            = lipgloss.NewStyle().Foreground(pink)
 	// GrayFaintStyle       = GrayStyle.Copy().Faint(true)
 
@@ -55,7 +59,7 @@ var (
 )
 
 var ShadesPink = []lipgloss.Color{
-	"#ffffff",
+	"#fff1f6",
 	"#ffe5f4",
 	"#ffccea",
 	"#ffb2e0",
@@ -120,28 +124,26 @@ func GetHeader(version string) string {
 	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
 }
 
-func GetPriceShadeColor(txValue *big.Float) lipgloss.Color {
+func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	var priceColor lipgloss.Color
 
 	switch {
-	case txValue.Cmp(big.NewFloat(0)) == 0:
-		priceColor = "#333333"
-	case txValue.Cmp(big.NewFloat(0.25)) < 0:
-		priceColor = ShadesPink[0]
-	case txValue.Cmp(big.NewFloat(0.5)) < 0:
-		priceColor = ShadesPink[1]
-	case txValue.Cmp(big.NewFloat(0.75)) < 0:
-		priceColor = ShadesPink[2]
-	case txValue.Cmp(big.NewFloat(1.0)) < 0:
-		priceColor = ShadesPink[3]
-	case txValue.Cmp(big.NewFloat(2.0)) < 0:
-		priceColor = ShadesPink[5]
-	case txValue.Cmp(big.NewFloat(3.0)) < 0:
-		priceColor = ShadesPink[6]
-	case txValue.Cmp(big.NewFloat(5.0)) < 0:
-		priceColor = ShadesPink[8]
-	case txValue.Cmp(big.NewFloat(5.0)) >= 0:
+	case txValue >= 10.0:
 		priceColor = ShadesPink[9]
+	case txValue >= 5.0:
+		priceColor = ShadesPink[8]
+	case txValue >= 2.0:
+		priceColor = ShadesPink[6]
+	case txValue >= 1.0:
+		priceColor = ShadesPink[4]
+	case txValue >= 0.5:
+		priceColor = ShadesPink[2]
+	case txValue >= 0.25:
+		priceColor = ShadesPink[1]
+	case txValue >= 0.1:
+		priceColor = ShadesPink[0]
+	default:
+		priceColor = "#333333"
 	}
 
 	return priceColor

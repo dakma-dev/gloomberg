@@ -4,6 +4,8 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/models/txlogcollector"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -64,26 +66,52 @@ func (et EventType) ActionName() string {
 }
 
 type Event struct {
-	NodeID    int
-	EventType EventType
-	Topic     string
-	TxHash    common.Hash
-	// Collection      *Collection
-	Collection      *GbCollection
-	TokenID         uint64
-	DomainENS       string
+	NodeID               int
+	EventType            EventType
+	Topic                string
+	TxHash               common.Hash
+	TransactionCollector *txlogcollector.TxLogCollector
+	ContractAddress      common.Address
+	Collection           *GbCollection
+	TokenID              *big.Int
+	UniqueTokenIDs       []*big.Int
+	ENSMetadata          *external.ENSMetadata
+	PriceWei             *big.Int
+	PriceArrowColor      lipgloss.Color
+	CollectionColor      lipgloss.Color
+	Permalink            string
+	TxLogCount           uint64
+	Time                 time.Time
+	From                 User
+	FromENS              string
+	To                   User
+	ToColor              lipgloss.Color
+	ToENS                string
+	FromAddresses        map[common.Address]bool
+	ToAddresses          map[common.Address]bool
+	WorkerID             int
+	PrintEvent           bool
+}
+
+type PushEvent struct {
+	NodeID          int
+	EventType       EventType
+	Topic           string
+	TxHash          common.Hash
+	CollectionName  string
+	ContractAddress common.Address
+	TokenID         *big.Int
+	ENSMetadata     *external.ENSMetadata
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
 	CollectionColor lipgloss.Color
-	// MultiItemTx bool
-	Permalink   string
-	TxItemCount uint
-	Time        time.Time
-	From        User
-	FromENS     string
-	To          User
-	ToENS       string
-	WorkerID    int
+	Permalink       string
+	TxItemCount     uint64
+	Time            time.Time
+	From            User
+	FromENS         string
+	To              User
+	ToENS           string
 }
 
 type EventWithStyle struct {
@@ -106,7 +134,7 @@ type EventWithStyle struct {
 	CollectionName        string
 	CollectionColor       lipgloss.Color
 	CollectionTotalSupply uint64
-	TokenID               uint64
+	TokenID               *big.Int
 
 	PriceEther      string
 	PriceEtherColor lipgloss.Color
@@ -114,7 +142,7 @@ type EventWithStyle struct {
 	PriceWei        *big.Int
 	PricePerItem    *big.Int
 
-	TxItemCount uint
+	TxItemCount uint64
 
 	EtherscanURL string
 	OpenseaURL   string

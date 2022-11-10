@@ -1,12 +1,10 @@
 # build output
 dist/
-gloomberg
 
 # config files
 .gloomberg.yaml
 .github/ttyd.Dockerfile
 
 # misc
-cmd/setOwner.go
 internal/assets
 dev.md

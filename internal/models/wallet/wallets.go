@@ -1,11 +1,22 @@
 package wallet
 
 import (
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type Wallets map[common.Address]*Wallet
+type (
+	Wallets map[common.Address]*Wallet
+	Group   []*Wallet
+)
+
+// type Group struct {
+// 	Name             string    `mapstructure:"name"`
+// 	TelegramUsername string    `mapstructure:"telegram_username"`
+// 	Wallets          []*Wallet `mapstructure:"wallets"`
+// 	Own              bool      `mapstructure:"own"`
+// }
 
 func (ws *Wallets) Addresses() []common.Address {
 	addresses := make([]common.Address, 0)
@@ -43,6 +54,16 @@ func (ws *Wallets) Contains(address common.Address) bool {
 	}
 
 	return false
+}
+
+func (ws *Wallets) ContainsOneOf(addresses map[common.Address]bool) common.Address {
+	for address := range addresses {
+		if (*ws)[address] != nil {
+			return address
+		}
+	}
+
+	return utils.ZeroAddress
 }
 
 func (ws *Wallets) GetAll() WalletsSlice {

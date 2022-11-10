@@ -1,0 +1,238 @@
+{{ define "style" }}
+
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200" />
+<style>
+  html {
+    margin: 0;
+    overflow: hidden;
+    padding: 0;
+  }
+
+  body {
+    background-color: #110000;
+    animation: bgRLD 0.5s infinite;
+    color: #dddddd;
+    height: 100vh;
+    margin: 0;
+    padding: 0;
+
+    font-family: "JetBrains Mono", monospace;
+    font-size: 0.9rem;
+    font-variation-settings: "wght" 200;
+  }
+  body.live-connected {
+    border-top: none;
+    background-color: #030303;
+    animation: none;
+  }
+
+  @keyframes bgRLD {
+    0% {
+      background-color: #d23469;
+    }
+    10% {
+      background-color: #400817;
+    }
+    20% {
+      background-color: #8d1537;
+    }
+    30% {
+      background-color: #120407;
+    }
+    40% {
+      background-color: #6a0f27;
+    }
+    50% {
+      background-color: #f6c3de;
+    }
+    60% {
+      background-color: #6f2b4e;
+    }
+    70% {
+      background-color: #a14c7c;
+    }
+    80% {
+      background-color: #a46c8c;
+    }
+    90% {
+      background-color: #6c3441;
+    }
+    100% {
+      background-color: #400817;
+    }
+  }
+
+  hr.gasline {
+    border: 0;
+    border-top: 1px dotted #333;
+    margin: 0.3rem;
+  }
+
+  header {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  main {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+
+  header p {
+    font-size: 0.6rem;
+    line-height: 0.6rem;
+    /* text-shadow: 0 0 5px #666, 0 0 10px #666, 0 0 15px #666, 0 0 20px #ff2d95, 0 0 30px #ff2d95, 0 0 40px #ff2d95, 0 0 50px #ff2d95, 0 0 75px #ff2d95; */
+    text-shadow: 0 0 2px #666, 0 0 5px #666, 0 0 7px #666, 0 0 10px #ff2d95, 0 0 15px #ff2d95, 0 0 20px #ff2d95,
+      0 0 25px #ff2d95, 0 0 37px #ff2d95;
+    letter-spacing: 6px;
+    margin: 0.5rem;
+  }
+
+  .window {
+    height: 88vh;
+
+    overflow-y: scroll;
+    box-shadow: 0 0 5px #111 inset;
+  }
+
+  .message {
+    align-items: center;
+    display: flex;
+  }
+
+  .message span {
+    color: #999999;
+    margin-left: 0.3rem;
+    overflow: hidden;
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
+  }
+
+  .message span.time {
+    color: #333333;
+    min-width: 4.25rem;
+    text-align: right;
+  }
+
+  .message span.typemoji {
+    color: #333333;
+    margin-left: 0.5rem;
+    min-width: 1rem;
+    width: 1rem;
+  }
+
+  .message span.price {
+    color: #f9f9f9;
+    min-width: 3.8rem;
+  }
+
+  .message span.currency {
+    margin-left: 0;
+  }
+
+  .message span.pricearrow {
+    color: #333333;
+    min-width: 1rem;
+  }
+
+  .message span.collection {
+    max-width: 32em;
+    text-align: left;
+    text-overflow: ellipsis;
+  }
+
+  .message span.hashtag {
+    min-width: 1rem;
+  }
+
+  .message span.tokenid {
+    margin-left: 0;
+    max-width: 4em;
+    min-width: 2em;
+    text-align: left;
+    text-overflow: ellipsis;
+  }
+
+  .message span.divider {
+    color: #373737;
+    margin: 0 0.3rem;
+  }
+
+  .message a {
+    text-decoration: none;
+  }
+  .message a:hover {
+    text-decoration: underline;
+    text-decoration-color: #ff009999;
+    text-decoration-style: dotted;
+    text-decoration-thickness: 0.25em;
+  }
+  .message a.etherscan {
+    color: #666666;
+  }
+  .message a.opensea {
+    color: #5f7699;
+  }
+
+  .message pre {
+    white-space: normal;
+  }
+
+  .actions {
+    align-items: center;
+    display: flex;
+    padding: 0.5rem 0.7rem;
+  }
+
+  .actions form {
+    align-items: center;
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    opacity: 80%;
+  }
+
+  .actions form input[type="text"],
+  .actions form button[type="submit"] {
+    color: #ff009966;
+      outline: #ff009966 dotted thin;
+  }
+
+  .actions form input[type="text"] {
+    background-color: #090909;
+    border-radius: 0.2rem;
+    border: 1px solid black;
+    color: #ff009999;
+    display: flex;
+    flex: 1 0 80%;
+    padding: 0.5rem;
+    pointer-events: none;
+  }
+  .actions form input[type="text"]:focus {
+    box-shadow: none;
+  }
+
+  .actions form button[type="submit"] {
+    background-color: #090909;
+    border-radius: 0.2rem;
+    border: 1px solid black;
+    display: flex;
+    margin-left: 0.5rem;
+    padding: 0.5rem;
+    pointer-events: none;
+  }
+
+  body.live-connected .actions form input {
+    pointer-events: initial;
+  }
+
+  body.live-connected .actions form button {
+    pointer-events: initial;
+  }
+</style>
+
+{{ end }}

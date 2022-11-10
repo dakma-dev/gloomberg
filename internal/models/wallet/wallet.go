@@ -13,12 +13,18 @@ type Wallet struct {
 	Name          string         `mapstructure:"name"`
 	Address       common.Address `mapstructure:"address"`
 	ENS           *ens.Name      `mapstructure:"ens"`
-	Balance       *big.Int       `mapstructure:"balance"`
-	BalanceBefore *big.Int       `mapstructure:"balance_before"`
-	BalanceTrend  string         `mapstructure:"balance_trend"`
+	ENSName       string         `mapstructure:"ens_name"`
 	Color         lipgloss.Color `mapstructure:"color"`
+	Balance       *big.Int
+	BalanceBefore *big.Int
+	BalanceTrend  string
 }
 
 func (w *Wallet) ColoredName(maxWalletNameLength int) string {
 	return lipgloss.NewStyle().Foreground(w.Color).Faint(true).Width(maxWalletNameLength).Render(w.Name)
+}
+
+func (w *Wallet) Render(text string) string {
+	// generate the collection color based on the contract address if none given
+	return lipgloss.NewStyle().Foreground(w.Color).Render(text)
 }

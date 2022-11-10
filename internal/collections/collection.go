@@ -6,27 +6,30 @@ import (
 	"math/rand"
 	"sync/atomic"
 
-	"github.com/benleb/gloomberg/internal/server/node"
+	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/style"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/models"
-	"github.com/benleb/gloomberg/internal/style"
+
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
 
+type BaseCollection struct{}
+
 // GbCollection represents the collections configured by the user.
 type GbCollection struct {
 	//
-	// user-configurable fields
-	//
-
+	// configurable fields
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
 	OpenseaSlug     string         `mapstructure:"slug"`
+
+	// SupportedStandards standard.Standards
 
 	Show struct {
 		Sales     bool `mapstructure:"sales"`
@@ -40,18 +43,15 @@ type GbCollection struct {
 		Sales              lipgloss.Color `mapstructure:"show.sales"`
 		Mints              lipgloss.Color `mapstructure:"mints"`
 		Transfers          lipgloss.Color `mapstructure:"transfers"`
-		Listings           lipgloss.Color `mapstructure:"show.listings"`
+		Listings           lipgloss.Color `mapstructure:"listings.enabled"`
 		ListingsBelowPrice float64        `mapstructure:"listings_below_price"`
 	}
 
 	//
 	// calculated/generated fields
-	//
-
 	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
-	// Metadata map[string]interface{} `mapstructure:"metadata"`
 
-	Source CollectionSource `mapstructure:"source"`
+	Source models.CollectionSource `mapstructure:"source"`
 
 	Colors struct {
 		Primary   lipgloss.Color `mapstructure:"primary"`
@@ -59,27 +59,24 @@ type GbCollection struct {
 	} `mapstructure:"colors"`
 
 	Counters struct {
-		Sales       uint64   `mapstructure:"sales"`
-		Mints       uint64   `mapstructure:"mints"`
-		Transfers   uint64   `mapstructure:"transfers"`
-		Listings    uint64   `mapstructure:"listings"`
-		SalesVolume *big.Int `mapstructure:"salesVolume"`
-	} `mapstructure:"counters"`
+		Sales       uint64
+		Mints       uint64
+		Transfers   uint64
+		Listings    uint64
+		SalesVolume *big.Int
+	}
 
-	SaLiRa ewma.MovingAverage `mapstructure:"salira"`
+	SaLiRa ewma.MovingAverage `json:"salira"`
 
 	// exponential moving average of the actual sale prices
-	ArtificialFloor         ewma.MovingAverage `mapstructure:"artificialFloor"`
-	PreviousArtificialFloor float64            `mapstructure:"artificialFloor"`
+	// FloorPrice         ewmabig.MovingAverage `mapstructure:"artificialFloor"`
+	// PreviousFloorPrice *big.Int              `mapstructure:"artificialFloor"`
+
+	FloorPrice         ewma.MovingAverage `mapstructure:"floorPrice"`
+	PreviousFloorPrice float64            `mapstructure:"previousFloorPrice"`
 }
 
-// // MarshalBinary encodes the Collection into a binary format.
-// func (uc *Collection) MarshalBinary() ([]byte, error) { return json.Marshal(uc) }
-
-// // UnmarshalBinary decodes the Collection from a binary format.
-// func (uc *Collection) UnmarshalBinary(data []byte) error { return json.Unmarshal(data, uc) }
-
-func NewCollection(contractAddress common.Address, name string, nodes *node.Nodes, source CollectionSource) *GbCollection {
+func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
 	var collectionName string
 
 	gbCache := cache.New()
@@ -93,15 +90,17 @@ func NewCollection(contractAddress common.Address, name string, nodes *node.Node
 			if name != "" {
 				collectionName = name
 			}
-		} else if name, err := nodes.GetRandomNode().GetCollectionName(contractAddress, nil); err == nil {
-			gbl.Log.Debugf("chain | collection name via chain call: %s", name)
+		} else if nodes != nil {
+			if name, err := nodes.GetERC721CollectionName(contractAddress); err == nil {
+				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
-			if name != "" {
-				collectionName = name
+				if name != "" {
+					collectionName = name
+				}
+
+				// cache collection name
+				gbCache.CacheCollectionName(contractAddress, collectionName)
 			}
-
-			// cache collection name
-			gbCache.CacheCollectionName(contractAddress, collectionName)
 		} else {
 			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
 
@@ -113,49 +112,64 @@ func NewCollection(contractAddress common.Address, name string, nodes *node.Node
 		ContractAddress: contractAddress,
 		Name:            collectionName,
 
+		// OwnedTokenIDs: []uint64{},
 		Metadata: &models.CollectionMetadata{},
 		Source:   source,
 
-		ArtificialFloor: ewma.NewMovingAverage(),
-		SaLiRa:          ewma.NewMovingAverage(),
+		FloorPrice:         ewma.NewMovingAverage(),
+		PreviousFloorPrice: 0,
+
+		SaLiRa: ewma.NewMovingAverage(),
 	}
 
-	go func() {
-		rawMetaDatas := nodes.GetRandomNode().GetCollectionMetadata(contractAddress)
+	// go func() {
+	// 	collection.SupportedStandards = nodes.GetSupportedStandards(contractAddress)
+	// }()
 
-		metadata := &models.CollectionMetadata{}
+	// go func() {
+	// 	if nodes.ERC1155Supported(contractAddress) {
+	// 		collection.SupportedStandards = append(collection.SupportedStandards, standard.ERC1155)
+	// 	}
+	// }()
 
-		if name := rawMetaDatas["name"]; name != nil {
-			metadata.ContractName = name.(string)
-		}
+	if nodes != nil {
+		go func() {
+			rawMetaDatas := nodes.GetCollectionMetadata(contractAddress)
 
-		if symbol := rawMetaDatas["symbol"]; symbol != nil {
-			metadata.Symbol = symbol.(string)
-		}
+			metadata := &models.CollectionMetadata{}
 
-		if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
-			metadata.TotalSupply = totalSupply.(uint64)
-		}
+			if name := rawMetaDatas["name"]; name != nil {
+				metadata.ContractName = name.(string)
+			}
 
-		if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
-			metadata.TokenURI = tokenURI.(string)
-		}
+			if symbol := rawMetaDatas["symbol"]; symbol != nil {
+				metadata.Symbol = symbol.(string)
+			}
 
-		collection.Metadata = metadata
-	}()
+			if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
+				metadata.TotalSupply = totalSupply.(uint64)
+			}
 
-	if source == Wallet || source == Stream {
+			if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
+				metadata.TokenURI = tokenURI.(string)
+			}
+
+			collection.Metadata = metadata
+		}()
+	}
+
+	if source == models.FromWallet || source == models.FromStream {
 		collection.Show.Sales = viper.GetBool("show.sales")
 		collection.Show.Mints = viper.GetBool("show.mints")
 		collection.Show.Transfers = viper.GetBool("show.transfers")
 
-		if source == Wallet {
+		if source == models.FromWallet {
 			if viper.IsSet("api_keys.opensea") {
-				collection.Show.Listings = viper.GetBool("show.listings")
+				collection.Show.Listings = viper.GetBool("listings.enabled")
 			}
 		}
 
-		if source == Stream {
+		if source == models.FromStream {
 			collection.Show.Listings = false
 		}
 	}
@@ -186,7 +200,7 @@ func (uc *GbCollection) AddSale(value *big.Int, numItems uint64) float64 {
 	uc.Counters.SalesVolume.Add(uc.Counters.SalesVolume, value)
 	atomic.AddUint64(&uc.Counters.Sales, numItems)
 
-	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("stats.interval").Seconds()))
+	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("ticker.statsbox").Seconds()))
 }
 
 func (uc *GbCollection) AddMint() {
@@ -214,14 +228,14 @@ func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
 	return previousSaLiRa, currentSaLiRa
 }
 
-// CalculateArtificialFloor updates the moving average of a given collection.
-func (uc *GbCollection) CalculateArtificialFloor(tokenPrice float64) (float64, float64) {
+// CalculateFloorPrice updates the moving average of a given collection.
+func (uc *GbCollection) CalculateFloorPrice(tokenPrice float64) (float64, float64) {
 	// update the moving average
-	uc.PreviousArtificialFloor = uc.ArtificialFloor.Value()
-	uc.ArtificialFloor.Add(tokenPrice)
-	currentMovingAverage := uc.ArtificialFloor.Value()
+	uc.PreviousFloorPrice = uc.FloorPrice.Value()
+	uc.FloorPrice.Add(tokenPrice)
+	currentFloorPrice := uc.FloorPrice.Value()
 
-	return uc.PreviousArtificialFloor, currentMovingAverage
+	return uc.PreviousFloorPrice, currentFloorPrice
 }
 
 func (uc *GbCollection) ResetStats() {

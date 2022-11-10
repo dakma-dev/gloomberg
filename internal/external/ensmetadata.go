@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type ENSMetadataAttribute struct {
@@ -36,6 +38,8 @@ const (
 	ensContractAddress = "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85"
 )
 
+var ENSContract = common.HexToAddress(ensContractAddress)
+
 func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 	if tokenID == nil {
 		return nil, errors.New("tokenID is empty")
@@ -44,10 +48,12 @@ func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 	// build url
 	url := ensMetadataAPI + "/" + "mainnet" + "/" + ensContractAddress + "/" + fmt.Sprint(tokenID)
 
-	client, _ := newClient()
-	request, _ := http.NewRequest("GET", url, nil)
+	// client, _ := newClient()
+	// request, _ := http.NewRequest("GET", url, nil)
 
-	response, err := client.Do(request)
+	// response, err := client.Do(request)
+
+	response, err := utils.HTTP.Get(url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ timeout while fetching ens metadata: %+v", err.Error())

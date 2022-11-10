@@ -2,10 +2,11 @@ package cache
 
 import (
 	"errors"
+	"math/big"
 	"sync"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"
@@ -22,9 +23,10 @@ var gbCache *GbCache
 const noENSName = "NO-ENS-NAME"
 
 type GbCache struct {
-	mu            *sync.RWMutex
-	rdb           *redis.Client
-	addressToName map[common.Address]string
+	mu  *sync.RWMutex
+	rdb *redis.Client
+	// addressToName map[common.Address]string
+	localCache map[string]string
 }
 
 func New() *GbCache {
@@ -33,8 +35,9 @@ func New() *GbCache {
 	}
 
 	gbCache = &GbCache{
-		mu:            &sync.RWMutex{},
-		addressToName: make(map[common.Address]string),
+		mu: &sync.RWMutex{},
+		// addressToName: make(map[common.Address]string),
+		localCache: make(map[string]string),
 	}
 
 	if viper.GetBool("redis.enabled") {
@@ -68,7 +71,7 @@ func (c *GbCache) GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
 }
 
-func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID uint64, priceWei uint64, numItems uint, eventTime time.Time, eventType int64) {
+func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName string, tokenID *big.Int, priceWei uint64, numItems uint64, eventTime time.Time, eventType int64) {
 	xAddArgs := &redis.XAddArgs{
 		Stream: "sales",
 		MaxLen: 100000,
@@ -77,7 +80,7 @@ func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName stri
 		Values: map[string]any{
 			"contractAddress": contractAddress.Hex(),
 			"collectionName":  collectionName,
-			"tokenID":         tokenID,
+			"tokenID":         tokenID.Uint64(),
 			"priceWei":        priceWei,
 			"numItems":        numItems,
 			"eventTime":       eventTime,
@@ -86,7 +89,7 @@ func (c *GbCache) StoreEvent(contractAddress common.Address, collectionName stri
 	}
 
 	if c.rdb != nil {
-		gbl.Log.Debugf("redis | adding sale: %s #%d", collectionName, int(tokenID))
+		gbl.Log.Debugf("redis | adding sale: %s #%d", collectionName, tokenID)
 
 		if added, err := c.rdb.XAdd(c.rdb.Context(), xAddArgs).Result(); err == redis.Nil {
 			gbl.Log.Errorf("redis | strange redis.Nil while adding to stream: %s %d -xxx-> %s: %s", collectionName, tokenID, xAddArgs.Stream, err)
@@ -104,7 +107,8 @@ func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address)
 	}
 
 	c.mu.Lock()
-	c.addressToName[address] = value
+	// c.addressToName[address] = value
+	c.localCache[keyFunc(address)] = value
 	c.mu.Unlock()
 
 	if c.rdb != nil {
@@ -122,7 +126,8 @@ func (c *GbCache) cacheName(address common.Address, keyFunc func(common.Address)
 
 func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) string) (string, error) {
 	c.mu.RLock()
-	name := c.addressToName[address]
+	// name := c.addressToName[address]
+	name := c.localCache[keyFunc(address)]
 	c.mu.RUnlock()
 
 	if name != "" {
@@ -142,7 +147,8 @@ func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) s
 			gbl.Log.Debugf("redis | using cached name: %s", name)
 
 			c.mu.Lock()
-			c.addressToName[address] = name
+			// c.addressToName[address] = name
+			c.localCache[keyFunc(address)] = name
 			c.mu.Unlock()
 
 			if name == noENSName {
@@ -162,7 +168,7 @@ func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) s
 	return "", errors.New("name not found in cache")
 }
 
-func CacheENSName(walletAddress common.Address, ensName string) {
+func StoreENSName(walletAddress common.Address, ensName string) {
 	c := New()
 	c.cacheName(walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
 }
@@ -170,4 +176,24 @@ func CacheENSName(walletAddress common.Address, ensName string) {
 func GetENSName(walletAddress common.Address) (string, error) {
 	c := New()
 	return c.getName(walletAddress, keyENS)
+}
+
+//func GetOSSlug(contractAddress common.Address) (string, error) {
+//	c := New()
+//	return c.getName(contractAddress, keyOSSlug)
+//}
+
+//func GetBlurSlug(contractAddress common.Address) (string, error) {
+//	c := New()
+//	return c.getName(contractAddress, keyBlurSlug)
+//}
+
+func StoreOSSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
+}
+
+func StoreBlurSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
 }

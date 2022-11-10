@@ -10,14 +10,13 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/etherscan"
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models/wallet"
-	"github.com/benleb/gloomberg/internal/server/node"
+	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -29,8 +28,8 @@ var (
 			Border(lipgloss.NormalBorder(), false, true, false, false).
 			BorderForeground(style.Subtle).
 			MarginRight(0)
-		// Height(8).
-		// Width(columnWidth + 1)
+	// Height(8).
+	// Width(columnWidth + 1)
 
 	itemStyle = lipgloss.NewStyle().Padding(0, 2)
 	listItem  = itemStyle.Render
@@ -40,7 +39,7 @@ var (
 
 type Stats struct {
 	wallets *wallet.Wallets
-	nodes   *node.Nodes
+	nodes   *nodes.Nodes
 
 	numCollections uint
 	interval       time.Duration
@@ -68,7 +67,7 @@ type Stats struct {
 	DiscardedMints             uint64
 }
 
-func New(gasTicker *time.Ticker, wallets *wallet.Wallets, nodes *node.Nodes, numCollections int) *Stats {
+func New(gasTicker *time.Ticker, wallets *wallet.Wallets, nodes *nodes.Nodes, numCollections int) *Stats {
 	stats := &Stats{
 		wallets: wallets,
 		nodes:   nodes,
@@ -94,7 +93,7 @@ func (s *Stats) salesPerMinute() float64 {
 }
 
 func (s *Stats) salesVolumePerMinute() float64 {
-	ethVolume, _ := node.WeiToEther(s.salesVolume).Float64()
+	ethVolume, _ := nodes.WeiToEther(s.salesVolume).Float64()
 
 	return (ethVolume * 60) / s.interval.Seconds()
 }
@@ -102,7 +101,7 @@ func (s *Stats) salesVolumePerMinute() float64 {
 func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	gbl.Log.Debugf("updating wallet balances...")
 
-	balances, err := etherscan.GetBalances(s.wallets)
+	balances, err := external.GetBalances(s.wallets)
 	if err != nil || balances == nil {
 		gbl.Log.Warn("❌ error while fetching wallet balances")
 
@@ -130,7 +129,7 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 
 		(*s.wallets)[walletAddress].BalanceTrend = trendIndicator
 
-		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, node.WeiToEther((*s.wallets)[walletAddress].Balance))
+		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, nodes.WeiToEther((*s.wallets)[walletAddress].Balance))
 	}
 
 	return s.wallets, nil
@@ -193,7 +192,7 @@ func (s *Stats) Print() {
 }
 
 func (s *Stats) Reset() {
-	gbl.Log.Infof("resetting statistics...")
+	gbl.Log.Debug("resetting statistics...")
 
 	s.sales = 0
 	s.mints = 0
@@ -215,9 +214,9 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
 			// gas info
 			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-				gasPriceGwei, _ := node.WeiToGwei(gasInfo.GasPriceWei).Float64()
+				gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
 				gasPrice := int(math.Ceil(gasPriceGwei))
-				// gasTip, _ := node.WeiToGwei(gasInfo.GasTipWei).Uint64()
+				// gasTip, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Uint64()
 
 				label := style.DarkGrayStyle.Render("   gas")
 				value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", gasPrice))
@@ -227,7 +226,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		}
 	} else if viper.IsSet("api_keys.etherscan") && viper.GetBool("stats.gas") {
 		label := style.DarkGrayStyle.Render("  gas")
-		value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", etherscan.GetEstimatedGasPrice()))
+		value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", external.GetEstimatedGasPrice()))
 
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 	}
@@ -248,7 +247,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	var secondcolumn []string
 
 	// min price
-	if minPrice := viper.GetFloat64("show.min_price"); minPrice > 0.0 {
+	if minPrice := viper.GetFloat64("show.min_value"); minPrice > 0.0 {
 		label := style.DarkGrayStyle.Render("min price")
 		value := style.GrayStyle.Render(fmt.Sprint(fmt.Sprintf("%6.2f", minPrice), style.DarkGrayStyle.Render("Ξ")))
 
@@ -295,7 +294,7 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 	walletsList := make([]string, 0)
 
 	for _, w := range wallets[:numberOfWalletsToShow] {
-		balanceEther, _ := node.WeiToEther(w.Balance).Float64()
+		balanceEther, _ := nodes.WeiToEther(w.Balance).Float64()
 		balanceRounded := math.Floor(balanceEther*100.0) / 100.0
 		balance := fmt.Sprint(style.LightGrayStyle.Render(fmt.Sprintf("%5.2f", balanceRounded)), style.GrayStyle.Render("Ξ"))
 		walletBalance := fmt.Sprintf("%s %s %s", w.ColoredName(maxWalletNameLength), style.DarkGrayStyle.Render(w.BalanceTrend), balance)
@@ -328,10 +327,10 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 			var rowStyle lipgloss.Style
 
-			collectionStyle := lipgloss.NewStyle().Foreground(event.CollectionColor)
+			collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
 			timeAgo := time.Since(event.Time)
-			glickerEpoch := viper.GetDuration("stats.interval")
+			glickerEpoch := viper.GetDuration("ticker.statsbox")
 
 			printFaint := false
 
@@ -351,18 +350,19 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			}
 
 			var tokenInfo string
-			if event.TxItemCount > 1 {
-				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxItemCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
+			if event.TxLogCount > 1 {
+				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxLogCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
 			} else {
-				tokenInfo = internal.FormatTokenInfo(event.TokenID, event.Collection, printFaint, true)
+				tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
 			}
 
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
+			priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
 
 			historyLine := strings.Builder{}
 			historyLine.WriteString(timeNow)
 			historyLine.WriteString(" " + event.EventType.Icon())
-			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", node.WeiToEther(event.PricePerItem))))
+			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
 			historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
 			historyLine.WriteString(" " + tokenInfo)
 
@@ -379,10 +379,10 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 }
 
 func (s *Stats) StartTicker(intervalPrintStats time.Duration) {
-	intervalPrintStats = viper.GetDuration("stats.interval")
+	intervalPrintStats = viper.GetDuration("ticker.statsbox")
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
-	gbl.Log.Infof("starting stats ticker - updating every %s", intervalPrintStats)
+	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
 
 	go func() {
 		time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))

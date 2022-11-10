@@ -2,10 +2,10 @@ package cmd
 
 import (
 	"fmt"
-	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/analytics"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
@@ -46,8 +46,8 @@ func init() {
 	ownerCmd.Flags().Bool("raw", false, "Only show the owner addresses")
 	_ = viper.BindPFlag("owner.raw", ownerCmd.Flags().Lookup("raw"))
 
-	ownerCmd.Flags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
-	_ = viper.BindPFlag("moralis", ownerCmd.Flags().Lookup("moralis"))
+	// ownerCmd.Flags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
+	// _ = viper.BindPFlag("api_keys.moralis", ownerCmd.Flags().Lookup("moralis"))
 
 	// apis
 	ownerCmd.Flags().StringVar(&paramContract, "contract", "", "Contract address")
@@ -64,7 +64,7 @@ func owner(_ *cobra.Command, _ []string) {
 		fmt.Println(header)
 	}
 
-	if !viper.IsSet("moralis") {
+	if !viper.IsSet("api_keys.moralis") {
 		fmt.Println("moralis key not set")
 		gbl.Log.Fatal("moralis key not set")
 	}
@@ -76,32 +76,17 @@ func owner(_ *cobra.Command, _ []string) {
 
 	contractAddress := common.HexToAddress(paramContract)
 
-	client, _ := createMoralisHTTPClient()
-
-	uniqueOwner := make(map[string]*Owner, 0)
-	cursor := ""
-
 	if !viper.GetBool("owner.raw") {
 		fmt.Println(lipgloss.NewStyle().Padding(1, 0, 1, 2).Render(fmt.Sprintf("token %d on contract %s...", paramToken, contractAddress.Hex())))
 	}
 
-	for {
-		ownerResponse, err := getOwnerPage(client, apiKeyMoralis, contractAddress, paramToken, cursor)
-		if err != nil {
-			gbl.Log.Fatal(err)
-		}
+	// fmt.Printf("contractAddress: %s | token: %d | %s\n", contractAddress, paramToken, viper.GetString("api_keys.moralis"))
 
-		for _, owner := range ownerResponse.Result {
-			uniqueOwner[owner.OwnerOf] = owner
-		}
-
-		if ownerResponse.Cursor == "" {
-			break
-		}
-
-		cursor = ownerResponse.Cursor
-
-		time.Sleep(time.Second * 1)
+	// fetch owners from provider api
+	uniqueOwner, err := analytics.FetchOwnersFor(viper.GetString("api_keys.moralis"), contractAddress, paramToken)
+	if err != nil {
+		fmt.Println(err)
+		gbl.Log.Errorf("error fetching owners for %s / %d: %s", contractAddress, paramToken, err)
 	}
 
 	for address := range uniqueOwner {

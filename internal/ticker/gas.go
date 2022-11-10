@@ -7,17 +7,17 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/server/node"
+	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/viper"
 )
 
-func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan string) {
+func GasTicker(gasTicker *time.Ticker, ethNodes *nodes.Nodes, queueOutput *chan string) {
 	oldGasPrice := 0
 
 	for range gasTicker.C {
-		gasNode := nodes.GetRandomLocalNode()
+		gasNode := ethNodes.GetRandomLocalNode()
 		gasLine := strings.Builder{}
 
 		if viper.GetBool("log.verbose") {
@@ -33,7 +33,7 @@ func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan stri
 		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
 			// gas price
 			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-				gasPriceGwei, _ := node.WeiToGwei(gasInfo.GasPriceWei).Float64()
+				gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
 				gasPrice := int(math.Round(gasPriceGwei))
 
 				if math.Abs(float64(gasPrice-oldGasPrice)) < 2.0 {
@@ -45,7 +45,7 @@ func GasTicker(gasTicker *time.Ticker, nodes *node.Nodes, queueOutput *chan stri
 				// // tip / priority fee
 				// var gasTip int
 				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
-				// 	gasTipGwei, _ := node.WeiToGwei(gasInfo.GasTipWei).Float64()
+				// 	gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
 				// 	gasTip = int(math.Round(gasTipGwei))
 				// 	fmt.Printf("gasInfo.GasTipWei: %+v | gasTipGwei: %+v | gasTip: %+v\n", gasInfo.GasTipWei, gasTipGwei, gasTip)
 				// }

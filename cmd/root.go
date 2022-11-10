@@ -5,14 +5,14 @@ import (
 	"os"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var (
-	apiKeyEtherscan, apiKeyOpensea, cfgFile string
-	endpoints, ownWallets                   []string
+	apiKeyEtherscan, apiKeyMoralis, apiKeyOpensea, cfgFile string
+	endpoints, ownWallets                                  []string
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -46,12 +46,6 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// viper.Set("show.all", true)
-
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gloomberg.yaml)")
 
 	// logging
@@ -60,19 +54,22 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
 	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
 
-	// rpc node
+	// rpc nodes
 	rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
 	_ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
-
-	// wallets
-	rootCmd.PersistentFlags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
-	_ = viper.BindPFlag("wallets", rootCmd.Flags().Lookup("wallets"))
 
 	// apis
 	rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
 	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
+	rootCmd.PersistentFlags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
+	_ = viper.BindPFlag("api_keys.moralis", rootCmd.Flags().Lookup("moralis"))
 	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
 	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
+
+	// rootCmd.DebugFlags()
+	// rootCmd.AddGroup(&cobra.Group{ID: "logging", Title: "logging"})
+	// rootCmd.AddCommand(&cobraCommand{Use: "cmd1", GroupID: "group1", Run: emptyRun})
+	// rootCmd.AddGroup(&cobra.Group{ID: "apikeys", Title: "api keys"})
 
 	// // websockets server
 	// rootCmd.PersistentFlags().Bool("server", false, "Start websockets server")
@@ -84,22 +81,31 @@ func init() {
 
 	// defaults
 
-	// api keys from node providers & other services
-	viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
+	// logging
+	viper.SetDefault("log.log_file", "/tmp/gloomberg.log")
 
-	// redis settings
+	// // api keys from nodes providers & other services
+	// viper.SetDefault("api_keys", map[string]string{"alchemy": "", "infura": "", "moralis": "", "opensea": "", "etherscan": ""})
+
+	// redis cache
 	viper.SetDefault("redis.enabled", false)
 	viper.SetDefault("redis.host", "127.0.0.1")
 	viper.SetDefault("redis.port", 6379)
 	viper.SetDefault("redis.database", 0)
 	viper.SetDefault("redis.password", "")
 
-	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
-	viper.SetDefault("cache.ens_ttl", 3*24*time.Hour)
-	// viper.SetDefault("cache.sales_ttl", 7*24*time.Hour)
-	// viper.SetDefault("cache.listings_ttl", 7*24*time.Hour)
+	// ipfs
+	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
 
-	viper.SetDefault("server.websockets.enabled", false)
+	// opensea settings
+	viper.SetDefault("opensea.auto_list_min_sales", 50000)
+
+	// number of retries to resolve an ens name to an address or vice versa
+	viper.SetDefault("ens.resolve_max_retries", 5)
+
+	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
+	viper.SetDefault("cache.ens_ttl", 1*24*time.Hour)
+	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -112,23 +118,19 @@ func initConfig() {
 		// Use config file from the flag.
 		viper.SetConfigFile(cfgFile)
 	} else {
-		// Search config in home directory with name ".btv" (without extension).
+		// Search config in home directory with name ".gloomberg.yaml"
 		viper.AddConfigPath(home)
 		viper.SetConfigName(".gloomberg.yaml")
 	}
 
+	// config format
 	viper.SetConfigType("yaml")
-
-	// backup config
-	// viper.SetDefault("config.backup_file", "/tmp/.backup_gloomberg.yaml")
-
-	// logging
-	// viper.SetDefault("log.log_file", fmt.Sprint(home, "gloomberg.log"))
-	viper.SetDefault("log.log_file", "/tmp/gloomberg.log")
 
 	// environment variables
 	viper.SetEnvPrefix("GLOOMBERG")
-	viper.AutomaticEnv() // read in environment variables that match
+
+	// read in environment variables that match
+	viper.AutomaticEnv()
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
@@ -142,5 +144,5 @@ func initConfig() {
 		}
 	}
 
-	gbl.InitSugaredLogger()
+	gbl.GetSugaredLogger()
 }
