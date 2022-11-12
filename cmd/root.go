@@ -105,6 +105,7 @@ func init() {
 
 	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
 	viper.SetDefault("cache.ens_ttl", 1*24*time.Hour)
+	viper.SetDefault("cache.floor_ttl", 3*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
 }
 
