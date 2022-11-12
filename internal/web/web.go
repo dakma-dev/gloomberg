@@ -1,419 +1,159 @@
 package web
 
 import (
-	"context"
 	"fmt"
-	"html/template"
-	"math"
-	"math/big"
-	"net/http"
-	"strings"
-	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/nodes"
-	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
-	"github.com/charmbracelet/lipgloss"
-	"github.com/jfyne/live"
-	"github.com/spf13/viper"
+
+	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/favicon"
+	"github.com/gofiber/template/html"
+	"github.com/gofiber/websocket/v2"
 )
 
-const (
-	wsend       = "send"
-	wnewmessage = "newmessage"
-)
+type WebEvent collections.Event
 
-var templateFiles = []string{
-	"www/layout.html",
-	"www/style.html",
-	"www/view.html",
-	"www/divider-gas.html",
+type Client struct{}
+
+type GloomWeb struct {
+	listenAddress string
+
+	clients    map[*websocket.Conn]Client
+	register   chan *websocket.Conn
+	unregister chan *websocket.Conn
+
+	broadcast chan string
+	// events      []WebEvent
+	queueOutWeb *chan *collections.Event
+
+	app *fiber.App
 }
 
-type GasInfoMessage struct {
-	PriceGwei int
-	TipGwei   float64
-}
+func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *GloomWeb {
+	engine := html.New("./www", ".html")
 
-type EventMessage struct {
-	ID              string // Unique ID per message so that we can use `live-update`.
-	User            string
-	Msg             string
-	Time            string
-	Typemoji        string
-	TxLogCount      uint64
-	TxLogCountColor lipgloss.Color
-	Price           string
-	PricePerItem    float64
-	PriceArrowColor string
-	CollectionName  string
-	TokenID         *big.Int
-	ColorPrimary    string
-	ColorSecondary  string
-	To              string
-	ToColor         string
-	Event           *collections.Event
-	SalesCount      uint64
-	ListingsCount   uint64
-	SaLiRa          float64
-	LinkOpenSea     string
-	LinkEtherscan   string
-	GasInfo         GasInfoMessage
-	EventType       string
-	Divider         bool
-}
+	gbl.Log.Infof("gloomWeb| engine.Templates: %+v", engine.Templates)
 
-func NewEvent(data interface{}) EventMessage {
-	// This can handle both the chat example, and the cluster example.
-	switch m := data.(type) {
-	case EventMessage:
-		return m
+	app := fiber.New(fiber.Config{Views: engine, ViewsLayout: "layout"})
+
+	// gloomberg web server/ui based on fibre web framework
+	gw := &GloomWeb{
+		listenAddress: listenAddress,
+		clients:       make(map[*websocket.Conn]Client),
+		register:      make(chan *websocket.Conn, 1),
+		unregister:    make(chan *websocket.Conn, 1),
+		broadcast:     make(chan string, 128),
+		queueOutWeb:   queueOutWeb,
+		app:           app,
 	}
 
-	return EventMessage{}
-}
+	gw.app.Static("/static", "./www/static")
+	gw.app.Static("/", "./www/home.html")
 
-type EventStream struct {
-	ID            string
-	ListenAddress string
-	ctx           context.Context
-	Events        []EventMessage
-	queueOutWeb   *chan *collections.Event
-	Nodes         *nodes.Nodes
-}
+	gbl.Log.Infof("gloomWeb| static routes loaded")
 
-func New(queueWeb *chan *collections.Event, listenAddress string, nodes *nodes.Nodes) *EventStream {
-	ctx := context.Background()
+	gw.app.Use(favicon.New())
 
-	return &EventStream{
-		ID:            live.NewID(),
-		ListenAddress: listenAddress,
-		ctx:           ctx,
-		queueOutWeb:   queueWeb,
-		Nodes:         nodes,
-	}
-}
-
-func (es *EventStream) Start() {
-	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), es.NewEventHandler()))
-	http.Handle("/live.js", live.Javascript{})
-	http.Handle("/auto.js.map", live.JavascriptMap{})
-
-	gbl.Log.Infof("starting http server...")
-
-	if err := http.ListenAndServe(es.ListenAddress, nil); err != nil {
-		fmt.Printf("error: %s", err)
-		gbl.Log.Error(err)
-	}
-}
-
-func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
-	eventStream, ok := s.Assigns().(*EventStream)
-
-	if !ok {
-		// return &EventStream{
-		// 	ID: live.NewID(),
-		// 	// Events: []EventMessage{},
-		// 	Events: make([]EventMessage, 0),
-		// 	// 	{ID: live.NewID(), User: "Muh", Msg: "Welcome to chat " + live.SessionID(s.Session())},
-		// 	// },
-		// }
-		return &EventStream{
-			ID: live.NewID(),
-			// Events: make([]EventMessage, 0),
+	gw.app.Use(func(c *fiber.Ctx) error {
+		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
+			return c.Next()
 		}
-	}
+		return c.SendStatus(fiber.StatusUpgradeRequired)
+	})
 
-	eventStream.Events = make([]EventMessage, 0)
+	gw.app.Get("/rekt", func(c *fiber.Ctx) error {
+		return c.Render("view", fiber.Map{
+			"Title": "Gloomberg",
+		})
+	})
 
-	// go startWorker(s, es.queueOutWeb)
+	gw.app.Get("/ws", websocket.New(func(c *websocket.Conn) {
+		// When the function returns, unregister the client and close the connection
+		defer func() {
+			gw.unregister <- c
+			c.Close()
+		}()
 
-	return eventStream
+		// register the client
+		gw.register <- c
+
+		for {
+			messageType, message, err := c.ReadMessage()
+			if err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					gbl.Log.Errorf("read error: %s", err)
+				}
+
+				return // Calls the deferred function, i.e. closes the connection on error
+			}
+
+			gbl.Log.Debugf("ws message received (%s): %s", messageType, message)
+
+			if messageType == websocket.TextMessage {
+				// broadcast the received message
+				gw.broadcast <- string(message)
+			} else {
+				gbl.Log.Infof("websocket message received of type: %v", messageType)
+			}
+		}
+	}))
+
+	gbl.Log.Infof("gloomWeb| configuration done") //: %+v", gw.app.GetRoutes())
+
+	return gw
 }
 
-func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
-	gbl.Log.Infof("webWorker started for session %v", live.SessionID((*s).Session()))
+func (gw *GloomWeb) Run() error {
+	// start hub for websocket connections/message distribution
+	gbl.Log.Info("gloomWeb| starting hub...")
 
-	dividerTicker := time.NewTicker(viper.GetDuration("ticker.divider"))
+	go gw.runHub()
 
+	gbl.Log.Infof("gloomWeb| starting webserver on %s", gw.listenAddress)
+
+	return gw.app.Listen(gw.listenAddress)
+}
+
+func (gw *GloomWeb) runHub() {
 	for {
 		select {
-		// case event := <-*queueOutWeb:
 
-		// 	// for event := range *queueOutWeb {
-		// 	gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
+		case message := <-gw.broadcast:
+			gbl.Log.Debugf("gloomWeb| message received: %s", message)
 
-		// 	if !event.PrintEvent {
-		// 		gbl.Log.Debugf("outWeb discarded event: %+v", event)
-		// 		continue
-		// 	}
+			// send message to all clients
+			for connection := range gw.clients {
+				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+					gbl.Log.Warnf("write error for %v: %s", connection, err)
 
-		// 	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
-		// 	priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
+					err := connection.WriteMessage(websocket.CloseMessage, []byte{})
+					if err != nil {
+						gbl.Log.Warnf("write close-msg error for %v: %s", connection, err)
+					}
 
-		// 	var to string
-		// 	if event.ToENS != "" {
-		// 		to = event.ToENS
-		// 	} else {
-		// 		to = style.ShortenAddress(&event.To.Address)
-		// 	}
-
-		// 	var openseaURL string
-		// 	if event.Permalink != "" {
-		// 		openseaURL = event.Permalink
-		// 	} else {
-		// 		openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
-		// 	}
-
-		// 	var TxLogCountColor lipgloss.Color
-
-		// 	switch {
-		// 	case event.TxLogCount > 7:
-		// 		TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
-		// 	case event.TxLogCount > 4:
-		// 		TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
-		// 	case event.TxLogCount > 1:
-		// 		TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
-		// 	default:
-		// 		TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
-		// 	}
-
-		// 	data := EventMessage{
-		// 		ID:              live.NewID(),
-		// 		Time:            event.Time.Format("15:04:05"),
-		// 		Typemoji:        event.EventType.Icon(),
-		// 		EventType:       strings.ToLower(event.EventType.String()),
-		// 		TxLogCount:      event.TxLogCount,
-		// 		TxLogCountColor: TxLogCountColor,
-		// 		Price:           fmt.Sprintf("%6.3f", priceEther),
-		// 		PricePerItem:    priceEtherPerItem,
-		// 		PriceArrowColor: string(event.PriceArrowColor),
-		// 		CollectionName:  event.Collection.Name,
-		// 		TokenID:         event.TokenID,
-		// 		To:              to,
-		// 		ToColor:         string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
-		// 		ColorPrimary:    string(event.Collection.Colors.Primary),
-		// 		ColorSecondary:  string(event.Collection.Colors.Secondary),
-		// 		Event:           event,
-		// 		SalesCount:      event.Collection.Counters.Sales,
-		// 		ListingsCount:   event.Collection.Counters.Listings,
-		// 		SaLiRa:          event.Collection.SaLiRa.Value(),
-		// 		LinkOpenSea:     openseaURL,
-		// 		LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
-		// 	}
-
-		// 	gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
-
-		// 	if err := (*s).Broadcast(wnewmessage, data); err != nil {
-		// 		gbl.Log.Errorf("failed braodcasting new message: %s", err)
-		// 	}
-		case <-dividerTicker.C:
-			data := EventMessage{Divider: true}
-			if err := (*s).Broadcast(wnewmessage, data); err != nil {
-				gbl.Log.Errorf("failed braodcasting new message: %s", err)
+					connection.Close()
+					delete(gw.clients, connection)
+				}
 			}
+
+		case connection := <-gw.register:
+			// register new client
+			gw.clients[connection] = Client{}
+
+			gbl.Log.Info("connection registered")
+
+		case connection := <-gw.unregister:
+			// remove client
+			delete(gw.clients, connection)
+
+			gbl.Log.Info("connection unregistered")
 
 		default:
-			event := <-*queueOutWeb
-
-			// for event := range *queueOutWeb {
-			gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
-
-			if !event.PrintEvent {
-				gbl.Log.Debugf("outWeb discarded event: %+v", event)
-				continue
-			}
-
-			priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
-			priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
-
-			var to string
-			if event.ToENS != "" {
-				to = event.ToENS
-			} else {
-				to = style.ShortenAddress(&event.To.Address)
-			}
-
-			var openseaURL string
-			if event.Permalink != "" {
-				openseaURL = event.Permalink
-			} else {
-				openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
-			}
-
-			var TxLogCountColor lipgloss.Color
-
-			switch {
-			case event.TxLogCount > 7:
-				TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
-			case event.TxLogCount > 4:
-				TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
-			case event.TxLogCount > 1:
-				TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
-			default:
-				TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
-			}
-
-			data := EventMessage{
-				ID:              live.NewID(),
-				Time:            event.Time.Format("15:04:05"),
-				Typemoji:        event.EventType.Icon(),
-				EventType:       strings.ToLower(event.EventType.String()),
-				TxLogCount:      event.TxLogCount,
-				TxLogCountColor: TxLogCountColor,
-				Price:           fmt.Sprintf("%6.3f", priceEther),
-				PricePerItem:    priceEtherPerItem,
-				PriceArrowColor: string(event.PriceArrowColor),
-				CollectionName:  event.Collection.Name,
-				TokenID:         event.TokenID,
-				To:              to,
-				ToColor:         string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
-				ColorPrimary:    string(event.Collection.Colors.Primary),
-				ColorSecondary:  string(event.Collection.Colors.Secondary),
-				Event:           event,
-				SalesCount:      event.Collection.Counters.Sales,
-				ListingsCount:   event.Collection.Counters.Listings,
-				SaLiRa:          event.Collection.SaLiRa.Value(),
-				LinkOpenSea:     openseaURL,
-				LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
-			}
-
-			gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
-
-			if err := (*s).Broadcast(wnewmessage, data); err != nil {
-				gbl.Log.Errorf("failed braodcasting new message: %s", err)
-			}
-
-		}
-	}
-
-	// gbl.Log.Infof("webWorker closed for session %+v", live.SessionID((*s).Session()))
-}
-
-func GasLineMessage(es *EventStream, s *live.Socket, handler *live.BaseHandler, webGasTicker *time.Ticker, ethNodes *nodes.Nodes) {
-	oldGasPrice := 0
-
-	for range webGasTicker.C {
-		gasNode := ethNodes.GetRandomLocalNode()
-
-		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
-			// gas price
-			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-				gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
-				gasPrice := int(math.Round(gasPriceGwei))
-
-				if math.Abs(float64(gasPrice-oldGasPrice)) < 2.0 {
-					continue
-				}
-
-				oldGasPrice = gasPrice
-
-				gasPriceGwei, _ = nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
-				gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
-
-				data := EventMessage{
-					Time:     time.Now().Format("15:04:05"),
-					Typemoji: "🛢️", // "🧟",
-					GasInfo: GasInfoMessage{
-						PriceGwei: int(math.Round(gasPriceGwei)),
-						TipGwei:   math.Round(gasTipGwei),
-					},
-				}
-
-				if err := (*s).Broadcast(wnewmessage, data); err != nil {
-					gbl.Log.Errorf("failed braodcasting new message: %s", err)
-				}
+			if message := <-*gw.queueOutWeb; message != nil {
+				gbl.Log.Debugf("gloomWeb| received message from queue: %+v", message)
+				gw.broadcast <- fmt.Sprintf("%+v", message)
 			}
 		}
 	}
-}
-
-func parseTemplates(filenames ...string) *template.Template {
-	t, err := template.ParseFiles(filenames...)
-	if err != nil {
-		gbl.Log.Error(err)
-	}
-
-	return t
-}
-
-func (es *EventStream) NewEventHandler() live.Handler {
-	// t, err := template.ParseFiles("www/layout.html", "www/style.html", "www/view.html")
-	// t, err := template.ParseFiles("www/gLayout.html", "www/gStyle.html", "www/gView.html")
-	// if err != nil {
-	// 	gbl.Log.Error(err)
-	// }
-
-	t := parseTemplates(templateFiles...)
-
-	handler := live.NewHandler(live.WithTemplateRenderer(t))
-
-	handler.HandleError(func(ctx context.Context, err error) {
-		gbl.Log.Error("HandleError: %+v", err)
-	})
-
-	// Set the mount function for this handler.
-	handler.HandleMount(func(ctx context.Context, s live.Socket) (interface{}, error) {
-		gbl.Log.Debugf("handle mount socket: %+v", s)
-
-		gbl.Log.Infof("user connected: %+v", live.SessionID(s.Session()))
-
-		// This will initialise the chat for this socket.
-		go startWorker(&s, es.queueOutWeb)
-
-		// if tickerInterval := viper.GetDuration("ticker.statsbox"); es.Nodes != nil && len(es.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-		// 	// start gasline ticker
-		// 	webGasTicker := time.NewTicker(tickerInterval)
-		// 	go GasLineMessage(es, &s, handler, webGasTicker, es.Nodes)
-		// }
-
-		return es.NewEventstreamInstance(s), nil
-	})
-
-	// Handle user sending a message.
-	handler.HandleEvent(wsend, func(ctx context.Context, s live.Socket, p live.Params) (interface{}, error) {
-		gbl.Log.Infof("handle event params: %+v", p)
-
-		m := es.NewEventstreamInstance(s)
-		msg := p.String("message")
-		if msg == "" {
-			gbl.Log.Warnf("empty message")
-			return m, nil
-		}
-
-		gbl.Log.Infof("msg from user %s: %+v", live.SessionID(s.Session()), msg)
-
-		data := EventMessage{
-			ID:       live.NewID(),
-			User:     live.SessionID(s.Session()),
-			Time:     time.Now().Format("15:04:05"),
-			Typemoji: "🗣️",
-			Msg:      msg,
-		}
-
-		if err := s.Broadcast(wnewmessage, data); err != nil {
-			gbl.Log.Errorf("failed braodcasting new message: %s", err)
-			return m, fmt.Errorf("failed braodcasting new message: %w", err)
-		}
-		return m, nil
-	})
-
-	// Handle the broadcasted events.
-	handler.HandleSelf(wnewmessage, func(ctx context.Context, s live.Socket, data interface{}) (interface{}, error) {
-		gbl.Log.Debugf("handle self data: %+v", data)
-		// gbl.Log.Infof("broadcasting to %s: %+v", live.SessionID(s.Session()), data)
-
-		m := es.NewEventstreamInstance(s)
-
-		// Here we don't append to messages as we don't want to use
-		// loads of memory. `live-update="append"` handles the appending
-		// of messages in the DOM.
-		m.Events = []EventMessage{NewEvent(data)}
-		return m, nil
-	})
-
-	gbl.Log.Infof("handler created: %+v", handler)
-
-	return handler
 }

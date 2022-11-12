@@ -3,7 +3,6 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@200" />
 <style>
   html {
-    margin: 0;
     overflow: hidden;
     padding: 0;
   }
@@ -17,6 +16,8 @@
     font-family: "JetBrains Mono", monospace;
     font-size: 0.9rem;
     font-variation-settings: "wght" 200;
+
+    margin: 0;
   }
   body.live-connected {
     border-top: none;
@@ -40,35 +41,44 @@
     display: grid;
     grid-template-columns: repeat(6, 1fr);
     gap: 10px;
-    grid-auto-rows: minmax(100px, auto);
+    grid-auto-rows: minmax(50px, auto);
     height: 100vh;
   }
 
   .stream {
-    area: stream;
+    grid-area: stream;
     overflow: scroll;
     grid-column: 1 / 6;
     grid-row: 1 / 8;
+    padding: 0.5vh 0.5vw;
   }
+
   .commandline {
-    area: commandline;
+    grid-area: commandline;
     grid-column: 1 / 6;
     grid-row: 8 / 9;
+    align-items: center;
+    display: flex;
+    padding: 0.5rem 0.7rem;
   }
 
   .side-header {
+    grid-area: side-header;
     grid-column: 6 / 7;
     grid-row: 1;
   }
   .side-trending {
+    grid-area: side-trending;
     grid-column: 6 / 7;
     grid-row: 2 / 4;
   }
   .side-wallets {
+    grid-area: side-wallets;
     grid-column: 6 / 7;
     grid-row: 4 / 6;
   }
   .side-footer {
+    grid-area: side-footer;
     grid-column: 6 / 7;
     grid-row: 6 / 8;
   }
@@ -92,12 +102,13 @@
   .message a,
   .gasline-divider div {
     color: #999999;
-    margin-left: 0.3rem;
-    text-align: right;
-    overflow: hidden;
-    white-space: nowrap;
-    line-height: 1.1rem;
     letter-spacing: 0.01rem;
+    line-height: 1.15rem;
+    margin-left: 0.3rem;
+    overflow: hidden;
+    text-align: right;
+    vertical-align: middle;
+    white-space: nowrap;
   }
 
   /* message components*/
@@ -119,10 +130,29 @@
   .message span.price {
     color: #f9f9f9;
     min-width: 3.8rem;
-    text-align: right;
+  }
+
+  .message span.trendindicator {
+    margin-left: 0.815rem;
+    margin-right: 0.2rem;
+  }
+
+  .message span.floor-price {
+    color: #444444;
+    margin-left: 0;
+  }
+
+  .message span.per-item-currency {
+    opacity: 60%;
+  }
+
+  .message span.floor-price-currency {
+    opacity: 40%;
   }
 
   .message span.currency,
+  .message span.per-item-currency,
+  .message span.floor-price-currency,
   .message span.hashtag {
     margin-left: 0;
   }
@@ -138,7 +168,7 @@
 
   .message span.collection {
     margin-left: 0.666rem;
-    max-width: 32em;
+    max-width: 16em;
     text-align: left;
     text-overflow: ellipsis;
   }
@@ -166,12 +196,6 @@
   }
 
   /* commandline */
-  .commandline {
-    align-items: center;
-    display: flex;
-    padding: 0.5rem 0.7rem;
-  }
-
   .commandline form {
     align-items: center;
     display: flex;

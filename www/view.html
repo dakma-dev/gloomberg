@@ -20,8 +20,16 @@
       <span class="price">{{.Price}}</span>
       <span class="currency" style="color: {{.ColorPrimary}};">Ξ</span>
 
-      {{ if gt .TxLogCount 1 }}
-      <span class="collection" style="color: {{.TxLogCountColor}};">{{.TxLogCount}}x</span>
+      <span class="price" style="color: {{ .PricePerItemColor }};">{{.PricePerItem}}</span>
+      <span class="per-item-currency" style="color: {{.ColorPrimary }};">Ξ</span>
+
+      <span class="trendindicator" style="color: #282828;">~</span>
+      {{/* <span class="trendindicator" style="color: {{ .TrendIndicatorColor }};">{{.TrendIndicator}}</span> */}}
+      <span class="floor-price">{{.FloorPrice}}</span>
+      <span class="floor-price-currency" style="color: {{.ColorPrimary }};">Ξ</span>
+
+      {{ if gt .NumItems 1 }}
+      <span class="collection" style="color: {{.NumItemsColor}};">{{.NumItems}}x</span>
       {{- end }}
 
       <span class="collection" style="color: {{.ColorPrimary}};">{{.CollectionName}}</span>
@@ -49,7 +57,7 @@
   <div class="commandline">
     <form id="commandline" live-submit="send" live-hook="input">
       <input autocomplete="off" type="text" name="message" autofocus />
-      <button type="submit">go</button>
+      <button type="submit" disabled>go</button>
     </form>
   </div>
 
