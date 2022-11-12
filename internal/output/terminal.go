@@ -91,17 +91,17 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	isOwnWallet := false
 	if isMultiItemTx {
 		// isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
-		isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
+		isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 	} else {
-		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.WatchUsers.Contains(event.To.Address)
+		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.Watcher.Contains(event.To.Address)
 	}
 
-	isWatchUsersWallet := gb.WatchUsers.ContainsOneOf(event.FromAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
+	isWatchUsersWallet := gb.Watcher.ContainsOneOf(event.FromAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 
 	isListingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// set type to purchase if "we" are on the buyer side
-	if event.EventType == collections.Sale && (gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress) {
+	if event.EventType == collections.Sale && (gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress) {
 		event.EventType = collections.Purchase
 	}
 
@@ -508,9 +508,9 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			// did someone buy or sell something?
 			var triggerAddress common.Address
 
-			if trigger := gb.WatchUsers.ContainsOneOf(event.ToAddresses); trigger != utils.ZeroAddress {
+			if trigger := gb.Watcher.ContainsOneOf(event.ToAddresses); trigger != utils.ZeroAddress {
 				triggerAddress = trigger
-			} else if trigger := gb.WatchUsers.ContainsOneOf(event.FromAddresses); trigger != utils.ZeroAddress {
+			} else if trigger := gb.Watcher.ContainsOneOf(event.FromAddresses); trigger != utils.ZeroAddress {
 				triggerAddress = trigger
 			} else {
 				return
@@ -519,12 +519,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			// get the username of the wallet that triggered the notification
 			var userName string
 
-			user := (*gb.WatchUsers)[triggerAddress]
-			if user != nil {
-				if user.TelegramUsername != "" {
-					userName = "@" + user.TelegramUsername
+			user := ((*gb.Watcher).UserAddresses)[triggerAddress]
+			watchuser := ((*gb.Watcher).WatchUsers)[triggerAddress]
+			if watchuser != nil {
+				if watchuser.TelegramUsername != "" {
+					userName = "@" + watchuser.TelegramUsername
 				} else {
-					userName = (*gb.WatchUsers)[triggerAddress].Name
+					userName = watchuser.Name
 				}
 			} else {
 				userName = "⸘Unknown‽"
@@ -556,7 +557,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			}
 
 			// send telegram message
-			if msg, err := notifications.SendTelegramMessage(user.Group.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
+			if msg, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
 				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
 			} else {
 				rawMsg := msgTelegram.String()

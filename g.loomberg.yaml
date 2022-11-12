@@ -1,5 +1,6 @@
 
-log: { logfile: "/tmp/gloomberg.log" }
+log:
+  logfile: "/tm/gloomberg.log"
 
 # own wallets (for gathering collections and other stuff)
 wallets: [benleb.eth, osf.eth, pranksy.eth]
@@ -13,7 +14,7 @@ api_keys:
   # for listings
   opensea: 30de1d94....
   # for gas estimation
-  etherscan: BA84FQH6M2P9...
+  etherscan: 9QMZRYHZJ2DP7TN7DQ6CTEJECHPBUNZW6B
 
 # redis cache
 redis:

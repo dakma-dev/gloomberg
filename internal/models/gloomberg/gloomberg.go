@@ -22,7 +22,7 @@ type Gloomberg struct {
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
 
-	WatchUsers *models.WatcherUsers
+	//WatchUsers *models.WatcherUsers
 
 	// WatchGroups *models.WatchGroups
 	// WatchRules  *models.WatchRules
