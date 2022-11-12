@@ -40,7 +40,7 @@ type ChainWatcher struct {
 var (
 	mu                = &sync.Mutex{}
 	knownTransactions = make(map[common.Hash][]int)
-	logCollectors     = make(map[common.Hash]*txlogcollector.TxLogCollector)
+	logCollectors     = make(map[common.Hash]*txlogcollector.TxLogs)
 )
 
 type GItem struct {
@@ -182,8 +182,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	// if we don't have a collector, we create a new one for this tx hash
-	txLogCollector := txlogcollector.NewTxLogCollector(&subLog)
-	logCollectors[subLog.TxHash] = txLogCollector
+	txLogs := txlogcollector.NewTxLogCollector(&subLog)
+	logCollectors[subLog.TxHash] = txLogs
 
 	mu.Unlock()
 
@@ -340,7 +340,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	// 	}
 	// }
 
-	numItems := txLogCollector.UniqueTokenIDs()
+	numItems := len(txLogs.TokenSeller)
+	// numItems := txLogs.UniqueTokenIDs()
 	// numItems := len(txLogCollector.Logs)
 	// numItems := len(txLogCollector.TokenIDs)
 	// numItems := uint64(math.Max(float64(len(txLogCollector.UniqueTokenIDs())), 1))
@@ -348,14 +349,14 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	fromAddresses := make(map[common.Address]bool, 0)
 	fromAddresses[fromAddress] = true
 
-	for _, address := range txLogCollector.FromAddresses {
+	for _, address := range txLogs.FromAddresses {
 		fromAddresses[address] = true
 	}
 
 	toAddresses := make(map[common.Address]bool, 0)
 	toAddresses[toAddress] = true
 
-	for _, address := range txLogCollector.ToAddresses {
+	for _, address := range txLogs.ToAddresses {
 		toAddresses[address] = true
 	}
 

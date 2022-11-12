@@ -70,7 +70,7 @@ type Event struct {
 	EventType            EventType
 	Topic                string
 	TxHash               common.Hash
-	TransactionCollector *txlogcollector.TxLogCollector
+	TransactionCollector *txlogcollector.TxLogs
 	ContractAddress      common.Address
 	Collection           *GbCollection
 	TokenID              *big.Int

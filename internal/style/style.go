@@ -19,8 +19,8 @@ var (
 	Pink       = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
 	OwnerGreen = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
 	Subtle     = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
-	darkGray   = lipgloss.Color("#333")
-	darkerGray = lipgloss.Color("#222")
+	darkGray   = lipgloss.Color("#333333")
+	darkerGray = lipgloss.Color("#222222")
 
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	BlurOrange           = lipgloss.Color("#FF8700")
@@ -28,11 +28,11 @@ var (
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))
 	TrendLightRedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#806666"))
-	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#EEE"))
-	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#DDD"))
-	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#BBB"))
-	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999"))
-	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
+	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeeee"))
+	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
+	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
+	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999999"))
+	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 	DarkGrayStyle        = lipgloss.NewStyle().Foreground(darkGray)
 	DarkerGrayStyle      = lipgloss.NewStyle().Foreground(darkerGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)

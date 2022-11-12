@@ -1,4 +1,4 @@
-package subscribe
+package listings
 
 import (
 	"fmt"
@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/gloomberg"
@@ -71,7 +72,7 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 		priceEther, _ := nodes.WeiToEther(priceWei).Float64()
 
 		// get our floor price
-		collectionFP := collection.FloorPrice.Value()
+		collectionFP := (*collection.FloorPrice).Value()
 
 		if tokenID > 0 && collectionFP > 0.0 {
 
@@ -110,7 +111,8 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 				}
 
 				// set price of listing as the new fp
-				collection.FloorPrice.Set(priceEther)
+				(*collection.FloorPrice).Set(priceEther)
+				go cache.StoreFloor(collection.ContractAddress, priceEther)
 			}
 		}
 

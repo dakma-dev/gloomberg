@@ -22,9 +22,7 @@ import (
 	"github.com/gookit/goutil/dump"
 )
 
-var (
-	OpenSeaSeaportContract = common.HexToAddress("0x00000000006c3852cbef3e08e8df289169ede581")
-)
+var OpenSeaSeaportContract = common.HexToAddress("0x00000000006c3852cbef3e08e8df289169ede581")
 
 func sToI64(s string) int64 {
 	val, err := strconv.ParseInt(s, 10, 64)

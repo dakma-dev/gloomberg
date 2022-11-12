@@ -12,11 +12,12 @@ import (
 )
 
 type Gloomberg struct {
-	Nodes          *nodes.Nodes
 	ChainWatcher   *chainwatcher.ChainWatcher
+	GloomWeb       *web.GloomWeb
+	Nodes          *nodes.Nodes
 	StreamWatcher  *ossw.OSStreamWatcher
-	WebEventStream *web.EventStream
 	Watcher        *models.Watcher
+	WebEventStream *web.EventStream
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets

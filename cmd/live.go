@@ -3,15 +3,16 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/chainwatcher"
-	"github.com/benleb/gloomberg/internal/chainwatcher/subscribe"
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/gloomclient"
+	"github.com/benleb/gloomberg/internal/listings"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/models/wallet"
@@ -287,7 +288,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			}
 			// processes new listings from the opensea stream api
 			for listingsWorkerID := 1; listingsWorkerID <= viper.GetInt("server.workers.listings"); listingsWorkerID++ {
-				go subscribe.StreamListingsHandler(gb, listingsWorkerID, &streamWatcher.QueueListings, &queueEvents)
+				go listings.StreamListingsHandler(gb, listingsWorkerID, &streamWatcher.QueueListings, &queueEvents)
 			}
 		}
 	}
@@ -319,10 +320,14 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		queueWeb := make(chan *collections.Event, 1024)
 		gb.OutputQueues["web"] = queueWeb
 
-		listenAddress := viper.GetString("ui.web.host") + ":" + viper.GetString("ui.web.port")
-		gb.WebEventStream = web.New(&queueWeb, listenAddress, gb.Nodes)
+		listenHost := net.ParseIP(viper.GetString("ui.web.host"))
+		listenPort := viper.GetUint("ui.web.port")
+		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
 
+		gb.WebEventStream = web.New(&queueWeb, listenAddress, gb.Nodes)
 		go gb.WebEventStream.Start()
+		// gb.GloomWeb = web.NewGloomWeb(listenAddress, &queueWeb)
+		// go func() { log.Fatal(gb.GloomWeb.Run()) }()
 
 		uiURL := fmt.Sprintf("http://%s", listenAddress)
 		uiLink := style.TerminalLink(uiURL, style.BoldStyle.Render(uiURL))
