@@ -15,6 +15,7 @@ const (
 	prefixENS          string = "ensDomain"
 	prefixOSSlug       string = "osslug"
 	prefixBlurSlug     string = "blurslug"
+	prefixFloorPrice   string = "floor"
 	keyDelimiter       string = ":"
 )
 
@@ -32,6 +33,10 @@ func keyOSSlug(address common.Address) string {
 
 func keyBlurSlug(address common.Address) string {
 	return fmt.Sprint(prefixBlurSlug, keyDelimiter, address.Hex())
+}
+
+func keyFloorPrice(address common.Address) string {
+	return fmt.Sprint(prefixFloorPrice, keyDelimiter, address.Hex())
 }
 
 func NewRedisClient() *redis.Client {

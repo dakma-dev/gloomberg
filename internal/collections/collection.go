@@ -72,8 +72,8 @@ type GbCollection struct {
 	// FloorPrice         ewmabig.MovingAverage `mapstructure:"artificialFloor"`
 	// PreviousFloorPrice *big.Int              `mapstructure:"artificialFloor"`
 
-	FloorPrice         ewma.MovingAverage `mapstructure:"floorPrice"`
-	PreviousFloorPrice float64            `mapstructure:"previousFloorPrice"`
+	FloorPrice         *ewma.MovingAverage `mapstructure:"floorPrice"`
+	PreviousFloorPrice float64             `mapstructure:"previousFloorPrice"`
 }
 
 func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
@@ -108,6 +108,8 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 		}
 	}
 
+	floorPrice := ewma.NewMovingAverage()
+
 	collection := GbCollection{
 		ContractAddress: contractAddress,
 		Name:            collectionName,
@@ -116,7 +118,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 		Metadata: &models.CollectionMetadata{},
 		Source:   source,
 
-		FloorPrice:         ewma.NewMovingAverage(),
+		FloorPrice:         &floorPrice,
 		PreviousFloorPrice: 0,
 
 		SaLiRa: ewma.NewMovingAverage(),
@@ -231,9 +233,11 @@ func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
 // CalculateFloorPrice updates the moving average of a given collection.
 func (uc *GbCollection) CalculateFloorPrice(tokenPrice float64) (float64, float64) {
 	// update the moving average
-	uc.PreviousFloorPrice = uc.FloorPrice.Value()
-	uc.FloorPrice.Add(tokenPrice)
-	currentFloorPrice := uc.FloorPrice.Value()
+	uc.PreviousFloorPrice = (*uc.FloorPrice).Value()
+	(*uc.FloorPrice).Add(tokenPrice)
+	currentFloorPrice := (*uc.FloorPrice).Value()
+
+	gbl.Log.Debugf("uc.PreviousFloorPrice: %f  |  currentFloorPrice: %f | uc.FloorPrice.Value(): %f", uc.PreviousFloorPrice, currentFloorPrice, (*uc.FloorPrice).Value())
 
 	return uc.PreviousFloorPrice, currentFloorPrice
 }

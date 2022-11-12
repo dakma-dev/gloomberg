@@ -26,7 +26,8 @@ type GbCache struct {
 	mu  *sync.RWMutex
 	rdb *redis.Client
 	// addressToName map[common.Address]string
-	localCache map[string]string
+	localCache      map[string]string
+	localFloatCache map[string]float64
 }
 
 func New() *GbCache {
@@ -37,7 +38,8 @@ func New() *GbCache {
 	gbCache = &GbCache{
 		mu: &sync.RWMutex{},
 		// addressToName: make(map[common.Address]string),
-		localCache: make(map[string]string),
+		localCache:      make(map[string]string),
+		localFloatCache: make(map[string]float64),
 	}
 
 	if viper.GetBool("redis.enabled") {
@@ -168,6 +170,61 @@ func (c *GbCache) getName(address common.Address, keyFunc func(common.Address) s
 	return "", errors.New("name not found in cache")
 }
 
+func (c *GbCache) cacheFloat(address common.Address, keyFunc func(common.Address) string, value float64, duration time.Duration) {
+	c.mu.Lock()
+	// c.addressToName[address] = value
+	c.localFloatCache[keyFunc(address)] = value
+	c.mu.Unlock()
+
+	if c.rdb != nil {
+		gbl.Log.Debugf("redis | caching %s -> %s", keyFunc(address), value)
+
+		err := c.rdb.SetEX(c.rdb.Context(), keyFunc(address), value, duration).Err()
+
+		if err != nil {
+			gbl.Log.Warnf("redis | error while adding: %s", err.Error())
+		} else {
+			gbl.Log.Debugf("redis | added: %s -> %s", keyFunc(address), value)
+		}
+	}
+}
+
+func (c *GbCache) getFloat(address common.Address, keyFunc func(common.Address) string) (float64, error) {
+	c.mu.RLock()
+	// value := c.addressToName[address]
+	value := c.localFloatCache[keyFunc(address)]
+	c.mu.RUnlock()
+
+	if value != 0 {
+		gbl.Log.Debugf("cache | found name in in-memory cache: '%s'", value)
+
+		return value, nil
+	}
+
+	if c.rdb != nil {
+		gbl.Log.Debugf("redis | searching for: %s", keyFunc(address))
+
+		if value, err := c.rdb.Get(c.rdb.Context(), keyFunc(address)).Float64(); err == nil {
+			gbl.Log.Debugf("redis | using cached value: %s", value)
+
+			c.mu.Lock()
+			// c.addressToName[address] = name
+			c.localFloatCache[keyFunc(address)] = value
+			c.mu.Unlock()
+
+			return value, nil
+		} else if errors.Is(err, redis.Nil) {
+			gbl.Log.Debugf("redis | redis.Nil - value not found in cache: %s", keyFunc(address))
+		} else {
+			gbl.Log.Debugf("redis | get error: %s", err)
+
+			return 0, err
+		}
+	}
+
+	return 0, errors.New("value not found in cache")
+}
+
 func StoreENSName(walletAddress common.Address, ensName string) {
 	c := New()
 	c.cacheName(walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
@@ -176,6 +233,16 @@ func StoreENSName(walletAddress common.Address, ensName string) {
 func GetENSName(walletAddress common.Address) (string, error) {
 	c := New()
 	return c.getName(walletAddress, keyENS)
+}
+
+func StoreFloor(address common.Address, value float64) {
+	c := New()
+	c.cacheFloat(address, keyFloorPrice, value, viper.GetDuration("cache.floor_ttl"))
+}
+
+func GetFloor(address common.Address) (float64, error) {
+	c := New()
+	return c.getFloat(address, keyFloorPrice)
 }
 
 //func GetOSSlug(contractAddress common.Address) (string, error) {
