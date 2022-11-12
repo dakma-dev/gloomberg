@@ -14,7 +14,7 @@ api_keys:
   # for listings
   opensea: 30de1d94....
   # for gas estimation
-  etherscan: 9QMZRYHZJ2DP7TN7DQ6CTEJECHPBUNZW6B
+  etherscan: BA84FQH6M2P9...
 
 # redis cache
 redis:
