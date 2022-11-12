@@ -26,7 +26,6 @@ var templateFiles = []string{
 	"www/layout.html",
 	"www/style.html",
 	"www/view.html",
-	"www/divider-gas.html",
 }
 
 type GasInfoMessage struct {
