@@ -250,6 +250,10 @@ func (nc *Nodes) GetTransactionByHash(ctx context.Context, hash common.Hash) (tx
 	return nc.getNode().Client.TransactionByHash(ctx, hash)
 }
 
+func (nc *Nodes) GetTransactionByHashFromLocalNode(ctx context.Context, hash common.Hash) (tx *types.Transaction, isPending bool, err error) {
+	return nc.GetRandomLocalNode().Client.TransactionByHash(ctx, hash)
+}
+
 func (nc *Nodes) GetCollectionMetadata(contractAddress common.Address) map[string]interface{} {
 	return nc.getNode().GetCollectionMetadata(contractAddress)
 }

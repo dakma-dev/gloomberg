@@ -1,18 +1,12 @@
 {{ define "title" }} gloomberg {{ end }} {{ define "view" }}
 
-{{/* <header>
-  <p>gloomberg</p>
-</header> */}}
-
 <main>
-  <div class="window" live-update="append" live-hook="eventstream">
-    {{ range $event := .Assigns.Events }}
-
-    {{ if .GasLine }}
-    <hr class="gasline" />
+  <div class="stream" live-update="append" live-hook="eventstream">
+    {{ range $event := .Assigns.Events }} {{ if .Divider }}
+    <div class="divider"></div>
     {{ else }}
 
-    <div id="{{.ID}}" class="message">
+    <div id="{{.ID}}" class="message {{.EventType}}">
       <span class="time">{{.Time}}</span>
       <span class="typemoji">{{.Typemoji}}</span>
 
@@ -27,7 +21,7 @@
       <span class="currency" style="color: {{.ColorPrimary}};">Ξ</span>
 
       {{ if gt .TxLogCount 1 }}
-      <span style="color: {{.TxLogCountColor}};">{{.TxLogCount}}x</span>
+      <span class="collection" style="color: {{.TxLogCountColor}};">{{.TxLogCount}}x</span>
       {{- end }}
 
       <span class="collection" style="color: {{.ColorPrimary}};">{{.CollectionName}}</span>
@@ -46,22 +40,26 @@
       {{ if gt .SaLiRa 0.0 }}
       <span class="divider">|</span>
       <span>{{ printf "%4.2f" .SaLiRa }}</span>
-      {{- end }}
-
-      {{- end }}
+      {{- end }} {{- end }}
     </div>
 
-    {{- end }}
-
-    {{ end }}
+    {{- end }} {{ end }}
   </div>
 
-  <div class="actions">
-    <form id="chatinput" live-submit="send" live-hook="input">
+  <div class="commandline">
+    <form id="commandline" live-submit="send" live-hook="input">
       <input autocomplete="off" type="text" name="message" autofocus />
       <button type="submit">go</button>
     </form>
   </div>
+
+  <div class="side-header"></div>
+
+  <div class="side-trending"></div>
+
+  <div class="side-wallets"></div>
+
+  <div class="side-footer"></div>
 </main>
 
 <script>

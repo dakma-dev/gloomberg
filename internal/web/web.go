@@ -22,8 +22,19 @@ import (
 const (
 	wsend       = "send"
 	wnewmessage = "newmessage"
-	glbGasLine  = "gasline"
 )
+
+var templateFiles = []string{
+	"www/layout.html",
+	"www/style.html",
+	"www/view.html",
+	"www/divider-gas.html",
+}
+
+type GasInfoMessage struct {
+	PriceGwei int
+	TipGwei   float64
+}
 
 type EventMessage struct {
 	ID              string // Unique ID per message so that we can use `live-update`.
@@ -48,7 +59,9 @@ type EventMessage struct {
 	SaLiRa          float64
 	LinkOpenSea     string
 	LinkEtherscan   string
-	GasLine         string
+	GasInfo         GasInfoMessage
+	EventType       string
+	Divider         bool
 }
 
 func NewEvent(data interface{}) EventMessage {
@@ -122,83 +135,167 @@ func (es *EventStream) NewEventstreamInstance(s live.Socket) *EventStream {
 func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 	gbl.Log.Infof("webWorker started for session %v", live.SessionID((*s).Session()))
 
-	for event := range *queueOutWeb {
-		gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
+	dividerTicker := time.NewTicker(viper.GetDuration("ticker.divider"))
 
-		if !event.PrintEvent {
-			gbl.Log.Debugf("outWeb discarded event: %+v", event)
-			continue
-		}
+	for {
+		select {
+		// case event := <-*queueOutWeb:
 
-		priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
-		priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
+		// 	// for event := range *queueOutWeb {
+		// 	gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
 
-		var to string
-		if event.ToENS != "" {
-			to = event.ToENS
-		} else {
-			to = style.ShortenAddress(&event.To.Address)
-		}
+		// 	if !event.PrintEvent {
+		// 		gbl.Log.Debugf("outWeb discarded event: %+v", event)
+		// 		continue
+		// 	}
 
-		var openseaURL string
-		if event.Permalink != "" {
-			openseaURL = event.Permalink
-		} else {
-			openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
-		}
+		// 	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
+		// 	priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
 
-		var TxLogCountColor lipgloss.Color
+		// 	var to string
+		// 	if event.ToENS != "" {
+		// 		to = event.ToENS
+		// 	} else {
+		// 		to = style.ShortenAddress(&event.To.Address)
+		// 	}
 
-		switch {
-		case event.TxLogCount > 7:
-			TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
-		case event.TxLogCount > 4:
-			TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
-		case event.TxLogCount > 1:
-			TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
+		// 	var openseaURL string
+		// 	if event.Permalink != "" {
+		// 		openseaURL = event.Permalink
+		// 	} else {
+		// 		openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
+		// 	}
+
+		// 	var TxLogCountColor lipgloss.Color
+
+		// 	switch {
+		// 	case event.TxLogCount > 7:
+		// 		TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
+		// 	case event.TxLogCount > 4:
+		// 		TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
+		// 	case event.TxLogCount > 1:
+		// 		TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
+		// 	default:
+		// 		TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
+		// 	}
+
+		// 	data := EventMessage{
+		// 		ID:              live.NewID(),
+		// 		Time:            event.Time.Format("15:04:05"),
+		// 		Typemoji:        event.EventType.Icon(),
+		// 		EventType:       strings.ToLower(event.EventType.String()),
+		// 		TxLogCount:      event.TxLogCount,
+		// 		TxLogCountColor: TxLogCountColor,
+		// 		Price:           fmt.Sprintf("%6.3f", priceEther),
+		// 		PricePerItem:    priceEtherPerItem,
+		// 		PriceArrowColor: string(event.PriceArrowColor),
+		// 		CollectionName:  event.Collection.Name,
+		// 		TokenID:         event.TokenID,
+		// 		To:              to,
+		// 		ToColor:         string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
+		// 		ColorPrimary:    string(event.Collection.Colors.Primary),
+		// 		ColorSecondary:  string(event.Collection.Colors.Secondary),
+		// 		Event:           event,
+		// 		SalesCount:      event.Collection.Counters.Sales,
+		// 		ListingsCount:   event.Collection.Counters.Listings,
+		// 		SaLiRa:          event.Collection.SaLiRa.Value(),
+		// 		LinkOpenSea:     openseaURL,
+		// 		LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
+		// 	}
+
+		// 	gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
+
+		// 	if err := (*s).Broadcast(wnewmessage, data); err != nil {
+		// 		gbl.Log.Errorf("failed braodcasting new message: %s", err)
+		// 	}
+		case <-dividerTicker.C:
+			data := EventMessage{Divider: true}
+			if err := (*s).Broadcast(wnewmessage, data); err != nil {
+				gbl.Log.Errorf("failed braodcasting new message: %s", err)
+			}
+
 		default:
-			TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
-		}
+			event := <-*queueOutWeb
 
-		data := EventMessage{
-			ID:              live.NewID(),
-			Time:            event.Time.Format("15:04:05"),
-			Typemoji:        event.EventType.Icon(),
-			TxLogCount:      event.TxLogCount,
-			TxLogCountColor: TxLogCountColor,
-			Price:           fmt.Sprintf("%6.3f", priceEther),
-			PricePerItem:    priceEtherPerItem,
-			PriceArrowColor: string(event.PriceArrowColor),
-			CollectionName:  event.Collection.Name,
-			TokenID:         event.TokenID,
-			To:              to,
-			ToColor:         string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
-			ColorPrimary:    string(event.Collection.Colors.Primary),
-			ColorSecondary:  string(event.Collection.Colors.Secondary),
-			Event:           event,
-			SalesCount:      event.Collection.Counters.Sales,
-			ListingsCount:   event.Collection.Counters.Listings,
-			SaLiRa:          event.Collection.SaLiRa.Value(),
-			LinkOpenSea:     openseaURL,
-			LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
-		}
+			// for event := range *queueOutWeb {
+			gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
 
-		gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
+			if !event.PrintEvent {
+				gbl.Log.Debugf("outWeb discarded event: %+v", event)
+				continue
+			}
 
-		if err := (*s).Broadcast(wnewmessage, data); err != nil {
-			gbl.Log.Errorf("failed braodcasting new message: %s", err)
+			priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
+			priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
+
+			var to string
+			if event.ToENS != "" {
+				to = event.ToENS
+			} else {
+				to = style.ShortenAddress(&event.To.Address)
+			}
+
+			var openseaURL string
+			if event.Permalink != "" {
+				openseaURL = event.Permalink
+			} else {
+				openseaURL = fmt.Sprintf("https://opensea.io/assets/%s/%d", event.Collection.ContractAddress, event.TokenID)
+			}
+
+			var TxLogCountColor lipgloss.Color
+
+			switch {
+			case event.TxLogCount > 7:
+				TxLogCountColor = style.AlmostWhiteStyle.GetForeground().(lipgloss.Color)
+			case event.TxLogCount > 4:
+				TxLogCountColor = style.DarkWhiteStyle.GetForeground().(lipgloss.Color)
+			case event.TxLogCount > 1:
+				TxLogCountColor = style.LightGrayStyle.GetForeground().(lipgloss.Color)
+			default:
+				TxLogCountColor = style.GrayStyle.GetForeground().(lipgloss.Color)
+			}
+
+			data := EventMessage{
+				ID:              live.NewID(),
+				Time:            event.Time.Format("15:04:05"),
+				Typemoji:        event.EventType.Icon(),
+				EventType:       strings.ToLower(event.EventType.String()),
+				TxLogCount:      event.TxLogCount,
+				TxLogCountColor: TxLogCountColor,
+				Price:           fmt.Sprintf("%6.3f", priceEther),
+				PricePerItem:    priceEtherPerItem,
+				PriceArrowColor: string(event.PriceArrowColor),
+				CollectionName:  event.Collection.Name,
+				TokenID:         event.TokenID,
+				To:              to,
+				ToColor:         string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
+				ColorPrimary:    string(event.Collection.Colors.Primary),
+				ColorSecondary:  string(event.Collection.Colors.Secondary),
+				Event:           event,
+				SalesCount:      event.Collection.Counters.Sales,
+				ListingsCount:   event.Collection.Counters.Listings,
+				SaLiRa:          event.Collection.SaLiRa.Value(),
+				LinkOpenSea:     openseaURL,
+				LinkEtherscan:   fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
+			}
+
+			gbl.Log.Debugf("%s| before broadcast: %+v", live.SessionID((*s).Session()), data)
+
+			if err := (*s).Broadcast(wnewmessage, data); err != nil {
+				gbl.Log.Errorf("failed braodcasting new message: %s", err)
+			}
+
 		}
 	}
 
-	gbl.Log.Infof("webWorker closed for session %+v", live.SessionID((*s).Session()))
+	// gbl.Log.Infof("webWorker closed for session %+v", live.SessionID((*s).Session()))
 }
 
-func GasLineMessage(s *live.Socket, webGasTicker *time.Ticker, ethNodes *nodes.Nodes) {
+func GasLineMessage(es *EventStream, s *live.Socket, handler *live.BaseHandler, webGasTicker *time.Ticker, ethNodes *nodes.Nodes) {
 	oldGasPrice := 0
 
 	for range webGasTicker.C {
 		gasNode := ethNodes.GetRandomLocalNode()
-		gasLine := strings.Builder{}
 
 		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
 			// gas price
@@ -212,29 +309,16 @@ func GasLineMessage(s *live.Socket, webGasTicker *time.Ticker, ethNodes *nodes.N
 
 				oldGasPrice = gasPrice
 
-				// // tip / priority fee
-				// var gasTip int
-				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
-				// 	gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
-				// 	gasTip = int(math.Round(gasTipGwei))
-				// 	fmt.Printf("gasInfo.GasTipWei: %+v | gasTipGwei: %+v | gasTip: %+v\n", gasInfo.GasTipWei, gasTipGwei, gasTip)
-				// }
-
-				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
-				outro := style.DarkerGrayStyle.Render("   ~   ~")
-				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
-
-				formattedGas := style.GrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
-				formattedGasAndTip := formattedGas
-
-				// if gasTip > 0 {
-				// 	formattedGasAndTip = formattedGas + "|" + style.GrayStyle.Render(fmt.Sprintf("%d", gasTip)) + style.DarkGrayStyle.Render("gw")
-				// }
-
-				gasLine.WriteString(intro + formattedGas + divider + formattedGasAndTip + divider + formattedGas + outro)
+				gasPriceGwei, _ = nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
+				gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
 
 				data := EventMessage{
-					GasLine: gasLine.String(),
+					Time:     time.Now().Format("15:04:05"),
+					Typemoji: "🛢️", // "🧟",
+					GasInfo: GasInfoMessage{
+						PriceGwei: int(math.Round(gasPriceGwei)),
+						TipGwei:   math.Round(gasTipGwei),
+					},
 				}
 
 				if err := (*s).Broadcast(wnewmessage, data); err != nil {
@@ -242,17 +326,26 @@ func GasLineMessage(s *live.Socket, webGasTicker *time.Ticker, ethNodes *nodes.N
 				}
 			}
 		}
-
-		// *queueOutput <- gasLine.String()
 	}
 }
 
-func (es *EventStream) NewEventHandler() live.Handler {
-	t, err := template.ParseFiles("www/layout.html", "www/style.html", "www/view.html")
-	// t, err := template.ParseFiles("www/gLayout.html", "www/gStyle.html", "www/gView.html")
+func parseTemplates(filenames ...string) *template.Template {
+	t, err := template.ParseFiles(filenames...)
 	if err != nil {
 		gbl.Log.Error(err)
 	}
+
+	return t
+}
+
+func (es *EventStream) NewEventHandler() live.Handler {
+	// t, err := template.ParseFiles("www/layout.html", "www/style.html", "www/view.html")
+	// t, err := template.ParseFiles("www/gLayout.html", "www/gStyle.html", "www/gView.html")
+	// if err != nil {
+	// 	gbl.Log.Error(err)
+	// }
+
+	t := parseTemplates(templateFiles...)
 
 	handler := live.NewHandler(live.WithTemplateRenderer(t))
 
@@ -269,18 +362,18 @@ func (es *EventStream) NewEventHandler() live.Handler {
 		// This will initialise the chat for this socket.
 		go startWorker(&s, es.queueOutWeb)
 
-		if tickerInterval := viper.GetDuration("ticker.statsbox"); es.Nodes != nil && len(es.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-			// start gasline ticker
-			webGasTicker := time.NewTicker(tickerInterval)
-			go GasLineMessage(&s, webGasTicker, es.Nodes)
-		}
+		// if tickerInterval := viper.GetDuration("ticker.statsbox"); es.Nodes != nil && len(es.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+		// 	// start gasline ticker
+		// 	webGasTicker := time.NewTicker(tickerInterval)
+		// 	go GasLineMessage(es, &s, handler, webGasTicker, es.Nodes)
+		// }
 
 		return es.NewEventstreamInstance(s), nil
 	})
 
 	// Handle user sending a message.
 	handler.HandleEvent(wsend, func(ctx context.Context, s live.Socket, p live.Params) (interface{}, error) {
-		gbl.Log.Debugf("handle event params: %+v", p)
+		gbl.Log.Infof("handle event params: %+v", p)
 
 		m := es.NewEventstreamInstance(s)
 		msg := p.String("message")
@@ -309,7 +402,7 @@ func (es *EventStream) NewEventHandler() live.Handler {
 	// Handle the broadcasted events.
 	handler.HandleSelf(wnewmessage, func(ctx context.Context, s live.Socket, data interface{}) (interface{}, error) {
 		gbl.Log.Debugf("handle self data: %+v", data)
-		gbl.Log.Debugf("broadcasting to %s: %+v", live.SessionID(s.Session()), data)
+		// gbl.Log.Infof("broadcasting to %s: %+v", live.SessionID(s.Session()), data)
 
 		m := es.NewEventstreamInstance(s)
 
