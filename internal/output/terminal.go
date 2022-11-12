@@ -105,13 +105,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		event.EventType = collections.Purchase
 	}
 
-	var previousFloorPrice, currentFloorPrice float64
+	var currentFloorPrice float64
 
 	//
 	// price-dependent styling
 	if event.EventType == collections.Sale {
 		// recalculate moving average
-		previousFloorPrice, currentFloorPrice = event.Collection.CalculateFloorPrice(priceEtherPerItem)
+		event.Collection.PreviousFloorPrice, currentFloorPrice = event.Collection.CalculateFloorPrice(priceEtherPerItem)
 
 		priceStyle = style.DarkWhiteStyle
 
@@ -119,8 +119,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
 	} else {
 		// if this is a mint/transfer/listing, we don't touch the moving average
-		currentFloorPrice = event.Collection.FloorPrice.Value()
-		previousFloorPrice = currentFloorPrice
+		currentFloorPrice = (*event.Collection.FloorPrice).Value()
+		event.Collection.PreviousFloorPrice = currentFloorPrice
 
 		priceStyle = style.GrayStyle
 		priceArrowColor = "#333333"
@@ -134,7 +134,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	currentFloorPriceStyle := style.GrayStyle.Copy().Faint(true)
 
-	trendIndicator := style.CreateTrendIndicator(previousFloorPrice, currentFloorPrice)
+	trendIndicator := style.CreateTrendIndicator(event.Collection.PreviousFloorPrice, currentFloorPrice)
 
 	var numberStyle, pricePerItemStyle lipgloss.Style
 
@@ -215,7 +215,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// PRETTY...??
 	collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
-	if event.EventType == collections.Sale && isOwnCollection {
+	if event.EventType == collections.Sale && isOwnWallet { // isOwnCollection {
 		timeNow = collectionStyle.Render(currentTime)
 
 		notifications.SendNotification(event.Collection.Name, tokenInfo)
@@ -490,12 +490,15 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		queueOutput <- out.String()
 	}
 
+	go cache.StoreFloor(event.Collection.ContractAddress, currentFloorPrice)
+
 	// gbl.Log.Infof("")
 	// gbl.Log.Infof("event.Collection.Source: %s", event.Collection.Source)
 	// // gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.FromAddresses): %s", gb.WatchUsers.ContainsOneOf(event.FromAddresses))
 	// gbl.Log.Infof("gb.WatchUsers: %+v", gb.WatchUsers)
-	// // gbl.Log.Infof("gb.OwnWallets.ContainsOneOf(event.FromAddresses): %s", gb.OwnWallets.ContainsOneOf(event.FromAddresses))
-	// gbl.Log.Infof("gb.OwnWallets: %+v", gb.OwnWallets)
+	// // // gbl.Log.Infof("gb.OwnWallets.ContainsOneOf(event.FromAddresses): %s", gb.OwnWallets.ContainsOneOf(event.FromAddresses))
+	// gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.FromAddresses): %+v", gb.WatchUsers.ContainsOneOf(event.FromAddresses))
+	// gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.ToAddresses): %+v", gb.WatchUsers.ContainsOneOf(event.ToAddresses))
 	// gbl.Log.Infof("")
 
 	//
