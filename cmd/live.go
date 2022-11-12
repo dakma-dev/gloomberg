@@ -69,7 +69,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &models.Watcher{},
-		WatchUsers:   &models.WatcherUsers{},
+		//WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
 		QueueSlugs:   make(chan common.Address, 1024),
 	}
@@ -165,9 +165,9 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	//
 	// wallet watcher (todo) & MIWs
 	if viper.GetBool("sales.enabled") {
-		// gb.WatchUsers = config.GetWatcherUsersFromConfig()
-		// gb.WatchUsers = config.GetWatchRulesFromConfig()
 		watcher := config.GetWatchRulesFromConfig()
+		//gb.WatchUsers = config.GetWatchRulesFromConfig()
+		//gb.WatchUsers = config.GetWatcherUsersFromConfig()
 		gb.Watcher = &watcher
 
 		//

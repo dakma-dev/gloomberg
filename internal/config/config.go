@@ -204,8 +204,7 @@ func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollec
 	return ownCollections
 }
 
-//
-//// GetWatcherUsersFromConfig reads configured users to be notified from config
+// // GetWatcherUsersFromConfig reads configured users to be notified from config
 //func GetWatcherUsersFromConfig() *models.WatcherUsers {
 //	mu := sync.Mutex{}
 //
@@ -282,6 +281,7 @@ func GetWatchRulesFromConfig() models.Watcher {
 		UserAddresses:   make(map[common.Address]*models.WatchGroup, 0),
 		WalletAddresses: make(map[common.Address]*models.WatchGroup, 0),
 		Groups:          make(map[string]*models.WatchGroup, 0),
+		WatchUsers:      make(map[common.Address]*models.WatchUser, 0),
 	}
 
 	watchSpinner := style.GetSpinner("setting up watch rules...")
@@ -313,6 +313,7 @@ func GetWatchRulesFromConfig() models.Watcher {
 		for _, user := range newWatchGroup.Users {
 			for _, userWallet := range user.Wallets {
 				watcher.UserAddresses[userWallet.Address] = watcher.Groups[newWatchGroup.Name]
+				watcher.WatchUsers[userWallet.Address] = user
 			}
 		}
 		mu.Unlock()
