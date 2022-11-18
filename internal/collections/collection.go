@@ -28,6 +28,7 @@ type GbCollection struct {
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
 	OpenseaSlug     string         `mapstructure:"slug"`
+	IgnorePrinting  bool           `mapstructure:"ignore"`
 
 	// SupportedStandards standard.Standards
 

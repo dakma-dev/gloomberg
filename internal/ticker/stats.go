@@ -25,9 +25,9 @@ import (
 var (
 	// columnWidth = 32
 	listStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder(), false, true, false, false).
-			BorderForeground(style.Subtle).
-			MarginRight(0)
+		Border(lipgloss.NormalBorder(), false, true, false, false).
+		BorderForeground(style.Subtle).
+		MarginRight(0)
 	// Height(8).
 	// Width(columnWidth + 1)
 
@@ -319,11 +319,15 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		for idx, event := range ownEvents {
 			if event == nil {
 				gbl.Log.Debugf("event is nil: %d\n", idx)
-
 				continue
 			}
 
 			gbl.Log.Debugf("%d | event: %+v\n", idx, event)
+
+			if !event.PrintEvent {
+				gbl.Log.Debugf("ignoring event")
+				continue
+			}
 
 			var rowStyle lipgloss.Style
 

@@ -272,6 +272,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		}
 	} else {
 		eventType = collections.Sale
+		if collection.IgnorePrinting {
+			printEvent = false
+		}
 	}
 
 	// get the transaction details - we do this for mints to save a lot of calls
