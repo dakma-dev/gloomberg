@@ -23,7 +23,7 @@
       <span class="price" style="color: {{ .PricePerItemColor }};">{{.PricePerItem}}</span>
       <span class="per-item-currency" style="color: {{.ColorPrimary }};">Ξ</span>
 
-      <span class="trendindicator" style="color: #282828;">~</span>
+      <span class="trendindicator" style="color: #282828">~</span>
       {{/* <span class="trendindicator" style="color: {{ .TrendIndicatorColor }};">{{.TrendIndicator}}</span> */}}
       <span class="floor-price">{{.FloorPrice}}</span>
       <span class="floor-price-currency" style="color: {{.ColorPrimary }};">Ξ</span>
@@ -36,13 +36,13 @@
       <span class="hashtag" style="color: {{.ColorSecondary}};">#</span>
       <span class="tokenid" style="color: {{.ColorPrimary}};">{{.TokenID}}</span>
 
-      <span class="divider">|</span>
+      <span class="divider divider-light">|</span>
       <a class="opensea" href="{{.LinkOpenSea}}" target="_blank">OS</a>
 
-      <span class="divider">|</span>
+      <span class="divider divider-light">|</span>
       <a class="etherscan" href="{{.LinkEtherscan}}" target="_blank">ES</a>
 
-      <span class="divider">|</span><span class="divider">→</span>
+      <span class="divider divider-light">|</span><span class="divider">→</span>
       <span class="to" style="color: {{.ToColor}};">{{.To}}</span>
 
       {{ if gt .SaLiRa 0.0 }}
@@ -56,12 +56,14 @@
 
   <div class="commandline">
     <form id="commandline" live-submit="send" live-hook="input">
-      <input autocomplete="off" type="text" name="message" autofocus />
+      <input autocomplete="off" type="text" name="message" autofocus disabled />
       <button type="submit" disabled>go</button>
     </form>
   </div>
 
-  <div class="side-header"></div>
+  <div class="side-top">
+    <p>gas: <span class="gas-price" live-update="replace">{{.Assigns.GasPrice}}</span>gw</p>
+  </div>
 
   <div class="side-trending"></div>
 

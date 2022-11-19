@@ -32,8 +32,14 @@ type GloomWeb struct {
 
 func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *GloomWeb {
 	engine := html.New("./www", ".html")
+	engine.Load()
 
-	gbl.Log.Infof("gloomWeb| engine.Templates: %+v", engine.Templates)
+	// t, err := template.ParseFiles(templateFiles...)
+	// if err != nil {
+	// 	gbl.Log.Error(err)
+	// }
+
+	gbl.Log.Infof("gloomWeb| engine.Templates: %+v | t: %+v", engine.Templates.DefinedTemplates(), 0)
 
 	app := fiber.New(fiber.Config{Views: engine, ViewsLayout: "layout"})
 
@@ -55,6 +61,13 @@ func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *Gl
 
 	gw.app.Use(favicon.New())
 
+	gw.app.Get("/rekt", func(c *fiber.Ctx) error {
+		gbl.Log.Infof("c.Render(view, fiber.Map{}): %+v", c.Render("view", fiber.Map{}))
+		return c.Render("layout", fiber.Map{
+			"Title": "Gloomberg",
+		})
+	})
+
 	gw.app.Use(func(c *fiber.Ctx) error {
 		if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
 			return c.Next()
@@ -62,11 +75,12 @@ func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *Gl
 		return c.SendStatus(fiber.StatusUpgradeRequired)
 	})
 
-	gw.app.Get("/rekt", func(c *fiber.Ctx) error {
-		return c.Render("view", fiber.Map{
-			"Title": "Gloomberg",
-		})
-	})
+	// gw.app.Use("/rekt", func(c *fiber.Ctx) error {
+	// 	if websocket.IsWebSocketUpgrade(c) { // Returns true if the client requested upgrade to the WebSocket protocol
+	// 		return c.Next()
+	// 	}
+	// 	return c.SendStatus(fiber.StatusUpgradeRequired)
+	// })
 
 	gw.app.Get("/ws", websocket.New(func(c *websocket.Conn) {
 		// When the function returns, unregister the client and close the connection
@@ -101,6 +115,8 @@ func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *Gl
 
 	gbl.Log.Infof("gloomWeb| configuration done") //: %+v", gw.app.GetRoutes())
 
+	gbl.Log.Infof("gloomWeb| routes: %v", app.GetRoutes(false))
+
 	return gw
 }
 
@@ -124,6 +140,7 @@ func (gw *GloomWeb) runHub() {
 
 			// send message to all clients
 			for connection := range gw.clients {
+				gbl.Log.Debugf("gloomWeb| message received: %s | connection: %+v", message, connection)
 				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 					gbl.Log.Warnf("write error for %v: %s", connection, err)
 
