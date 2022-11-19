@@ -530,12 +530,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			var userName string
 
 			user := ((*gb.Watcher).UserAddresses)[triggerAddress]
-			watchuser := ((*gb.Watcher).WatchUsers)[triggerAddress]
-			if watchuser != nil {
-				if watchuser.TelegramUsername != "" {
-					userName = "@" + watchuser.TelegramUsername
+			watchUser := ((*gb.Watcher).WatchUsers)[triggerAddress]
+
+			if watchUser != nil {
+				if watchUser.TelegramUsername != "" {
+					userName = "@" + watchUser.TelegramUsername
 				} else {
-					userName = watchuser.Name
+					userName = watchUser.Name
 				}
 			} else {
 				userName = "⸘Unknown‽"
@@ -548,7 +549,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			msgTelegram := strings.Builder{}
 			msgTelegram.WriteString(event.EventType.Icon())
 			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
-			msgTelegram.WriteString(" (" + style.ShortenAddress(&event.To.Address) + ")")
+			msgTelegram.WriteString(" (" + style.ShortenAddress(&triggerAddress) + ")")
 			msgTelegram.WriteString(" " + event.EventType.ActionName())
 			msgTelegram.WriteString(" " + style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, false))
 			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
