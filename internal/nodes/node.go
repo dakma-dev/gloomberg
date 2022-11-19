@@ -85,6 +85,10 @@ func (n *Node) Connect() error {
 	return err
 }
 
+func (n *Node) GetStyledMarker() string {
+	return lipgloss.NewStyle().Foreground(n.Color).Render(n.Marker)
+}
+
 // GetCurrentGasInfo returns the current gas price and tip
 func (n *Node) GetCurrentGasInfo() (*GasInfo, error) {
 	ctx := context.Background()

@@ -49,14 +49,14 @@ func GetNodesFromConfig() *nodes.Nodes {
 		// set a unique node id
 		newNode.NodeID = idx
 
+		// set the default node color to be used to color the marker for example
+		if newNode.Color == "" {
+			newNode.Color = lipgloss.Color("#1A1A1A")
+		}
+
 		// use the node id as the default marker
 		if newNode.Marker == "" {
 			newNode.Marker = fmt.Sprintf(" %d", idx)
-		}
-
-		// set the default node color to be used to color the marker for example
-		if newNode.Color != "" {
-			newNode.Marker = lipgloss.NewStyle().Foreground(newNode.Color).Render(newNode.Marker)
 		}
 
 		// connect to the endpoint
@@ -159,46 +159,45 @@ func GetOwnWalletsFromConfig(ethNodes *nodes.Nodes) *wallet.Wallets {
 func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollection {
 	ownCollections := make([]*collections.GbCollection, 0)
 
-	if viper.IsSet("collections") {
-		for address, collection := range viper.GetStringMap("collections") {
-			contractAddress := common.HexToAddress(address)
-			currentCollection := collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
+	for address, collection := range viper.GetStringMap("collections") {
+		contractAddress := common.HexToAddress(address)
+		currentCollection := collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 
-			if collection == nil && common.IsHexAddress(address) {
-				gbl.Log.Infof("reading collection without details: %+v", address)
+		if collection == nil && common.IsHexAddress(address) {
+			gbl.Log.Infof("reading collection without details: %+v", address)
 
-				currentCollection = collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
-				// global settings
-				currentCollection.Show.Listings = viper.GetBool("show.listings")
-				currentCollection.Show.Sales = viper.GetBool("show.sales")
-				currentCollection.Show.Mints = viper.GetBool("show.mints")
-				currentCollection.Show.Transfers = viper.GetBool("show.transfers")
-			} else {
-				gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
+			currentCollection = collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 
-				decodeHooks := mapstructure.ComposeDecodeHookFunc(
-					hooks.StringToAddressHookFunc(),
-					hooks.StringToDurationHookFunc(),
-					hooks.StringToLipglossColorHookFunc(),
-				)
+			// global settings
+			currentCollection.Show.Listings = viper.GetBool("show.listings")
+			currentCollection.Show.Sales = viper.GetBool("show.sales")
+			currentCollection.Show.Mints = viper.GetBool("show.mints")
+			currentCollection.Show.Transfers = viper.GetBool("show.transfers")
+		} else {
+			gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
 
-				decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-					DecodeHook: decodeHooks,
-					Result:     &currentCollection,
-				})
+			decodeHooks := mapstructure.ComposeDecodeHookFunc(
+				hooks.StringToAddressHookFunc(),
+				hooks.StringToDurationHookFunc(),
+				hooks.StringToLipglossColorHookFunc(),
+			)
 
-				err := decoder.Decode(collection)
-				if err != nil {
-					gbl.Log.Errorf("error decoding collection: %+v", err)
+			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+				DecodeHook: decodeHooks,
+				Result:     &currentCollection,
+			})
 
-					continue
-				}
+			err := decoder.Decode(collection)
+			if err != nil {
+				gbl.Log.Errorf("error decoding collection: %+v", err)
+
+				continue
 			}
-
-			gbl.Log.Debugf("currentCollection: %+v", currentCollection)
-
-			ownCollections = append(ownCollections, currentCollection)
 		}
+
+		gbl.Log.Debugf("currentCollection: %+v", currentCollection)
+
+		ownCollections = append(ownCollections, currentCollection)
 	}
 
 	return ownCollections
@@ -288,7 +287,6 @@ func GetWatchRulesFromConfig() models.Watcher {
 	_ = watchSpinner.Start()
 
 	for _, group := range viper.Get("watch").([]interface{}) {
-
 		var newWatchGroup *models.WatchGroup
 
 		decodeHooks := mapstructure.ComposeDecodeHookFunc(

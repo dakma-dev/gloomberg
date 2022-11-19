@@ -96,8 +96,12 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.Watcher.Contains(event.To.Address)
 	}
 
+	// gbl.Log.Infof("%s | isOwnWallet: %v | gb.OwnWallets.Contains(event.To.Address): %v | gb.Watcher.Contains(event.To.Address): v", event.Collection.Name, isOwnWallet, gb.OwnWallets.Contains(event.To.Address)) //, gb.Watcher.Contains(event.To.Address))
+	// gbl.Log.Infof("%s | isOwnWallet: %v | gb.OwnWallets.ContainsOneOf(event.ToAddresses): %v | gb.Watcher.ContainsOneOf(event.ToAddresses): %v", event.Collection.Name, isOwnWallet, gb.OwnWallets.Contains(event.To.Address), gb.Watcher.Contains(event.To.Address))
+
 	isWatchUsersWallet := gb.Watcher.ContainsOneOf(event.FromAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 
+	// disabled - feature will be moved to listings/sniper part
 	isListingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// set type to purchase if "we" are on the buyer side
