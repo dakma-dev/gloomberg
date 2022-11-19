@@ -215,7 +215,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// PRETTY...??
 	collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
-	if event.EventType == collections.Sale && isOwnWallet { // isOwnCollection {
+	if event.EventType == collections.Sale && isOwnCollection {
 		timeNow = collectionStyle.Render(currentTime)
 
 		notifications.SendNotification(event.Collection.Name, tokenInfo)
@@ -295,13 +295,14 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	}
 
 	// add to event history
-	if isOwnCollection && event.EventType == collections.Sale {
+	if isOwnCollection && (event.EventType == collections.Sale || event.EventType == collections.Purchase) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if isOwnWallet {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if gb.OwnWallets.Contains(event.To.Address) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
+
 	// build the line to be displayed
 	out := strings.Builder{}
 
@@ -309,7 +310,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		if event.EventType == collections.Listing {
 			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#20293d")).Render("OS"))
 		} else if gb.Nodes != nil && len(*gb.Nodes) > 0 {
-			out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker)))
+			out.WriteString(gb.Nodes.GetNodeByID(event.NodeID).GetStyledMarker())
 		}
 
 		out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
