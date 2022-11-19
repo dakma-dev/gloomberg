@@ -490,6 +490,16 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		queueOutput <- out.String()
 	}
 
+	// set price of listing as the new fp
+	if event.EventType == collections.Listing {
+		// fmt.Printf("floor before: %f | %f\n", currentFloorPrice, (*event.Collection.FloorPrice).Value())
+		if currentFloorPrice == 0.0 || priceEther < currentFloorPrice {
+			(*event.Collection.FloorPrice).Set(priceEther)
+			cache.StoreFloor(event.Collection.ContractAddress, priceEther)
+		}
+		// fmt.Printf(" floor after: %f | %f\n", currentFloorPrice, (*event.Collection.FloorPrice).Value())
+	}
+
 	go cache.StoreFloor(event.Collection.ContractAddress, currentFloorPrice)
 
 	// gbl.Log.Infof("")
