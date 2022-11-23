@@ -204,7 +204,6 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 
 	// 	default:
 	for event := range *queueOutWeb {
-
 		// for event := range *queueOutWeb {
 		gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
 
@@ -286,6 +285,11 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 			trendIndicatorColor = style.DarkGrayStyle.GetForeground().(lipgloss.Color)
 		}
 
+		var salira float64
+		if currentSalira, err := cache.GetSalira(event.Collection.ContractAddress); currentSalira != 0.0 && err == nil {
+			salira = currentSalira
+		}
+
 		data := EventMessage{
 			ID:                  live.NewID(),
 			Time:                event.Time.Format("15:04:05"),
@@ -310,7 +314,7 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 			Event:               event,
 			SalesCount:          event.Collection.Counters.Sales,
 			ListingsCount:       event.Collection.Counters.Listings,
-			SaLiRa:              event.Collection.SaLiRa.Value(),
+			SaLiRa:              salira,
 			LinkOpenSea:         openseaURL,
 			LinkEtherscan:       fmt.Sprintf("https://etherscan.io/tx/%s", event.TxHash),
 		}
@@ -325,7 +329,6 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 			gbl.Log.Errorf("failed braodcasting new message: %s", err)
 		}
 	}
-	// gbl.Log.Infof("webWorker closed for session %+v", live.SessionID((*s).Session()))
 }
 
 func parseTemplates(filenames ...string) *template.Template {
@@ -356,7 +359,7 @@ func (es *EventStream) NewEventHandler() live.Handler {
 		go startWorker(&s, es.queueOutWeb)
 
 		go func() {
-			ticker := time.NewTicker(37 * time.Second)
+			ticker := time.NewTicker(47 * time.Second)
 			for range ticker.C {
 				// gasPrice := es.GetGasPrice()
 				gasPrice := es.GasPrice
@@ -417,6 +420,7 @@ func (es *EventStream) NewEventHandler() live.Handler {
 
 		m := es.NewEventstreamInstance(s)
 		m.GasPrice, _ = data.(int)
+		m.Events = []EventMessage{{Divider: true}}
 
 		return m, nil
 	})

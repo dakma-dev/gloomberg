@@ -134,13 +134,13 @@ func (gw *GloomWeb) Run() error {
 func (gw *GloomWeb) runHub() {
 	for {
 		select {
-
 		case message := <-gw.broadcast:
 			gbl.Log.Debugf("gloomWeb| message received: %s", message)
 
 			// send message to all clients
 			for connection := range gw.clients {
 				gbl.Log.Debugf("gloomWeb| message received: %s | connection: %+v", message, connection)
+
 				if err := connection.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
 					gbl.Log.Warnf("write error for %v: %s", connection, err)
 
