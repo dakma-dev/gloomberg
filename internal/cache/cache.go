@@ -235,6 +235,16 @@ func GetENSName(walletAddress common.Address) (string, error) {
 	return c.getName(walletAddress, keyENS)
 }
 
+func StoreContractName(contractAddress common.Address, contractName string) {
+	c := New()
+	c.cacheName(contractAddress, keyContract, contractName, viper.GetDuration("cache.names_ttl"))
+}
+
+func GetContractName(contractAddress common.Address) (string, error) {
+	c := New()
+	return c.getName(contractAddress, keyContract)
+}
+
 func StoreFloor(address common.Address, value float64) {
 	c := New()
 	c.cacheFloat(address, keyFloorPrice, value, viper.GetDuration("cache.floor_ttl"))
