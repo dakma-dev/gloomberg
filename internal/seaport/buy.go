@@ -168,7 +168,7 @@ func FulfillBasicOrder(gb *gloomberg.Gloomberg, order *models.SeaportOrder, priv
 
 	// 	gasLimit = uint64(160000)
 	// }
-	gasLimit := uint64(160000)
+	gasLimit := uint64(200000)
 
 	//
 	// create & set tx options
@@ -178,8 +178,8 @@ func FulfillBasicOrder(gb *gloomberg.Gloomberg, order *models.SeaportOrder, priv
 	}
 
 	txOpts.From = publicAddress
-	txOpts.GasFeeCap = gasFeeCap
-	txOpts.GasTipCap = gasTipCap
+	txOpts.GasFeeCap = big.NewInt(0).Mul(gasFeeCap, big.NewInt(2))
+	txOpts.GasTipCap = big.NewInt(0).Mul(gasTipCap, big.NewInt(2))
 	txOpts.GasLimit = gasLimit                            // in units
 	txOpts.Value = big.NewInt(sToI64(order.CurrentPrice)) // in wei
 	txOpts.Nonce = big.NewInt(int64(nonce))

@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/wallet"
@@ -344,4 +345,119 @@ func GetWatchRulesFromConfig() models.Watcher {
 	_ = watchSpinner.Stop()
 
 	return watcher
+}
+
+func GetBuyRulesFromConfiguration() []*models.BuyRule {
+	buyRules := make([]*models.BuyRule, 0)
+
+	gbl.Log.Info(" ------ buy rules ------")
+
+	// checking global key & threshold
+	globalPrivateKey := viper.GetString("buy.privateKey")
+	globalThreshold := viper.GetFloat64("buy.globalThreshold")
+
+	if globalPrivateKey == "" || globalThreshold == 0.0 {
+		gbl.Log.Warnf("❌ invalid globalPrivateKey (%s) or globalThreshold (%f), skipping global rule", globalPrivateKey, globalThreshold)
+	} else {
+
+		buyRule := &models.BuyRule{
+			ID:              0,
+			ContractAddress: utils.ZeroAddress,
+			PrivateKey:      globalPrivateKey,
+			Threshold:       globalThreshold,
+		}
+
+		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
+			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
+		} else {
+
+			buyRules = append(buyRules, buyRule)
+
+			gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
+		}
+	}
+
+	if viper.Get("buy.rules") == nil {
+		gbl.Log.Info("no buy rules configured")
+		return buyRules
+	}
+
+	for _, rule := range viper.Get("buy.rules").([]interface{}) {
+		ruleID := len(buyRules)
+
+		gbl.Log.Debugf("reading buy rule %d: %+v", ruleID, rule)
+
+		decodeHooks := mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToDurationHookFunc(),
+			hooks.StringToLipglossColorHookFunc(),
+		)
+
+		var buyRule *models.BuyRule
+
+		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: decodeHooks,
+			Result:     &buyRule,
+		})
+
+		err := decoder.Decode(rule)
+		if err != nil {
+			gbl.Log.Errorf("error decoding collection: %+v", err)
+
+			continue
+		}
+
+		buyRule.ID = len(buyRules)
+
+		if buyRule.PrivateKey == "" {
+			if privateKey := viper.GetString("buy.privateKey"); privateKey != "" {
+				gbl.Log.Debugf("no private key found for buy rule %d, using the global privatKey", ruleID)
+
+				buyRule.PrivateKey = privateKey
+			} else {
+
+				gbl.Log.Warnf("❌ no private key available, skipping rule")
+
+				continue
+			}
+		}
+
+		if !common.IsHexAddress(buyRule.ContractAddress.String()) || buyRule.ContractAddress == utils.ZeroAddress || buyRule.Threshold == 0 {
+			gbl.Log.Warnf("❌ invalid contract address (%s) or threshold (%f), skipping rule", buyRule.ContractAddress.String(), buyRule.Threshold)
+
+			continue
+		}
+
+		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
+			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
+			continue
+		}
+
+		gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
+
+		buyRules = append(buyRules, buyRule)
+	}
+
+	for _, buyRule := range buyRules {
+		name := buyRule.ContractAddress.String()
+
+		if contractName, err := cache.GetContractName(buyRule.ContractAddress); err == nil && contractName != "" {
+			name = contractName
+		}
+
+		if buyRule.ContractAddress == utils.ZeroAddress {
+			name = "*everything*"
+		}
+
+		formattedRuleID := fmt.Sprintf("#%d", buyRule.ID)
+		percentageOfFloor := fmt.Sprintf("<=%.0f%%", buyRule.Threshold*100)
+		// relativeFloorDifference := int((buyRule.Threshold * 100) - 100)
+
+		// percentageBelowFloor := fmt.Sprintf(">=%.0f%%", math.Abs(float64(relativeFloorDifference)))
+		gbl.Log.Infof("Rule %s: buy %s if listed for %s of current floor using key %s...", style.BoldStyle.Render(formattedRuleID), style.BoldStyle.Render(name), style.BoldStyle.Render(percentageOfFloor), style.BoldStyle.Render(buyRule.PrivateKey[:4])) //, style.BoldStyle.Render(percentageBelowFloor))
+	}
+
+	gbl.Log.Info(" ----------------------- ")
+
+	return buyRules
 }

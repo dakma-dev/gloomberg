@@ -16,8 +16,10 @@ import (
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/seaport"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/spf13/viper"
 )
 
@@ -52,7 +54,7 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 		}
 
 		priceWei, _ := priceWeiRaw.Int(nil)
-		priceEther, _ := nodes.WeiToEther(priceWei).Float64()
+		// priceEther, _ := nodes.WeiToEther(priceWei).Float64()
 
 		event := &collections.Event{
 			EventType:  collections.Listing,
@@ -77,17 +79,32 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 		collectionFP := (*collection.FloorPrice).Value()
 
 		// check listing for base requirements to trigger auto-buy
-		if viper.IsSet("buy.privateKey") && collectionFP > 0.0 && priceEther < collectionFP && tokenID > 0 {
-			buyEvent(gb, event)
+		gbl.Log.Debugf("🛍️ len(gb.BuyRules): %d | collectionFP: %f | tokenID: %d", len(gb.BuyRules), collectionFP, tokenID)
+
+		if len(gb.BuyRules) > 0 && collectionFP > 0.0 && tokenID > 0 {
+			gbl.Log.Debug("🛍️ checking listing for auto-buy")
+			checkBuyRulesForEvent(gb, event)
 		}
 
 		atomic.AddUint64(&collection.Counters.Listings, 1)
 	}
 }
 
-func buyEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
+func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	// tokenName consists of collection name and tokenID
 	tokenName := event.Collection.Name + " #" + event.TokenID.String()
+
+	minSales := 1
+	minListings := 3
+
+	// filter events with non-accurate data
+	if event.Collection.Counters.Sales < 1 || event.Collection.Counters.Listings < 3 {
+		sales := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, minSales)
+		listings := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, minListings)
+		gbl.Log.Infof("🤷‍♀️ %s| too less sales %s and/or listings %s to calculate accurate floor price", tokenName, sales, listings)
+
+		return
+	}
 
 	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
 
@@ -98,15 +115,8 @@ func buyEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	listingToFloorPriceRatio := priceEther / collectionFP
 	fpRatioDifference := int((listingToFloorPriceRatio * 100) - 100)
 
-	privateKey := viper.GetString("buy.privateKey")
-	if privateKey == "" {
-		gbl.Log.Infof("🤷‍♀️ %s| no private key set, skipping auto-buy", tokenName)
-		return
-	}
-
 	// WEN...??
 	timeNow := style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05"))
-
 	divider := style.Sharrow.Copy().Foreground(style.DarkGray).String()
 
 	// build the line to be displayed
@@ -114,52 +124,47 @@ func buyEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	out.WriteString("  |" + timeNow)
 	out.WriteString(" 🛍️ " + divider)
 
-	var listingToFloorPriceThreshold float64
-	if viper.IsSet("buy.listingToFloorPriceThreshold") {
-		listingToFloorPriceThreshold = viper.GetFloat64("buy.listingToFloorPriceThreshold")
-
-		if listingToFloorPriceThreshold < 0.0 || listingToFloorPriceThreshold > 1.0 {
-			gbl.Log.Infof("🤷‍♀️ %s| invalid listingToFloorPriceThreshold (%.3f) value, skipping auto-buy", tokenName, listingToFloorPriceThreshold)
-			return
+	for _, rule := range gb.BuyRules {
+		if rule.ContractAddress != event.Collection.ContractAddress && rule.ContractAddress != utils.ZeroAddress {
+			gbl.Log.Debugf("🤷‍♀️ %s| no rule matching contract address, skipping auto-buy", tokenName)
+			continue
 		}
-	} else {
-		gbl.Log.Infof("🤷‍♀️ %s| no listingToFloorPriceThreshold value set, skipping auto-buy", tokenName)
-		return
-	}
 
-	if listingToFloorPriceRatio > listingToFloorPriceThreshold {
-		gbl.Log.Infof("🤷‍♀️ %s| listingToFloorPriceRatio (%.3f) > listingToFloorPriceThreshold (%.2f), skipping auto-buy", tokenName, listingToFloorPriceRatio, listingToFloorPriceThreshold)
-		// fmt.Printf("🤷‍♀️ %s| listing: %.3f | floor: %.3f ~ ratio: %s > threshold: %.3f | skipping auto-buy", tokenName, priceEther, collectionFP, style.TrendRedStyle.Render(fmt.Sprintf("%.3f", listingToFloorPriceRatio)), listingToFloorPriceThreshold)
+		if listingToFloorPriceRatio > rule.Threshold {
+			gbl.Log.Infof("🤷‍♀️ %s| rule matched contract address but price above threshold (%.3f > %.3f), skipping auto-buy", tokenName, listingToFloorPriceRatio, rule.Threshold)
+			out.WriteString(" " + style.TrendLightRedStyle.Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
 
-		out.WriteString(" " + style.TrendLightRedStyle.Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
-	} else {
+			continue
+		}
+
 		out.WriteString(" " + style.TrendGreenStyle.Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
-	}
 
-	out.WriteString("  " + tokenName + " " + divider)
-
-	// out.WriteString(" " + fmt.Sprintf("listing: %.3f | floor: %.3f ~ ratio: %.3f | threshold: %.2f", priceEther, collectionFP, listingToFloorPriceRatio, listingToFloorPriceThreshold))
-
-	// fmt.Println(out.String())
-	// gbl.Log.Info(out.String())
-
-	if event.Collection.Counters.Sales > 15 && listingToFloorPriceRatio <= listingToFloorPriceThreshold {
-		gbl.Log.Infof("trying to get lisings for tokenID %d", event.TokenID)
+		gbl.Log.Debugf("trying to get lisings for tokenID %d", event.TokenID)
 
 		// get listing details needed to fulfill order
 		if listings := opensea.GetListings(event.Collection.ContractAddress, event.TokenID.Int64()); len(listings) > 0 {
 			gbl.Log.Infof("listing found for %s", tokenName)
 
-			tx, err := seaport.FulfillBasicOrder(gb, &listings[0], viper.GetString("buy.privateKey"))
-			if err != nil {
-				gbl.Log.Warnf("❌ %s| error fulfilling order: %s", tokenName, err.Error())
+			if tx, err := buy(gb, &listings[0], rule.PrivateKey, tokenName); err != nil {
+				out.WriteString(" " + err.Error())
 			} else {
-				gbl.Log.Infof("✅ %s| successfully purchased 🛍️ | %s", tokenName, tx.Hash().String())
+				fmt.Printf("tx: %+v\n", tx)
 			}
 
-			out.WriteString(" " + err.Error())
-
 			fmt.Println(out.String())
+
+			return
 		}
 	}
+}
+
+func buy(gb *gloomberg.Gloomberg, order *models.SeaportOrder, privateKey string, tokenName string) (*types.Transaction, error) {
+	tx, err := seaport.FulfillBasicOrder(gb, order, privateKey)
+	if err != nil {
+		gbl.Log.Warnf("❌ %s| error fulfilling order: %s", tokenName, err.Error())
+	} else {
+		gbl.Log.Infof("✅ %s| successfully purchased 🛍️ | %s", tokenName, tx.Hash().String())
+	}
+
+	return tx, err
 }

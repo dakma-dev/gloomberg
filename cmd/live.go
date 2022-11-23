@@ -70,6 +70,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &models.Watcher{},
+		BuyRules:     make([]*models.BuyRule, 0),
 		GasPrice:     0,
 		// WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
@@ -77,6 +78,12 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	}
 
 	queueEvents := make(chan *collections.Event, 1024)
+
+	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules) > 0 {
+		gb.BuyRules = buyRules
+
+		gbl.Log.Infof("buy rules %d: %v", len(gb.BuyRules), gb.BuyRules)
+	}
 
 	//
 	// connect to ethereum nodes and create the chainwatcher
