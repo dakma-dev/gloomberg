@@ -25,9 +25,9 @@ import (
 var (
 	// columnWidth = 32
 	listStyle = lipgloss.NewStyle().
-		Border(lipgloss.NormalBorder(), false, true, false, false).
-		BorderForeground(style.Subtle).
-		MarginRight(0)
+			Border(lipgloss.NormalBorder(), false, true, false, false).
+			BorderForeground(style.Subtle).
+			MarginRight(0)
 	// Height(8).
 	// Width(columnWidth + 1)
 
@@ -361,7 +361,10 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			}
 
 			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
-			priceEtherPerItem, _ := nodes.WeiToEther(big.NewInt(int64(event.PriceWei.Uint64() / event.TxLogCount))).Float64()
+
+			// priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
+			pricePerItem := big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxLogCount)))
+			priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
 
 			historyLine := strings.Builder{}
 			historyLine.WriteString(timeNow)
