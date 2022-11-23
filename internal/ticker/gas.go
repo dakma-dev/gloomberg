@@ -63,10 +63,6 @@ func GasTicker(gb *gloomberg.Gloomberg, gasTicker *time.Ticker, ethNodes *nodes.
 				// }
 
 				gasLine.WriteString(intro + formattedGas + divider + formattedGasAndTip + divider + formattedGas + outro)
-
-				// gbl.Log.Infof("setting gas price: %+v", gasPrice)
-				// gb.WebEventStream.GasPrice = gasPrice
-				// gbl.Log.Infof("set gas price: %+v", gb.WebEventStream.GasPrice)
 			}
 		}
 

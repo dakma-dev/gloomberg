@@ -51,8 +51,4 @@ func GetNodeColor(eventType int, numNodes int) lipgloss.Color {
 	}
 
 	return ""
-	//  else if numNodes > 0 {
-	// 	out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(gb.Nodes.GetNodeByID(event.NodeID).Marker)))
-	// }
-	// out.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
 }

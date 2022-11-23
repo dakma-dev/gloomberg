@@ -9,6 +9,7 @@ import (
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
@@ -210,13 +211,13 @@ func (uc *GbCollection) AddMint() {
 	atomic.AddUint64(&uc.Counters.Mints, 1)
 }
 
-func (uc *GbCollection) SaLiRaAdd() float64 {
-	if uc.Counters.Listings > 0 {
-		return float64(uc.Counters.Sales) / float64(uc.Counters.Listings)
-	}
+// func (uc *GbCollection) SaLiRaAdd() float64 {
+// 	if uc.Counters.Listings > 0 {
+// 		return float64(uc.Counters.Sales) / float64(uc.Counters.Listings)
+// 	}
 
-	return 0.0
-}
+// 	return 0.0
+// }
 
 // CalculateSaLiRa updates the salira moving average of a given collection.
 func (uc *GbCollection) CalculateSaLiRa(address common.Address) (float64, float64) {
