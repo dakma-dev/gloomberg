@@ -454,7 +454,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 		out.WriteString(" | " + salesAndListings)
 
-		if previousMASaLiRa, currentMASaLiRa := event.Collection.CalculateSaLiRa(); currentMASaLiRa > 0 {
+		if previousMASaLiRa, currentMASaLiRa := event.Collection.CalculateSaLiRa(event.Collection.ContractAddress); currentMASaLiRa > 0 {
 			// coloring moving average salira
 			saLiRaStyle := style.TrendGreenStyle
 
@@ -469,6 +469,14 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			)
 
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
+		} else if cachedSalira, err := cache.GetSalira(event.Collection.ContractAddress); cachedSalira > 0 && err == nil {
+			salira := fmt.Sprint(
+				style.GrayStyle.Render(" ~ "),
+				style.GrayStyle.Render(fmt.Sprintf("%4.2f", cachedSalira)),
+				event.Collection.Render("slr*"),
+			)
+
+			out.WriteString(salira)
 		}
 	}
 
@@ -497,24 +505,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	// set price of listing as the new fp
 	if event.EventType == collections.Listing {
-		// fmt.Printf("floor before: %f | %f\n", currentFloorPrice, (*event.Collection.FloorPrice).Value())
 		if currentFloorPrice == 0.0 || priceEther < currentFloorPrice {
 			(*event.Collection.FloorPrice).Set(priceEther)
 			cache.StoreFloor(event.Collection.ContractAddress, priceEther)
 		}
-		// fmt.Printf(" floor after: %f | %f\n", currentFloorPrice, (*event.Collection.FloorPrice).Value())
 	}
 
 	go cache.StoreFloor(event.Collection.ContractAddress, currentFloorPrice)
-
-	// gbl.Log.Infof("")
-	// gbl.Log.Infof("event.Collection.Source: %s", event.Collection.Source)
-	// // gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.FromAddresses): %s", gb.WatchUsers.ContainsOneOf(event.FromAddresses))
-	// gbl.Log.Infof("gb.WatchUsers: %+v", gb.WatchUsers)
-	// // // gbl.Log.Infof("gb.OwnWallets.ContainsOneOf(event.FromAddresses): %s", gb.OwnWallets.ContainsOneOf(event.FromAddresses))
-	// gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.FromAddresses): %+v", gb.WatchUsers.ContainsOneOf(event.FromAddresses))
-	// gbl.Log.Infof("gb.WatchUsers.ContainsOneOf(event.ToAddresses): %+v", gb.WatchUsers.ContainsOneOf(event.ToAddresses))
-	// gbl.Log.Infof("")
 
 	//
 	// telegram notification

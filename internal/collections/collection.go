@@ -219,7 +219,7 @@ func (uc *GbCollection) SaLiRaAdd() float64 {
 }
 
 // CalculateSaLiRa updates the salira moving average of a given collection.
-func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
+func (uc *GbCollection) CalculateSaLiRa(address common.Address) (float64, float64) {
 	if uc.Counters.Listings <= 0 {
 		return 0.0, 0.0
 	}
@@ -227,6 +227,10 @@ func (uc *GbCollection) CalculateSaLiRa() (float64, float64) {
 	previousSaLiRa := uc.SaLiRa.Value()
 	uc.SaLiRa.Add(float64(uc.Counters.Sales) / float64(uc.Counters.Listings))
 	currentSaLiRa := uc.SaLiRa.Value()
+
+	if address != utils.ZeroAddress {
+		go cache.StoreSalira(address, currentSaLiRa)
+	}
 
 	return previousSaLiRa, currentSaLiRa
 }

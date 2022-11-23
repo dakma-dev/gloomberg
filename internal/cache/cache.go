@@ -245,15 +245,15 @@ func GetFloor(address common.Address) (float64, error) {
 	return c.getFloat(address, keyFloorPrice)
 }
 
-//func GetOSSlug(contractAddress common.Address) (string, error) {
-//	c := New()
-//	return c.getName(contractAddress, keyOSSlug)
-//}
+func StoreSalira(address common.Address, value float64) {
+	c := New()
+	c.cacheFloat(address, keySalira, value, viper.GetDuration("cache.salira_ttl"))
+}
 
-//func GetBlurSlug(contractAddress common.Address) (string, error) {
-//	c := New()
-//	return c.getName(contractAddress, keyBlurSlug)
-//}
+func GetSalira(address common.Address) (float64, error) {
+	c := New()
+	return c.getFloat(address, keySalira)
+}
 
 func StoreOSSlug(contractAddress common.Address, slug string) {
 	c := New()
