@@ -307,79 +307,83 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 func (s *Stats) getOwnEventsHistoryList() []string {
 	var eventsList []string
 
-	if numberOfOwnEvents := len(s.EventHistory); numberOfOwnEvents > 0 {
-		gbl.Log.Debugf("numberOfOwnEvents: %d | %d\n", numberOfOwnEvents, len(s.EventHistory))
+	if len(s.EventHistory) == 0 {
+		gbl.Log.Debugf("no events to show")
+		return eventsList
+	}
 
-		numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
-		ownEvents := s.EventHistory[numberOfOwnEvents-numberOfShownEvents:]
-		sort.Slice(ownEvents, func(i, j int) bool { return i < j })
+	numberOfOwnEvents := len(s.EventHistory)
+	gbl.Log.Debugf("numberOfOwnEvents: %d | %d\n", numberOfOwnEvents, len(s.EventHistory))
 
-		gbl.Log.Debugf("ownEvents: %d", len(ownEvents))
+	numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
+	// ownEvents := s.EventHistory[numberOfOwnEvents-numberOfShownEvents:]
+	// sort.Slice(ownEvents, func(i, j int) bool { return i < j })
+	sort.Slice(s.EventHistory, func(i, j int) bool { return i < j })
 
-		for idx, event := range ownEvents {
-			if event == nil {
-				gbl.Log.Debugf("event is nil: %d\n", idx)
-				continue
-			}
+	// gbl.Log.Debugf("ownEvents: %d", len(ownEvents))
+	gbl.Log.Debugf("s.EventHistory: %d", len(s.EventHistory))
 
-			gbl.Log.Debugf("%d | event: %+v\n", idx, event)
-
-			if !event.PrintEvent {
-				gbl.Log.Debugf("ignoring event")
-				continue
-			}
-
-			var rowStyle lipgloss.Style
-
-			collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
-
-			timeAgo := time.Since(event.Time)
-			glickerEpoch := viper.GetDuration("ticker.statsbox")
-
-			printFaint := false
-
-			switch {
-			case timeAgo < glickerEpoch:
-				rowStyle = style.DarkWhiteStyle
-			case timeAgo < 2*glickerEpoch:
-				rowStyle = style.VeryLightGrayStyle
-			case timeAgo < 4*glickerEpoch:
-				rowStyle = style.LightGrayStyle
-			case timeAgo < 8*glickerEpoch:
-				rowStyle = style.GrayStyle
-				printFaint = true
-			default:
-				rowStyle = style.DarkGrayStyle
-				printFaint = true
-			}
-
-			var tokenInfo string
-			if event.TxLogCount > 1 {
-				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxLogCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
-			} else {
-				tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
-			}
-
-			timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
-
-			// priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
-			pricePerItem := big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxLogCount)))
-			priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
-
-			historyLine := strings.Builder{}
-			historyLine.WriteString(timeNow)
-			historyLine.WriteString(" " + event.EventType.Icon())
-			historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
-			historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
-			historyLine.WriteString(" " + tokenInfo)
-
-			if viper.GetBool("log.debug") {
-				historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetForeground()))
-				historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
-			}
-
-			eventsList = append(eventsList, listItem(historyLine.String()))
+	for idx, event := range s.EventHistory {
+		if len(eventsList) >= numberOfShownEvents {
+			break
 		}
+
+		if event == nil {
+			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
+			continue
+		}
+
+		if !event.PrintEvent {
+			gbl.Log.Debugf("🙈 ignored event: %d\n", event)
+			continue
+		}
+
+		collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
+
+		timeAgo := time.Since(event.Time)
+		statsboxEpoch := viper.GetDuration("ticker.statsbox")
+
+		rowStyle := style.DarkGrayStyle
+		printFaint := false
+
+		switch {
+		case timeAgo < statsboxEpoch:
+			rowStyle = style.DarkWhiteStyle
+		case timeAgo < 2*statsboxEpoch:
+			rowStyle = style.VeryLightGrayStyle
+		case timeAgo < 4*statsboxEpoch:
+			rowStyle = style.LightGrayStyle
+		case timeAgo < 8*statsboxEpoch:
+			rowStyle = style.GrayStyle
+			printFaint = true
+		default:
+			printFaint = true
+		}
+
+		var tokenInfo string
+		if event.TxLogCount > 1 {
+			tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxLogCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
+		} else {
+			tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
+		}
+
+		timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
+		pricePerItem := big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxLogCount)))
+		priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
+
+		historyLine := strings.Builder{}
+		historyLine.WriteString(timeNow)
+		historyLine.WriteString(" " + event.EventType.Icon())
+		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
+		historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
+		historyLine.WriteString(" " + tokenInfo)
+
+		if viper.GetBool("log.debug") {
+			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetForeground()))
+			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
+		}
+
+		eventsList = append(eventsList, listItem(historyLine.String()))
 	}
 
 	return eventsList

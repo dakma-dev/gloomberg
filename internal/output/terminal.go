@@ -367,7 +367,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			fpRatioDifference := int(fpRatio - 100)
 
 			if fpRatioDifference > 0 {
-				fpStyle = style.TrendRedStyle.Copy()
+				fpStyle = style.TrendRedStyle.Copy().Faint(true)
 			} else if fpRatioDifference < 0 {
 				fpStyle = style.TrendGreenStyle.Copy()
 			} else {
