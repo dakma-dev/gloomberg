@@ -16,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/jfyne/live"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 const (
@@ -122,6 +123,8 @@ func (es *EventStream) Start() {
 	http.Handle("/", live.NewHttpHandler(live.NewCookieStore("session-name", []byte("ZWh0NGkzdHZxNjY2NjZxNDg1NWJwdjk0NmM1YnA5MkM2NQ")), es.NewEventHandler()))
 	http.Handle("/live.js", live.Javascript{})
 	http.Handle("/auto.js.map", live.JavascriptMap{})
+
+	http.Handle("/metrics", promhttp.Handler())
 
 	gbl.Log.Infof("starting http server...")
 

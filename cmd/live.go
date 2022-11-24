@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"net"
+	"net/http"
 	"strconv"
 	"strings"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -70,7 +72,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &models.Watcher{},
-		BuyRules:     make([]*models.BuyRule, 0),
+		BuyRules:     nil,
 		GasPrice:     0,
 		// WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
@@ -406,6 +408,22 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// } else {
 	// 	gbl.Log.Info("✅ purchase succeeded: ", tx)
 	// }
+
+	// prometheus metrics
+	go func() {
+		listenHost := net.ParseIP(viper.GetString("ui.web.host"))
+		listenPort := 9090
+		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
+
+		http.Handle("/metrics", promhttp.Handler())
+
+		gbl.Log.Infof("starting prometheus metrics http server on: http://%s", listenAddress)
+
+		if err := http.ListenAndServe(listenAddress, nil); err != nil {
+			fmt.Printf("error: %s", err)
+			gbl.Log.Error(err)
+		}
+	}()
 
 	// loop forever
 	select {}

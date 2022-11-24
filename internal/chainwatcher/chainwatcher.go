@@ -21,6 +21,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spf13/viper"
 )
 
@@ -40,6 +42,11 @@ var (
 	mu                = &sync.Mutex{}
 	knownTransactions = make(map[common.Hash][]int)
 	logCollectors     = make(map[common.Hash]*txlogcollector.TxLogs)
+
+	txLogsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transaction_logs_received_total",
+		Help: "The total number of received transaction logs",
+	})
 )
 
 type GItem struct {
@@ -103,6 +110,9 @@ func (cw *ChainWatcher) SubscribeToOrderFulfilled(queueEvents *chan *collections
 func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collections.Event) {
 	// process new logs received via our subscriptions
 	for subLog := range *cw.queueLogs {
+		// increment prometheus counter
+		txLogsReceivedTotal.Inc()
+
 		// track & count
 		nanoNow := time.Now().UnixNano()
 		// logs per node
