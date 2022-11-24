@@ -79,10 +79,10 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 	queueEvents := make(chan *collections.Event, 1024)
 
-	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules) > 0 {
+	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules.Rules) > 0 {
 		gb.BuyRules = buyRules
 
-		gbl.Log.Infof("buy rules %d: %v", len(gb.BuyRules), gb.BuyRules)
+		gbl.Log.Infof("buy rules %d: %v", len(gb.BuyRules.Rules), gb.BuyRules)
 	}
 
 	//
