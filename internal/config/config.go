@@ -347,8 +347,10 @@ func GetWatchRulesFromConfig() models.Watcher {
 	return watcher
 }
 
-func GetBuyRulesFromConfiguration() []*models.BuyRule {
-	buyRules := make([]*models.BuyRule, 0)
+func GetBuyRulesFromConfiguration() *models.BuyRules {
+	buyRules := &models.BuyRules{
+		Rules: make(map[common.Address]*models.BuyRule, 0),
+	}
 
 	gbl.Log.Info(" ------ buy rules ------")
 
@@ -371,7 +373,8 @@ func GetBuyRulesFromConfiguration() []*models.BuyRule {
 			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
 		} else {
 
-			buyRules = append(buyRules, buyRule)
+			// buyRules = append(buyRules, buyRule)
+			buyRules.Rules[utils.ZeroAddress] = buyRule
 
 			gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
 		}
@@ -383,7 +386,7 @@ func GetBuyRulesFromConfiguration() []*models.BuyRule {
 	}
 
 	for _, rule := range viper.Get("buy.rules").([]interface{}) {
-		ruleID := len(buyRules)
+		ruleID := len(buyRules.Rules)
 
 		gbl.Log.Debugf("reading buy rule %d: %+v", ruleID, rule)
 
@@ -407,7 +410,7 @@ func GetBuyRulesFromConfiguration() []*models.BuyRule {
 			continue
 		}
 
-		buyRule.ID = len(buyRules)
+		buyRule.ID = len(buyRules.Rules)
 
 		if buyRule.PrivateKey == "" {
 			if privateKey := viper.GetString("buy.privateKey"); privateKey != "" {
@@ -435,13 +438,14 @@ func GetBuyRulesFromConfiguration() []*models.BuyRule {
 
 		gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
 
-		buyRules = append(buyRules, buyRule)
+		// buyRules = append(buyRules, buyRule)
+		buyRules.Rules[buyRule.ContractAddress] = buyRule
 	}
 
-	for _, buyRule := range buyRules {
+	for contractAddress, buyRule := range buyRules.Rules {
 		name := buyRule.ContractAddress.String()
 
-		if contractName, err := cache.GetContractName(buyRule.ContractAddress); err == nil && contractName != "" {
+		if contractName, err := cache.GetContractName(contractAddress); err == nil && contractName != "" {
 			name = contractName
 		}
 

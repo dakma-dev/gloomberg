@@ -23,7 +23,7 @@ type Gloomberg struct {
 	Watcher        *models.Watcher
 	WebEventStream *web.EventStream
 
-	BuyRules []*models.BuyRule
+	BuyRules *models.BuyRules
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
