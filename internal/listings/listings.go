@@ -89,8 +89,7 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 				Address:       common.HexToAddress(event.Payload.Maker.Address),
 				OpenseaUserID: "",
 			},
-			WorkerID:   workerID,
-			PrintEvent: true,
+			WorkerID: workerID,
 		}
 
 		*queueEvents <- event
@@ -209,7 +208,6 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	}
 
 	fmt.Println(out.String())
-	// }
 }
 
 func buy(gb *gloomberg.Gloomberg, order *models.SeaportOrder, privateKey string, tokenName string) (*types.Transaction, error) {

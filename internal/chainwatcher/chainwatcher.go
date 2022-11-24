@@ -150,7 +150,8 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 }
 
 func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
-	printEvent := true
+	// printEvent := true
+	var eventDiscarded *collections.EventDiscarded
 
 	// parse log topics
 	logTopic, fromAddress, toAddress, tokenID := utils.ParseTopics(subLog.Topics)
@@ -277,12 +278,32 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
 			gbl.Log.Debugf("🗑️ showMints -> %v | collection.Show.Mints -> %v | %v | TxHash: %v / %d | %+v", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			// return
-			printEvent = false
+
+			// printEvent = false
+			reason := "showing mints is disabled"
+
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	} else {
 		eventType = collections.Sale
 		if collection.IgnorePrinting {
-			printEvent = false
+			// printEvent = false
+			reason := "IgnorePrinting is set"
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	}
 
@@ -310,7 +331,17 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		// atomic.AddUint64(&StatsBTV.DiscardedLowPrice, 1)
 		gbl.Log.Debugf("‼️ DiscardedLowPrice| %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
-		printEvent = false
+		// printEvent = false
+		reason := "price below min_value"
+
+		if eventDiscarded == nil {
+			eventDiscarded = &collections.EventDiscarded{
+				DiscardedBy: "chainwatcher",
+				Reasons:     []string{reason},
+			}
+		} else {
+			eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+		}
 	}
 
 	if isTransfer {
@@ -320,7 +351,17 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 			// atomic.AddUint64(&StatsBTV.DiscardedTransfers, 1)
 			gbl.Log.Debugf("‼️ transfer not shown %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
-			printEvent = false
+			// printEvent = false
+			reason := "showing transfers is disabled"
+
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	}
 
@@ -407,7 +448,8 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		},
 		FromAddresses: fromAddresses,
 		ToAddresses:   toAddresses,
-		PrintEvent:    printEvent,
+		// PrintEvent:    printEvent,
+		Discarded: eventDiscarded,
 	}
 
 	// send to formatting

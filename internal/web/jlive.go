@@ -210,7 +210,8 @@ func startWorker(s *live.Socket, queueOutWeb *chan *collections.Event) {
 		// for event := range *queueOutWeb {
 		gbl.Log.Debugf("webWorker session %+v - event: %+v", live.SessionID((*s).Session()), event)
 
-		if !event.PrintEvent {
+		// if !event.PrintEvent {
+		if event.Discarded != nil && !event.Discarded.PrintInHistory {
 			gbl.Log.Debugf("outWeb discarded event: %+v", event)
 			continue
 		}

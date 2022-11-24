@@ -65,6 +65,13 @@ func (et EventType) ActionName() string {
 	return "⁉️"
 }
 
+type EventDiscarded struct {
+	PrintInStream  bool
+	PrintInHistory bool
+	Reasons        []string
+	DiscardedBy    string
+}
+
 type Event struct {
 	NodeID               int
 	EventType            EventType
@@ -90,7 +97,8 @@ type Event struct {
 	FromAddresses        map[common.Address]bool
 	ToAddresses          map[common.Address]bool
 	WorkerID             int
-	PrintEvent           bool
+	// PrintEvent           bool
+	Discarded *EventDiscarded
 }
 
 type PushEvent struct {

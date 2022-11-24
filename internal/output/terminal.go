@@ -499,7 +499,8 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	}
 
 	// print to terminal
-	if event.PrintEvent {
+	// if event.PrintEvent {
+	if event.Discarded == nil || event.Discarded.PrintInStream {
 		queueOutput <- out.String()
 	}
 
