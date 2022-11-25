@@ -120,20 +120,22 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	tokenName := event.Collection.Name + " #" + event.TokenID.String()
 
 	// initialize with safe values
-	minSales := 100
-	minListings := 100
+	var minSales uint64 = 100
+	var minListings uint64 = 100
 
 	// overwrite with configured values
-	if mSales := viper.GetInt("buy.minSales"); mSales > 0 {
+	mSales := viper.GetUint64("buy.minSales")
+	if mSales > 0 {
 		minSales = mSales
 	}
 
-	if mListings := viper.GetInt("buy.minListings"); mListings > 0 {
+	mListings := viper.GetUint64("buy.minListings")
+	if mListings > 0 {
 		minListings = mListings
 	}
 
 	// filter events with non-accurate data
-	if event.Collection.Counters.Sales < 1 || event.Collection.Counters.Listings < 3 {
+	if event.Collection.Counters.Sales < mSales || event.Collection.Counters.Listings < mListings {
 		sales := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, minSales)
 		listings := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, minListings)
 		gbl.Log.Infof("🤷‍♀️ %s| too less sales %s and/or listings %s to calculate accurate floor price", tokenName, sales, listings)
