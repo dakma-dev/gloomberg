@@ -39,7 +39,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		collection = gb.CollectionDB.Collections[event.ContractAddress]
 		gb.CollectionDB.RWMu.RUnlock()
 
-		if collection == nil && event.ContractAddress != common.HexToAddress("0x0000000000000000000000000000000000000000") {
+		if collection == nil && event.ContractAddress != common.HexToAddress("0xbF230AEbBd288C69CcEA4ffe45d0F004261a895c") {
 			name := ""
 
 			if topic.Topic(event.Topic) == topic.TransferSingle && gb.Nodes != nil {
@@ -90,19 +90,12 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	isOwnWallet := false
 	if isMultiItemTx {
-		// isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.WatchUsers.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 		isOwnWallet = gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
 	} else {
 		isOwnWallet = gb.OwnWallets.Contains(event.To.Address) || gb.Watcher.Contains(event.To.Address)
 	}
 
-	// gbl.Log.Infof("%s | isOwnWallet: %v | gb.OwnWallets.Contains(event.To.Address): %v | gb.Watcher.Contains(event.To.Address): v", event.Collection.Name, isOwnWallet, gb.OwnWallets.Contains(event.To.Address)) //, gb.Watcher.Contains(event.To.Address))
-	// gbl.Log.Infof("%s | isOwnWallet: %v | gb.OwnWallets.ContainsOneOf(event.ToAddresses): %v | gb.Watcher.ContainsOneOf(event.ToAddresses): %v", event.Collection.Name, isOwnWallet, gb.OwnWallets.Contains(event.To.Address), gb.Watcher.Contains(event.To.Address))
-
 	isWatchUsersWallet := gb.Watcher.ContainsOneOf(event.FromAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress
-
-	// disabled - feature will be moved to listings/sniper part
-	isListingBelowPrice := event.Collection.Highlight.ListingsBelowPrice > 0.0 && event.Collection.Highlight.ListingsBelowPrice <= priceEther
 
 	// set type to purchase if "we" are on the buyer side
 	if event.EventType == collections.Sale && (gb.OwnWallets.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress || gb.Watcher.ContainsOneOf(event.ToAddresses) != utils.ZeroAddress) {
@@ -235,19 +228,19 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		}
 	}
 
-	// check if listing is below configured max. price
-	if isListingBelowPrice {
-		var timeStyle lipgloss.Style
+	// // check if listing is below configured max. price
+	// if isListingBelowPrice {
+	// 	var timeStyle lipgloss.Style
 
-		if event.EventType == collections.Listing {
-			timeStyle = style.PinkBoldStyle
-			priceStyle = style.BoldStyle
-		} else {
-			timeStyle = lipgloss.NewStyle().Foreground(style.ShadesPink[3])
-		}
+	// 	if event.EventType == collections.Listing {
+	// 		timeStyle = style.PinkBoldStyle
+	// 		priceStyle = style.BoldStyle
+	// 	} else {
+	// 		timeStyle = lipgloss.NewStyle().Foreground(style.ShadesPink[3])
+	// 	}
 
-		timeNow = timeStyle.Render(currentTime)
-	}
+	// 	timeNow = timeStyle.Render(currentTime)
+	// }
 
 	switch {
 	case event.EventType == collections.Sale && event.Collection.Highlight.Sales != "":
@@ -288,17 +281,32 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	marker := " "
 
-	if isListingBelowPrice {
-		marker = style.PinkBoldStyle.Render("*")
-	} else if isOwnCollection && event.EventType == collections.Sale {
-		if priceEtherPerItem >= viper.GetFloat64("show.min_value") {
-			if isOwnWallet {
-				marker = style.OwnerGreenBoldStyle.Render("*")
-			}
-		}
-	}
+	// if isListingBelowPrice {
+	// 	marker = style.PinkBoldStyle.Render("*")
+	// } else if isOwnCollection && event.EventType == collections.Sale {
+	// 	if priceEtherPerItem >= viper.GetFloat64("show.min_value") {
+	// 		if isOwnWallet {
+	// 			marker = style.OwnerGreenBoldStyle.Render("*")
+	// 		}
+	// 	}
+	// }
 
 	// add to event history
+	outxxxx := strings.Builder{}
+	outxxxx.WriteString("    ---   ---\n")
+	outxxxx.WriteString(tokenInfo + "\n")
+	outxxxx.WriteString(fmt.Sprintf("event.To.Address: %+v\n", event.To.Address))
+	outxxxx.WriteString(fmt.Sprintf("event.From.Address: %+v\n", event.From.Address))
+	outxxxx.WriteString(fmt.Sprintf("isOwnCollection: %+v\n", isOwnCollection))
+	outxxxx.WriteString(fmt.Sprintf("isOwnWallet: %+v\n", isOwnWallet))
+	outxxxx.WriteString(fmt.Sprintf("gb.OwnWallets.Contains(event.To.Address): %+v\n", gb.OwnWallets.Contains(event.To.Address)))
+	outxxxx.WriteString(fmt.Sprintf("gb.OwnWallets.Contains(event.From.Address): %+v\n", gb.OwnWallets.Contains(event.From.Address)))
+	outxxxx.WriteString("\n")
+	outxxxx.WriteString(fmt.Sprintf("(event.EventType == collections.Sale || event.EventType == collections.Purchase): %+v\n", (event.EventType == collections.Sale || event.EventType == collections.Purchase)))
+
+	outxxxx.WriteString(fmt.Sprintf("len(ticker.StatsTicker.EventHistory): %+v\n", len(ticker.StatsTicker.EventHistory)))
+	outxxxx.WriteString(" - -\n")
+
 	if isOwnCollection && (event.EventType == collections.Sale || event.EventType == collections.Purchase) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if isOwnWallet {
@@ -306,6 +314,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	} else if gb.OwnWallets.Contains(event.To.Address) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
+
+	outxxxx.WriteString(fmt.Sprintf("len(ticker.StatsTicker.EventHistory): %+v\n", len(ticker.StatsTicker.EventHistory)))
+	outxxxx.WriteString("    ---   ---\n")
+	outxxxx.WriteString("\n")
+	// gbl.Log.Info("")
+	// gbl.Log.Info(outxxxx.String())
+	// gbl.Log.Info("")
 
 	// build the line to be displayed
 	out := strings.Builder{}
@@ -491,12 +506,12 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		}
 	}
 
-	// mark the line if the listing is below configured max. price
-	if isListingBelowPrice && event.EventType == collections.Listing {
-		outputLine := "\n" + out.String() + "\n"
-		out.Reset()
-		out.WriteString(outputLine)
-	}
+	// // mark the line if the listing is below configured max. price
+	// if isListingBelowPrice && event.EventType == collections.Listing {
+	// 	outputLine := "\n" + out.String() + "\n"
+	// 	out.Reset()
+	// 	out.WriteString(outputLine)
+	// }
 
 	// print to terminal
 	// if event.PrintEvent {
@@ -517,6 +532,17 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	//
 	// telegram notification
 	if isMintOrSale && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
+
+		// try to acquire the lock
+		notificationLock, err := cache.NotificationLock(event.TxHash)
+
+		if !notificationLock || err != nil {
+			gbl.Log.Debugf("notification lock for %s already exists", event.TxHash)
+			return
+		}
+
+		gbl.Log.Infof("notification lock for %s acquired, trying to send...", event.TxHash)
+
 		go func() {
 			// did someone buy or sell something?
 			var triggerAddress common.Address

@@ -9,6 +9,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
+	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
@@ -225,6 +226,9 @@ func (c *GbCache) getFloat(address common.Address, keyFunc func(common.Address) 
 	return 0, errors.New("value not found in cache")
 }
 
+//
+// names
+
 func StoreENSName(walletAddress common.Address, ensName string) {
 	c := New()
 	c.cacheName(walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
@@ -244,6 +248,22 @@ func GetContractName(contractAddress common.Address) (string, error) {
 	c := New()
 	return c.getName(contractAddress, keyContract)
 }
+
+//
+// slugs
+
+func StoreOSSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
+}
+
+func StoreBlurSlug(contractAddress common.Address, slug string) {
+	c := New()
+	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
+}
+
+//
+// numbers
 
 func StoreFloor(address common.Address, value float64) {
 	c := New()
@@ -265,12 +285,37 @@ func GetSalira(address common.Address) (float64, error) {
 	return c.getFloat(address, keySalira)
 }
 
-func StoreOSSlug(contractAddress common.Address, slug string) {
+// NotificationLock implements a lock to prevent sending multiple notifications for the same event
+// see https://redis.io/docs/manual/patterns/distributed-locks/#correct-implementation-with-a-single-instance
+func NotificationLock(txID common.Hash) (bool, error) {
 	c := New()
-	c.cacheName(contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
+
+	releaseKey := uuid.New()
+
+	c.mu.Lock()
+	c.localCache[keyNotificationsLock(txID)] = releaseKey.String()
+	c.mu.Unlock()
+
+	unlocked := false
+
+	var err error
+
+	if c.rdb != nil {
+		unlocked, err = c.rdb.SetNX(c.rdb.Context(), keyNotificationsLock(txID), releaseKey.String(), viper.GetDuration("cache.notifications_lock_ttl")).Result()
+
+		gbl.Log.Debugf("📣 %s | locked %+v | err %+v", txID.String(), unlocked)
+
+		if err != nil {
+			gbl.Log.Warnf("❌ redis | error while adding: %s", err.Error())
+		} else {
+			gbl.Log.Debugf("📣 redis | added: %s -> %s", keyNotificationsLock(txID), releaseKey)
+		}
+	}
+
+	return unlocked, nil
 }
 
-func StoreBlurSlug(contractAddress common.Address, slug string) {
+func ReleaseNotificationLock(contractAddress common.Address) (string, error) {
 	c := New()
-	c.cacheName(contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
+	return c.getName(contractAddress, keyContract)
 }

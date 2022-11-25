@@ -108,6 +108,7 @@ func init() {
 	viper.SetDefault("cache.floor_ttl", 2*time.Hour)
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
+	viper.SetDefault("cache.notifications_lock_ttl", 3*time.Minute)
 }
 
 // initConfig reads in config file and ENV variables if set.

@@ -46,7 +46,7 @@ require (
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/google/uuid v1.3.0 // indirect
+	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.5.2 // indirect
 	github.com/gookit/goutil v0.5.15
 	github.com/gorilla/securecookie v1.1.1 // indirect

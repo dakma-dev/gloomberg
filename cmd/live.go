@@ -83,8 +83,6 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules.Rules) > 0 {
 		gb.BuyRules = buyRules
-
-		gbl.Log.Infof("buy rules %d: %v", len(gb.BuyRules.Rules), gb.BuyRules)
 	}
 
 	//

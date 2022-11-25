@@ -11,13 +11,14 @@ import (
 )
 
 const (
-	keywordContractName string = "contractName"
-	keywordENS          string = "ensDomain"
-	keywordOSSlug       string = "osslug"
-	keywordBlurSlug     string = "blurslug"
-	keywordFloorPrice   string = "floor"
-	keywordSalira       string = "salira"
-	keyDelimiter        string = ":"
+	keywordContractName      string = "contractName"
+	keywordENS               string = "ensDomain"
+	keywordOSSlug            string = "osslug"
+	keywordBlurSlug          string = "blurslug"
+	keywordFloorPrice        string = "floor"
+	keywordSalira            string = "salira"
+	keywordNotificationsLock string = "notification"
+	keyDelimiter             string = ":"
 )
 
 func keyContract(address common.Address) string {
@@ -26,6 +27,10 @@ func keyContract(address common.Address) string {
 
 func keyENS(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordENS)
+}
+
+func keyNotificationsLock(txID common.Hash) string {
+	return fmt.Sprint(txID.Hex(), keyDelimiter, keywordNotificationsLock)
 }
 
 func keyOSSlug(address common.Address) string {

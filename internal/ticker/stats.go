@@ -336,7 +336,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		// if !event.PrintEvent {
 		if event.Discarded != nil && !event.Discarded.PrintInHistory {
 			gbl.Log.Debugf("🙈 ignored event: %d\n", event)
-			gbl.Log.Infof("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.Discarded.Reasons, ", "))
+			gbl.Log.Debugf("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.Discarded.Reasons, ", "))
 
 			continue
 		}

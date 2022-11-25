@@ -47,6 +47,26 @@ var (
 		Name: "gloomberg_transaction_logs_received_total",
 		Help: "The total number of received transaction logs",
 	})
+
+	txReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_total",
+		Help: "The total number of received transactions",
+	})
+
+	txReceivedSale = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_sale",
+		Help: "The total number of received sale transactions",
+	})
+
+	txReceivedMint = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_mint",
+		Help: "The total number of received mint transactions",
+	})
+
+	txReceivedTransfer = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_transfer",
+		Help: "The total number of received transfer transactions",
+	})
 )
 
 type GItem struct {
@@ -219,6 +239,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	mu.Unlock()
 
+	// increment transactions counter
+	txReceivedTotal.Inc()
+
 	//
 	// collection information
 	cw.CollectionDB.RWMu.RLock()
@@ -272,6 +295,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	var txErr error
 
 	if isMint {
+		// increment mints counter
+		txReceivedMint.Inc()
+
 		eventType = collections.Mint
 
 		if !showMints {
@@ -345,6 +371,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	if isTransfer {
+		// increment transfers counter
+		txReceivedTransfer.Inc()
+
 		eventType = collections.Transfer
 
 		if !showTransfers {
@@ -416,6 +445,9 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	var priceArrowColor lipgloss.Color
 
 	if eventType == collections.Sale {
+		// increment sales counter
+		txReceivedSale.Inc()
+
 		// get a color with saturation depending on the tx price
 		priceEther, _ := nodes.WeiToEther(value).Float64()
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
