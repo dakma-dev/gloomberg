@@ -119,9 +119,11 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	// tokenName consists of collection name and tokenID
 	tokenName := event.Collection.Name + " #" + event.TokenID.String()
 
-	// initialize with safe values
-	var minSales uint64 = 100
-	var minListings uint64 = 100
+	// initialize with "safe" values
+	var (
+		minSales    uint64 = 100
+		minListings uint64 = 100
+	)
 
 	// overwrite with configured values
 	mSales := viper.GetUint64("buy.minSales")
@@ -135,11 +137,11 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	}
 
 	// filter events with non-accurate data
-	if event.Collection.Counters.Sales < mSales || event.Collection.Counters.Listings < mListings {
-		sales := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, minSales)
-		listings := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, minListings)
-		gbl.Log.Infof("🤷‍♀️ %s| too less sales %s and/or listings %s to calculate accurate floor price", tokenName, sales, listings)
+	salesAndSalesRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, minSales)
+	listingsAndListingsRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, minListings)
 
+	if event.Collection.Counters.Sales < mSales || event.Collection.Counters.Listings < mListings {
+		gbl.Log.Infof("🤷‍♀️ %s| too less sales %s and/or listings %s to calculate accurate floor price", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
 		return
 	}
 
@@ -159,7 +161,7 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	// build the line to be displayed
 	out := strings.Builder{}
 	out.WriteString("  |" + timeNow)
-	out.WriteString(" 🛍️ " + divider)
+	out.WriteString(" 🛍️ " + divider + "  ")
 
 	var rule *models.BuyRule
 
@@ -183,11 +185,13 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 
 	gbl.Log.Info("‼️")
 	gbl.Log.Infof("🛍️ %s| buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!", tokenName, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
+	gbl.Log.Info("🛍️ %s| sales: %s | listings: %s\n", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
 	gbl.Log.Info("‼️")
 
-	fmt.Printf("‼️\n")
+	fmt.Printf("\n‼️\n")
 	fmt.Printf("🛍️ %s| buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!\n", tokenName, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
-	fmt.Printf("‼️\n")
+	fmt.Printf("🛍️ %s| sales: %s | listings: %s\n", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
+	fmt.Printf("‼️\n\n")
 
 	// get listing details needed to fulfill order
 	gbl.Log.Debugf("trying to get lisings for tokenID %d", event.TokenID)
