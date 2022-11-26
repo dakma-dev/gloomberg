@@ -52,8 +52,8 @@ func PrettyString(str []byte) string {
 }
 
 func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
-	if len(topics) < 4 {
-		fmt.Printf("Invalid number of topics: %d", len(topics))
+	if len(topics) < 3 {
+		//fmt.Printf("Invalid number of topics: %d", len(topics))
 		return "", ZeroAddress, ZeroAddress, nil
 	}
 

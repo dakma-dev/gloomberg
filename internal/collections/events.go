@@ -91,6 +91,7 @@ type Event struct {
 	ToAddresses          map[common.Address]bool
 	WorkerID             int
 	PrintEvent           bool
+	IsAcceptedOffer      bool
 }
 
 type PushEvent struct {

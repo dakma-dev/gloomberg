@@ -1,6 +1,8 @@
 package txlogcollector
 
 import (
+	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/models/topic"
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/style"
@@ -17,6 +19,8 @@ type TxLogs struct {
 	TokenSeller   map[uint64]common.Address
 	style         lipgloss.Style
 	txID          common.Hash
+	ERC20Logs     []*types.Log // offer sales having erc20 txs
+	MainLog       *types.Log   // leading log (singletransfer or orderfullfilled)
 }
 
 func NewTxLogCollector(log *types.Log) *TxLogs {
@@ -35,6 +39,35 @@ func NewTxLogCollector(log *types.Log) *TxLogs {
 func (transco *TxLogs) AddLog(log *types.Log) {
 	transco.RWMu.Lock()
 	defer transco.RWMu.Unlock()
+
+	logTopic := topic.Topic(log.Topics[0].Hex())
+	if logTopic == topic.Transfer && log.Address.Hex() == string(external.WETH) {
+		//fmt.Println("WETH transfer found")
+		transco.ERC20Logs = append(transco.ERC20Logs, log)
+		return
+	}
+
+	// OrderFullfilled Topic or ERC721 Transfer logs could occur multiple times. TODO enhance the log collector we need for each interesting log combination a possible notification, create new sale struct holding from, to and tokenId?
+	// this code is just to whitelist the logs which are interesting
+	if transco.MainLog == nil {
+		mainlogCandidate := false
+		// ERC721 Transfer
+		if logTopic == topic.Transfer && len(log.Topics) == 4 {
+			mainlogCandidate = true
+		}
+		if logTopic == topic.OrderFulfilled && len(log.Topics) == 3 {
+			mainlogCandidate = true
+		}
+		if logTopic == topic.TransferSingle && len(log.Topics) == 4 {
+			mainlogCandidate = true
+		}
+		if logTopic == topic.OrdersMatched {
+			mainlogCandidate = true
+		}
+		if mainlogCandidate {
+			transco.MainLog = log
+		}
+	}
 
 	// parse log topics
 	_, fromAddress, toAddress, tokenID := utils.ParseTopics(log.Topics)

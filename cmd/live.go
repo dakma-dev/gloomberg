@@ -2,11 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
-	"strconv"
-	"strings"
-	"time"
-
 	"github.com/benleb/gloomberg/internal/chainwatcher"
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -27,6 +22,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"net"
+	"strconv"
+	"strings"
+	"time"
 )
 
 var Version string
@@ -377,6 +376,8 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// 	gbl.Log.Info("✅ purchase succeeded: ", tx)
 	// }
 
+	// get logs by blocknumber
+	//gb.ChainWatcher.GetLogsByBlockNumber(15970528)
 	// loop forever
 	select {}
 }

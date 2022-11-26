@@ -320,16 +320,21 @@ func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (st
 	contractERC721, err := abis.NewERC721v3(contractAddress, n.Client)
 	if err != nil {
 		gbl.Log.Error(err)
-
 		return "", err
 	}
 
 	// collection total supply
 	tokenURI, err := contractERC721.TokenURI(&bind.CallOpts{}, tokenID)
 	if err != nil {
-		gbl.Log.Error(err)
+		erc1155, _ := abis.NewERC1155(contractAddress, n.Client)
+		uri, err2 := erc1155.Uri(&bind.CallOpts{}, tokenID)
 
-		return "", err
+		if err2 != nil {
+			gbl.Log.Error(err2)
+			return "", err2
+		}
+		return uri, nil
+
 	}
 
 	gbl.Log.Debugf("GetTokenURI || tokenURI: %+v", tokenURI)
