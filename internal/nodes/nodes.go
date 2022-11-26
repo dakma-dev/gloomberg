@@ -64,7 +64,7 @@ func (nc *Nodes) getNode() *Node {
 
 	if node := nc.GetRandomLocalNode(); node != nil {
 		return node
-	} else if node := nc.getRandomNode(); node != nil {
+	} else if node := nc.GetRandomNode(); node != nil {
 		return node
 	} else {
 		return nil
@@ -87,7 +87,7 @@ func (nc *Nodes) GetLocalNodes() []*Node {
 	return nodes
 }
 
-func (nc *Nodes) getRandomNode() *Node {
+func (nc *Nodes) GetRandomNode() *Node {
 	if *nc != nil && len(*nc) == 0 {
 		return nil
 	}

@@ -97,8 +97,8 @@ type Event struct {
 	FromAddresses        map[common.Address]bool
 	ToAddresses          map[common.Address]bool
 	WorkerID             int
-	// PrintEvent           bool
 	Discarded *EventDiscarded
+	IsAcceptedOffer      bool
 }
 
 type PushEvent struct {
