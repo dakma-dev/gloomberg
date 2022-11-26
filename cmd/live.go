@@ -2,6 +2,12 @@ package cmd
 
 import (
 	"fmt"
+	"net"
+	"net/http"
+	"strconv"
+	"strings"
+	"time"
+
 	"github.com/benleb/gloomberg/internal/chainwatcher"
 	"github.com/benleb/gloomberg/internal/chainwatcher/wwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -20,12 +26,9 @@ import (
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"net"
-	"strconv"
-	"strings"
-	"time"
 )
 
 var Version string
@@ -69,12 +72,18 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &models.Watcher{},
-		//WatchUsers:   &models.WatcherUsers{},
+		BuyRules:     nil,
+		GasPrice:     0,
+		// WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
 		QueueSlugs:   make(chan common.Address, 1024),
 	}
 
 	queueEvents := make(chan *collections.Event, 1024)
+
+	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules.Rules) > 0 {
+		gb.BuyRules = buyRules
+	}
 
 	//
 	// connect to ethereum nodes and create the chainwatcher
@@ -166,8 +175,8 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// wallet watcher (todo) & MIWs
 	if viper.GetBool("sales.enabled") {
 		watcher := config.GetWatchRulesFromConfig()
-		//gb.WatchUsers = config.GetWatchRulesFromConfig()
-		//gb.WatchUsers = config.GetWatcherUsersFromConfig()
+		// gb.WatchUsers = config.GetWatchRulesFromConfig()
+		// gb.WatchUsers = config.GetWatcherUsersFromConfig()
 		gb.Watcher = &watcher
 
 		//
@@ -207,7 +216,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 				// start gasline ticker
 				gasTicker = time.NewTicker(tickerInterval)
-				go ticker.GasTicker(gasTicker, gb.Nodes, &terminalPrinterQueue)
+				go ticker.GasTicker(gb, gasTicker, gb.Nodes, &terminalPrinterQueue)
 			}
 
 			// statsbox ticker
@@ -323,7 +332,7 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		listenPort := viper.GetUint("ui.web.port")
 		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
 
-		gb.WebEventStream = web.New(&queueWeb, listenAddress, gb.Nodes)
+		gb.WebEventStream = web.New(&queueWeb, listenAddress, gb.Nodes, gb.GetGasPrice)
 		go gb.WebEventStream.Start()
 		// gb.GloomWeb = web.NewGloomWeb(listenAddress, &queueWeb)
 		// go func() { log.Fatal(gb.GloomWeb.Run()) }()
@@ -336,6 +345,28 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		// stop spinner
 		_ = webSpinner.Stop()
 	}
+
+	// //  gasTicker
+	// if tickerInterval := viper.GetDuration("interval.gas"); gb.Nodes != nil && len(gb.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
+	// 	ticker := time.NewTicker(tickerInterval)
+
+	// 	go func() {
+	// 		for range ticker.C {
+	// 			gbl.Log.Info("getting gas price...")
+
+	// 			if gasInfo, err := gb.Nodes.GetRandomLocalNode().GetCurrentGasInfo(); err == nil && gasInfo != nil {
+	// 				// gas price
+	// 				if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
+	// 					gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
+	// 					gasPrice := int(math.Round(gasPriceGwei))
+	// 					gb.GasPrice = gasPrice
+	// 					gb.WebEventStream.GasPrice = &gb.GasPrice
+	// 					gbl.Log.Infof("set gas price gb.GasPrice: %v | gb.WebEventStream.GasPrice: %v", gb.GasPrice, gb.WebEventStream.GasPrice)
+	// 				}
+	// 			}
+	// 		}
+	// 	}()
+	// }
 
 	fmt.Println()
 	fmt.Println()
@@ -376,8 +407,22 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// 	gbl.Log.Info("✅ purchase succeeded: ", tx)
 	// }
 
-	// get logs by blocknumber
-	//gb.ChainWatcher.GetLogsByBlockNumber(15970528)
+	// prometheus metrics
+	go func() {
+		listenHost := net.ParseIP(viper.GetString("ui.web.host"))
+		listenPort := 9090
+		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
+
+		http.Handle("/metrics", promhttp.Handler())
+
+		gbl.Log.Infof("starting prometheus metrics http server on: http://%s", listenAddress)
+
+		if err := http.ListenAndServe(listenAddress, nil); err != nil {
+			fmt.Printf("error: %s", err)
+			gbl.Log.Error(err)
+		}
+	}()
+
 	// loop forever
 	select {}
 }
@@ -450,9 +495,12 @@ func init() {
 
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
+	// gas
+	viper.SetDefault("interval.gas", time.Second*37)
+
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*89)
-	viper.SetDefault("ticker.gasline", time.Second*37)
+	viper.SetDefault("ticker.gasline", time.Second*39)
 	viper.SetDefault("ticker.divider", time.Second*89)
 
 	viper.SetDefault("stats.enabled", true)

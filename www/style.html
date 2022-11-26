@@ -11,7 +11,7 @@
     animation: bgRLD 0.666s infinite;
 
     background-color: #110000;
-    color: #dddddd;
+    color: #333333;
 
     font-family: "JetBrains Mono", monospace;
     font-size: 0.9rem;
@@ -47,10 +47,18 @@
 
   .stream {
     grid-area: stream;
-    overflow: scroll;
     grid-column: 1 / 6;
     grid-row: 1 / 8;
     padding: 0.5vh 0.5vw;
+    overflow: scroll;
+  }
+
+  .stream {
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+    scrollbar-width: none; /* Firefox */
+  }
+  .stream::-webkit-scrollbar {
+    display: none; /* Safari and Chrome */
   }
 
   .commandline {
@@ -62,8 +70,8 @@
     padding: 0.5rem 0.7rem;
   }
 
-  .side-header {
-    grid-area: side-header;
+  .side-top {
+    grid-area: side-top;
     grid-column: 6 / 7;
     grid-row: 1;
   }
@@ -92,6 +100,11 @@
     margin: 0.5rem;
   }
 
+  /* general */
+  .gas-price {
+    color: #999999;
+  }
+
   /* messages */
   .message {
     align-items: center;
@@ -99,9 +112,7 @@
   }
 
   .message span,
-  .message a,
-  .gasline-divider div {
-    color: #999999;
+  .message a {
     letter-spacing: 0.01rem;
     line-height: 1.15rem;
     margin-left: 0.3rem;
@@ -114,7 +125,7 @@
   /* message components*/
   .message span.time,
   div.time {
-    color: #333333;
+    color: #555555;
     min-width: 4.25rem;
     margin-left: 0;
   }
@@ -133,7 +144,7 @@
   }
 
   .message span.trendindicator {
-    margin-left: 0.815rem;
+    margin-left: 0.666rem;
     margin-right: 0.2rem;
   }
 
@@ -167,7 +178,7 @@
   }
 
   .message span.collection {
-    margin-left: 0.666rem;
+    margin-left: 0.815rem;
     max-width: 16em;
     text-align: left;
     text-overflow: ellipsis;
@@ -191,8 +202,11 @@
   }
 
   .message span.divider {
-    color: #373737;
     margin: 0 0.3rem;
+  }
+
+  .message span.divider-light {
+    color: #cccccc;
   }
 
   /* commandline */
@@ -236,7 +250,7 @@
   div.divider {
     flex-grow: 1;
     height: 1px;
-    margin: 0 0.666rem;
+    margin: 0.333rem 13.37rem 0.333rem 0.666rem;
     border: 0;
     border-top: 1px dotted #333;
   }

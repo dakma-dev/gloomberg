@@ -250,6 +250,12 @@ var CollectionSets = map[string]*CollectionSet{
 		TokenIDs:        []int{36, 37, 38, 39, 40},
 		Any:             true,
 	},
+	"MemeCards": {
+		ID:              "MemeCards",
+		Name:            "MemeCards",
+		ContractAddress: common.HexToAddress("0x33fd426905f149f8376e227d0c9d3340aad17af1"),
+		TokenIDs:        []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37},
+	},
 }
 
 var MultiCollectionSets = map[string]*MultiCollectionSet{
@@ -273,6 +279,11 @@ var MultiCollectionSets = map[string]*MultiCollectionSet{
 		Name:           "RLD & Editions & 7 Sins & Private Party & Lemonade",
 		CollectionSets: []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"], *CollectionSets["DistillerySL"]},
 	},
+	"MemeCardsSet": {
+		ID:             "MemeCardsSet",
+		Name:           "MemeCardsSet",
+		CollectionSets: []CollectionSet{*CollectionSets["MemeCards"]},
+	},
 }
 
 var Artists = map[string]*Artist{
@@ -281,5 +292,11 @@ var Artists = map[string]*Artist{
 		Name:                "OSF",
 		CollectionSets:      []CollectionSet{*CollectionSets["Editions"], *CollectionSets["RedLiteDistrict"], *CollectionSets["7DeadlySins"], *CollectionSets["DistilleryPP"], *CollectionSets["DistillerySL"]},
 		MultiCollectionSets: []MultiCollectionSet{*MultiCollectionSets["OSFRLDEditions"], *MultiCollectionSets["OSFRLDEditionsSins"], *MultiCollectionSets["OSFRLDEditionsSinsPP"], *MultiCollectionSets["OSFRLDEditionsSinsPPLemonade"]},
+	},
+	"punk6529": {
+		ID:                  "punk6529",
+		Name:                "punk6529",
+		CollectionSets:      []CollectionSet{*CollectionSets["MemeCards"]},
+		MultiCollectionSets: []MultiCollectionSet{*MultiCollectionSets["MemeCardsSet"]},
 	},
 }

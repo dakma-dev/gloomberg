@@ -6,6 +6,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/models"
 	"github.com/benleb/gloomberg/internal/models/wallet"
@@ -49,14 +50,14 @@ func GetNodesFromConfig() *nodes.Nodes {
 		// set a unique node id
 		newNode.NodeID = idx
 
+		// set the default node color to be used to color the marker for example
+		if newNode.Color == "" {
+			newNode.Color = lipgloss.Color("#1A1A1A")
+		}
+
 		// use the node id as the default marker
 		if newNode.Marker == "" {
 			newNode.Marker = fmt.Sprintf(" %d", idx)
-		}
-
-		// set the default node color to be used to color the marker for example
-		if newNode.Color != "" {
-			newNode.Marker = lipgloss.NewStyle().Foreground(newNode.Color).Render(newNode.Marker)
 		}
 
 		// connect to the endpoint
@@ -159,46 +160,45 @@ func GetOwnWalletsFromConfig(ethNodes *nodes.Nodes) *wallet.Wallets {
 func GetCollectionsFromConfiguration(nodes *nodes.Nodes) []*collections.GbCollection {
 	ownCollections := make([]*collections.GbCollection, 0)
 
-	if viper.IsSet("collections") {
-		for address, collection := range viper.GetStringMap("collections") {
-			contractAddress := common.HexToAddress(address)
-			currentCollection := collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
+	for address, collection := range viper.GetStringMap("collections") {
+		contractAddress := common.HexToAddress(address)
+		currentCollection := collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 
-			if collection == nil && common.IsHexAddress(address) {
-				gbl.Log.Infof("reading collection without details: %+v", address)
+		if collection == nil && common.IsHexAddress(address) {
+			gbl.Log.Infof("reading collection without details: %+v", address)
 
-				currentCollection = collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
-				// global settings
-				currentCollection.Show.Listings = viper.GetBool("show.listings")
-				currentCollection.Show.Sales = viper.GetBool("show.sales")
-				currentCollection.Show.Mints = viper.GetBool("show.mints")
-				currentCollection.Show.Transfers = viper.GetBool("show.transfers")
-			} else {
-				gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
+			currentCollection = collections.NewCollection(contractAddress, "", nodes, models.FromConfiguration)
 
-				decodeHooks := mapstructure.ComposeDecodeHookFunc(
-					hooks.StringToAddressHookFunc(),
-					hooks.StringToDurationHookFunc(),
-					hooks.StringToLipglossColorHookFunc(),
-				)
+			// global settings
+			currentCollection.Show.Listings = viper.GetBool("show.listings")
+			currentCollection.Show.Sales = viper.GetBool("show.sales")
+			currentCollection.Show.Mints = viper.GetBool("show.mints")
+			currentCollection.Show.Transfers = viper.GetBool("show.transfers")
+		} else {
+			gbl.Log.Debugf("reading collection: %+v - %+v", address, collection)
 
-				decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-					DecodeHook: decodeHooks,
-					Result:     &currentCollection,
-				})
+			decodeHooks := mapstructure.ComposeDecodeHookFunc(
+				hooks.StringToAddressHookFunc(),
+				hooks.StringToDurationHookFunc(),
+				hooks.StringToLipglossColorHookFunc(),
+			)
 
-				err := decoder.Decode(collection)
-				if err != nil {
-					gbl.Log.Errorf("error decoding collection: %+v", err)
+			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+				DecodeHook: decodeHooks,
+				Result:     &currentCollection,
+			})
 
-					continue
-				}
+			err := decoder.Decode(collection)
+			if err != nil {
+				gbl.Log.Errorf("error decoding collection: %+v", err)
+
+				continue
 			}
-
-			gbl.Log.Debugf("currentCollection: %+v", currentCollection)
-
-			ownCollections = append(ownCollections, currentCollection)
 		}
+
+		gbl.Log.Debugf("currentCollection: %+v", currentCollection)
+
+		ownCollections = append(ownCollections, currentCollection)
 	}
 
 	return ownCollections
@@ -288,7 +288,6 @@ func GetWatchRulesFromConfig() models.Watcher {
 	_ = watchSpinner.Start()
 
 	for _, group := range viper.Get("watch").([]interface{}) {
-
 		var newWatchGroup *models.WatchGroup
 
 		decodeHooks := mapstructure.ComposeDecodeHookFunc(
@@ -346,4 +345,123 @@ func GetWatchRulesFromConfig() models.Watcher {
 	_ = watchSpinner.Stop()
 
 	return watcher
+}
+
+func GetBuyRulesFromConfiguration() *models.BuyRules {
+	buyRules := &models.BuyRules{
+		Rules: make(map[common.Address]*models.BuyRule, 0),
+	}
+
+	gbl.Log.Info(" ------ buy rules ------")
+
+	// checking global key & threshold
+	globalPrivateKey := viper.GetString("buy.privateKey")
+	globalThreshold := viper.GetFloat64("buy.globalThreshold")
+
+	if globalPrivateKey == "" || globalThreshold == 0.0 {
+		gbl.Log.Warnf("❌ invalid globalPrivateKey (%s) or globalThreshold (%f), skipping global rule", globalPrivateKey, globalThreshold)
+	} else {
+
+		buyRule := &models.BuyRule{
+			ID:              0,
+			ContractAddress: utils.ZeroAddress,
+			PrivateKey:      globalPrivateKey,
+			Threshold:       globalThreshold,
+		}
+
+		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
+			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
+		} else {
+
+			// buyRules = append(buyRules, buyRule)
+			buyRules.Rules[utils.ZeroAddress] = buyRule
+
+			gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
+		}
+	}
+
+	if viper.Get("buy.rules") == nil {
+		gbl.Log.Info("no buy rules configured")
+		return buyRules
+	}
+
+	for _, rule := range viper.Get("buy.rules").([]interface{}) {
+		ruleID := len(buyRules.Rules)
+
+		gbl.Log.Debugf("reading buy rule %d: %+v", ruleID, rule)
+
+		decodeHooks := mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToDurationHookFunc(),
+			hooks.StringToLipglossColorHookFunc(),
+		)
+
+		var buyRule *models.BuyRule
+
+		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: decodeHooks,
+			Result:     &buyRule,
+		})
+
+		err := decoder.Decode(rule)
+		if err != nil {
+			gbl.Log.Errorf("error decoding collection: %+v", err)
+
+			continue
+		}
+
+		buyRule.ID = len(buyRules.Rules)
+
+		if buyRule.PrivateKey == "" {
+			if privateKey := viper.GetString("buy.privateKey"); privateKey != "" {
+				gbl.Log.Debugf("no private key found for buy rule %d, using the global privatKey", ruleID)
+
+				buyRule.PrivateKey = privateKey
+			} else {
+
+				gbl.Log.Warnf("❌ no private key available, skipping rule")
+
+				continue
+			}
+		}
+
+		if !common.IsHexAddress(buyRule.ContractAddress.String()) || buyRule.ContractAddress == utils.ZeroAddress || buyRule.Threshold == 0 {
+			gbl.Log.Warnf("❌ invalid contract address (%s) or threshold (%f), skipping rule", buyRule.ContractAddress.String(), buyRule.Threshold)
+
+			continue
+		}
+
+		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
+			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
+			continue
+		}
+
+		gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
+
+		// buyRules = append(buyRules, buyRule)
+		buyRules.Rules[buyRule.ContractAddress] = buyRule
+	}
+
+	for contractAddress, buyRule := range buyRules.Rules {
+		name := buyRule.ContractAddress.String()
+
+		if contractName, err := cache.GetContractName(contractAddress); err == nil && contractName != "" {
+			name = contractName
+		}
+
+		if buyRule.ContractAddress == utils.ZeroAddress {
+			name = "*everything*"
+		}
+
+		formattedRuleID := fmt.Sprintf("#%d", buyRule.ID)
+		percentageOfFloor := fmt.Sprintf("<=%.0f%%", buyRule.Threshold*100)
+		// relativeFloorDifference := int((buyRule.Threshold * 100) - 100)
+
+		// percentageBelowFloor := fmt.Sprintf(">=%.0f%%", math.Abs(float64(relativeFloorDifference)))
+		gbl.Log.Infof("Rule %s: buy %s if listed for %s of current floor using key %s...", style.BoldStyle.Render(formattedRuleID), style.BoldStyle.Render(name), style.BoldStyle.Render(percentageOfFloor), style.BoldStyle.Render(buyRule.PrivateKey[:4])) //, style.BoldStyle.Render(percentageBelowFloor))
+	}
+
+	gbl.Log.Info(" ----------------------- ")
+
+	return buyRules
 }

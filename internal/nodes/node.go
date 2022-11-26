@@ -85,6 +85,10 @@ func (n *Node) Connect() error {
 	return err
 }
 
+func (n *Node) GetStyledMarker() string {
+	return lipgloss.NewStyle().Foreground(n.Color).Render(n.Marker)
+}
+
 // GetCurrentGasInfo returns the current gas price and tip
 func (n *Node) GetCurrentGasInfo() (*GasInfo, error) {
 	ctx := context.Background()
@@ -440,4 +444,15 @@ func WeiToGwei(wei *big.Int) *big.Float {
 	fWei.SetMode(big.ToNearestEven)
 
 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.GWei))
+}
+
+func EtherToWei(ether *big.Float) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
+	fWei.SetMode(big.ToNearestEven)
+
+	return f.Quo(fWei.Set(ether), big.NewFloat(params.Wei))
 }

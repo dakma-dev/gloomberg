@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/nodes"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/spf13/viper"
 )
 
-func GasTicker(gasTicker *time.Ticker, ethNodes *nodes.Nodes, queueOutput *chan string) {
+func GasTicker(gb *gloomberg.Gloomberg, gasTicker *time.Ticker, ethNodes *nodes.Nodes, queueOutput *chan string) {
 	oldGasPrice := 0
 
 	for range gasTicker.C {

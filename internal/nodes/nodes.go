@@ -229,7 +229,7 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	}
 
 	if resolvedAddress != address {
-		gbl.Log.Warnf("addresses do not match for: %s", style.BoldStyle.Render(ensName))
+		gbl.Log.Warnf("addresses do not match for: %s | addr %s != %s resolved addr", style.BoldStyle.Render(ensName), address.Hex(), resolvedAddress.Hex())
 		gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
 
 		return "", errors.New("ens forward and reverse resolved addresses do not match")

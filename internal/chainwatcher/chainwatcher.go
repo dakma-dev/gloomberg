@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models"
@@ -24,6 +23,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spf13/viper"
 )
 
@@ -45,6 +46,31 @@ var (
 	mu                = &sync.Mutex{}
 	knownTransactions = make(map[common.Hash][]int)
 	logCollectors     = make(map[common.Hash]*txlogcollector.TxLogs)
+
+	txLogsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transaction_logs_received_total",
+		Help: "The total number of received transaction logs",
+	})
+
+	txReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_total",
+		Help: "The total number of received transactions",
+	})
+
+	txReceivedSale = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_sale",
+		Help: "The total number of received sale transactions",
+	})
+
+	txReceivedMint = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_mint",
+		Help: "The total number of received mint transactions",
+	})
+
+	txReceivedTransfer = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_transactions_received_transfer",
+		Help: "The total number of received transfer transactions",
+	})
 )
 
 type GItem struct {
@@ -128,6 +154,9 @@ func (cw *ChainWatcher) SubscribeToOrderFulfilled(queueEvents *chan *collections
 func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collections.Event) {
 	// process new logs received via our subscriptions
 	for subLog := range *cw.queueLogs {
+		// increment prometheus counter
+		txLogsReceivedTotal.Inc()
+
 		// track & count
 		nanoNow := time.Now().UnixNano()
 		// logs per node
@@ -165,7 +194,7 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 }
 
 func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
-	printEvent := true
+	var eventDiscarded *collections.EventDiscarded
 
 	// parse log topics
 	logTopic, fromAddress, toAddress, tokenID := utils.ParseTopics(subLog.Topics)
@@ -241,6 +270,10 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	subLog = *txLogs.MainLog
 
+	// increment transactions counter
+	txReceivedTotal.Inc()
+
+
 	//
 	// collection information
 	cw.CollectionDB.RWMu.RLock()
@@ -294,18 +327,41 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	var txErr error
 
 	if isMint {
+		// increment mints counter
+		txReceivedMint.Inc()
+
 		eventType = collections.Mint
 
 		if !showMints {
 			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
 			gbl.Log.Debugf("🗑️ showMints -> %v | collection.Show.Mints -> %v | %v | TxHash: %v / %d | %+v", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			// return
-			printEvent = false
+
+			// printEvent = false
+			reason := "showing mints is disabled"
+
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	} else {
 		eventType = collections.Sale
 		if collection.IgnorePrinting {
-			printEvent = false
+			// printEvent = false
+			reason := "IgnorePrinting is set"
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	}
 
@@ -348,17 +404,40 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		// atomic.AddUint64(&StatsBTV.DiscardedLowPrice, 1)
 		gbl.Log.Debugf("‼️ DiscardedLowPrice| %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
-		printEvent = false
+		// printEvent = false
+		reason := "price below min_value"
+
+		if eventDiscarded == nil {
+			eventDiscarded = &collections.EventDiscarded{
+				DiscardedBy: "chainwatcher",
+				Reasons:     []string{reason},
+			}
+		} else {
+			eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+		}
 	}
 
 	if isTransfer {
+		// increment transfers counter
+		txReceivedTransfer.Inc()
+
 		eventType = collections.Transfer
 
 		if !showTransfers {
 			// atomic.AddUint64(&StatsBTV.DiscardedTransfers, 1)
 			gbl.Log.Debugf("‼️ transfer not shown %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
-			printEvent = false
+			// printEvent = false
+			reason := "showing transfers is disabled"
+
+			if eventDiscarded == nil {
+				eventDiscarded = &collections.EventDiscarded{
+					DiscardedBy: "chainwatcher",
+					Reasons:     []string{reason},
+				}
+			} else {
+				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
+			}
 		}
 	}
 
@@ -413,6 +492,9 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	var priceArrowColor lipgloss.Color
 
 	if eventType == collections.Sale {
+		// increment sales counter
+		txReceivedSale.Inc()
+
 		// get a color with saturation depending on the tx price
 		priceEther, _ := nodes.WeiToEther(value).Float64()
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
@@ -443,15 +525,15 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 			Address:       toAddress,
 			OpenseaUserID: "",
 		},
-		FromAddresses:   fromAddresses,
-		ToAddresses:     toAddresses,
-		PrintEvent:      printEvent,
+		FromAddresses: fromAddresses,
+		ToAddresses:   toAddresses,
+		Discarded: eventDiscarded,
 		IsAcceptedOffer: isAcceptedOffer,
 	}
 
 	// send to formatting
 	*queueEvents <- event
 
-	gbCache := cache.New()
-	gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxLogCount, event.Time, int64(eventType))
+	// gbCache := cache.New()
+	// gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxLogCount, event.Time, int64(eventType))
 }

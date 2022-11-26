@@ -12,7 +12,6 @@ import (
 	"github.com/benleb/gloomberg/internal/models/gloomberg"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -160,15 +159,16 @@ func FulfillBasicOrder(gb *gloomberg.Gloomberg, order *models.SeaportOrder, priv
 		gbl.Log.Errorf("❌ failed to pack order data: %v", err)
 	}
 
-	gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
-		To:   &OpenSeaSeaportContract,
-		Data: orderData,
-	})
-	if err != nil {
-		gbl.Log.Errorf("❌ failed to get gas limit: %v", err)
+	// gasLimit, err := client.EstimateGas(context.Background(), ethereum.CallMsg{
+	// 	To:   &OpenSeaSeaportContract,
+	// 	Data: orderData,
+	// })
+	// if err != nil {
+	// 	gbl.Log.Errorf("❌ failed to get gas limit: %v", err)
 
-		gasLimit = uint64(160000)
-	}
+	// 	gasLimit = uint64(160000)
+	// }
+	gasLimit := uint64(200000)
 
 	//
 	// create & set tx options
@@ -178,8 +178,8 @@ func FulfillBasicOrder(gb *gloomberg.Gloomberg, order *models.SeaportOrder, priv
 	}
 
 	txOpts.From = publicAddress
-	txOpts.GasFeeCap = gasFeeCap
-	txOpts.GasTipCap = gasTipCap
+	txOpts.GasFeeCap = big.NewInt(0).Mul(gasFeeCap, big.NewInt(2))
+	txOpts.GasTipCap = big.NewInt(0).Mul(gasTipCap, big.NewInt(2))
 	txOpts.GasLimit = gasLimit                            // in units
 	txOpts.Value = big.NewInt(sToI64(order.CurrentPrice)) // in wei
 	txOpts.Nonce = big.NewInt(int64(nonce))
@@ -193,7 +193,7 @@ func FulfillBasicOrder(gb *gloomberg.Gloomberg, order *models.SeaportOrder, priv
 	// send the tx
 	tx, err := abiSeaport.FulfillBasicOrder(txOpts, orderParameters)
 	if err != nil {
-		gbl.Log.Errorf("❌ FulfillBasicOrder error: %v", err.Error())
+		gbl.Log.Warnf("❌ FulfillBasicOrder error: %v", err.Error())
 		return nil, err
 	}
 

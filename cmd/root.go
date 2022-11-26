@@ -103,10 +103,12 @@ func init() {
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
 
-	viper.SetDefault("cache.names_ttl", 2*24*time.Hour)
-	viper.SetDefault("cache.ens_ttl", 1*24*time.Hour)
-	viper.SetDefault("cache.floor_ttl", 3*time.Hour)
+	viper.SetDefault("cache.names_ttl", 1*6*time.Hour)
+	viper.SetDefault("cache.ens_ttl", 1*6*time.Hour)
+	viper.SetDefault("cache.floor_ttl", 2*time.Hour)
+	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
+	viper.SetDefault("cache.notifications_lock_ttl", 3*time.Minute)
 }
 
 // initConfig reads in config file and ENV variables if set.
