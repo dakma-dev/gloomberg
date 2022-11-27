@@ -1,6 +1,7 @@
 package collections
 
 import (
+	"github.com/benleb/gloomberg/internal/abis"
 	"math/big"
 	"time"
 
@@ -23,6 +24,15 @@ const (
 	Transfer
 	Listing
 	Purchase
+)
+
+type MarketPlace int64
+
+const (
+	OpenSea MarketPlace = iota
+	LooksRare
+	X2Y2
+	Blur
 )
 
 func (et EventType) String() string {
@@ -97,8 +107,11 @@ type Event struct {
 	FromAddresses        map[common.Address]bool
 	ToAddresses          map[common.Address]bool
 	WorkerID             int
-	// PrintEvent           bool
-	Discarded *EventDiscarded
+	Discarded            *EventDiscarded
+	IsAcceptedOffer      bool
+	ERC721Transfers      []abis.ERC721v3Transfer
+	ERC1155Transfers     []abis.ERC1155Transfer
+	MarketPlace          MarketPlace
 }
 
 type PushEvent struct {

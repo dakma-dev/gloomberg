@@ -3,6 +3,8 @@ package chainwatcher
 import (
 	"context"
 	"fmt"
+	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -36,6 +38,8 @@ type ChainWatcher struct {
 	queueOutWS *chan *collections.Event
 
 	WebsocketsServer *ws.WebsocketsServer
+
+	wethContract *abis.ERC20
 }
 
 var (
@@ -82,13 +86,33 @@ func New(nodes *nodes.Nodes, collectiondb *collections.CollectionDB) *ChainWatch
 	// create a queue/channel for events to be sent out via ws
 	queueOutWS := make(chan *collections.Event, 1024)
 
+	// TODO move to new instance holding these?
+	wethAddress := common.HexToAddress(string(external.WETH))
+	wethContract, _ := abis.NewERC20(wethAddress, nodes.GetRandomNode().Client)
+
 	return &ChainWatcher{
 		CollectionDB: collectiondb,
 		Nodes:        nodes,
-
-		queueLogs:  &queueLogs,
-		queueOutWS: &queueOutWS,
+		queueLogs:    &queueLogs,
+		queueOutWS:   &queueOutWS,
+		wethContract: wethContract,
 	}
+}
+func (cw *ChainWatcher) GetLogsByBlockNumber(blockNumber int64) {
+	filterQuery := ethereum.FilterQuery{
+		FromBlock: big.NewInt(blockNumber),
+		ToBlock:   big.NewInt(blockNumber),
+	}
+
+	logs, err := cw.Nodes.GetRandomNode().Client.FilterLogs(context.Background(), filterQuery)
+	if err != nil {
+		return
+	}
+
+	for _, log := range logs {
+		*cw.queueLogs <- log
+	}
+
 }
 
 func (cw *ChainWatcher) SubscribeToSales(queueEvents *chan *collections.Event) {
@@ -141,8 +165,8 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 
 		// discard Transfer/TransferSingle logs for non-NFT transfers | erc20: topics 0-2 | erc721/1155: 0-3
 		// if (logTopic == topic.Transfer || logTopic == topic.TransferSingle) && len(subLog.Topics) < 4 {
-		if len(subLog.Topics) < 4 {
-			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 4) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
+		if len(subLog.Topics) < 3 {
+			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 3) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
 
@@ -154,7 +178,7 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 		switch logTopic {
 		case topic.Transfer, topic.TransferSingle:
 			// parse generic transfer topics
-			go cw.logParserTransfers(node.NodeID, subLog, queueEvents)
+			go cw.LogParserTransfers(node.NodeID, subLog, queueEvents)
 			// case topic.OrderFulfilled:
 			// 	// parse opensea seaport OrderFulfilled logs
 			// 	go cw.logParserOrderFulfilled(node.NodeID, subLog, queueEvents)
@@ -169,8 +193,7 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 	}
 }
 
-func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
-	// printEvent := true
+func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
 	var eventDiscarded *collections.EventDiscarded
 
 	// parse log topics
@@ -207,7 +230,6 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 		// if we have a collector, we can add this log/log index to the collector
 		tc.AddLog(&subLog)
 		mu.Unlock()
-
 		return
 	}
 
@@ -239,6 +261,15 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	mu.Unlock()
 
+	// get "main" log (ignore erc20 logs)
+
+	if txLogs.MainLog == nil {
+		gbl.Log.Infof("No main log found (!= erc02transfer). Skipping")
+		return
+	}
+
+	subLog = *txLogs.MainLog
+
 	// increment transactions counter
 	txReceivedTotal.Inc()
 
@@ -248,10 +279,15 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	collection := cw.CollectionDB.Collections[subLog.Address]
 	cw.CollectionDB.RWMu.RUnlock()
 
+	logTopic, fromAddress, toAddress, tokenID = utils.ParseTopics(subLog.Topics)
+
 	if collection == nil && subLog.Address != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		name := ""
 
 		if logTopic == topic.TransferSingle {
+			if tID := cw.Nodes.GetERC1155TokenID(subLog.Data); tID != nil {
+				tokenID = tID
+			}
 			if tokenName, err := cw.Nodes.GetERC1155TokenName(subLog.Address, tokenID); err == nil && tokenName != "" {
 				name = tokenName
 				gbl.Log.Debugf("found token name: %s | %s", name, subLog.Address.String())
@@ -345,6 +381,21 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	// set to actual tx value
 	value := tx.Value()
+
+	isAcceptedOffer := false
+	if len(txLogs.ERC20Logs) != 0 {
+		for _, transferLog := range txLogs.ERC20Logs {
+			if transferLog.Address.Hex() == string(external.WETH) {
+				transfer, err := cw.wethContract.ParseTransfer(*transferLog)
+				if err != nil {
+					gbl.Log.Error(err)
+					return
+				}
+				value.Add(value, transfer.Value)
+				isAcceptedOffer = true
+			}
+		}
+	}
 
 	// if the tx has no 'value' (and is not a mint) it is a transfer
 	isTransfer := value.Cmp(big.NewInt(0)) == 0 && !isMint // && logTopic != topic.TransferSingle
@@ -469,10 +520,12 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 			Address:       toAddress,
 			OpenseaUserID: "",
 		},
-		FromAddresses: fromAddresses,
-		ToAddresses:   toAddresses,
-		// PrintEvent:    printEvent,
-		Discarded: eventDiscarded,
+		FromAddresses:    fromAddresses,
+		ToAddresses:      toAddresses,
+		Discarded:        eventDiscarded,
+		IsAcceptedOffer:  isAcceptedOffer,
+		ERC721Transfers:  txLogs.ERC721Transfers,
+		ERC1155Transfers: txLogs.ERC1155Transfers,
 	}
 
 	// send to formatting

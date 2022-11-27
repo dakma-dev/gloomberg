@@ -491,7 +491,6 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// }
 
 	// print to terminal
-	// if event.PrintEvent {
 	if event.Discarded == nil || event.Discarded.PrintInStream {
 		queueOutput <- out.String()
 	}
@@ -531,57 +530,84 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 				return
 			}
 
-			// get the username of the wallet that triggered the notification
-			var userName string
-
-			user := ((*gb.Watcher).UserAddresses)[triggerAddress]
-			watchUser := ((*gb.Watcher).WatchUsers)[triggerAddress]
-
-			if watchUser != nil {
-				if watchUser.TelegramUsername != "" {
-					userName = "@" + watchUser.TelegramUsername
-				} else {
-					userName = watchUser.Name
+			// get correct erc721 sale
+			for _, transfer := range event.ERC721Transfers {
+				watchUser := ((*gb.Watcher).WatchUsers)[transfer.To]
+				if watchUser == nil {
+					watchUser = ((*gb.Watcher).WatchUsers)[transfer.From]
 				}
-			} else {
-				userName = "⸘Unknown‽"
 
-				gbl.Log.Warnf("could not find user for address %s", triggerAddress.Hex())
-				fmt.Printf("could not find user for address %s\n", triggerAddress.Hex())
-			}
-
-			// build the message to send
-			msgTelegram := strings.Builder{}
-			msgTelegram.WriteString(event.EventType.Icon())
-			msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
-			msgTelegram.WriteString(" (" + style.ShortenAddress(&triggerAddress) + ")")
-			msgTelegram.WriteString(" " + event.EventType.ActionName())
-			msgTelegram.WriteString(" " + style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, false))
-			msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEther) + "Ξ**")
-			msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
-			msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
-
-			// try to get the token image url from its metadata
-			var imageURI string
-
-			if uri, err := gb.Nodes.GetTokenImageURI(event.Collection.ContractAddress, event.TokenID); err != nil {
-				gbl.Log.Warnf("error getting token image (uri): %v", err)
-			} else if strings.HasSuffix(uri, ".gif") {
-				gbl.Log.Infof("token image uri is a gif -> not usable in tg msg: %s", uri)
-			} else {
-				imageURI = utils.ReplaceSchemeWithGateway(uri)
-			}
-
-			// send telegram message
-			if msg, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
-				gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
-			} else {
-				rawMsg := msgTelegram.String()
-				if msg.Text != "" {
-					rawMsg = msg.Text
+				if watchUser == nil {
+					continue
 				}
-				gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
+				sendTelegramNotification(gb, triggerAddress, watchUser, event, transfer.TokenId, priceEtherPerItem, etherscanURL, openseaURL)
 			}
+			for _, transfer := range event.ERC1155Transfers {
+				watchUser := ((*gb.Watcher).WatchUsers)[transfer.To]
+				if watchUser == nil {
+					watchUser = ((*gb.Watcher).WatchUsers)[transfer.From]
+				}
+
+				if watchUser == nil {
+					continue
+				}
+				sendTelegramNotification(gb, triggerAddress, watchUser, event, transfer.Id, priceEtherPerItem, etherscanURL, openseaURL)
+			}
+
 		}()
+	}
+}
+
+func sendTelegramNotification(gb *gloomberg.Gloomberg, triggerAddress common.Address, watchUser *models.WatchUser, event *collections.Event, tokenId *big.Int, priceEtherPerItem float64, etherscanURL string, openseaURL string) {
+	// get the username of the wallet that triggered the notification
+	var userName string
+
+	user := ((*gb.Watcher).UserAddresses)[triggerAddress]
+	//watchUser := ((*gb.Watcher).WatchUsers)[triggerAddress]
+
+	if watchUser != nil {
+		if watchUser.TelegramUsername != "" {
+			userName = "@" + watchUser.TelegramUsername
+		} else {
+			userName = watchUser.Name
+		}
+	} else {
+		userName = "⸘Unknown‽"
+
+		gbl.Log.Warnf("could not find user for address %s", triggerAddress.Hex())
+		fmt.Printf("could not find user for address %s\n", triggerAddress.Hex())
+	}
+
+	// build the message to send
+	msgTelegram := strings.Builder{}
+	msgTelegram.WriteString(event.EventType.Icon())
+	msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
+	msgTelegram.WriteString(" (" + style.ShortenAddress(&triggerAddress) + ")")
+	msgTelegram.WriteString(" " + event.EventType.ActionName())
+	msgTelegram.WriteString(" " + style.FormatTokenInfo(tokenId, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, false))
+	msgTelegram.WriteString(" for **" + fmt.Sprintf("%.3f", priceEtherPerItem) + "Ξ**")
+	msgTelegram.WriteString("\n[Etherscan](" + etherscanURL + ")")
+	msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
+
+	// try to get the token image url from its metadata
+	var imageURI string
+
+	if uri, err := gb.Nodes.GetTokenImageURI(event.Collection.ContractAddress, tokenId); err != nil {
+		gbl.Log.Warnf("error getting token image (uri): %v", err)
+	} else if strings.HasSuffix(uri, ".gif") {
+		gbl.Log.Infof("token image uri is a gif -> not usable in tg msg: %s", uri)
+	} else {
+		imageURI = utils.ReplaceSchemeWithGateway(uri)
+	}
+
+	// send telegram message
+	if msg, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
+		gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
+	} else {
+		rawMsg := msgTelegram.String()
+		if msg.Text != "" {
+			rawMsg = msg.Text
+		}
+		gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
 	}
 }

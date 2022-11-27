@@ -52,8 +52,8 @@ func PrettyString(str []byte) string {
 }
 
 func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
-	if len(topics) < 4 {
-		fmt.Printf("Invalid number of topics: %d", len(topics))
+	if len(topics) < 3 {
+		//fmt.Printf("Invalid number of topics: %d", len(topics))
 		return "", ZeroAddress, ZeroAddress, nil
 	}
 
@@ -71,6 +71,7 @@ func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	// parse token id
 	rawTokenID := big.NewInt(0)
 	if len(topics) >= 4 {
+		// TODO WRONG FOR Transfer Single
 		rawTokenID = topics[3].Big()
 	}
 
