@@ -273,7 +273,6 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	// increment transactions counter
 	txReceivedTotal.Inc()
 
-
 	//
 	// collection information
 	cw.CollectionDB.RWMu.RLock()
@@ -525,10 +524,12 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 			Address:       toAddress,
 			OpenseaUserID: "",
 		},
-		FromAddresses: fromAddresses,
-		ToAddresses:   toAddresses,
-		Discarded: eventDiscarded,
-		IsAcceptedOffer: isAcceptedOffer,
+		FromAddresses:    fromAddresses,
+		ToAddresses:      toAddresses,
+		Discarded:        eventDiscarded,
+		IsAcceptedOffer:  isAcceptedOffer,
+		ERC721Transfers:  txLogs.ERC721Transfers,
+		ERC1155Transfers: txLogs.ERC1155Transfers,
 	}
 
 	// send to formatting

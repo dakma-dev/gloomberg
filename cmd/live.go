@@ -408,20 +408,22 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// }
 
 	// prometheus metrics
-	go func() {
-		listenHost := net.ParseIP(viper.GetString("ui.web.host"))
-		listenPort := 9090
-		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
+	if viper.GetBool("ui.web.enabled") {
+		go func() {
+			listenHost := net.ParseIP(viper.GetString("ui.web.host"))
+			listenPort := 9090
+			listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
 
-		http.Handle("/metrics", promhttp.Handler())
+			http.Handle("/metrics", promhttp.Handler())
 
-		gbl.Log.Infof("starting prometheus metrics http server on: http://%s", listenAddress)
+			gbl.Log.Infof("starting prometheus metrics http server on: http://%s", listenAddress)
 
-		if err := http.ListenAndServe(listenAddress, nil); err != nil {
-			fmt.Printf("error: %s", err)
-			gbl.Log.Error(err)
-		}
-	}()
+			if err := http.ListenAndServe(listenAddress, nil); err != nil {
+				fmt.Printf("error: %s", err)
+				gbl.Log.Error(err)
+			}
+		}()
+	}
 
 	// loop forever
 	select {}

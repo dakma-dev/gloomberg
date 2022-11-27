@@ -1,6 +1,7 @@
 package txlogcollector
 
 import (
+	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models/topic"
 	"sync"
@@ -13,14 +14,16 @@ import (
 )
 
 type TxLogs struct {
-	RWMu          *sync.RWMutex
-	FromAddresses []common.Address
-	ToAddresses   []common.Address
-	TokenSeller   map[uint64]common.Address
-	style         lipgloss.Style
-	txID          common.Hash
-	ERC20Logs     []*types.Log // offer sales having erc20 txs
-	MainLog       *types.Log   // leading log (singletransfer or orderfullfilled)
+	RWMu             *sync.RWMutex
+	FromAddresses    []common.Address
+	ToAddresses      []common.Address
+	TokenSeller      map[uint64]common.Address
+	style            lipgloss.Style
+	txID             common.Hash
+	ERC20Logs        []*types.Log // offer sales having erc20 txs
+	MainLog          *types.Log   // leading log (singletransfer or orderfullfilled)
+	ERC721Transfers  []abis.ERC721v3Transfer
+	ERC1155Transfers []abis.ERC1155Transfer
 }
 
 func NewTxLogCollector(log *types.Log) *TxLogs {
@@ -47,6 +50,26 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 		return
 	}
 
+	_, fromAddress, toAddress, tokenID := utils.ParseTopics(log.Topics)
+
+	if logTopic == topic.Transfer && len(log.Topics) == 4 {
+		transco.ERC721Transfers = append(transco.ERC721Transfers, abis.ERC721v3Transfer{
+			From:    fromAddress,
+			To:      toAddress,
+			TokenId: tokenID,
+		})
+	}
+
+	if logTopic == topic.TransferSingle && len(log.Topics) == 4 {
+		transco.ERC1155Transfers = append(transco.ERC1155Transfers, abis.ERC1155Transfer{
+			Id:   tokenID, // <-- Token Id
+			From: fromAddress,
+			To:   toAddress,
+			//Value: nil, // <-- amount
+			//Raw:   types.Log{},
+		})
+	}
+
 	// OrderFullfilled Topic or ERC721 Transfer logs could occur multiple times. TODO enhance the log collector we need for each interesting log combination a possible notification, create new sale struct holding from, to and tokenId?
 	// this code is just to whitelist the logs which are interesting
 	if transco.MainLog == nil {
@@ -70,7 +93,6 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 	}
 
 	// parse log topics
-	_, fromAddress, toAddress, tokenID := utils.ParseTopics(log.Topics)
 
 	transco.FromAddresses = append(transco.FromAddresses, fromAddress)
 	transco.ToAddresses = append(transco.ToAddresses, toAddress)
