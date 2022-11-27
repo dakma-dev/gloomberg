@@ -295,9 +295,6 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	var txErr error
 
 	if isMint {
-		// increment mints counter
-		txReceivedMint.Inc()
-
 		eventType = collections.Mint
 
 		if !showMints {
@@ -371,9 +368,6 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	}
 
 	if isTransfer {
-		// increment transfers counter
-		txReceivedTransfer.Inc()
-
 		eventType = collections.Transfer
 
 		if !showTransfers {
@@ -445,9 +439,6 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 	var priceArrowColor lipgloss.Color
 
 	if eventType == collections.Sale {
-		// increment sales counter
-		txReceivedSale.Inc()
-
 		// get a color with saturation depending on the tx price
 		priceEther, _ := nodes.WeiToEther(value).Float64()
 		priceArrowColor = style.GetPriceShadeColor(priceEther)
@@ -486,6 +477,17 @@ func (cw *ChainWatcher) logParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	// send to formatting
 	*queueEvents <- event
+
+	if eventType == collections.Sale {
+		// increment sales counter
+		txReceivedSale.Inc()
+	} else if eventType == collections.Mint {
+		// increment mints counter
+		txReceivedMint.Inc()
+	} else if eventType == collections.Transfer {
+		// increment transfers counter
+		txReceivedTransfer.Inc()
+	}
 
 	// gbCache := cache.New()
 	// gbCache.StoreEvent(event.Collection.ContractAddress, event.Collection.Name, event.TokenID, event.PriceWei.Uint64(), event.TxLogCount, event.Time, int64(eventType))
