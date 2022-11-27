@@ -71,6 +71,7 @@ func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	// parse token id
 	rawTokenID := big.NewInt(0)
 	if len(topics) >= 4 {
+		// TODO WRONG FOR Transfer Single
 		rawTokenID = topics[3].Big()
 	}
 

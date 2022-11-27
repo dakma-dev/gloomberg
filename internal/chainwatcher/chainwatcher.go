@@ -279,10 +279,15 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	collection := cw.CollectionDB.Collections[subLog.Address]
 	cw.CollectionDB.RWMu.RUnlock()
 
+	logTopic, fromAddress, toAddress, tokenID = utils.ParseTopics(subLog.Topics)
+
 	if collection == nil && subLog.Address != common.HexToAddress("0x0000000000000000000000000000000000000000") {
 		name := ""
 
 		if logTopic == topic.TransferSingle {
+			if tID := cw.Nodes.GetERC1155TokenID(subLog.Data); tID != nil {
+				tokenID = tID
+			}
 			if tokenName, err := cw.Nodes.GetERC1155TokenName(subLog.Address, tokenID); err == nil && tokenName != "" {
 				name = tokenName
 				gbl.Log.Debugf("found token name: %s | %s", name, subLog.Address.String())
