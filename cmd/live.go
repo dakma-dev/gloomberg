@@ -408,10 +408,10 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 	// }
 
 	// prometheus metrics
-	if viper.GetBool("ui.web.enabled") {
+	if viper.GetBool("metrics.enabled") {
 		go func() {
-			listenHost := net.ParseIP(viper.GetString("ui.web.host"))
-			listenPort := 9090
+			listenHost := net.ParseIP(viper.GetString("metrics.host"))
+			listenPort := viper.GetUint("metrics.port")
 			listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
 
 			http.Handle("/metrics", promhttp.Handler())
@@ -455,6 +455,14 @@ func init() {
 	_ = viper.BindPFlag("server.websockets.host", liveCmd.Flags().Lookup("websockets-host"))
 	liveCmd.Flags().Uint16("websockets-port", 42068, "websockets server port")
 	_ = viper.BindPFlag("server.websockets.port", liveCmd.Flags().Lookup("websockets-port"))
+
+	// metrics/prometheus
+	liveCmd.Flags().Bool("metrics", false, "enable metrics server")
+	_ = viper.BindPFlag("metrics.enabled", liveCmd.Flags().Lookup("metrics"))
+	liveCmd.Flags().IP("metrics-host", net.IPv4(0, 0, 0, 0), "metrics listen address")
+	_ = viper.BindPFlag("metrics.host", liveCmd.Flags().Lookup("metrics-host"))
+	liveCmd.Flags().Uint16("metrics-port", 9090, "metrics server port")
+	_ = viper.BindPFlag("metrics.port", liveCmd.Flags().Lookup("metrics-port"))
 
 	// notifications
 	liveCmd.Flags().Bool("telegram", false, "send telegram notifications")

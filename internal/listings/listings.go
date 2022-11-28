@@ -30,7 +30,7 @@ var (
 		Name: "gloomberg_opensea_listings_received_total",
 		Help: "The total number of received OpenSea listings",
 	})
-	openseaListingsReceivedAndProcessed = promauto.NewCounter(prometheus.CounterOpts{
+	openseaListingsShown = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_opensea_listings_received_and_processed",
 		Help: "The number of successfully processed/parsed OpenSea listings",
 	})
@@ -94,8 +94,8 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 
 		*queueEvents <- event
 
-		// increment prometheus counter
-		openseaListingsReceivedAndProcessed.Inc()
+		// increment shown counter
+		openseaListingsShown.Inc()
 
 		// get current floor price
 		collectionFP := (*collection.FloorPrice).Value()

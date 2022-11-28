@@ -11,7 +11,6 @@ import (
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/models/standard"
 	"github.com/benleb/gloomberg/internal/models/wallet"
-	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -229,7 +228,7 @@ func (nc *Nodes) reverseLookupAndValidate(address common.Address) (string, error
 	}
 
 	if resolvedAddress != address {
-		gbl.Log.Warnf("addresses do not match for: %s | addr %s != %s resolved addr", style.BoldStyle.Render(ensName), address.Hex(), resolvedAddress.Hex())
+		// gbl.Log.Warnf("addresses do not match for: %s | addr %s != %s resolved addr", style.BoldStyle.Render(ensName), address.Hex(), resolvedAddress.Hex())
 		gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
 
 		return "", errors.New("ens forward and reverse resolved addresses do not match")

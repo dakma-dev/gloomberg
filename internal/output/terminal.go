@@ -292,35 +292,12 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// }
 
 	// add to event history
-	outxxxx := strings.Builder{}
-	outxxxx.WriteString("    ---   ---\n")
-	outxxxx.WriteString(tokenInfo + "\n")
-	outxxxx.WriteString(fmt.Sprintf("event.To.Address: %+v\n", event.To.Address))
-	outxxxx.WriteString(fmt.Sprintf("event.From.Address: %+v\n", event.From.Address))
-	outxxxx.WriteString(fmt.Sprintf("isOwnCollection: %+v\n", isOwnCollection))
-	outxxxx.WriteString(fmt.Sprintf("isOwnWallet: %+v\n", isOwnWallet))
-	outxxxx.WriteString(fmt.Sprintf("gb.OwnWallets.Contains(event.To.Address): %+v\n", gb.OwnWallets.Contains(event.To.Address)))
-	outxxxx.WriteString(fmt.Sprintf("gb.OwnWallets.Contains(event.From.Address): %+v\n", gb.OwnWallets.Contains(event.From.Address)))
-	outxxxx.WriteString("\n")
-	outxxxx.WriteString(fmt.Sprintf("(event.EventType == collections.Sale || event.EventType == collections.Purchase): %+v\n", (event.EventType == collections.Sale || event.EventType == collections.Purchase)))
-
-	outxxxx.WriteString(fmt.Sprintf("len(ticker.StatsTicker.EventHistory): %+v\n", len(ticker.StatsTicker.EventHistory)))
-	outxxxx.WriteString(" - -\n")
-
-	if isOwnCollection && (event.EventType == collections.Sale || event.EventType == collections.Purchase) {
-		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
-	} else if isOwnWallet {
+	isSaleOrPurchase := event.EventType == collections.Sale || event.EventType == collections.Purchase
+	if isOwnWallet || (isOwnCollection && isSaleOrPurchase) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	} else if gb.OwnWallets.Contains(event.To.Address) {
 		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 	}
-
-	outxxxx.WriteString(fmt.Sprintf("len(ticker.StatsTicker.EventHistory): %+v\n", len(ticker.StatsTicker.EventHistory)))
-	outxxxx.WriteString("    ---   ---\n")
-	outxxxx.WriteString("\n")
-	// gbl.Log.Info("")
-	// gbl.Log.Info(outxxxx.String())
-	// gbl.Log.Info("")
 
 	// build the line to be displayed
 	out := strings.Builder{}
@@ -531,7 +508,6 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	//
 	// telegram notification
 	if isMintOrSale && isWatchUsersWallet && viper.GetBool("notifications.telegram.enabled") {
-
 		// try to acquire the lock
 		notificationLock, err := cache.NotificationLock(event.TxHash)
 
