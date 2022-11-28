@@ -20,8 +20,8 @@ type TxLogs struct {
 	TokenSeller      map[uint64]common.Address
 	style            lipgloss.Style
 	txID             common.Hash
-	ERC20Logs        []*types.Log // offer sales having erc20 txs
-	MainLog          *types.Log   // leading log (singletransfer or orderfullfilled)
+	ERC20Logs        []types.Log // offer sales having erc20 txs
+	MainLog          *types.Log  // leading log (singletransfer or orderfullfilled)
 	ERC721Transfers  []abis.ERC721v3Transfer
 	ERC1155Transfers []abis.ERC1155Transfer
 }
@@ -46,7 +46,7 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 	logTopic := topic.Topic(log.Topics[0].Hex())
 	if logTopic == topic.Transfer && log.Address.Hex() == string(external.WETH) {
 		//fmt.Println("WETH transfer found")
-		transco.ERC20Logs = append(transco.ERC20Logs, log)
+		transco.ERC20Logs = append(transco.ERC20Logs, *log)
 		return
 	}
 
