@@ -601,13 +601,22 @@ func sendTelegramNotification(gb *gloomberg.Gloomberg, triggerAddress common.Add
 	}
 
 	// send telegram message
-	if msg, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), imageURI); err != nil {
+	msg, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), imageURI)
+	if err != nil {
 		gbl.Log.Warnf("failed to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", imageURI, msgTelegram.String(), err)
-	} else {
-		rawMsg := msgTelegram.String()
-		if msg.Text != "" {
-			rawMsg = msg.Text
+		//  try sending without image 2nd time
+		if secondTry, err := notifications.SendTelegramMessage(user.TelegramChatID, msgTelegram.String(), ""); err != nil {
+			gbl.Log.Warnf("failed 2nd time to send telegram message | imageURI: '%s' | msgTelegram: '%s' | err: %s", "", msgTelegram.String(), err)
+			return
+		} else {
+			msg = secondTry
 		}
-		gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
 	}
+
+	rawMsg := msgTelegram.String()
+	if msg.Text != "" {
+		rawMsg = msg.Text
+	}
+	gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
+
 }
