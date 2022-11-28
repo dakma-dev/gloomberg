@@ -381,7 +381,6 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		// atomic.AddUint64(&StatsBTV.DiscardedTransactions, 1)
 		return
 	}
-
 	// set to actual tx value
 	value := tx.Value()
 
@@ -389,7 +388,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	if len(txLogs.ERC20Logs) != 0 {
 		for _, transferLog := range txLogs.ERC20Logs {
 			if transferLog.Address.Hex() == string(external.WETH) {
-				transfer, err := cw.wethContract.ParseTransfer(*transferLog)
+				transfer, err := cw.wethContract.ParseTransfer(transferLog)
 				if err != nil {
 					gbl.Log.Error(err)
 					return
