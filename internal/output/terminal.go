@@ -293,10 +293,13 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	// add to event history
 	isSaleOrPurchase := event.EventType == collections.Sale || event.EventType == collections.Purchase
-	if isOwnWallet || (isOwnCollection && isSaleOrPurchase) {
-		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
-	} else if gb.OwnWallets.Contains(event.To.Address) {
-		ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
+
+	if event.Discarded == nil {
+		if isOwnWallet || (isOwnCollection && isSaleOrPurchase) {
+			ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
+		} else if gb.OwnWallets.Contains(event.To.Address) {
+			ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
+		}
 	}
 
 	// build the line to be displayed
@@ -371,6 +374,11 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 			out.WriteString("  ")
 			out.WriteString(fpStyle.Bold(false).Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
 		}
+	}
+
+	// marker for collections which are contained in the buy rules
+	if gb.BuyRules.Rules[event.Collection.ContractAddress] != nil {
+		out.WriteString(" " + style.PinkBoldStyle.Render("·"))
 	}
 
 	// link opensea
@@ -553,7 +561,6 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 				}
 				sendTelegramNotification(gb, triggerAddress, watchUser, event, transfer.Id, priceEtherPerItem, etherscanURL, openseaURL)
 			}
-
 		}()
 	}
 }
@@ -563,7 +570,7 @@ func sendTelegramNotification(gb *gloomberg.Gloomberg, triggerAddress common.Add
 	var userName string
 
 	user := ((*gb.Watcher).UserAddresses)[triggerAddress]
-	//watchUser := ((*gb.Watcher).WatchUsers)[triggerAddress]
+	// watchUser := ((*gb.Watcher).WatchUsers)[triggerAddress]
 
 	if watchUser != nil {
 		if watchUser.TelegramUsername != "" {

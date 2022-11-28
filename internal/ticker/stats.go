@@ -312,22 +312,10 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		return eventsList
 	}
 
-	numberOfOwnEvents := len(s.EventHistory)
-	gbl.Log.Debugf("numberOfOwnEvents: %d | %d\n", numberOfOwnEvents, len(s.EventHistory))
-
-	numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
-	// ownEvents := s.EventHistory[numberOfOwnEvents-numberOfShownEvents:]
-	// sort.Slice(ownEvents, func(i, j int) bool { return i < j })
-	sort.Slice(s.EventHistory, func(i, j int) bool { return i < j })
-
-	// gbl.Log.Debugf("ownEvents: %d", len(ownEvents))
-	gbl.Log.Debugf("s.EventHistory: %d", len(s.EventHistory))
+	// cleanup (maybe replace this by not inserting events that are not shown anyways)
+	historyEvents := make([]*collections.Event, 0)
 
 	for idx, event := range s.EventHistory {
-		if len(eventsList) >= numberOfShownEvents {
-			break
-		}
-
 		if event == nil {
 			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
 			continue
@@ -336,9 +324,43 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		// if !event.PrintEvent {
 		if event.Discarded != nil && !event.Discarded.PrintInHistory {
 			gbl.Log.Debugf("🙈 ignored event: %d\n", event)
-			gbl.Log.Debugf("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.Discarded.Reasons, ", "))
+			gbl.Log.Infof("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.Discarded.Reasons, ", "))
 
 			continue
+		}
+
+		historyEvents = append(historyEvents, event)
+	}
+
+	// sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].Time.After(historyEvents[j].Time) })
+
+	// if len(historyEvents) > 0 {
+	// 	gbl.Log.Infof("")
+	// 	gbl.Log.Infof("")
+	// 	for _, e := range historyEvents {
+	// 		gbl.Log.Infof("historyEvents: %s | %s %d", e.Time.Format("2006-01-02 15:04:05"), e.Collection.Name, e.TokenID)
+	// 	}
+	// 	gbl.Log.Infof("")
+	// }
+
+	sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].Time.Before(historyEvents[j].Time) })
+
+	if len(historyEvents) > 0 {
+		gbl.Log.Infof("")
+		gbl.Log.Infof("")
+		for _, e := range historyEvents {
+			gbl.Log.Infof("historyEvents: %s | %s %d", e.Time.Format("2006-01-02 15:04:05"), e.Collection.Name, e.TokenID)
+		}
+		gbl.Log.Infof("")
+	}
+
+	numberOfOwnEvents := len(historyEvents)
+	numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
+	firstEventShown := numberOfOwnEvents - numberOfShownEvents
+
+	for _, event := range historyEvents[firstEventShown:] {
+		if len(eventsList) >= numberOfShownEvents {
+			break
 		}
 
 		collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
@@ -386,8 +408,16 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
 		}
 
+		// fmt.Printf("\n event %d: %+v\n", idx, event.Time)
+
 		eventsList = append(eventsList, listItem(historyLine.String()))
 	}
+
+	for _, e := range eventsList[:int(math.Min(10, float64(len(eventsList))))] {
+		gbl.Log.Infof("eventsList: %s", e)
+	}
+	gbl.Log.Infof("")
+	gbl.Log.Infof("")
 
 	return eventsList
 }

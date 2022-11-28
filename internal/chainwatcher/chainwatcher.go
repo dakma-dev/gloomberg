@@ -3,12 +3,13 @@ package chainwatcher
 import (
 	"context"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/abis"
-	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/ethereum/go-ethereum"
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
@@ -98,6 +99,7 @@ func New(nodes *nodes.Nodes, collectiondb *collections.CollectionDB) *ChainWatch
 		wethContract: wethContract,
 	}
 }
+
 func (cw *ChainWatcher) GetLogsByBlockNumber(blockNumber int64) {
 	filterQuery := ethereum.FilterQuery{
 		FromBlock: big.NewInt(blockNumber),
@@ -112,7 +114,6 @@ func (cw *ChainWatcher) GetLogsByBlockNumber(blockNumber int64) {
 	for _, log := range logs {
 		*cw.queueLogs <- log
 	}
-
 }
 
 func (cw *ChainWatcher) SubscribeToSales(queueEvents *chan *collections.Event) {
@@ -165,7 +166,7 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 
 		// discard Transfer/TransferSingle logs for non-NFT transfers | erc20: topics 0-2 | erc721/1155: 0-3
 		// if (logTopic == topic.Transfer || logTopic == topic.TransferSingle) && len(subLog.Topics) < 4 {
-		if len(subLog.Topics) < 3 {
+		if len(subLog.Topics) < 4 {
 			gbl.Log.Debugf("🗑️ number of topics in log is %d (!= 3) | %v | TxHash: %v / %d | %+v", len(subLog.Topics), subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			continue
 		}
@@ -264,7 +265,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	// get "main" log (ignore erc20 logs)
 
 	if txLogs.MainLog == nil {
-		gbl.Log.Infof("No main log found (!= erc02transfer). Skipping")
+		gbl.Log.Debug("No main log found (!= erc02transfer). Skipping")
 		return
 	}
 
