@@ -8,8 +8,11 @@ type BuyRules struct {
 
 type BuyRule struct {
 	ID              int
-	ContractAddress common.Address
-	Threshold       float64
-	PrivateKey      string
-	// ThresholdEth    *big.Int
+	Name            string         `mapstructure:"name"`
+	ContractAddress common.Address `mapstructure:"contract_address"`
+	PrivateKey      string         `mapstructure:"private_key"`
+	Threshold       float64        `mapstructure:"threshold"`
+	MaxPrice        float64        `mapstructure:"max_price"`
+	MinSales        uint64         `mapstructure:"min_sales"`
+	MinListings     uint64         `mapstructure:"min_listings"`
 }
