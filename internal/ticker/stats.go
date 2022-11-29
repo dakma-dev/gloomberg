@@ -322,9 +322,9 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		}
 
 		// if !event.PrintEvent {
-		if event.Discarded != nil && !event.Discarded.PrintInHistory {
+		if event.StateInfo != nil && !event.StateInfo.PrintInHistory {
 			gbl.Log.Debugf("🙈 ignored event: %d\n", event)
-			gbl.Log.Infof("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.Discarded.Reasons, ", "))
+			gbl.Log.Infof("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.StateInfo.DiscardReasons, ", "))
 
 			continue
 		}
@@ -332,27 +332,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		historyEvents = append(historyEvents, event)
 	}
 
-	// sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].Time.After(historyEvents[j].Time) })
-
-	// if len(historyEvents) > 0 {
-	// 	gbl.Log.Infof("")
-	// 	gbl.Log.Infof("")
-	// 	for _, e := range historyEvents {
-	// 		gbl.Log.Infof("historyEvents: %s | %s %d", e.Time.Format("2006-01-02 15:04:05"), e.Collection.Name, e.TokenID)
-	// 	}
-	// 	gbl.Log.Infof("")
-	// }
-
 	sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].Time.Before(historyEvents[j].Time) })
-
-	if len(historyEvents) > 0 {
-		gbl.Log.Infof("")
-		gbl.Log.Infof("")
-		for _, e := range historyEvents {
-			gbl.Log.Infof("historyEvents: %s | %s %d", e.Time.Format("2006-01-02 15:04:05"), e.Collection.Name, e.TokenID)
-		}
-		gbl.Log.Infof("")
-	}
 
 	numberOfOwnEvents := len(historyEvents)
 	numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
@@ -408,16 +388,8 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
 		}
 
-		// fmt.Printf("\n event %d: %+v\n", idx, event.Time)
-
 		eventsList = append(eventsList, listItem(historyLine.String()))
 	}
-
-	for _, e := range eventsList[:int(math.Min(10, float64(len(eventsList))))] {
-		gbl.Log.Infof("eventsList: %s", e)
-	}
-	gbl.Log.Infof("")
-	gbl.Log.Infof("")
 
 	return eventsList
 }

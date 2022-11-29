@@ -195,7 +195,12 @@ func (cw *ChainWatcher) logHandler(node *nodes.Node, queueEvents *chan *collecti
 }
 
 func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEvents *chan *collections.Event) {
-	var eventDiscarded *collections.EventDiscarded
+	stateInfo := &collections.StateInfo{
+		PrintInStream:  true,
+		PrintInHistory: true,
+		Discarded:      false,
+		DiscardReasons: make([]string, 0),
+	}
 
 	// parse log topics
 	logTopic, fromAddress, toAddress, tokenID := utils.ParseTopics(subLog.Topics)
@@ -231,6 +236,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		// if we have a collector, we can add this log/log index to the collector
 		tc.AddLog(&subLog)
 		mu.Unlock()
+
 		return
 	}
 
@@ -263,7 +269,6 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	mu.Unlock()
 
 	// get "main" log (ignore erc20 logs)
-
 	if txLogs.MainLog == nil {
 		gbl.Log.Debug("No main log found (!= erc02transfer). Skipping")
 		return
@@ -289,6 +294,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 			if tID := cw.Nodes.GetERC1155TokenID(subLog.Data); tID != nil {
 				tokenID = tID
 			}
+
 			if tokenName, err := cw.Nodes.GetERC1155TokenName(subLog.Address, tokenID); err == nil && tokenName != "" {
 				name = tokenName
 				gbl.Log.Debugf("found token name: %s | %s", name, subLog.Address.String())
@@ -304,7 +310,6 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		cw.CollectionDB.RWMu.Unlock()
 
 		if collection == nil {
-			// atomic.AddUint64(&StatsBTV.DiscardedUnknownCollection, 1)
 			gbl.Log.Warnf("🗑️ collection is nil | cw.CollectionDB.UserCollections[subLog.Address] -> %v | %v | TxHash: %v / %d | %+v", cw.CollectionDB.Collections[subLog.Address], subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 			return
 		}
@@ -312,9 +317,6 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 
 	// create a collection name if we can't find one
 	if collection.Name == "" {
-		// preSuffix := collection.StyleSecondary().Copy().Faint(true).Render("??")
-		// name := collection.Style().Copy().Faint(true).Italic(true).Render("Unknown " + logTopic.String())
-		// collection.Name = preSuffix + " " + name + " " + preSuffix
 		preSuffix := "??"
 		name := "Unknown " + logTopic.String()
 		collection.Name = preSuffix + " " + name + " " + preSuffix
@@ -335,35 +337,17 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		eventType = collections.Mint
 
 		if !showMints {
-			// atomic.AddUint64(&StatsBTV.DiscardedMints, 1)
-			gbl.Log.Debugf("🗑️ showMints -> %v | collection.Show.Mints -> %v | %v | TxHash: %v / %d | %+v", showMints, collection.Show.Mints, subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
-			// return
-
-			// printEvent = false
-			reason := "showing mints is disabled"
-
-			if eventDiscarded == nil {
-				eventDiscarded = &collections.EventDiscarded{
-					DiscardedBy: "chainwatcher",
-					Reasons:     []string{reason},
-				}
-			} else {
-				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
-			}
+			stateInfo.Discarded = true
+			stateInfo.PrintInStream = false
+			stateInfo.DiscardReasons = append(stateInfo.DiscardReasons, "showing mints is disabled")
 		}
 	} else {
 		eventType = collections.Sale
+
 		if collection.IgnorePrinting {
-			// printEvent = false
-			reason := "IgnorePrinting is set"
-			if eventDiscarded == nil {
-				eventDiscarded = &collections.EventDiscarded{
-					DiscardedBy: "chainwatcher",
-					Reasons:     []string{reason},
-				}
-			} else {
-				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
-			}
+			stateInfo.PrintInStream = false
+			stateInfo.PrintInHistory = false
+			stateInfo.DiscardReasons = append(stateInfo.DiscardReasons, "IgnorePrinting is set")
 		}
 	}
 
@@ -383,6 +367,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 	value := tx.Value()
 
 	isAcceptedOffer := false
+
 	if len(txLogs.ERC20Logs) != 0 {
 		for _, transferLog := range txLogs.ERC20Logs {
 			if transferLog.Address.Hex() == string(external.WETH) {
@@ -391,7 +376,9 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 					gbl.Log.Error(err)
 					return
 				}
+
 				value.Add(value, transfer.Value)
+
 				isAcceptedOffer = true
 			}
 		}
@@ -406,16 +393,9 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		gbl.Log.Debugf("‼️ DiscardedLowPrice| %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 		// printEvent = false
-		reason := "price below min_value"
-
-		if eventDiscarded == nil {
-			eventDiscarded = &collections.EventDiscarded{
-				DiscardedBy: "chainwatcher",
-				Reasons:     []string{reason},
-			}
-		} else {
-			eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
-		}
+		stateInfo.Discarded = true
+		stateInfo.PrintInStream = false
+		stateInfo.DiscardReasons = append(stateInfo.DiscardReasons, "price below min_value")
 	}
 
 	if isTransfer {
@@ -426,16 +406,9 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 			gbl.Log.Debugf("‼️ transfer not shown %v | TxHash: %v / %d | %+v", subLog.Address.String(), subLog.TxHash, subLog.TxIndex, subLog)
 
 			// printEvent = false
-			reason := "showing transfers is disabled"
-
-			if eventDiscarded == nil {
-				eventDiscarded = &collections.EventDiscarded{
-					DiscardedBy: "chainwatcher",
-					Reasons:     []string{reason},
-				}
-			} else {
-				eventDiscarded.Reasons = append(eventDiscarded.Reasons, reason)
-			}
+			stateInfo.Discarded = true
+			stateInfo.PrintInStream = false
+			stateInfo.DiscardReasons = append(stateInfo.DiscardReasons, "showing transfers is disabled")
 		}
 	}
 
@@ -522,7 +495,7 @@ func (cw *ChainWatcher) LogParserTransfers(nodeID int, subLog types.Log, queueEv
 		},
 		FromAddresses:    fromAddresses,
 		ToAddresses:      toAddresses,
-		Discarded:        eventDiscarded,
+		StateInfo:        stateInfo,
 		IsAcceptedOffer:  isAcceptedOffer,
 		ERC721Transfers:  txLogs.ERC721Transfers,
 		ERC1155Transfers: txLogs.ERC1155Transfers,

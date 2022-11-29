@@ -1,9 +1,10 @@
 package collections
 
 import (
-	"github.com/benleb/gloomberg/internal/abis"
 	"math/big"
 	"time"
+
+	"github.com/benleb/gloomberg/internal/abis"
 
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models/txlogcollector"
@@ -75,11 +76,11 @@ func (et EventType) ActionName() string {
 	return "⁉️"
 }
 
-type EventDiscarded struct {
+type StateInfo struct {
 	PrintInStream  bool
 	PrintInHistory bool
-	Reasons        []string
-	DiscardedBy    string
+	Discarded      bool
+	DiscardReasons []string
 }
 
 type Event struct {
@@ -107,11 +108,11 @@ type Event struct {
 	FromAddresses        map[common.Address]bool
 	ToAddresses          map[common.Address]bool
 	WorkerID             int
-	Discarded            *EventDiscarded
 	IsAcceptedOffer      bool
 	ERC721Transfers      []abis.ERC721v3Transfer
 	ERC1155Transfers     []abis.ERC1155Transfer
 	MarketPlace          MarketPlace
+	StateInfo            *StateInfo
 }
 
 type PushEvent struct {
