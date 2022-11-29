@@ -32,7 +32,9 @@ type GloomWeb struct {
 
 func NewGloomWeb(listenAddress string, queueOutWeb *chan *collections.Event) *GloomWeb {
 	engine := html.New("./www", ".html")
-	engine.Load()
+	if err := engine.Load(); err != nil {
+		gbl.Log.Error(err)
+	}
 
 	// t, err := template.ParseFiles(templateFiles...)
 	// if err != nil {

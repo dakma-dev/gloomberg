@@ -294,7 +294,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// add to event history
 	isSaleOrPurchase := event.EventType == collections.Sale || event.EventType == collections.Purchase
 
-	if event.Discarded == nil {
+	if event.EventType == collections.Listing || event.StateInfo.PrintInHistory {
 		if isOwnWallet || (isOwnCollection && isSaleOrPurchase) {
 			ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, event)
 		} else if gb.OwnWallets.Contains(event.To.Address) {
@@ -329,9 +329,48 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 
 	out.WriteString(formattedCurrencySymbol)
 
+	fpStyle := style.GrayStyle.Copy()
+
+	var fpRatio float64
+	var fpRatioDifference int
+
+	if currentFloorPrice > 0 {
+		fpRatio := (priceEtherPerItem / currentFloorPrice) * 100
+		fpRatioDifference := int(fpRatio - 100)
+
+		if fpRatioDifference > 0 {
+			fpStyle = style.TrendRedStyle.Copy().Faint(true)
+		} else if fpRatioDifference < 0 {
+			fpStyle = style.TrendGreenStyle.Copy()
+		}
+	}
+
 	// price per item
-	out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
-	out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
+	if event.EventType == collections.Listing && gb.BuyRules.Rules[event.Collection.ContractAddress] != nil {
+		if maxPrice := gb.BuyRules.Rules[event.Collection.ContractAddress].MaxPrice; maxPrice > 0.0 {
+			if priceEther > maxPrice {
+				out.WriteString("  " + style.TrendRedStyle.Render(">"))
+				out.WriteString(style.TrendLightRedStyle.Render(fmt.Sprintf("%4.2f", maxPrice)))
+			} else {
+				out.WriteString("  " + style.TrendGreenStyle.Render("<"))
+				out.WriteString(style.TrendGreenStyle.Render(fmt.Sprintf("%4.2f", maxPrice)))
+			}
+
+			// out.WriteString(style.GrayStyle.Render("Ξ"))
+			out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
+		} else if threshold := gb.BuyRules.Rules[event.Collection.ContractAddress].Threshold; threshold > 0.0 {
+			if fpRatio > threshold {
+				out.WriteString("  " + style.TrendRedStyle.Render(">"))
+			} else {
+				out.WriteString("  " + style.TrendGreenStyle.Render("<"))
+			}
+
+			out.WriteString(fpStyle.Bold(false).Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
+		}
+	} else {
+		out.WriteString(" " + pricePerItemStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
+		out.WriteString(priceCurrencyStyle.Copy().Faint(true).Render("Ξ"))
+	}
 
 	// (artificial) floor price
 	out.WriteString("  " + trendIndicator)
@@ -357,17 +396,17 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// listing price in relation to the collection floor
 	if (event.EventType == collections.Listing || event.EventType == collections.Purchase || isOwnCollection) && currentFloorPrice > 0 {
 		if fpRatio := (priceEtherPerItem / currentFloorPrice) * 100; fpRatio > 0 {
-			var fpStyle lipgloss.Style
+			// var fpStyle lipgloss.Style
 
-			fpRatioDifference := int(fpRatio - 100)
+			// fpRatioDifference := int(fpRatio - 100)
 
-			if fpRatioDifference > 0 {
-				fpStyle = style.TrendRedStyle.Copy().Faint(true)
-			} else if fpRatioDifference < 0 {
-				fpStyle = style.TrendGreenStyle.Copy()
-			} else {
-				fpStyle = style.GrayStyle.Copy()
-			}
+			// if fpRatioDifference > 0 {
+			// 	fpStyle = style.TrendRedStyle.Copy().Faint(true)
+			// } else if fpRatioDifference < 0 {
+			// 	fpStyle = style.TrendGreenStyle.Copy()
+			// } else {
+			// 	fpStyle = style.GrayStyle.Copy()
+			// }
 
 			// out.WriteString(" " + style.PinkBoldStyle.Render("·") + " ")
 			// out.WriteString(" " + style.DarkGrayStyle.Render("·") + " ")
@@ -499,9 +538,15 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 	// }
 
 	// print to terminal
-	if event.Discarded == nil || event.Discarded.PrintInStream {
+	if event.EventType == collections.Listing || event.StateInfo.PrintInStream {
 		queueOutput <- out.String()
 	}
+
+	// if event.StateInfo != nil && !event.StateInfo.Discarded && !event.StateInfo.PrintInStream {
+	// 	fmt.Println("muh fail")
+	// } else {
+	// 	queueOutput <- out.String()
+	// }
 
 	// set price of listing as the new fp
 	if event.EventType == collections.Listing {
@@ -520,11 +565,11 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 		notificationLock, err := cache.NotificationLock(event.TxHash)
 
 		if !notificationLock || err != nil {
-			gbl.Log.Debugf("notification lock for %s already exists", event.TxHash)
+			gbl.Log.Infof("notification lock for %s already exists", style.BoldStyle.Render(event.TxHash.String()))
 			return
 		}
 
-		gbl.Log.Infof("notification lock for %s acquired, trying to send...", event.TxHash)
+		gbl.Log.Infof("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(event.TxHash.String()))
 
 		go func() {
 			// did someone buy or sell something?
@@ -548,8 +593,10 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 				if watchUser == nil {
 					continue
 				}
+
 				sendTelegramNotification(gb, triggerAddress, watchUser, event, transfer.TokenId, priceEtherPerItem, etherscanURL, openseaURL)
 			}
+
 			for _, transfer := range event.ERC1155Transfers {
 				watchUser := ((*gb.Watcher).WatchUsers)[transfer.To]
 				if watchUser == nil {
@@ -559,6 +606,7 @@ func FormatEvent(gb *gloomberg.Gloomberg, event *collections.Event, queueOutput 
 				if watchUser == nil {
 					continue
 				}
+
 				sendTelegramNotification(gb, triggerAddress, watchUser, event, transfer.Id, priceEtherPerItem, etherscanURL, openseaURL)
 			}
 		}()
@@ -621,9 +669,10 @@ func sendTelegramNotification(gb *gloomberg.Gloomberg, triggerAddress common.Add
 	}
 
 	rawMsg := msgTelegram.String()
+
 	if msg.Text != "" {
 		rawMsg = msg.Text
 	}
-	gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
 
+	gbl.Log.Infof("sent telegram message | %s", strings.Replace(rawMsg, "\n", " | ", -1))
 }

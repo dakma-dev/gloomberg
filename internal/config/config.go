@@ -355,18 +355,41 @@ func GetBuyRulesFromConfiguration() *models.BuyRules {
 	gbl.Log.Info(" ------ buy rules ------")
 
 	// checking global key & threshold
-	globalPrivateKey := viper.GetString("buy.privateKey")
-	globalThreshold := viper.GetFloat64("buy.globalThreshold")
+	globalPrivateKey := viper.GetString("buy.private_key")
+	globalThreshold := viper.GetFloat64("buy.threshold")
+
+	// initialize buy conditions with "safe" values
+	var (
+		globalMaxPrice    float64 = 0.0
+		globalMinSales    uint64  = 100
+		globalMinListings uint64  = 100
+		rulesMaxPrice     float64 = 0.0
+		rulesMinSales     uint64  = 5
+		rulesMinListings  uint64  = 5
+	)
+
+	if viper.IsSet("buy.min_sales") {
+		globalMinSales = viper.GetUint64("buy.min_sales")
+	}
+
+	if viper.IsSet("buy.min_listings") {
+		globalMinListings = viper.GetUint64("buy.min_listings")
+	}
 
 	if globalPrivateKey == "" || globalThreshold == 0.0 {
 		gbl.Log.Warnf("❌ invalid globalPrivateKey (%s) or globalThreshold (%f), skipping global rule", globalPrivateKey, globalThreshold)
 	} else {
 
+		// create the global/general buy rule
 		buyRule := &models.BuyRule{
 			ID:              0,
+			Name:            "*everything*",
 			ContractAddress: utils.ZeroAddress,
 			PrivateKey:      globalPrivateKey,
 			Threshold:       globalThreshold,
+			MinSales:        globalMinSales,
+			MinListings:     globalMinListings,
+			MaxPrice:        globalMaxPrice,
 		}
 
 		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
@@ -385,80 +408,99 @@ func GetBuyRulesFromConfiguration() *models.BuyRules {
 		return buyRules
 	}
 
-	for _, rule := range viper.Get("buy.rules").([]interface{}) {
-		ruleID := len(buyRules.Rules)
-
-		gbl.Log.Debugf("reading buy rule %d: %+v", ruleID, rule)
-
-		decodeHooks := mapstructure.ComposeDecodeHookFunc(
-			hooks.StringToAddressHookFunc(),
-			hooks.StringToDurationHookFunc(),
-			hooks.StringToLipglossColorHookFunc(),
-		)
-
-		var buyRule *models.BuyRule
-
-		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-			DecodeHook: decodeHooks,
-			Result:     &buyRule,
-		})
-
-		err := decoder.Decode(rule)
-		if err != nil {
-			gbl.Log.Errorf("error decoding collection: %+v", err)
-
-			continue
-		}
-
-		buyRule.ID = len(buyRules.Rules)
-
-		if buyRule.PrivateKey == "" {
-			if privateKey := viper.GetString("buy.privateKey"); privateKey != "" {
-				gbl.Log.Debugf("no private key found for buy rule %d, using the global privatKey", ruleID)
-
-				buyRule.PrivateKey = privateKey
-			} else {
-
-				gbl.Log.Warnf("❌ no private key available, skipping rule")
-
-				continue
-			}
-		}
-
-		if !common.IsHexAddress(buyRule.ContractAddress.String()) || buyRule.ContractAddress == utils.ZeroAddress || buyRule.Threshold == 0 {
-			gbl.Log.Warnf("❌ invalid contract address (%s) or threshold (%f), skipping rule", buyRule.ContractAddress.String(), buyRule.Threshold)
-
-			continue
-		}
-
-		if buyRule.Threshold < 0.0 || buyRule.Threshold > 1.0 {
-			gbl.Log.Infof("🤷‍♀️ %d| invalid buyRule.Threshold (%.3f) value, skipping auto-buy", buyRule.ID, buyRule.Threshold)
-			continue
-		}
-
-		gbl.Log.Debugf("parsed buy rule: %+v", buyRule)
-
-		// buyRules = append(buyRules, buyRule)
-		buyRules.Rules[buyRule.ContractAddress] = buyRule
+	if viper.IsSet("buy.rules_min_sales") {
+		rulesMinSales = viper.GetUint64("buy.rules_min_sales")
 	}
 
-	for contractAddress, buyRule := range buyRules.Rules {
-		name := buyRule.ContractAddress.String()
+	if viper.IsSet("buy.rules_min_listings") {
+		rulesMinListings = viper.GetUint64("buy.rules_min_listings")
+	}
 
-		if contractName, err := cache.GetContractName(contractAddress); err == nil && contractName != "" {
+	for ruleKey := range viper.GetStringMap("buy.rules") {
+		rule := viper.Sub("buy.rules." + ruleKey)
+
+		rule.Set("id", len(buyRules.Rules))
+
+		if !rule.IsSet("contract_address") || !common.IsHexAddress(rule.GetString("contract_address")) {
+			gbl.Log.Warnf("❌ invalid contract_address (%s) for rule %s, skipping", rule.GetString("contract_address"), ruleKey)
+			continue
+		}
+
+		// set name to ruleKey or a generic one for the catch-all
+		name := ruleKey
+		if contractName, err := cache.GetContractName(common.HexToAddress(rule.GetString("contract_address"))); err == nil && contractName != "" {
 			name = contractName
 		}
 
-		if buyRule.ContractAddress == utils.ZeroAddress {
-			name = "*everything*"
+		rule.Set("name", name)
+
+		// check floor price threshold value
+		if rule.IsSet("threshold") && (rule.GetFloat64("threshold") < 0.0 || rule.GetFloat64("threshold") > 1.0) {
+			gbl.Log.Warnf("🤷‍♀️ %s| invalid rule.Threshold (%.3f) value, skipping auto-buy", ruleKey, rule.GetFloat64("threshold"))
+			continue
 		}
 
-		formattedRuleID := fmt.Sprintf("#%d", buyRule.ID)
+		if !rule.IsSet("private_key") {
+			rule.Set("private_key", globalPrivateKey)
+		}
+
+		if !rule.IsSet("min_sales") {
+			rule.Set("min_sales", rulesMinSales)
+		}
+
+		if !rule.IsSet("min_listings") {
+			rule.Set("min_listings", rulesMinListings)
+		}
+
+		if !rule.IsSet("max_price") {
+			rule.Set("max_price", rulesMaxPrice)
+		}
+
+		var buyRule *models.BuyRule
+		if err := rule.Unmarshal(&buyRule, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToDurationHookFunc(),
+			hooks.StringToLipglossColorHookFunc(),
+		))); err != nil {
+			gbl.Log.Errorf("❌ error unmarshalling buy rule %s: %s", ruleKey, err)
+			continue
+		}
+
+		buyRules.Rules[buyRule.ContractAddress] = buyRule
+	}
+
+	for _, buyRule := range buyRules.Rules {
 		percentageOfFloor := fmt.Sprintf("<=%.0f%%", buyRule.Threshold*100)
 		// relativeFloorDifference := int((buyRule.Threshold * 100) - 100)
-
 		// percentageBelowFloor := fmt.Sprintf(">=%.0f%%", math.Abs(float64(relativeFloorDifference)))
-		gbl.Log.Infof("Rule %s: buy %s if listed for %s of current floor using key %s...", style.BoldStyle.Render(formattedRuleID), style.BoldStyle.Render(name), style.BoldStyle.Render(percentageOfFloor), style.BoldStyle.Render(buyRule.PrivateKey[:4])) //, style.BoldStyle.Render(percentageBelowFloor))
+
+		out := strings.Builder{}
+
+		// multi line
+		// out.WriteString(fmt.Sprintf("\n\nRule %s | %s:\n", formattedRuleID, style.BoldStyle.Render(buyRule.Name)))
+		// out.WriteString(fmt.Sprintf("  priv. key: %s...\n", style.BoldStyle.Render(buyRule.PrivateKey[:4])))
+		// out.WriteString(fmt.Sprintf("  threshold: %s%% (%v) of floor\n", style.BoldStyle.Render(percentageOfFloor), buyRule.Threshold))
+		// out.WriteString(fmt.Sprintf("  max price: %sΞ\n", style.BoldStyle.Render(fmt.Sprintf("%4.2f", buyRule.MaxPrice))))
+		// out.WriteString(fmt.Sprintf("  min sales: %s\n", style.BoldStyle.Render(fmt.Sprint(buyRule.MinSales))))
+		// out.WriteString(fmt.Sprintf("  min listings: %s\n", style.BoldStyle.Render(fmt.Sprint(buyRule.MinListings))))
+		// out.WriteString(fmt.Sprintf("  contract addr: %s\n", style.BoldStyle.Render(buyRule.ContractAddress.String())))
+
+		// single line
+		// out.WriteString(fmt.Sprintf("buy rule %2d:", buyRule.ID))
+		out.WriteString(fmt.Sprintf("rule %s:", style.BoldStyle.Render(buyRule.Name)))
+
+		if buyRule.MaxPrice > 0.0 {
+			out.WriteString(fmt.Sprintf(" max: %sΞ", style.BoldStyle.Render(fmt.Sprintf("%4.2f", buyRule.MaxPrice))))
+		}
+
+		if buyRule.MaxPrice == 0.0 && buyRule.Threshold > 0.0 {
+			out.WriteString(fmt.Sprintf(" | threshold: %s%% of floor", style.BoldStyle.Render(percentageOfFloor)))
+		}
+
+		out.WriteString(fmt.Sprintf(" | min: %ss / %sl", style.BoldStyle.Render(fmt.Sprint(buyRule.MinSales)), style.BoldStyle.Render(fmt.Sprint(buyRule.MinListings))))
+
+		// print buy rules
+		gbl.Log.Infof(out.String())
 	}
 
 	gbl.Log.Info(" ----------------------- ")

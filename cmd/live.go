@@ -83,6 +83,9 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 
 	queueEvents := make(chan *collections.Event, 1024)
 
+	// _ = config.NewGetBuyRulesFromConfiguration()
+
+	// if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules.Rules) > 0 {
 	if buyRules := config.GetBuyRulesFromConfiguration(); len(buyRules.Rules) > 0 {
 		gb.BuyRules = buyRules
 	}
@@ -426,6 +429,52 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 			}
 		}()
 	}
+
+	// queuePendingTxHashes := make(chan common.Hash, 2048)
+
+	// if _, err := gb.Nodes.GetRandomLocalNode().ClientGeth.SubscribePendingTransactions(context.Background(), queuePendingTxHashes); err != nil {
+	// 	gbl.Log.Error(err)
+	// } else {
+	// 	go func() {
+	// 		for pendingTxHash := range queuePendingTxHashes {
+	// 			pendingTx, isPending, err := gb.Nodes.GetRandomLocalNode().Client.TransactionByHash(context.Background(), pendingTxHash)
+	// 			if err != nil {
+	// 				gbl.Log.Debug(err)
+	// 				continue
+	// 			}
+
+	// 			if pendingTx.To() == nil {
+	// 				// todo: watch for upcoming collection contracts (maybe mint not paused when contract is created? 😂)
+	// 				gbl.Log.Debug("contract creation tx")
+	// 				continue
+	// 			}
+
+	// 			if big.NewInt(0).Cmp(pendingTx.Value()) == 0 {
+	// 				// todo: front run cancellations 😈
+	// 				gbl.Log.Debug("cancel-tx")
+	// 				continue
+	// 			}
+
+	// 			// opensea
+	// 			var marketplace string
+	// 			if common.HexToAddress("0x00000000006c3852cbEf3e08E8dF289169EdE581") == *pendingTx.To() {
+	// 				marketplace = style.BoldStyle.Copy().Foreground(style.OpenseaToneBlue).Render("OS")
+	// 			} else if common.HexToAddress("0x000000000000ad05ccc4f10045630fb830b95127") == *pendingTx.To() {
+	// 				marketplace = style.BoldStyle.Copy().Foreground(style.BlurOrange).Render("BL")
+	// 			} else {
+	// 				// todo: add more funny and profitable stuff here 🤓
+	// 				gbl.Log.Debug("unknown marketplace/contract")
+	// 				continue
+	// 			}
+
+	// 			valueEther := nodes.WeiToEther(pendingTx.Value())
+	// 			valueFormatted := style.BoldStyle.Render(fmt.Sprintf("%5.3f", valueEther)) + "Ξ"
+	// 			toFormatted := style.BoldStyle.Render("-> ") + marketplace
+
+	// 			gbl.Log.Infof("tx (pending: %v) %s | %s", isPending, toFormatted, valueFormatted)
+	// 		}
+	// 	}()
+	// }
 
 	// loop forever
 	select {}

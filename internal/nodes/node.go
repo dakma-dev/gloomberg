@@ -337,8 +337,8 @@ func (n *Node) GetTokenURI(contractAddress common.Address, tokenID *big.Int) (st
 			gbl.Log.Error(err2)
 			return "", err2
 		}
-		return uri, nil
 
+		tokenURI = uri
 	}
 
 	gbl.Log.Debugf("GetTokenURI || tokenURI: %+v", tokenURI)

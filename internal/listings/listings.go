@@ -103,7 +103,7 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 		// check listing for base requirements to trigger auto-buy
 		gbl.Log.Debugf("🛍️ len(gb.BuyRules): %d | collectionFP: %f | tokenID: %d", len(gb.BuyRules.Rules), collectionFP, tokenID)
 
-		if len(gb.BuyRules.Rules) > 0 && collectionFP > 0.0 && tokenID > 0 {
+		if len(gb.BuyRules.Rules) > 0 && tokenID > 0 {
 			gbl.Log.Debug("🛍️ checking listing for auto-buy")
 			checkBuyRulesForEvent(gb, event)
 		}
@@ -115,35 +115,6 @@ func StreamListingsHandler(gb *gloomberg.Gloomberg, workerID int, queueListings 
 func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	// increment prometheus counter
 	openseaListingsCheckedByBuyRules.Inc()
-
-	// tokenName consists of collection name and tokenID
-	tokenName := event.Collection.Name + " #" + event.TokenID.String()
-
-	// initialize with "safe" values
-	var (
-		minSales    uint64 = 100
-		minListings uint64 = 100
-	)
-
-	// overwrite with configured values
-	mSales := viper.GetUint64("buy.minSales")
-	if mSales > 0 {
-		minSales = mSales
-	}
-
-	mListings := viper.GetUint64("buy.minListings")
-	if mListings > 0 {
-		minListings = mListings
-	}
-
-	// filter events with non-accurate data
-	salesAndSalesRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, minSales)
-	listingsAndListingsRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, minListings)
-
-	if event.Collection.Counters.Sales < mSales || event.Collection.Counters.Listings < mListings {
-		gbl.Log.Infof("🤷‍♀️ %s| too less sales %s and/or listings %s to calculate accurate floor price", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
-		return
-	}
 
 	priceEther, _ := nodes.WeiToEther(event.PriceWei).Float64()
 
@@ -158,6 +129,9 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	timeNow := style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05"))
 	divider := style.Sharrow.Copy().Foreground(style.DarkGray).String()
 
+	// token info
+	tokenInfo := style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), false, true)
+
 	// build the line to be displayed
 	out := strings.Builder{}
 	out.WriteString("  |" + timeNow)
@@ -167,15 +141,32 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 
 	if contractRule := gb.BuyRules.Rules[event.Collection.ContractAddress]; contractRule != nil {
 		rule = contractRule
-	} else if globalRule := gb.BuyRules.Rules[utils.ZeroAddress]; globalRule != nil {
+	} else if globalRule := gb.BuyRules.Rules[utils.ZeroAddress]; globalRule != nil && collectionFP > 0.0 {
 		rule = globalRule
 	} else {
 		// no matching buy rule found
-		gbl.Log.Debugf("🤷‍♀️ %s| no rule matching contract address, skipping auto-buy", tokenName)
+		gbl.Log.Debugf("🤷‍♀️ %s| no rule matching contract address, skipping auto-buy", tokenInfo)
+		return
 	}
 
-	if listingToFloorPriceRatio > rule.Threshold {
-		gbl.Log.Infof("💲 %s| %4.2fΞ | price %.3f > %.3f threshold | skipping auto-buy", tokenName, priceEther, listingToFloorPriceRatio, rule.Threshold)
+	// filter events with non-accurate data
+	salesAndSalesRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Sales, rule.MinSales)
+	listingsAndListingsRequired := fmt.Sprintf("(%d/%d)", event.Collection.Counters.Listings, rule.MinListings)
+
+	if (rule.MinSales > 0 && event.Collection.Counters.Sales <= rule.MinSales) && (rule.MinListings > 0 && event.Collection.Counters.Listings <= rule.MinListings) {
+		gbl.Log.Infof("🔭 %s | too less sales %s and listings %s to calculate accurate floor price", tokenInfo, salesAndSalesRequired, listingsAndListingsRequired)
+		return
+	}
+
+	if priceEther > rule.MaxPrice {
+		// gbl.Log.Infof("🔭 %s | price: %sΞ > %4.2fΞ | skipping auto-buy", tokenInfo, style.BoldStyle.Render(fmt.Sprintf("%4.2f", priceEther)), rule.MaxPrice)
+		gbl.Log.Infof("🔭 %s | price: %sΞ > %4.2fΞ", tokenInfo, style.BoldStyle.Render(fmt.Sprintf("%4.2f", priceEther)), rule.MaxPrice)
+		out.WriteString(" " + style.TrendLightRedStyle.Render(fmt.Sprintf("%4.2fΞ", priceEther)))
+
+		return
+	} else if rule.MaxPrice == 0.0 && listingToFloorPriceRatio > rule.Threshold {
+		// gbl.Log.Infof("🔭 %s | ltfRatio: %s > %.3f | skipping auto-buy", tokenInfo, style.BoldStyle.Render(fmt.Sprintf("%.3f", listingToFloorPriceRatio)), rule.Threshold)
+		gbl.Log.Infof("🔭 %s | ltfRatio: %s > %.3f", tokenInfo, style.BoldStyle.Render(fmt.Sprintf("%.3f", listingToFloorPriceRatio)), rule.Threshold)
 		out.WriteString(" " + style.TrendLightRedStyle.Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
 
 		return
@@ -184,22 +175,22 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 	out.WriteString(" " + style.TrendGreenStyle.Render(fmt.Sprintf("%+d%%", fpRatioDifference)))
 
 	gbl.Log.Info("‼️")
-	gbl.Log.Infof("🛍️ %s| buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!", tokenName, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
-	gbl.Log.Info("🛍️ %s| sales: %s | listings: %s\n", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
+	gbl.Log.Infof("🛍️ %s | buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!", tokenInfo, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
+	gbl.Log.Infof("🛍️ %s | sales: %s | listings: %s\n", tokenInfo, salesAndSalesRequired, listingsAndListingsRequired)
 	gbl.Log.Info("‼️")
 
 	fmt.Printf("\n‼️\n")
-	fmt.Printf("🛍️ %s| buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!\n", tokenName, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
-	fmt.Printf("🛍️ %s| sales: %s | listings: %s\n", tokenName, salesAndSalesRequired, listingsAndListingsRequired)
+	fmt.Printf("🛍️ %s | buying for %4.2fΞ (floor: %4.2fΞ) | price %.3f <= %.3f threshold | LFG!\n", tokenInfo, priceEther, collectionFP, listingToFloorPriceRatio, rule.Threshold)
+	fmt.Printf("🛍️ %s | sales: %s | listings: %s\n", tokenInfo, salesAndSalesRequired, listingsAndListingsRequired)
 	fmt.Printf("‼️\n\n")
 
 	// get listing details needed to fulfill order
 	gbl.Log.Debugf("trying to get lisings for tokenID %d", event.TokenID)
 
 	if listings := opensea.GetListings(event.Collection.ContractAddress, event.TokenID.Int64()); len(listings) > 0 {
-		gbl.Log.Infof("listing found for %s", tokenName)
+		gbl.Log.Infof("listing found for %s", tokenInfo)
 
-		if tx, err := buy(gb, &listings[0], rule.PrivateKey, tokenName); err != nil {
+		if tx, err := buy(gb, &listings[0], rule.PrivateKey, tokenInfo); err != nil {
 			out.WriteString(" " + err.Error())
 		} else {
 			fmt.Printf("tx: %+v\n", tx)
@@ -209,8 +200,8 @@ func checkBuyRulesForEvent(gb *gloomberg.Gloomberg, event *collections.Event) {
 
 		return
 	} else {
-		gbl.Log.Warnf("❌ %s| no listing found, could not buy 🤷‍♀️ 😩 🤦‍♀️", tokenName)
-		fmt.Printf("❌ %s| no listing found, could not buy 🤷‍♀️ 😩 🤦‍♀️\n", tokenName)
+		gbl.Log.Warnf("❌ %s | no listing found, could not buy 🤷‍♀️ 😩 🤦‍♀️", tokenInfo)
+		fmt.Printf("❌ %s | no listing found, could not buy 🤷‍♀️ 😩 🤦‍♀️\n", tokenInfo)
 	}
 
 	fmt.Println(out.String())

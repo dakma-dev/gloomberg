@@ -48,20 +48,13 @@ to quickly create a Cobra application.`,
 			panic(err)
 		}
 
-		seaport.SendRawTx(ethNodes, to, 0.003, data, privateKey)
+		tx, err := seaport.SendRawTx(ethNodes, to, 0.003, data, privateKey)
+		if err != nil {
+			gbl.Log.Error("❌ error sending raw tx: %s", err)
+		}
+
+		gbl.Log.Info("✅ tx sent: https://etherscan.io/tx/%s", tx.Hash().Hex())
 	},
 }
 
-func init() {
-	rootCmd.AddCommand(rawtxCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// rawtxCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// rawtxCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-}
+func init() { rootCmd.AddCommand(rawtxCmd) }

@@ -1,10 +1,11 @@
 package txlogcollector
 
 import (
+	"sync"
+
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/models/topic"
-	"sync"
 
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -45,7 +46,7 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 
 	logTopic := topic.Topic(log.Topics[0].Hex())
 	if logTopic == topic.Transfer && log.Address.Hex() == string(external.WETH) {
-		//fmt.Println("WETH transfer found")
+		// fmt.Println("WETH transfer found")
 		transco.ERC20Logs = append(transco.ERC20Logs, *log)
 		return
 	}
@@ -65,8 +66,8 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 			Id:   tokenID, // <-- Token Id
 			From: fromAddress,
 			To:   toAddress,
-			//Value: nil, // <-- amount
-			//Raw:   types.Log{},
+			// Value: nil, // <-- amount
+			// Raw:   types.Log{},
 		})
 	}
 
@@ -74,19 +75,24 @@ func (transco *TxLogs) AddLog(log *types.Log) {
 	// this code is just to whitelist the logs which are interesting
 	if transco.MainLog == nil {
 		mainlogCandidate := false
-		// ERC721 Transfer
+
+		// ERC721/1155 Transfer
 		if logTopic == topic.Transfer && len(log.Topics) == 4 {
 			mainlogCandidate = true
 		}
+
 		if logTopic == topic.OrderFulfilled && len(log.Topics) == 3 {
 			mainlogCandidate = true
 		}
+
 		if logTopic == topic.TransferSingle && len(log.Topics) == 4 {
 			mainlogCandidate = true
 		}
+
 		if logTopic == topic.OrdersMatched {
 			mainlogCandidate = true
 		}
+
 		if mainlogCandidate {
 			transco.MainLog = log
 		}
