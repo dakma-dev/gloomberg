@@ -72,8 +72,10 @@ func runGloomberg(_ *cobra.Command, _ []string) { //, role gloomberg.RoleMap) {
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &models.Watcher{},
-		BuyRules:     nil,
-		GasPrice:     0,
+		BuyRules: &models.BuyRules{
+			Rules: make(map[common.Address]*models.BuyRule, 0),
+		},
+		GasPrice: 0,
 		// WatchUsers:   &models.WatcherUsers{},
 		OutputQueues: make(map[string]chan *collections.Event),
 		QueueSlugs:   make(chan common.Address, 1024),
