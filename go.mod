@@ -48,7 +48,7 @@ require (
 	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gookit/color v1.5.2 // indirect
-	github.com/gookit/goutil v0.5.15
+	github.com/gookit/goutil v0.6.0
 	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/gorilla/sessions v1.2.1 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
