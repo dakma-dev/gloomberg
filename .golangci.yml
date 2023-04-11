@@ -1,0 +1,30 @@
+run:
+  timeout: 3m
+
+  # never fail
+  issues-exit-code: 0
+
+linters:
+  enable-all: true
+  disable:
+    - gochecknoglobals
+    - gomnd
+    - lll
+    - funlen
+    - exhaustivestruct
+    - exhaustruct
+    - tagliatelle
+    - forbidigo
+    - varnamelen
+    - wrapcheck
+    - nestif
+    - gocognit
+    - cyclop
+    - gocyclo
+    - ireturn
+    - gochecknoinits
+    - goerr113
+    - maligned
+    - exhaustive
+    - interfacer
+    - nilnil

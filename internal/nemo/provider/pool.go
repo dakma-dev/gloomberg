@@ -1,0 +1,555 @@
+package provider
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"math/big"
+	"math/rand"
+	"strings"
+	"sync/atomic"
+
+	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/benleb/gloomberg/internal/nemo"
+
+	"github.com/benleb/gloomberg/internal/cache"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/mitchellh/mapstructure"
+)
+
+type Pool []*provider
+
+type methodCall string
+
+const (
+	TransactionByHash  methodCall = "eth_getTransactionByHash"
+	TransactionReceipt methodCall = "eth_getTransactionReceipt"
+
+	TokenImageURI methodCall = "token_image_uri" //nolint:gosec
+
+	ERC721CollectionName     methodCall = "erc721_collection_name"
+	ERC721CollectionMetadata methodCall = "erc721_collection_metadata"
+
+	ERC1155TokenName   methodCall = "erc1155_token_name" //nolint:gosec
+	ERC1155TotalSupply methodCall = "erc1155_total_supply"
+
+	ResolveENSAddress methodCall = "resolve_ens_address"
+
+	GasInfo methodCall = "gas_info"
+)
+
+type methodCallParams struct {
+	TxHash  common.Hash    `json:"hash"`
+	Address common.Address `json:"contract_address"`
+	TokenID *big.Int       `json:"token_id"`
+}
+
+var callMethodCounter uint64
+
+func FromConfig(config interface{}) (*Pool, error) {
+	var rawPool *Pool
+
+	providerPool := make(Pool, 0)
+
+	// spinner
+	providerSpinner := style.GetSpinner("setting up the provider connections...")
+	_ = providerSpinner.Start()
+
+	config, ok := config.([]interface{})
+	if !ok {
+		gbl.Log.Warnf("reading provider configuration failed: %+v", config)
+
+		return nil, errors.New("invalid provider configuration")
+	}
+
+	//
+	// decode the config into a raw node pool
+	decodeHooks := mapstructure.ComposeDecodeHookFunc(
+		hooks.StringToAddressHookFunc(),
+		hooks.StringToLipglossColorHookFunc(),
+	)
+
+	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+		DecodeHook: decodeHooks,
+		Result:     &rawPool,
+	})
+
+	err := decoder.Decode(config)
+	if err != nil {
+		gbl.Log.Warnf("reading provider configuration failed: %+v", err)
+
+		return nil, err
+	}
+
+	//
+	// initialize the providers and connect to the endpoints
+	for _, provider := range *rawPool {
+		// hash the endpoint to get a unique id for the provider
+		provider.PID = common.BytesToHash([]byte(provider.Endpoint))
+
+		// connect to the endpoint
+		if err := provider.connect(); err != nil {
+			gbl.Log.Warnf("❔ not adding %s: %s", style.BoldStyle.Render(provider.Name), err)
+
+			continue
+		}
+
+		gbl.Log.Infof("✅ added node %s", style.BoldStyle.Render(provider.Name))
+		providerPool = append(providerPool, provider)
+	}
+
+	// get all node names to be shown as a list of connected nodes
+	nodeNames := make([]string, 0)
+	for _, n := range providerPool {
+		nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
+	}
+
+	// spinner
+	providerSpinner.StopMessage(
+		fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(providerPool))), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
+	)
+
+	_ = providerSpinner.Stop()
+
+	return &providerPool, nil
+}
+
+func (pp *Pool) PreferredProviderAvailable() bool {
+	return len(pp.getPreferredProviders()) > 0
+}
+
+func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
+	// subscribe
+	availableProvider := pp.getProviders()
+	if len(pp.getPreferredProviders()) > 0 {
+		availableProvider = pp.getPreferredProviders()
+	}
+
+	subscribedTo := uint64(0)
+
+	for _, provider := range availableProvider {
+		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
+		if _, err := provider.subscribeToAllTransfers(queueLogs); err != nil {
+			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+		} else {
+			subscribedTo++
+			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
+		}
+	}
+
+	if subscribedTo == 0 {
+		return 0, errors.New("no provider available")
+	}
+
+	return subscribedTo, nil
+}
+
+// func (pp *Pool) getRandomProvider() *provider {
+// 	if *pp != nil && len(*pp) == 0 {
+// 		return nil
+// 	}
+
+// 	providers := make([]*provider, 0, len(*pp))
+
+// 	for _, provider := range *pp {
+// 		if provider.Client != nil {
+// 			providers = append(providers, provider)
+// 		}
+// 	}
+
+// 	//nolint:gosec
+// 	return providers[rand.Intn(len(providers))]
+// }
+
+func (pp *Pool) getPreferredProviders() []*provider {
+	if *pp != nil && len(*pp) == 0 {
+		return nil
+	}
+
+	providers := make([]*provider, 0, len(*pp))
+
+	for _, provider := range *pp {
+		if provider.Preferred {
+			providers = append(providers, provider)
+		}
+	}
+
+	return providers
+}
+
+func (pp *Pool) getProviders() []*provider {
+	providers := make([]*provider, 0)
+
+	// get clients from all nodes
+	for _, provider := range *pp {
+		providers = append(providers, provider)
+	}
+
+	// shuffle clients to avoid hitting the same node over and over again
+	rand.Shuffle(len(providers), func(i, j int) {
+		providers[i], providers[j] = providers[j], providers[i]
+	})
+
+	// prefer local nodes if available
+	preferredProviders := make([]*provider, 0)
+	if prefProviders := pp.getPreferredProviders(); len(prefProviders) > 0 {
+		preferredProviders = append(preferredProviders, prefProviders...)
+	}
+
+	return append(preferredProviders, providers...)
+}
+
+// getClients returns a shuffled list of eth clients with local nodes preferred.
+func (pp *Pool) getClients() []*ethclient.Client {
+	clients := make([]*ethclient.Client, 0)
+
+	// get clients from all nodes
+	for _, node := range *pp {
+		clients = append(clients, node.Client)
+	}
+
+	// shuffle clients to avoid hitting the same node over and over again
+	rand.Shuffle(len(clients), func(i, j int) {
+		clients[i], clients[j] = clients[j], clients[i]
+	})
+
+	// prefer local nodes if available
+	localNodeclients := make([]*ethclient.Client, 0)
+	if nodes := pp.getPreferredProviders(); len(nodes) > 0 {
+		for _, node := range nodes {
+			localNodeclients = append(localNodeclients, node.Client)
+		}
+	}
+
+	return append(localNodeclients, clients...)
+}
+
+func (pp *Pool) GetWETHABI(ctx context.Context, contractAddress common.Address) (*abis.WETH, error) {
+	for _, provider := range pp.getProviders() {
+		if wethABI, err := provider.getWETHABI(ctx, contractAddress); err == nil {
+			return wethABI, nil
+		}
+	}
+
+	return nil, errors.New("no provider available")
+}
+
+func (pp *Pool) GetERC1155ABI(ctx context.Context, contractAddress common.Address) (*abis.ERC1155, error) {
+	for _, provider := range pp.getProviders() {
+		if erc1155ABI, err := provider.getERC1155ABI(ctx, contractAddress); err == nil {
+			return erc1155ABI, nil
+		}
+	}
+
+	return nil, errors.New("no provider available")
+}
+
+func (pp *Pool) callMethod(ctx context.Context, method methodCall, params methodCallParams) (interface{}, error) {
+	var err error
+
+	atomic.AddUint64(&callMethodCounter, 1)
+	if callMethodCounter%100 == 0 {
+		gbl.Log.Debugf("callMethodCounter: %d", callMethodCounter)
+	}
+
+	for _, provider := range pp.getProviders() {
+		switch method {
+		case TransactionByHash:
+			if params.TxHash == (common.Hash{}) {
+				return nil, errors.New("invalid transaction hash")
+			}
+
+			if tx, _, err := provider.Client.TransactionByHash(ctx, params.TxHash); err == nil {
+				return tx, nil
+			}
+
+		case TransactionReceipt:
+			if params.TxHash == (common.Hash{}) {
+				return nil, errors.New("invalid transaction hash")
+			}
+
+			if receipt, err := provider.Client.TransactionReceipt(ctx, params.TxHash); err == nil {
+				return receipt, nil
+			}
+
+		case TokenImageURI:
+			if params.Address == (common.Address{}) || params.TokenID == nil {
+				return nil, errors.New("invalid contract address or token id")
+			}
+
+			if uri, err := provider.getTokenImageURI(ctx, params.Address, params.TokenID); err == nil {
+				return uri, nil
+			}
+
+		case ERC721CollectionName:
+			if params.Address == (common.Address{}) {
+				return nil, errors.New("invalid contract address")
+			}
+
+			if collectionName, err := provider.getERC721CollectionName(ctx, params.Address); err == nil {
+				return collectionName, nil
+			}
+
+		case ERC721CollectionMetadata:
+			if params.Address == (common.Address{}) {
+				return nil, errors.New("invalid contract address")
+			}
+
+			if metadata, err := provider.getERC721CollectionMetadata(ctx, params.Address); err == nil {
+				return metadata, nil
+			}
+
+		case ERC1155TokenName:
+			if params.Address == (common.Address{}) || params.TokenID == nil {
+				return nil, errors.New("invalid contract address or token id")
+			}
+
+			if tokenName, err := provider.getERC1155TokenName(ctx, params.Address, params.TokenID); err == nil {
+				return tokenName, nil
+			}
+
+		case ERC1155TotalSupply:
+			if params.Address == (common.Address{}) || params.TokenID == nil {
+				return nil, errors.New("invalid contract address or token id")
+			}
+
+			// bind erc1155 abi
+			if contractERC1155, err := abis.NewERC1155(params.Address, provider.Client); err == nil {
+				// call totalSupply
+				if totalSupply, err := contractERC1155.TotalSupply(&bind.CallOpts{}, params.TokenID); err == nil {
+					return totalSupply, nil
+				}
+			}
+
+		case ResolveENSAddress:
+			if params.Address == (common.Address{}) {
+				return nil, errors.New("invalid contract address")
+			}
+
+			if ensAddress, err := provider.getENSForAddress(ctx, params.Address); err == nil {
+				return ensAddress, nil
+			}
+
+		case GasInfo:
+			if gasInfo, err := provider.getGasInfo(ctx); err == nil {
+				return gasInfo, nil
+			}
+
+		default:
+			return nil, errors.New("invalid method")
+		}
+	}
+
+	return nil, err
+}
+
+// TransactionByHash returns the transaction for the given hash.
+func (pp *Pool) TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error) {
+	tx, err := pp.callMethod(ctx, TransactionByHash, methodCallParams{TxHash: txHash})
+	if transaction, ok := tx.(*types.Transaction); err == nil && ok {
+		return transaction, nil
+	}
+
+	return nil, err
+}
+
+// TransactionReceipt returns the receipt of a transaction by transaction hash.
+func (pp *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+	r, err := pp.callMethod(ctx, TransactionReceipt, methodCallParams{TxHash: txHash})
+	if receipt, ok := r.(*types.Receipt); err == nil && ok {
+		return receipt, nil
+	}
+
+	return nil, err
+}
+
+// // BlockNumber returns the most recent block number.
+// func (pp *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+// 	var err error
+
+// 	for _, client := range pp.getClients() {
+// 		if blockNumber, err := client.BlockNumber(ctx); err == nil {
+// 			return blockNumber, nil
+// 		}
+// 	}
+
+// 	return 0, err
+// }
+
+// // BlockByNumber returns the given full block.
+// func (pp *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+// 	var err error
+
+// 	for _, client := range pp.getClients() {
+// 		if block, err := client.BlockByNumber(ctx, number); err == nil {
+// 			return block, nil
+// 		}
+// 	}
+
+// 	return nil, err
+// }
+
+//
+// token related methods
+//
+
+func (pp *Pool) GetTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+	uri, err := pp.callMethod(ctx, TokenImageURI, methodCallParams{Address: contractAddress, TokenID: tokenID})
+	if tokenImageURI, ok := uri.(string); err == nil && ok {
+		return tokenImageURI, nil
+	}
+
+	return "", err
+}
+
+func (pp *Pool) ERC721CollectionName(ctx context.Context, contractAddress common.Address) (string, error) {
+	name, err := pp.callMethod(ctx, ERC721CollectionName, methodCallParams{Address: contractAddress})
+	if tokenName, ok := name.(string); err == nil && ok {
+		return tokenName, nil
+	}
+
+	return "", err
+}
+
+func (pp *Pool) ERC721CollectionMetadata(ctx context.Context, contractAddress common.Address) (map[string]interface{}, error) {
+	collectionMetadata, err := pp.callMethod(ctx, ERC721CollectionMetadata, methodCallParams{Address: contractAddress})
+	if metadata, ok := collectionMetadata.(map[string]interface{}); err == nil && ok {
+		return metadata, nil
+	}
+
+	return nil, err
+}
+
+func (pp *Pool) ERC1155TokenName(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+	name, err := pp.callMethod(ctx, ERC1155TokenName, methodCallParams{Address: contractAddress, TokenID: tokenID})
+	if tokenName, ok := name.(string); err == nil && ok {
+		return tokenName, nil
+	}
+
+	return "", err
+}
+
+// ERC1155TotalSupply returns the (current) total supply of a token.
+func (pp *Pool) ERC1155TotalSupply(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (*big.Int, error) {
+	if tokenID == nil {
+		return nil, errors.New("tokenID is nil")
+	}
+
+	// for _, client := range pp.getClients() {
+	// 	// erc1155 abi
+	// 	if contractERC1155, err := abis.NewERC1155(contractAddress, client); err == nil {
+	// 		// call totalSupply
+	// 		if totalSupply, err := contractERC1155.TotalSupply(&bind.CallOpts{}, tokenID); err == nil {
+	// 			return totalSupply, nil
+	// 		}
+	// 	}
+	// }
+
+	// return nil, errors.New("totalSupply not found")
+
+	supply, err := pp.callMethod(ctx, ERC1155TotalSupply, methodCallParams{Address: contractAddress, TokenID: tokenID})
+	if totalSupply, ok := supply.(*big.Int); err == nil && ok {
+		return totalSupply, nil
+	}
+
+	return nil, err
+}
+
+//
+// ens related
+//
+
+// func (p *provider) GetENSForAllAddresses(wallets *wallet.Wallets) {
+// 	name, err := pp.callMethod(ctx, ERC721CollectionName, methodCallParams{ContractAddress: contractAddress})
+// 	if tokenName, ok := name.(string); err == nil && ok {
+// 		return tokenName, nil
+// 	}
+
+// 	return "", err
+// }
+
+func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address) (string, error) {
+	if address == (common.Address{}) {
+		return "", errors.New("address is empty")
+	}
+
+	if address == utils.ZeroAddress {
+		return "", errors.New("address is zero address")
+	}
+
+	if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
+		gbl.Log.Debugf("ens ensName for address %s is cached: %s", address.Hex(), cachedName)
+
+		return cachedName, nil
+	}
+
+	name, err := pp.callMethod(context.Background(), ResolveENSAddress, methodCallParams{Address: address})
+	gbl.Log.Debugf("pp.callMethod result - ens ensName for address %s is %+v", address.Hex(), name)
+
+	if ensName, ok := name.(string); err == nil && ok && ensName != "" {
+		cache.StoreENSName(ctx, address, ensName)
+
+		return ensName, nil
+	}
+
+	return "", errors.New("ens ensName not found")
+}
+
+// func (pp *Pool) reverseLookupAndValidate(address common.Address) (string, error) {
+// 	var ensName string
+
+// 	var err error
+
+// 	for _, client := range pp.getClients() {
+// 		// lookup the ens ensName for an address
+// 		ensName, err = ens.ReverseResolve(client, address)
+
+// 		if err != nil || common.IsHexAddress(ensName) {
+// 			gbl.Log.Debugf("ens reverse resolve error: %s -> %s: %s", address, ensName, err)
+
+// 			continue
+// 		}
+
+// 		// do a lookup for the ensName to validate its authenticity
+// 		resolvedAddress, err := ens.Resolve(client, ensName)
+// 		if err != nil {
+// 			gbl.Log.Debugf("ens resolve error: %s -> %s: %s", ensName, address, err)
+
+// 			continue
+// 		}
+
+// 		if resolvedAddress != address {
+// 			// gbl.Log.Warnf("addresses do not match for: %s | addr %s != %s resolved addr", style.BoldStyle.Render(ensName), address.Hex(), resolvedAddress.Hex())
+// 			gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
+
+// 			// err = errors.New("ens forward and reverse resolved addresses do not match")
+// 			continue
+// 		}
+
+// 		return ensName, nil
+// 	}
+
+// 	return "", err
+// }
+
+//
+// gas
+//
+
+func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
+	// return nc.getNode().GetCurrentGasInfo()
+
+	gas, err := pp.callMethod(context.Background(), GasInfo, methodCallParams{})
+	if gasInfo, ok := gas.(*nemo.GasInfo); err == nil && ok {
+		return gasInfo, nil
+	}
+
+	return nil, err
+}

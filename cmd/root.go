@@ -3,9 +3,10 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -95,7 +96,8 @@ func init() {
 	viper.SetDefault("redis.password", "")
 
 	// ipfs
-	viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
+	// viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
+	viper.SetDefault("ipfs.gateway", "https://cloudflare-ipfs.com/")
 
 	// opensea settings
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
@@ -103,12 +105,15 @@ func init() {
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
 
-	viper.SetDefault("cache.names_ttl", 1*6*time.Hour)
-	viper.SetDefault("cache.ens_ttl", 1*6*time.Hour)
+	// collection/contract names
+	viper.SetDefault("cache.names_ttl", 48*time.Hour)
+	// ens/wallet names
+	viper.SetDefault("cache.ens_ttl", 48*time.Hour)
+
 	viper.SetDefault("cache.floor_ttl", 2*time.Hour)
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
-	viper.SetDefault("cache.notifications_lock_ttl", 3*time.Minute)
+	viper.SetDefault("cache.notifications_lock_ttl", 1*time.Minute)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -134,6 +139,9 @@ func initConfig() {
 
 	// read in environment variables that match
 	viper.AutomaticEnv()
+
+	// replace dots in env variables with underscores
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {

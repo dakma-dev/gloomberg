@@ -1,6 +1,7 @@
 package external
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -9,9 +10,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/benleb/gloomberg/internal/utils/gbl"
-	"github.com/spf13/viper"
 )
 
 type ERC1155MetadataAttribute struct {
@@ -40,23 +40,25 @@ type ERC1155Metadata struct {
 	ImageURL     string                      `json:"image_url"`
 }
 
-func GetERC1155MetadataForURI(url string, tokenID *big.Int) (*ERC1155Metadata, error) {
+func GetERC1155MetadataForURI(ctx context.Context, url string, tokenID *big.Int) (*ERC1155Metadata, error) {
 	if url == "" {
 		gbl.Log.Debugf("erc1155 metadata url is empty\n")
+
 		return nil, errors.New("erc1155 metadata url is empty")
 	}
 
-	url = strings.Replace(url, "ipfs://", viper.GetString("ipfs.gateway"), 1)
-	url = strings.Replace(url, "{id}", tokenID.String(), -1)
+	url = utils.PrepareURL(url)
+	url = strings.ReplaceAll(url, "{id}", tokenID.String())
 
 	if url == "" || !strings.Contains(url, "://") {
 		gbl.Log.Debug("erc1155 metadata url is empty")
+
 		return nil, errors.New("erc1155 metadata url is empty")
 	}
 
 	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
 
-	response, err := utils.HTTP.GetWithTLS12(url)
+	response, err := utils.HTTP.GetWithTLS12(ctx, url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Debugf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())
@@ -83,7 +85,7 @@ func parseERC1155MetadataResponse(response *http.Response) (*ERC1155Metadata, er
 		return nil, err
 	}
 
-	if response.StatusCode == 200 {
+	if response.StatusCode == http.StatusOK {
 		var metadata ERC1155Metadata
 
 		err = json.Unmarshal(bodyBytes, &metadata)

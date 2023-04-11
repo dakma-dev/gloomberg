@@ -7,4 +7,14 @@ dist/
 
 # misc
 internal/assets
+metadata/
 dev.md
+*.sqlite
+.idea
+
+# testing
+cmd/rawtx.go
+ranks/
+
+# not ready for prime time
+deployment/

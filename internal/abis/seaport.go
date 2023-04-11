@@ -36,8 +36,8 @@ type AdditionalRecipient struct {
 
 // AdvancedOrder is an auto generated low-level Go binding around an user-defined struct.
 type AdvancedOrder struct {
-	Parameters  OrderParameters
-	Numerator   *big.Int
+	Parameters OrderParameters
+	Numerator  *big.Int
 	Denominator *big.Int
 	Signature   []byte
 	ExtraData   []byte
@@ -86,8 +86,8 @@ type CriteriaResolver struct {
 
 // Execution is an auto generated low-level Go binding around an user-defined struct.
 type Execution struct {
-	Item       ReceivedItem
-	Offerer    common.Address
+	Item    ReceivedItem
+	Offerer common.Address
 	ConduitKey [32]byte
 }
 

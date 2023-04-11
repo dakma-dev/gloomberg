@@ -9,21 +9,23 @@ import (
 	"os"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/term"
 )
 
 var (
-	Pink       = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
-	OwnerGreen = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}
-	Subtle     = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
-	DarkGray   = lipgloss.Color("#333333")
-	darkerGray = lipgloss.Color("#222222")
+	Pink = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
+	// OwnerGreen = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}.
+	Subtle      = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
+	DarkGray    = lipgloss.Color("#333")
+	darkerGray  = lipgloss.Color("#222")
+	darkestGray = lipgloss.Color("#111")
 
-	OpenseaToneBlue      = lipgloss.Color("#5f7699")
-	OpenseaToneBlue2     = lipgloss.Color("#20293d")
+	OpenseaToneBlue = lipgloss.Color("#5f7699")
+	// OpenseaToneBlue2     = lipgloss.Color("#20293d").
 	BlurOrange           = lipgloss.Color("#FF8700")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
@@ -33,22 +35,25 @@ var (
 	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
 	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999999"))
+	Gray7Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#777"))
+	Gray8Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#888"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
 	DarkGrayStyle        = lipgloss.NewStyle().Foreground(DarkGray)
 	DarkerGrayStyle      = lipgloss.NewStyle().Foreground(darkerGray)
+	DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
 	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
-	OwnerGreenBoldStyle  = BoldStyle.Copy().Foreground(OwnerGreen)
-	GrayBoldStyle        = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
-	Sharrow              = BoldStyle.Copy().SetString("→")
-	DividerArrowRight    = GrayBoldStyle.SetString("→")
-	DividerArrowLeft     = GrayBoldStyle.SetString("←")
+	// OwnerGreenBoldStyle  = BoldStyle.Copy().Foreground(OwnerGreen).
+	GrayBoldStyle     = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
+	Sharrow           = BoldStyle.Copy().SetString("→")
+	DividerArrowRight = LightGrayStyle.Copy().Bold(true).SetString("→")
+	DividerArrowLeft  = GrayBoldStyle.SetString("←")
 
 	// darkestGray          = lipgloss.Color("#111")
-	// DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
+	// DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray).
 
 	// PinkStyle            = lipgloss.NewStyle().Foreground(pink)
-	// GrayFaintStyle       = GrayStyle.Copy().Faint(true)
+	// GrayFaintStyle       = GrayStyle.Copy().Faint(true).
 
 	// borders
 	// noBorderStyle              = lipgloss.NewStyle().BorderTop(false).BorderBottom(false).BorderLeft(false).BorderRight(false)
@@ -86,11 +91,16 @@ var PaletteRLD = []lipgloss.Color{
 	"#6C3441",
 }
 
+// Bold returns a bold string.
+func Bold(str string) string {
+	return BoldStyle.Render(str)
+}
+
 //	SetString("•").
 //	Padding(0, 0).
 //	Foreground(pink)
 //
-// var Divider = baseDivider.String()
+// var Divider = baseDivider.String().
 func GetHeader(version string) string {
 	randColorID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
 	randHeaderID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(headers))))
@@ -125,6 +135,27 @@ func GetHeader(version string) string {
 	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
 }
 
+func GetBuyDiffShadeColor(priceDiff float64) lipgloss.Color {
+	var priceColor lipgloss.Color
+
+	switch {
+	case priceDiff <= 0.03:
+		priceColor = ShadesPink[9]
+	case priceDiff <= 0.05:
+		priceColor = ShadesPink[8]
+	case priceDiff <= 0.1:
+		priceColor = ShadesPink[4]
+	case priceDiff <= 0.25:
+		priceColor = ShadesPink[2]
+	case priceDiff <= 0.5:
+		priceColor = ShadesPink[1]
+	default:
+		priceColor = "#dddddd"
+	}
+
+	return priceColor
+}
+
 func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	var priceColor lipgloss.Color
 
@@ -136,12 +167,16 @@ func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	case txValue >= 2.0:
 		priceColor = ShadesPink[6]
 	case txValue >= 1.0:
-		priceColor = ShadesPink[4]
+		priceColor = ShadesPink[5]
 	case txValue >= 0.5:
-		priceColor = ShadesPink[2]
+		priceColor = ShadesPink[4]
 	case txValue >= 0.25:
-		priceColor = ShadesPink[1]
+		priceColor = ShadesPink[3]
 	case txValue >= 0.1:
+		priceColor = ShadesPink[2]
+	case txValue >= 0.075:
+		priceColor = ShadesPink[1]
+	case txValue >= 0.02:
 		priceColor = ShadesPink[0]
 	default:
 		priceColor = "#333333"
@@ -161,8 +196,20 @@ func ShortenAddress(address *common.Address) string {
 
 // ShortenAddressStyled returns a shortened address styled with colors.
 func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string {
-	return fmt.Sprintf(
-		"%s%s%s%s",
+	// gray out zero address
+	if *address == utils.ZeroAddress {
+		gray := DarkGrayStyle.Copy().Faint(false).Render
+		darkGray := DarkGrayStyle.Copy().Faint(true).Render
+
+		return fmt.Sprint(
+			darkGray("0x"),
+			gray(fmt.Sprintf("%0.2x", address.Bytes()[0])),
+			darkGray("…"),
+			gray(fmt.Sprintf("%0.2x", address.Bytes()[len(address.Bytes())-1])),
+		)
+	}
+
+	return fmt.Sprint(
 		style.Faint(true).Render("0x"),
 		style.Faint(false).Render(fmt.Sprintf("%0.2x%0.2x", address.Bytes()[0], address.Bytes()[1])),
 		style.Faint(true).Render("…"),
@@ -170,53 +217,71 @@ func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string 
 	)
 }
 
-// GenerateColorWithSeed generates a color based on the given seed.
-func GenerateColorWithSeed(seed int64) lipgloss.Color {
-	rand.Seed(seed)
+func EnforceMinLength(str string, minLength int) string {
+	if len(str) <= minLength {
+		r := []rune(str)
+		spacePlaceHolder := make([]rune, minLength-len(str))
 
-	//nolint:gosec
-	r := rand.Intn(256)
-	//nolint:gosec
-	g := rand.Intn(256)
-	//nolint:gosec
-	b := rand.Intn(256)
+		for i := 0; i < len(spacePlaceHolder); i++ {
+			spacePlaceHolder[i] = ' '
+		}
 
-	color := lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", r, g, b))
+		return string(append(r, spacePlaceHolder...))
+	}
 
-	return color
+	return str
 }
 
-func CreateTrendIndicator(before float64, now float64) string {
-	var trendIndicator string
+func ShortenCollectionName(collectionName string, numItems int) string {
+	maxLength := 25
+	if numItems > 1 {
+		maxLength -= 3
+	}
+
+	collectionName = EnforceMinLength(collectionName, maxLength)
+
+	if len(collectionName) > maxLength {
+		return fmt.Sprintf(
+			"%s%s",
+			collectionName[:maxLength-3],
+			"...",
+		)
+	}
+
+	return collectionName
+}
+
+// GenerateColorWithSeed generates a color based on the given seed.
+func GenerateColorWithSeed(seed int64) lipgloss.Color {
+	rng := rand.New(rand.NewSource(seed)) //nolint:gosec
+
+	return lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rng.Intn(256), rng.Intn(256), rng.Intn(256)))
+}
+
+func CreateTrendIndicator(before float64, now float64) lipgloss.Style {
+	var trendIndicatorStyle lipgloss.Style
 
 	cUp := lipgloss.Color("#99CC99")
 	cDown := lipgloss.Color("#CC9999")
-	cSteady := lipgloss.Color("#CCCCCC")
+	cSteady := lipgloss.Color("#555")
 
 	before = toFixed(before, 3)
 	now = toFixed(now, 3)
 
 	if now > 0.0 {
-		// if before < now {
-		// 	trendIndicator = lipgloss.NewStyle().Foreground(cUp).Render("↑")
-		// } else if before > now {
-		// 	trendIndicator = lipgloss.NewStyle().Foreground(cDown).Render("↓")
-		// } else {
-		// 	trendIndicator = lipgloss.NewStyle().Foreground(cSteady).Render("~")
-		// }
 		switch {
 		case before < now:
-			trendIndicator = lipgloss.NewStyle().Foreground(cUp).Render("↑")
+			trendIndicatorStyle = lipgloss.NewStyle().Foreground(cUp).SetString("↑")
 		case before > now:
-			trendIndicator = lipgloss.NewStyle().Foreground(cDown).Render("↓")
+			trendIndicatorStyle = lipgloss.NewStyle().Foreground(cDown).SetString("↓")
 		default:
-			trendIndicator = lipgloss.NewStyle().Foreground(cSteady).Render("~")
+			trendIndicatorStyle = lipgloss.NewStyle().Foreground(cSteady).SetString("~")
 		}
 	} else {
-		trendIndicator = lipgloss.NewStyle().Foreground(cSteady).Faint(true).Render("⊗")
+		trendIndicatorStyle = lipgloss.NewStyle().Foreground(cSteady).Faint(true).SetString("⊗")
 	}
 
-	return trendIndicator
+	return trendIndicatorStyle
 }
 
 // round and toFixed from https://stackoverflow.com/a/29786394/13180763

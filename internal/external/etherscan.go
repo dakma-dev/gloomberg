@@ -2,6 +2,7 @@ package external
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,9 +14,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/models/wallet"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -103,7 +104,7 @@ func GetGasOracle() *GasOracle {
 	// request, _ := http.NewRequest("GET", url, nil)
 
 	// response, err := client.Do(request)
-	response, err := utils.HTTP.GetWithTLS12(url)
+	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
@@ -149,6 +150,7 @@ func GetBalances(wallets *wallet.Wallets) ([]*AccountBalance, error) {
 		wethBalance, err := GetWETHBalance(common.HexToAddress(balance.Account))
 		if err != nil || wethBalance == nil {
 			gbl.Log.Warnf("could not get weth balance for %s: %s", balance.Account, err.Error())
+
 			continue
 		}
 
@@ -180,7 +182,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	// request, _ := http.NewRequest("GET", url, nil)
 
 	// response, err := client.Do(request)
-	response, err := utils.HTTP.GetWithTLS12(url)
+	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		gbl.Log.Warnf("multiAccountBalance error: %+v", err.Error())
 
@@ -196,6 +198,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	// validate the data
 	if err != nil || !json.Valid(responseBody) {
 		gbl.Log.Warnf("multiAccountBalance invalid json: %s", err)
+
 		return nil
 	}
 
@@ -223,10 +226,17 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	}
 
 	for _, accountBalance := range accountBalancesResponse.Result {
-		if balance, err := strconv.ParseInt(accountBalance.Balance, 10, 64); err == nil {
+		balance := new(big.Int)
+
+		_, err := fmt.Sscan(accountBalance.Balance, balance)
+		if err != nil {
+			gbl.Log.Warnf("could not parse balance for %s: %s", accountBalance.Account, err.Error())
+		} else {
+			gbl.Log.Debugf("%s balance: %+v", accountBalance.Account, balance)
+
 			balances = append(balances, &AccountBalance{
 				Account:     accountBalance.Account,
-				BalanceETH:  big.NewInt(balance),
+				BalanceETH:  balance,
 				BalanceWETH: big.NewInt(0),
 			})
 		}
@@ -277,7 +287,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 
 	// response, err := client.Do(request)
 
-	response, err := utils.HTTP.GetWithTLS12(url)
+	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ token balance · timeout while fetching: %+v", err.Error())
@@ -293,6 +303,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
 		gbl.Log.Errorf("❌ token balance · response read error: %+v", err.Error())
+
 		return nil, err
 	}
 
@@ -311,15 +322,16 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 		return nil, err
 	}
 
-	// convert the balance to a big int
-	balance, err := strconv.ParseInt(tokenBalanceResponse.Result, 10, 64)
+	balance := new(big.Int)
+
+	_, err = fmt.Sscan(tokenBalanceResponse.Result, balance)
 	if err != nil {
-		gbl.Log.Warnf("token balance · parse error: %s", err.Error())
+		gbl.Log.Warnf("could not parse token balance for %s: %s", walletAddress, err.Error())
 
 		return nil, err
 	}
 
-	return big.NewInt(balance), nil
+	return balance, nil
 }
 
 func withAPIKey(url string) string {

@@ -1,20 +1,22 @@
 package collections
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
 
-	"github.com/benleb/gloomberg/internal/models"
-	"github.com/benleb/gloomberg/internal/nodes"
-	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/utils"
-
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal/cache"
-
-	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/external"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo"
+	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
+	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -22,22 +24,21 @@ import (
 
 type BaseCollection struct{}
 
-// GbCollection represents the collections configured by the user.
-type GbCollection struct {
-	//
-	// configurable fields
+// Collection represents the collections configured by the user.
+type Collection struct {
 	ContractAddress common.Address `mapstructure:"address"`
 	Name            string         `mapstructure:"name"`
 	OpenseaSlug     string         `mapstructure:"slug"`
-	IgnorePrinting  bool           `mapstructure:"ignore"`
 
-	// SupportedStandards standard.Standards
+	FetchListings  bool `mapstructure:"fetchListings"`
+	IgnorePrinting bool `mapstructure:"ignore"`
 
 	Show struct {
 		Sales     bool `mapstructure:"sales"`
 		Mints     bool `mapstructure:"mints"`
 		Transfers bool `mapstructure:"transfers"`
 		Listings  bool `mapstructure:"listings"`
+		History   bool `mapstructure:"history"`
 	} `mapstructure:"show"`
 
 	Highlight struct {
@@ -45,15 +46,15 @@ type GbCollection struct {
 		Sales              lipgloss.Color `mapstructure:"show.sales"`
 		Mints              lipgloss.Color `mapstructure:"mints"`
 		Transfers          lipgloss.Color `mapstructure:"transfers"`
-		Listings           lipgloss.Color `mapstructure:"listings.enabled"`
+		Listings           lipgloss.Color `mapstructure:"listings"`
 		ListingsBelowPrice float64        `mapstructure:"listings_below_price"`
-	}
+	} `mapstructure:"highlight"`
 
 	//
 	// calculated/generated fields
-	Metadata *models.CollectionMetadata `mapstructure:"metadata"`
+	Metadata *nemo.CollectionMetadata `mapstructure:"metadata"`
 
-	Source models.CollectionSource `mapstructure:"source"`
+	Source collectionsource.CollectionSource `mapstructure:"source"`
 
 	Colors struct {
 		Primary   lipgloss.Color `mapstructure:"primary"`
@@ -66,34 +67,36 @@ type GbCollection struct {
 		Transfers   uint64
 		Listings    uint64
 		SalesVolume *big.Int
-	}
+	} `mapstructure:"counters"`
 
-	SaLiRa ewma.MovingAverage `json:"salira"`
-
-	// exponential moving average of the actual sale prices
-	// FloorPrice         ewmabig.MovingAverage `mapstructure:"artificialFloor"`
-	// PreviousFloorPrice *big.Int              `mapstructure:"artificialFloor"`
-
+	SaLiRa             ewma.MovingAverage  `mapstructure:"salira"`
 	FloorPrice         *ewma.MovingAverage `mapstructure:"floorPrice"`
 	PreviousFloorPrice float64             `mapstructure:"previousFloorPrice"`
 }
 
-func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nodes, source models.CollectionSource) *GbCollection {
+func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource) *Collection {
 	var collectionName string
 
-	gbCache := cache.New()
+	gbCache := cache.New(context.TODO())
 
-	if name != "" {
+	switch {
+	case name != "":
 		collectionName = name
-	} else {
-		if name, err := gbCache.GetCollectionName(contractAddress); err == nil {
+	case contractAddress == external.ENSContract:
+		collectionName = "ENS"
+	default:
+		name, err := gbCache.GetCollectionName(contractAddress)
+
+		switch {
+		case errors.Is(err, nil):
 			gbl.Log.Debugf("cache | cached collection name: %s", name)
 
 			if name != "" {
 				collectionName = name
 			}
-		} else if nodes != nil {
-			if name, err := nodes.GetERC721CollectionName(contractAddress); err == nil {
+
+		case nodes != nil:
+			if name, err := nodes.ERC721CollectionName(context.Background(), contractAddress); err == nil {
 				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 				if name != "" {
@@ -103,7 +106,8 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 				// cache collection name
 				gbCache.CacheCollectionName(contractAddress, collectionName)
 			}
-		} else {
+
+		default:
 			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
 
 			collectionName = style.ShortenAddress(&contractAddress)
@@ -112,69 +116,79 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 
 	floorPrice := ewma.NewMovingAverage()
 
-	collection := GbCollection{
-		ContractAddress: contractAddress,
+	collection := Collection{
 		Name:            collectionName,
+		ContractAddress: contractAddress,
+		Metadata:        &nemo.CollectionMetadata{},
 
-		// OwnedTokenIDs: []uint64{},
-		Metadata: &models.CollectionMetadata{},
-		Source:   source,
+		Source: source,
 
 		FloorPrice:         &floorPrice,
 		PreviousFloorPrice: 0,
-
-		SaLiRa: ewma.NewMovingAverage(),
+		SaLiRa:             ewma.NewMovingAverage(),
 	}
-
-	// go func() {
-	// 	collection.SupportedStandards = nodes.GetSupportedStandards(contractAddress)
-	// }()
-
-	// go func() {
-	// 	if nodes.ERC1155Supported(contractAddress) {
-	// 		collection.SupportedStandards = append(collection.SupportedStandards, standard.ERC1155)
-	// 	}
-	// }()
 
 	if nodes != nil {
 		go func() {
-			rawMetaDatas := nodes.GetCollectionMetadata(contractAddress)
+			rawMetaDatas, err := nodes.ERC721CollectionMetadata(context.Background(), contractAddress)
+			if err != nil {
+				gbl.Log.Errorf("error getting collection metadata, using: %s | %s", style.ShortenAddress(&contractAddress), err)
 
-			metadata := &models.CollectionMetadata{}
+				return
+			}
+
+			metadata := &nemo.CollectionMetadata{}
 
 			if name := rawMetaDatas["name"]; name != nil {
-				metadata.ContractName = name.(string)
+				name, ok := name.(string)
+				if ok {
+					metadata.ContractName = name
+				}
 			}
 
 			if symbol := rawMetaDatas["symbol"]; symbol != nil {
-				metadata.Symbol = symbol.(string)
+				symbol, ok := symbol.(string)
+				if ok {
+					metadata.Symbol = symbol
+				}
 			}
 
 			if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
-				metadata.TotalSupply = totalSupply.(uint64)
+				totalSupply, ok := totalSupply.(uint64)
+				if ok {
+					metadata.TotalSupply = totalSupply
+				}
 			}
 
 			if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
-				metadata.TokenURI = tokenURI.(string)
+				tokenURI, ok := tokenURI.(string)
+				if ok {
+					metadata.TokenURI = tokenURI
+				}
 			}
 
 			collection.Metadata = metadata
 		}()
 	}
 
-	if source == models.FromWallet || source == models.FromStream {
+	if source == collectionsource.FromWallet || source == collectionsource.FromConfiguration {
+		collection.Show.History = true
+	}
+
+	if source == collectionsource.FromWallet || source == collectionsource.FromStream {
 		collection.Show.Sales = viper.GetBool("show.sales")
 		collection.Show.Mints = viper.GetBool("show.mints")
 		collection.Show.Transfers = viper.GetBool("show.transfers")
 
-		if source == models.FromWallet {
+		if source == collectionsource.FromWallet {
 			if viper.IsSet("api_keys.opensea") {
 				collection.Show.Listings = viper.GetBool("listings.enabled")
 			}
 		}
 
-		if source == models.FromStream {
+		if source == collectionsource.FromStream {
 			collection.Show.Listings = false
+			collection.Show.History = false
 		}
 	}
 
@@ -187,40 +201,46 @@ func NewCollection(contractAddress common.Address, name string, nodes *nodes.Nod
 	return &collection
 }
 
-func (uc *GbCollection) Style() lipgloss.Style {
+func (uc *Collection) Style() lipgloss.Style {
+	if uc.Colors.Primary == "" {
+		gbl.Log.Infof("🎨 primary collection color missing for %s", uc.Name)
+		uc.generateColorsFromAddress()
+	}
+
 	return lipgloss.NewStyle().Foreground(uc.Colors.Primary)
 }
 
-func (uc *GbCollection) StyleSecondary() lipgloss.Style {
+func (uc *Collection) StyleSecondary() lipgloss.Style {
+	if uc.Colors.Secondary == "" {
+		gbl.Log.Infof("🎨 secondary collection color missing for %s", uc.Name)
+		uc.generateColorsFromAddress()
+	}
+
 	return lipgloss.NewStyle().Foreground(uc.Colors.Secondary)
 }
 
-func (uc *GbCollection) Render(text string) string {
+func (uc *Collection) Render(text string) string {
 	// generate the collection color based on the contract address if none given
-	return lipgloss.NewStyle().Foreground(uc.Colors.Primary).Render(text)
+	return uc.Style().Render(text)
 }
 
-func (uc *GbCollection) AddSale(value *big.Int, numItems uint64) float64 {
+func (uc *Collection) AddSale(value *big.Int, numItems uint64) float64 {
 	uc.Counters.SalesVolume.Add(uc.Counters.SalesVolume, value)
 	atomic.AddUint64(&uc.Counters.Sales, numItems)
 
 	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("ticker.statsbox").Seconds()))
 }
 
-func (uc *GbCollection) AddMint() {
+func (uc *Collection) AddMint() {
 	atomic.AddUint64(&uc.Counters.Mints, 1)
 }
 
-// func (uc *GbCollection) SaLiRaAdd() float64 {
-// 	if uc.Counters.Listings > 0 {
-// 		return float64(uc.Counters.Sales) / float64(uc.Counters.Listings)
-// 	}
-
-// 	return 0.0
-// }
+func (uc *Collection) AddListing(numItems uint64) {
+	atomic.AddUint64(&uc.Counters.Listings, numItems)
+}
 
 // CalculateSaLiRa updates the salira moving average of a given collection.
-func (uc *GbCollection) CalculateSaLiRa(address common.Address) (float64, float64) {
+func (uc *Collection) CalculateSaLiRa(address common.Address) (float64, float64) {
 	if uc.Counters.Listings <= 0 {
 		return 0.0, 0.0
 	}
@@ -230,14 +250,14 @@ func (uc *GbCollection) CalculateSaLiRa(address common.Address) (float64, float6
 	currentSaLiRa := uc.SaLiRa.Value()
 
 	if address != utils.ZeroAddress {
-		go cache.StoreSalira(address, currentSaLiRa)
+		go cache.StoreSalira(context.TODO(), address, currentSaLiRa)
 	}
 
 	return previousSaLiRa, currentSaLiRa
 }
 
 // CalculateFloorPrice updates the moving average of a given collection.
-func (uc *GbCollection) CalculateFloorPrice(tokenPrice float64) (float64, float64) {
+func (uc *Collection) CalculateFloorPrice(tokenPrice float64) (float64, float64) {
 	// update the moving average
 	uc.PreviousFloorPrice = (*uc.FloorPrice).Value()
 	(*uc.FloorPrice).Add(tokenPrice)
@@ -248,7 +268,7 @@ func (uc *GbCollection) CalculateFloorPrice(tokenPrice float64) (float64, float6
 	return uc.PreviousFloorPrice, currentFloorPrice
 }
 
-func (uc *GbCollection) ResetStats() {
+func (uc *Collection) ResetStats() {
 	gbl.Log.Debugf("resetting collection statistics...")
 
 	uc.Counters.Sales = 0
@@ -259,19 +279,14 @@ func (uc *GbCollection) ResetStats() {
 }
 
 // GenerateColors generates two colors based on contract address of the collection.
-func (uc *GbCollection) generateColorsFromAddress() {
-	rand.Seed(uc.ContractAddress.Hash().Big().Int64())
-
-	//nolint:gosec
-	primary := lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rand.Intn(256), rand.Intn(256), rand.Intn(256)))
-	//nolint:gosec
-	secondary := lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rand.Intn(256), rand.Intn(256), rand.Intn(256)))
+func (uc *Collection) generateColorsFromAddress() {
+	rng := rand.New(rand.NewSource(uc.ContractAddress.Hash().Big().Int64())) //nolint:gosec
 
 	if uc.Colors.Primary == "" {
-		uc.Colors.Primary = primary
+		uc.Colors.Primary = lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rng.Intn(256), rng.Intn(256), rng.Intn(256)))
 	}
 
 	if uc.Colors.Secondary == "" {
-		uc.Colors.Secondary = secondary
+		uc.Colors.Secondary = lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rng.Intn(256), rng.Intn(256), rng.Intn(256)))
 	}
 }

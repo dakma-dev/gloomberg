@@ -11,25 +11,27 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/cache"
-	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
-	"github.com/benleb/gloomberg/internal/models/wallet"
-	"github.com/benleb/gloomberg/internal/nodes"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/price"
+	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
 
+// ErrWalletBalance given for issues while fetching wallet balances.
+var ErrWalletBalance = fmt.Errorf("error fetching wallet balance")
+
 var (
-	// columnWidth = 32
 	listStyle = lipgloss.NewStyle().
 			Border(lipgloss.NormalBorder(), false, true, false, false).
 			BorderForeground(style.Subtle).
 			MarginRight(0)
-	// Height(8).
-	// Width(columnWidth + 1)
 
 	itemStyle = lipgloss.NewStyle().Padding(0, 2)
 	listItem  = itemStyle.Render
@@ -38,14 +40,13 @@ var (
 )
 
 type Stats struct {
-	wallets *wallet.Wallets
-	nodes   *nodes.Nodes
+	wallets      *wallet.Wallets
+	providerPool *provider.Pool
 
-	numCollections uint
-	interval       time.Duration
+	interval time.Duration
 
 	OwnEventsHistory []string
-	EventHistory     []*collections.Event
+	EventHistory     []*totra.HistoryTokenTransaction
 
 	gasTicker *time.Ticker
 
@@ -67,18 +68,17 @@ type Stats struct {
 	DiscardedMints             uint64
 }
 
-func New(gasTicker *time.Ticker, wallets *wallet.Wallets, nodes *nodes.Nodes, numCollections int) *Stats {
+func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool) *Stats {
 	stats := &Stats{
-		wallets: wallets,
-		nodes:   nodes,
+		wallets:      wallets,
+		providerPool: providerPool,
 
 		OwnEventsHistory: make([]string, viper.GetInt("stats.lines")),
-		EventHistory:     make([]*collections.Event, 0),
+		EventHistory:     make([]*totra.HistoryTokenTransaction, 0),
 
 		gasTicker: gasTicker,
 
-		numCollections: uint(numCollections),
-		interval:       viper.GetDuration("ticker.statsbox"),
+		interval: viper.GetDuration("ticker.statsbox"),
 	}
 
 	stats.Reset()
@@ -93,7 +93,7 @@ func (s *Stats) salesPerMinute() float64 {
 }
 
 func (s *Stats) salesVolumePerMinute() float64 {
-	ethVolume, _ := nodes.WeiToEther(s.salesVolume).Float64()
+	ethVolume, _ := utils.WeiToEther(s.salesVolume).Float64()
 
 	return (ethVolume * 60) / s.interval.Seconds()
 }
@@ -105,7 +105,7 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	if err != nil || balances == nil {
 		gbl.Log.Warn("❌ error while fetching wallet balances")
 
-		return nil, fmt.Errorf("error while fetching wallet balances")
+		return nil, ErrWalletBalance
 	}
 
 	if viper.GetBool("log.debug") {
@@ -127,9 +127,9 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 			float64((*s.wallets)[walletAddress].Balance.Int64()),
 		)
 
-		(*s.wallets)[walletAddress].BalanceTrend = trendIndicator
+		(*s.wallets)[walletAddress].BalanceTrend = trendIndicator.String()
 
-		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, nodes.WeiToEther((*s.wallets)[walletAddress].Balance))
+		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, utils.WeiToEther((*s.wallets)[walletAddress].Balance))
 	}
 
 	return s.wallets, nil
@@ -146,7 +146,7 @@ func (s *Stats) AddMint() {
 	atomic.AddUint64(&s.mints, 1)
 }
 
-func (s *Stats) Print() {
+func (s *Stats) Print(queueOutput *chan string) {
 	var (
 		formattedStatsLists string
 
@@ -184,9 +184,7 @@ func (s *Stats) Print() {
 		s.gasTicker.Reset(viper.GetDuration("ticker.gasline"))
 	}
 
-	fmt.Println("")
-	fmt.Println(formattedStatsLists)
-	fmt.Println("")
+	*queueOutput <- "\n" + formattedStatsLists + "\n"
 
 	s.Reset()
 }
@@ -210,19 +208,17 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	var firstColumn []string
 
 	// gas
-	if gasNode := s.nodes.GetRandomLocalNode(); gasNode != nil {
-		if gasInfo, err := gasNode.GetCurrentGasInfo(); err == nil && gasInfo != nil {
-			// gas info
-			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-				gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
-				gasPrice := int(math.Ceil(gasPriceGwei))
-				// gasTip, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Uint64()
+	if gasInfo, err := s.providerPool.GetCurrentGasInfo(); err == nil && gasInfo != nil {
+		// gas info
+		if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
+			gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
+			gasPrice := int(math.Ceil(gasPriceGwei))
+			// gasTip, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Uint64()
 
-				label := style.DarkGrayStyle.Render("   gas")
-				value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", gasPrice))
+			label := style.DarkGrayStyle.Render("   gas")
+			value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", gasPrice))
 
-				firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
-			}
+			firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 		}
 	} else if viper.IsSet("api_keys.etherscan") && viper.GetBool("stats.gas") {
 		label := style.DarkGrayStyle.Render("  gas")
@@ -251,17 +247,17 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		label := style.DarkGrayStyle.Render("min price")
 		value := style.GrayStyle.Render(fmt.Sprint(fmt.Sprintf("%6.2f", minPrice), style.DarkGrayStyle.Render("Ξ")))
 
-		secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", label, value))}...)
+		secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 	}
 
 	// redis stats
 	if viper.GetBool("redis.enabled") {
-		if rdb := cache.New().GetRDB(); rdb != nil {
+		if rdb := cache.New(context.TODO()).GetRDB(); rdb != nil {
 			namesLabel := style.DarkGrayStyle.Render("n-cache")
 			namesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.DBSize(context.Background()).Val()))
 
-			salesLabel := style.DarkGrayStyle.Render("s-cache")
-			salesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.XLen(context.Background(), "sales").Val()))
+			// salesLabel := style.DarkGrayStyle.Render("s-cache")
+			// salesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.XLen(context.Background(), "sales").Val()))
 
 			hitrate := float64(rdb.PoolStats().Hits) / float64(rdb.PoolStats().Hits+rdb.PoolStats().Misses) * 100
 			hitrateLabel := style.DarkGrayStyle.Render("hitrate")
@@ -269,7 +265,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 			secondcolumn = append(secondcolumn, []string{
 				listItem(fmt.Sprintf("%s %s", namesLabel, namesValue)),
-				listItem(fmt.Sprintf("%s %s", salesLabel, salesValue)),
+				// listItem(fmt.Sprintf("%s %s", salesLabel, salesValue)),
 				listItem(fmt.Sprintf("%s %s", hitrateLabel, hitrateValue)),
 			}...)
 		}
@@ -286,15 +282,14 @@ func (s *Stats) getPrimaryStatsLists() []string {
 }
 
 func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
-	wallets := s.wallets.GetAll()
-	sort.Sort(sort.Reverse(wallets))
+	wallets := s.wallets.SortByBalance()
 
 	numberOfWalletsToShow := int(math.Min(float64(viper.GetInt("stats.lines")), float64(len(wallets))))
 
 	walletsList := make([]string, 0)
 
 	for _, w := range wallets[:numberOfWalletsToShow] {
-		balanceEther, _ := nodes.WeiToEther(w.Balance).Float64()
+		balanceEther, _ := utils.WeiToEther(w.Balance).Float64()
 		balanceRounded := math.Floor(balanceEther*100.0) / 100.0
 		balance := fmt.Sprint(style.LightGrayStyle.Render(fmt.Sprintf("%5.2f", balanceRounded)), style.GrayStyle.Render("Ξ"))
 		walletBalance := fmt.Sprintf("%s %s %s", w.ColoredName(maxWalletNameLength), style.DarkGrayStyle.Render(w.BalanceTrend), balance)
@@ -305,26 +300,20 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 }
 
 func (s *Stats) getOwnEventsHistoryList() []string {
-	var eventsList []string
+	eventsList := make([]string, 0)
 
 	if len(s.EventHistory) == 0 {
 		gbl.Log.Debugf("no events to show")
+
 		return eventsList
 	}
 
 	// cleanup (maybe replace this by not inserting events that are not shown anyways)
-	historyEvents := make([]*collections.Event, 0)
+	historyEvents := make([]*totra.HistoryTokenTransaction, 0)
 
 	for idx, event := range s.EventHistory {
 		if event == nil {
 			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
-			continue
-		}
-
-		// if !event.PrintEvent {
-		if event.StateInfo != nil && !event.StateInfo.PrintInHistory {
-			gbl.Log.Debugf("🙈 ignored event: %d\n", event)
-			gbl.Log.Infof("🙈 discarded event: %+v | %+v\n", event, strings.Join(event.StateInfo.DiscardReasons, ", "))
 
 			continue
 		}
@@ -332,7 +321,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		historyEvents = append(historyEvents, event)
 	}
 
-	sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].Time.Before(historyEvents[j].Time) })
+	sort.Slice(historyEvents, func(i, j int) bool { return historyEvents[i].ReceivedAt.Before(historyEvents[j].ReceivedAt) })
 
 	numberOfOwnEvents := len(historyEvents)
 	numberOfShownEvents := int(math.Min(float64(viper.GetInt("stats.lines")), float64(numberOfOwnEvents)))
@@ -343,9 +332,13 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			break
 		}
 
+		if len(event.FmtTokensTransferred) == 0 {
+			continue
+		}
+
 		collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
 
-		timeAgo := time.Since(event.Time)
+		timeAgo := time.Since(event.ReceivedAt)
 		statsboxEpoch := viper.GetDuration("ticker.statsbox")
 
 		rowStyle := style.DarkGrayStyle
@@ -353,33 +346,33 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 		switch {
 		case timeAgo < statsboxEpoch:
-			rowStyle = style.DarkWhiteStyle
+			rowStyle = style.BoldStyle
 		case timeAgo < 2*statsboxEpoch:
-			rowStyle = style.VeryLightGrayStyle
+			rowStyle = style.DarkWhiteStyle
 		case timeAgo < 4*statsboxEpoch:
+			rowStyle = style.VeryLightGrayStyle
+		case timeAgo < 9*statsboxEpoch:
 			rowStyle = style.LightGrayStyle
-		case timeAgo < 8*statsboxEpoch:
+		case timeAgo < 15*statsboxEpoch:
 			rowStyle = style.GrayStyle
 			printFaint = true
 		default:
 			printFaint = true
 		}
 
-		var tokenInfo string
-		if event.TxLogCount > 1 {
-			tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TxLogCount)), collectionStyle.Faint(printFaint).Render(event.Collection.Name))
-		} else {
-			tokenInfo = style.FormatTokenInfo(event.TokenID, event.Collection.Name, event.Collection.Style(), event.Collection.StyleSecondary(), printFaint, true)
-		}
+		tokenInfo := event.FmtTokensTransferred[0] // strings.Join(event.FmtTokensTransferred, " | ")
 
-		timeNow := rowStyle.Render(event.Time.Format("15:04:05"))
-		pricePerItem := big.NewInt(0).Div(event.PriceWei, big.NewInt(int64(event.TxLogCount)))
-		priceEtherPerItem, _ := nodes.WeiToEther(pricePerItem).Float64()
+		timeNow := rowStyle.Render(event.ReceivedAt.Format("15:04:05"))
+
+		pricePerItem := price.NewPrice(event.AmountPaid)
+		if event.TokenTransaction.TotalTokens > 0 {
+			pricePerItem = price.NewPrice(big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TokenTransaction.TotalTokens)))
+		}
 
 		historyLine := strings.Builder{}
 		historyLine.WriteString(timeNow)
-		historyLine.WriteString(" " + event.EventType.Icon())
-		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
+		historyLine.WriteString(" " + event.TokenTransaction.Action.Icon())
+		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", pricePerItem.Ether())))
 		historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
 		historyLine.WriteString(" " + tokenInfo)
 
@@ -394,8 +387,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	return eventsList
 }
 
-func (s *Stats) StartTicker(intervalPrintStats time.Duration) {
-	intervalPrintStats = viper.GetDuration("ticker.statsbox")
+func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput *chan string) {
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
 	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
@@ -406,18 +398,7 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration) {
 		tickerPrintStats.Reset(intervalPrintStats)
 
 		for range tickerPrintStats.C {
-			s.Print()
+			s.Print(queueOutput)
 		}
 	}()
 }
-
-// func weiToEther(wei *big.Int) *big.Float {
-// 	f := new(big.Float)
-// 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-// 	f.SetMode(big.ToNearestEven)
-// 	fWei := new(big.Float)
-// 	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-// 	fWei.SetMode(big.ToNearestEven)
-
-// 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
-// }

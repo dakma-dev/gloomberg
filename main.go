@@ -3,6 +3,8 @@ package main
 
 import (
 	"github.com/benleb/gloomberg/cmd"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 )
 
 var version = "dev" // commit    = "none"
@@ -12,8 +14,10 @@ var version = "dev" // commit    = "none"
 func main() {
 	cmd.Version = version
 
-	//cmd.BuildDate = buildDate
-	//cmd.BuiltBy = builtBy
+	// cmd.BuildDate = buildDate
+	// cmd.BuiltBy = builtBy
+
+	lipgloss.SetColorProfile(termenv.TrueColor)
 
 	cmd.Execute()
 }
