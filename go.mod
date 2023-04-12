@@ -4,8 +4,8 @@ go 1.20
 
 require (
 	github.com/VividCortex/ewma v1.2.0
-	github.com/charmbracelet/lipgloss v0.6.0
-	github.com/charmbracelet/log v0.1.2
+	github.com/charmbracelet/lipgloss v0.7.1
+	github.com/charmbracelet/log v0.2.1
 	github.com/ethereum/go-ethereum v1.11.5
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
