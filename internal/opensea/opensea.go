@@ -135,8 +135,6 @@ func GetAssetContract(contractAddress common.Address) *osmodels.AssetContract {
 
 	responseBody, _ := io.ReadAll(response.Body)
 
-	// fmt.Printf("response: %d | body: %s\n", response.StatusCode, responseBody)
-
 	// decode the data
 	if !json.Valid(responseBody) {
 		return nil
@@ -181,8 +179,6 @@ func GetListings(contractAddress common.Address, tokenID int64) []osmodels.Seapo
 
 		return nil
 	}
-
-	// fmt.Printf("response: %d | body: %s\n", response.StatusCode, responseBody)
 
 	// decode the data
 	if !json.Valid(responseBody) {

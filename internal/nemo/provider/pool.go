@@ -10,17 +10,15 @@ import (
 	"sync/atomic"
 
 	"github.com/benleb/gloomberg/internal/abis"
-	"github.com/benleb/gloomberg/internal/nemo"
-
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/mitchellh/mapstructure"
 )
 
@@ -151,23 +149,6 @@ func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
 	return subscribedTo, nil
 }
 
-// func (pp *Pool) getRandomProvider() *provider {
-// 	if *pp != nil && len(*pp) == 0 {
-// 		return nil
-// 	}
-
-// 	providers := make([]*provider, 0, len(*pp))
-
-// 	for _, provider := range *pp {
-// 		if provider.Client != nil {
-// 			providers = append(providers, provider)
-// 		}
-// 	}
-
-// 	//nolint:gosec
-// 	return providers[rand.Intn(len(providers))]
-// }
-
 func (pp *Pool) getPreferredProviders() []*provider {
 	if *pp != nil && len(*pp) == 0 {
 		return nil
@@ -204,31 +185,6 @@ func (pp *Pool) getProviders() []*provider {
 	}
 
 	return append(preferredProviders, providers...)
-}
-
-// getClients returns a shuffled list of eth clients with local nodes preferred.
-func (pp *Pool) getClients() []*ethclient.Client {
-	clients := make([]*ethclient.Client, 0)
-
-	// get clients from all nodes
-	for _, node := range *pp {
-		clients = append(clients, node.Client)
-	}
-
-	// shuffle clients to avoid hitting the same node over and over again
-	rand.Shuffle(len(clients), func(i, j int) {
-		clients[i], clients[j] = clients[j], clients[i]
-	})
-
-	// prefer local nodes if available
-	localNodeclients := make([]*ethclient.Client, 0)
-	if nodes := pp.getPreferredProviders(); len(nodes) > 0 {
-		for _, node := range nodes {
-			localNodeclients = append(localNodeclients, node.Client)
-		}
-	}
-
-	return append(localNodeclients, clients...)
 }
 
 func (pp *Pool) GetWETHABI(ctx context.Context, contractAddress common.Address) (*abis.WETH, error) {
@@ -370,36 +326,6 @@ func (pp *Pool) TransactionReceipt(ctx context.Context, txHash common.Hash) (*ty
 	return nil, err
 }
 
-// // BlockNumber returns the most recent block number.
-// func (pp *Pool) BlockNumber(ctx context.Context) (uint64, error) {
-// 	var err error
-
-// 	for _, client := range pp.getClients() {
-// 		if blockNumber, err := client.BlockNumber(ctx); err == nil {
-// 			return blockNumber, nil
-// 		}
-// 	}
-
-// 	return 0, err
-// }
-
-// // BlockByNumber returns the given full block.
-// func (pp *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-// 	var err error
-
-// 	for _, client := range pp.getClients() {
-// 		if block, err := client.BlockByNumber(ctx, number); err == nil {
-// 			return block, nil
-// 		}
-// 	}
-
-// 	return nil, err
-// }
-
-//
-// token related methods
-//
-
 func (pp *Pool) GetTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
 	uri, err := pp.callMethod(ctx, TokenImageURI, methodCallParams{Address: contractAddress, TokenID: tokenID})
 	if tokenImageURI, ok := uri.(string); err == nil && ok {
@@ -442,18 +368,6 @@ func (pp *Pool) ERC1155TotalSupply(ctx context.Context, contractAddress common.A
 		return nil, errors.New("tokenID is nil")
 	}
 
-	// for _, client := range pp.getClients() {
-	// 	// erc1155 abi
-	// 	if contractERC1155, err := abis.NewERC1155(contractAddress, client); err == nil {
-	// 		// call totalSupply
-	// 		if totalSupply, err := contractERC1155.TotalSupply(&bind.CallOpts{}, tokenID); err == nil {
-	// 			return totalSupply, nil
-	// 		}
-	// 	}
-	// }
-
-	// return nil, errors.New("totalSupply not found")
-
 	supply, err := pp.callMethod(ctx, ERC1155TotalSupply, methodCallParams{Address: contractAddress, TokenID: tokenID})
 	if totalSupply, ok := supply.(*big.Int); err == nil && ok {
 		return totalSupply, nil
@@ -465,15 +379,6 @@ func (pp *Pool) ERC1155TotalSupply(ctx context.Context, contractAddress common.A
 //
 // ens related
 //
-
-// func (p *provider) GetENSForAllAddresses(wallets *wallet.Wallets) {
-// 	name, err := pp.callMethod(ctx, ERC721CollectionName, methodCallParams{ContractAddress: contractAddress})
-// 	if tokenName, ok := name.(string); err == nil && ok {
-// 		return tokenName, nil
-// 	}
-
-// 	return "", err
-// }
 
 func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address) (string, error) {
 	if address == (common.Address{}) {
@@ -502,47 +407,6 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 	return "", errors.New("ens ensName not found")
 }
 
-// func (pp *Pool) reverseLookupAndValidate(address common.Address) (string, error) {
-// 	var ensName string
-
-// 	var err error
-
-// 	for _, client := range pp.getClients() {
-// 		// lookup the ens ensName for an address
-// 		ensName, err = ens.ReverseResolve(client, address)
-
-// 		if err != nil || common.IsHexAddress(ensName) {
-// 			gbl.Log.Debugf("ens reverse resolve error: %s -> %s: %s", address, ensName, err)
-
-// 			continue
-// 		}
-
-// 		// do a lookup for the ensName to validate its authenticity
-// 		resolvedAddress, err := ens.Resolve(client, ensName)
-// 		if err != nil {
-// 			gbl.Log.Debugf("ens resolve error: %s -> %s: %s", ensName, address, err)
-
-// 			continue
-// 		}
-
-// 		if resolvedAddress != address {
-// 			// gbl.Log.Warnf("addresses do not match for: %s | addr %s != %s resolved addr", style.BoldStyle.Render(ensName), address.Hex(), resolvedAddress.Hex())
-// 			gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
-
-// 			// err = errors.New("ens forward and reverse resolved addresses do not match")
-// 			continue
-// 		}
-
-// 		return ensName, nil
-// 	}
-
-// 	return "", err
-// }
-
-//
-// gas
-//
-
 func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
 	// return nc.getNode().GetCurrentGasInfo()
 
@@ -553,3 +417,58 @@ func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
 
 	return nil, err
 }
+
+// // getClients returns a shuffled list of eth clients with local nodes preferred.
+// func (pp *Pool) getClients() []*ethclient.Client {
+// 	clients := make([]*ethclient.Client, 0)
+
+// 	// get clients from all nodes
+// 	for _, node := range *pp {
+// 		clients = append(clients, node.Client)
+// 	}
+
+// 	// shuffle clients to avoid hitting the same node over and over again
+// 	rand.Shuffle(len(clients), func(i, j int) {
+// 		clients[i], clients[j] = clients[j], clients[i]
+// 	})
+
+// 	// prefer local nodes if available
+// 	localNodeclients := make([]*ethclient.Client, 0)
+// 	if nodes := pp.getPreferredProviders(); len(nodes) > 0 {
+// 		for _, node := range nodes {
+// 			localNodeclients = append(localNodeclients, node.Client)
+// 		}
+// 	}
+
+// 	return append(localNodeclients, clients...)
+// }
+
+// // BlockNumber returns the most recent block number.
+// func (pp *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+// 	var err error
+
+// 	for _, client := range pp.getClients() {
+// 		if blockNumber, err := client.BlockNumber(ctx); err == nil {
+// 			return blockNumber, nil
+// 		}
+// 	}
+
+// 	return 0, err
+// }
+
+// // BlockByNumber returns the given full block.
+// func (pp *Pool) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
+// 	var err error
+
+// 	for _, client := range pp.getClients() {
+// 		if block, err := client.BlockByNumber(ctx, number); err == nil {
+// 			return block, nil
+// 		}
+// 	}
+
+// 	return nil, err
+// }
+
+//
+// token related methods
+//

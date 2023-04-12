@@ -3,8 +3,6 @@ package web
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
-	"log"
 	"net/http"
 	"sync"
 	"syscall"
@@ -26,7 +24,7 @@ import (
 wsUpgrader is used to upgrade incomming HTTP requests into a persitent websocket connection
 */
 var (
-	allowedOrigins = []string{"https://localhost:8080", "https://10.0.0.99:8080", "https://mia.home.benleb.de:8080"}
+	// allowedOrigins = []string{"https://localhost:8080", "https://10.0.0.99:8080", "https://mia.home.benleb.de:8080"}
 
 	// wsUpgrader = websocket.Upgrader{
 	// 	EnableCompression: true,
@@ -38,17 +36,17 @@ var (
 	ErrEventNotSupported = errors.New("this event type is not supported")
 )
 
-// checkOrigin will check origin and return true if its allowed
-func checkOrigin(r *http.Request) bool {
-	origin := r.Header.Get("Origin")
-	for _, o := range allowedOrigins {
-		if o == origin {
-			return true
-		}
-	}
+// // checkOrigin will check origin and return true if its allowed
+// func checkOrigin(r *http.Request) bool {
+// 	origin := r.Header.Get("Origin")
+// 	for _, o := range allowedOrigins {
+// 		if o == origin {
+// 			return true
+// 		}
+// 	}
 
-	return false
-}
+// 	return false
+// }
 
 type WsHub struct {
 	// websockets
@@ -124,8 +122,6 @@ func (wh *WsHub) broadcastTTx() {
 			continue
 		}
 
-		// fmt.Printf("event: \n%s\n", string(marshalledEvent))
-
 		// broadcast
 		wh.RLock()
 		clients := wh.clients
@@ -135,10 +131,6 @@ func (wh *WsHub) broadcastTTx() {
 
 		for client := range clients {
 			if err := wsutil.WriteServerText(client.conn, marshalledEvent); err != nil {
-				// fmt.Printf("errors.Is(err, wsutil.ClosedError): %+v\n", errors.Is(err, wsutil.ClosedError{}))
-				// fmt.Printf("errors.Is(err, syscall.EPIPE): %+v\n", errors.Is(err, syscall.EPIPE))
-				// fmt.Printf("errors.Is(err, syscall.ECONNABORTED): %+v\n", errors.Is(err, syscall.ECONNABORTED))
-				// fmt.Printf("errors.Is(err, syscall.ECONNRESET): %+v\n", errors.Is(err, syscall.ECONNRESET))
 				if errors.Is(err, syscall.EPIPE) {
 					gbl.Log.Errorf("client %s disconnected: %s", client.conn.LocalAddr().String(), err.Error())
 
@@ -160,7 +152,7 @@ func (wh *WsHub) broadcastTTx() {
 // setupEventHandlers configures and adds all handlers
 func (wh *WsHub) setupEventHandlers() {
 	wh.handlers[EventSendMessage] = func(e Event, wc *WsClient) error {
-		fmt.Println(e)
+		gbl.Log.Error(e)
 		return nil
 	}
 }
@@ -181,19 +173,19 @@ func (wh *WsHub) routeEvent(event Event, wc *WsClient) error {
 
 // serveWS is a HTTP Handler that the has the Manager that allows connections
 func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
-	log.Println("New connection")
+	gbl.Log.Info("New connection")
 
 	// // Begin by upgrading the HTTP request
 	// conn, err := wsUpgrader.Upgrade(w, r, nil)
 	// if err != nil {
-	// 	log.Println(err)
+	// 	gbl.Log.Errorf(err)
 	// 	return
 	// }
 
 	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		// handle error
-		log.Println(err)
+		gbl.Log.Error(err)
 		return
 	}
 
@@ -219,7 +211,7 @@ func (wh *WsHub) addClient(client *WsClient) {
 	// Add Client
 	wh.clients[client] = true
 
-	log.Println("client added")
+	gbl.Log.Info("client added")
 }
 
 // removeClient will remove the client and clean up
@@ -235,7 +227,7 @@ func (wh *WsHub) removeClient(client *WsClient) {
 		delete(wh.clients, client)
 	}
 
-	log.Println("client removed")
+	gbl.Log.Info("client removed")
 }
 
 // func (wh *WebsocketsHub) Start() {
@@ -301,8 +293,6 @@ func (wh *WsHub) removeClient(client *WsClient) {
 // 			continue
 // 		}
 
-// 		// fmt.Printf("event: \n%s\n", string(marshalledEvent))
-
 // 		// broadcast
 // 		s.mu.RLock()
 // 		clients := s.clientList
@@ -312,10 +302,6 @@ func (wh *WsHub) removeClient(client *WsClient) {
 
 // 		for _, client := range clients {
 // 			if err := wsutil.WriteServerText(client.conn, marshalledEvent); err != nil {
-// 				// fmt.Printf("errors.Is(err, wsutil.ClosedError): %+v\n", errors.Is(err, wsutil.ClosedError{}))
-// 				// fmt.Printf("errors.Is(err, syscall.EPIPE): %+v\n", errors.Is(err, syscall.EPIPE))
-// 				// fmt.Printf("errors.Is(err, syscall.ECONNABORTED): %+v\n", errors.Is(err, syscall.ECONNABORTED))
-// 				// fmt.Printf("errors.Is(err, syscall.ECONNRESET): %+v\n", errors.Is(err, syscall.ECONNRESET))
 // 				if errors.Is(err, syscall.EPIPE) {
 // 					gbl.Log.Errorf("client %s disconnected: %s", client.id, err.Error())
 

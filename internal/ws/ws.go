@@ -118,8 +118,6 @@ package ws
 // 			continue
 // 		}
 
-// 		// fmt.Printf("event: \n%s\n", string(marshalledEvent))
-
 // 		// broadcast
 // 		s.mu.RLock()
 // 		clients := s.clientList
@@ -129,10 +127,6 @@ package ws
 
 // 		for _, client := range clients {
 // 			if err := wsutil.WriteServerText(client.conn, marshalledEvent); err != nil {
-// 				// fmt.Printf("errors.Is(err, wsutil.ClosedError): %+v\n", errors.Is(err, wsutil.ClosedError{}))
-// 				// fmt.Printf("errors.Is(err, syscall.EPIPE): %+v\n", errors.Is(err, syscall.EPIPE))
-// 				// fmt.Printf("errors.Is(err, syscall.ECONNABORTED): %+v\n", errors.Is(err, syscall.ECONNABORTED))
-// 				// fmt.Printf("errors.Is(err, syscall.ECONNRESET): %+v\n", errors.Is(err, syscall.ECONNRESET))
 // 				if errors.Is(err, syscall.EPIPE) {
 // 					gbl.Log.Errorf("client %s disconnected: %s", client.id, err.Error())
 

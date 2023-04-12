@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"github.com/benleb/gloomberg/internal/abis"
-
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"

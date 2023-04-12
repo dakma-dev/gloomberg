@@ -13,7 +13,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput *chan string) {
+func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput chan string) {
 	oldGasPrice := 0
 
 	for range gasTicker.C {
@@ -47,7 +47,6 @@ func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput 
 				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
 				// 	gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
 				// 	gasTip = int(math.Round(gasTipGwei))
-				// 	fmt.Printf("gasInfo.GasTipWei: %+v | gasTipGwei: %+v | gasTip: %+v\n", gasInfo.GasTipWei, gasTipGwei, gasTip)
 				// }
 
 				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
@@ -65,6 +64,6 @@ func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput 
 			}
 		}
 
-		*queueOutput <- gasLine.String()
+		queueOutput <- gasLine.String()
 	}
 }

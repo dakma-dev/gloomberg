@@ -4,7 +4,6 @@ package ws
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"time"
 
@@ -30,7 +29,7 @@ func StartWsClient(url string, queueEvents *chan *totra.TokenTransaction) {
 		return
 	}
 
-	fmt.Printf("client conn: %+v | err: %s\n", conn, err)
+	gbl.Log.Infof("client conn: %+v | err: %s\n", conn, err)
 
 	go func() {
 		defer conn.Close()
@@ -38,20 +37,12 @@ func StartWsClient(url string, queueEvents *chan *totra.TokenTransaction) {
 		for {
 			// msg, op, err := wsutil.ReadServerData(conn)
 
-			// fmt.Printf("client msg1 msg: %+v\n", msg)
-
-			// if err != nil {
-			// 	// handle error
-			// 	fmt.Printf("client msg1: %s | op: %s | err: %s\n", string(msg), string(op), err)
-			// }
-			// fmt.Printf("client msg1: %s\n", string(msg))
-
 			// msg, err := wsutil.ReadServerText(conn)
 			// m := []wsutil.Message{}
 			msg, err := wsutil.ReadServerText(conn)
 			if err != nil {
 				// handle error
-				fmt.Printf("client msg2: %v | err: %s\n", msg, err)
+				gbl.Log.Errorf("client msg2: %v | err: %s\n", msg, err)
 			}
 
 			var ttx *totra.TokenTransaction

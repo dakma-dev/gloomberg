@@ -74,7 +74,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// everything to print to the console
-	terminalPrinterQueue := make(chan string, 1024)
+	terminalPrinterQueue := make(chan string, 256)
 
 	// init redis client
 	rdb := redis.NewClient(&redis.Options{
@@ -151,7 +151,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	wsServer := ws.New(viper.GetString("websockets.server.host"), viper.GetUint("websockets.server.port"), &queueWsOutTokenTransactions)
 	// 	go wsServer.Start()
 
-	// 	fmt.Printf("📡 websockets server started on %s:%d\n", viper.GetString("websockets.server.host"), viper.GetUint("websockets.server.port"))
+	// 	gbl.Log.Infof("📡 websockets server started on %s:%d\n", viper.GetString("websockets.server.host"), viper.GetUint("websockets.server.port"))
 	// }
 
 	//
@@ -297,7 +297,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		// start gasline ticker
 		gasTicker = time.NewTicker(tickerInterval)
-		go ticker.GasTicker(gasTicker, gb.ProviderPool, &terminalPrinterQueue)
+		go ticker.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
 	}
 
 	// statsbox ticker
@@ -305,58 +305,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// start statsbox ticker
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
-		stats.StartTicker(statsInterval, &terminalPrinterQueue)
+		stats.StartTicker(statsInterval, terminalPrinterQueue)
 	}
-
-	//
-	// terminal printer
-	for workerID := 1; workerID <= viper.GetInt("server.workers.output"); workerID++ {
-		go func() {
-			gbl.Log.Debug("starting terminal printer...")
-
-			for eventLine := range terminalPrinterQueue {
-				gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
-
-				if viper.GetBool("log.debug") {
-					debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
-					eventLine = fmt.Sprint(debugPrefix, eventLine)
-				}
-
-				fmt.Println(eventLine)
-			}
-		}()
-	}
-
-	// //
-	// // print to terminal
-	// if !viper.GetBool("ui.headless") {
-	// 	gb.OutputQueues["terminal"] = make(chan *collections.Event, 1024)
-
-	// 	terminalPrinterQueue := make(chan string, 1024)
-
-	// 	// ticker & stats
-	// 	// if role.StatsTicker && gb.OutputQueues["terminal"] != nil {
-	// 	if gb.OutputQueues["terminal"] != nil {
-	// 		// gasline ticker
-	// 		var gasTicker *time.Ticker
-
-	// 		if tickerInterval := viper.GetDuration("ticker.gasline"); gb.Nodes != nil && len(gb.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-	// 			// initial startup delay
-	// 			time.Sleep(tickerInterval / 5)
-
-	// 			// start gasline ticker
-	// 			gasTicker = time.NewTicker(tickerInterval)
-	// 			go ticker.GasTicker(gasTicker, gb.Nodes, &terminalPrinterQueue)
-	// 		}
-
-	// 		// statsbox ticker
-	// 		stats := ticker.New(gasTicker, gb.OwnWallets, gb.Nodes, len(gb.CollectionDB.Collections))
-
-	// 		// start statsbox ticker
-	// 		if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
-	// 			stats.StartTicker(statsInterval, len(gb.BuyRules.Rules) > 0)
-	// 		}
-	// 	}
 
 	//
 	// subscribe to redis pubsub channel to receive events from gloomberg central
@@ -389,29 +339,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				}
 			}
 		}()
-
-		// // to enable multiple users to use the central gloomberg instance for events from opensea,
-		// // we first send the slugs of 'our' collections to the events-subscriptions channel.
-		// // the central gloomberg instance then creates a subscription on the opensea
-		// // api and publishes upcoming incoming events to the pubsub channel
-		// // marshal event to json
-		// mgmtEvent := &seawa.MgmtEvent{
-		// 	Action: seawa.Subscribe,
-		// 	Slugs:  gb.CollectionDB.OpenseaSlugs(),
-		// }
-
-		// jsonMgmtEvent, err := json.Marshal(mgmtEvent)
-		// if err != nil {
-		// 	gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
-
-		// 	return
-		// }
-
-		// if err := gb.Rdb.Publish(context.Background(), internal.PubSubChannelMgmt, jsonMgmtEvent).Err(); err != nil {
-		// 	gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
-		// } else {
-		// 	gbl.Log.Infof("📢 sent our collection slugs to %s: %v", internal.PubSubChannelMgmt, gb.CollectionDB.OpenseaSlugs())
-		// }
 	}
 
 	//
@@ -504,10 +431,23 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			gbl.Log.Infof("prometheus metrics: http://%s", listenAddress)
 
 			if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
-				fmt.Printf("error: %s", err)
 				gbl.Log.Error(err)
 			}
 		}()
+	}
+
+	gbl.Log.Debug("starting terminal printer...")
+
+	for eventLine := range terminalPrinterQueue {
+		gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+
+		if viper.GetBool("log.debug") {
+			debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
+			eventLine = fmt.Sprint(debugPrefix, eventLine)
+		}
+
+		fmt.Println(eventLine)
+		// gbl.Log.Info(eventLine)
 	}
 
 	// loop forever
@@ -587,7 +527,6 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.workers.newLogHandler", 6)
 	viper.SetDefault("server.workers.ttxFormatter", 6)
 	viper.SetDefault("server.workers.subscription_logs", 2)
-	viper.SetDefault("server.workers.output", 3)
 	viper.SetDefault("server.workers.listings", 2)
 	viper.SetDefault("server.pubsub.listings", 3)
 	viper.SetDefault("server.workers.pubsub.listings", 2)

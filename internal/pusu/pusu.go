@@ -3,7 +3,6 @@ package pusu
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"strings"
 
 	"github.com/benleb/gloomberg/internal"
@@ -28,7 +27,6 @@ func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransac
 		// validate json
 		if !json.Valid([]byte(msg.Payload)) {
 			gbl.Log.Warnf("❗️ invalid json: %s", msg.Payload)
-			fmt.Printf("❗️ invalid json: %s\n", msg.Payload)
 
 			continue
 		}
@@ -40,7 +38,6 @@ func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransac
 		err := json.Unmarshal([]byte(msg.Payload), &ttx)
 		if err != nil {
 			gbl.Log.Warnf("❗️ error unmarshalling event Tx: %+v | %s", msg.Payload, err)
-			fmt.Printf("❗️ error unmarshalling event Tx: %+v | %s\n", msg.Payload, err)
 
 			continue
 		}
@@ -121,7 +118,6 @@ func Publish(gb *gloomberg.Gloomberg, channel string, event any) {
 	marshalledEvent, err := json.Marshal(event)
 	if err != nil {
 		gbl.Log.Warnf("❗️ error marshalling event: %s", err)
-		fmt.Printf("❗️ error marshalling event: %s\n", err)
 
 		return
 	}
@@ -130,7 +126,6 @@ func Publish(gb *gloomberg.Gloomberg, channel string, event any) {
 	err = gb.Rdb.Publish(context.Background(), channel, marshalledEvent).Err()
 	if err != nil {
 		gbl.Log.Warnf("❗️ error publishing event to redis: %s", err)
-		fmt.Printf("❗️ error publishing event to redis: %s\n", err)
 	} else {
 		gbl.Log.Debug("published event to redis")
 	}

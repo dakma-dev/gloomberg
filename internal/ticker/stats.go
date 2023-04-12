@@ -146,7 +146,7 @@ func (s *Stats) AddMint() {
 	atomic.AddUint64(&s.mints, 1)
 }
 
-func (s *Stats) Print(queueOutput *chan string) {
+func (s *Stats) Print(queueOutput chan string) {
 	var (
 		formattedStatsLists string
 
@@ -184,7 +184,8 @@ func (s *Stats) Print(queueOutput *chan string) {
 		s.gasTicker.Reset(viper.GetDuration("ticker.gasline"))
 	}
 
-	*queueOutput <- "\n" + formattedStatsLists + "\n"
+	queueOutput <- "\n" + formattedStatsLists + "\n"
+	// gbl.Log.Info("\n" + formattedStatsLists + "\n")
 
 	s.Reset()
 }
@@ -387,7 +388,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	return eventsList
 }
 
-func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput *chan string) {
+func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan string) {
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
 	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)

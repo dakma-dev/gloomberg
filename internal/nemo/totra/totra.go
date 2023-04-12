@@ -228,7 +228,6 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 				// 	out.WriteString(fmt.Sprintf("from: %+v | to: %+v | amount: %+v | tokenid: %+v | addr: %+v\n", style.ShortenAddress(&transfer.OldFrom), style.ShortenAddress(transfer.To()), transfer.AmountTokens(), transfer.Token.ID, transfer.Token.Address))
 				// 	parsedLog := lopas.ParseTransferLog(txLog, ethNode)
 				// 	out.WriteString(fmt.Sprintf("from: %+v | to: %+v | amount: %+v | tokenid: %+v | addr: %+v\n\n", style.ShortenAddress(parsedLog.From()), style.ShortenAddress(parsedLog.To()), parsedLog.AmountTokens(), parsedLog.TokenID(), parsedLog.Token.Address))
-				// 	fmt.Println(out.String())
 				// }
 			}
 
