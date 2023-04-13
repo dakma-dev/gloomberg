@@ -21,14 +21,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/viper"
 )
 
 type Pool struct {
 	LastLogReceivedAt time.Time `json:"-" mapstructure:"-"`
 
-	providers []*provider `json:"providers" mapstructure:"providers"`
+	providers []*provider
 
-	queueLogs chan types.Log `json:"-" mapstructure:"-"`
+	queueLogs chan types.Log
+
+	// gb *gloomberg.Gloomberg `json:"-" mapstructure:"-"`
 }
 
 type methodCall string
@@ -150,22 +153,19 @@ func FromConfig(config interface{}) (*Pool, error) {
 }
 
 func (pp *Pool) ReconnectProviders() {
-	newProviders := make([]*provider, 0)
-
-	// reconnect
-	for _, provider := range pp.providers {
-		// connect to the endpoint
-		if err := provider.connect(); err != nil {
-			gbl.Log.Warnf("❔ not adding %s: %s", style.BoldStyle.Render(provider.Name), err)
-
-			continue
-		}
-
-		gbl.Log.Infof("✅ reconnected to node %s", style.BoldStyle.Render(provider.Name))
-		newProviders = append(newProviders, provider)
+	// compatibility with old config key
+	var providerConfig interface{}
+	if cfg := viper.Get("provider"); cfg != nil {
+		providerConfig = cfg
+	} else {
+		providerConfig = viper.Get("nodes")
 	}
 
-	pp.providers = newProviders
+	if pool, err := FromConfig(providerConfig); err != nil {
+		gbl.Log.Fatal("❌ running provider failed, exiting")
+	} else if pool != nil {
+		pp = pool
+	}
 
 	// re-subscribe
 	if _, err := pp.Subscribe(pp.queueLogs); err != nil {
@@ -180,6 +180,10 @@ func (pp *Pool) PreferredProviderAvailable() bool {
 }
 
 func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
+	if queueLogs == nil {
+		return 0, errors.New("queueLogs channel is nil")
+	}
+
 	// store channel for later use/reconnects
 	pp.queueLogs = queueLogs
 

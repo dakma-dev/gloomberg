@@ -198,7 +198,10 @@ func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 
 				decoded, err := base64.StdEncoding.DecodeString(data)
 				if err != nil {
-					gbl.Log.Error(err)
+					gbl.Log.Warn(err)
+					gbl.Log.Warn("")
+					gbl.Log.Warn(data)
+					gbl.Log.Warn("")
 				}
 
 				gbl.Log.Debugf("🧶 base64 json metadata: %+v", string(decoded))
@@ -213,7 +216,10 @@ func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 				var metadata map[string]interface{}
 				err := json.Unmarshal([]byte(data), &metadata)
 				if err != nil {
-					gbl.Log.Error(err)
+					gbl.Log.Warn(err)
+					gbl.Log.Warn("")
+					gbl.Log.Warn(data)
+					gbl.Log.Warn("")
 				}
 
 				gbl.Log.Debugf("🧶 json metadata: %+v", metadata)
