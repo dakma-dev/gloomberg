@@ -49,7 +49,7 @@ func keySalira(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordSalira)
 }
 
-func NewRedisClient() *redis.Client {
+func NewRedisClient(ctx context.Context) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: strings.Join([]string{
 			viper.GetString("redis.host"),
@@ -57,9 +57,7 @@ func NewRedisClient() *redis.Client {
 		}, ":"),
 		Password: viper.GetString("redis.password"),
 		DB:       viper.GetInt("redis.database"),
-	})
-
-	rdb.WithContext(context.Background())
+	}).WithContext(ctx)
 
 	return rdb
 }

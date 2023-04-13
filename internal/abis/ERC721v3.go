@@ -1118,7 +1118,7 @@ func (it *ERC721v3TransferIterator) Close() error {
 type ERC721v3Transfer struct {
 	From    common.Address
 	To      common.Address
-	TokenId *big.Int
+	TokenID *big.Int
 	Raw     types.Log // Blockchain specific contextual infos
 }
 

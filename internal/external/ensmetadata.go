@@ -1,6 +1,7 @@
 package external
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,8 +10,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -25,11 +26,11 @@ type ENSMetadata struct {
 	Attributes      []ENSMetadataAttribute `json:"attributes"`
 	BackgroundImage string                 `json:"background_image"`
 	Description     string                 `json:"description"`
-	ImageUrl        string                 `json:"image_url"`
+	ImageURL        string                 `json:"image_url"`
 	Name            string                 `json:"name"`
 	NameLength      int                    `json:"name_length"`
 	SegmentLength   int                    `json:"segment_length"`
-	Url             string                 `json:"url"`
+	URL             string                 `json:"url"`
 	Version         int                    `json:"version"`
 }
 
@@ -53,7 +54,7 @@ func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 
 	// response, err := client.Do(request)
 
-	response, err := utils.HTTP.Get(url)
+	response, err := utils.HTTP.Get(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
 			gbl.Log.Warnf("⌛️ timeout while fetching ens metadata: %+v", err.Error())
@@ -77,10 +78,10 @@ func parseENSMetadataResponse(response *http.Response) (*ENSMetadata, error) {
 	defer func() { _ = response.Body.Close() }()
 
 	if err != nil {
-		return nil, err
+		return &ENSMetadata{}, err
 	}
 
-	if response.StatusCode == 200 {
+	if response.StatusCode == http.StatusOK {
 		var metadata ENSMetadata
 
 		err = json.Unmarshal(bodyBytes, &metadata)

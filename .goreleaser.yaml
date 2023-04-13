@@ -1,4 +1,3 @@
-# documentation at https://goreleaser.com
 project_name: gloomberg
 
 # This is an example .goreleaser.yml file with some sensible defaults.
@@ -13,21 +12,10 @@ before:
     # - oapi-codegen -package ensmetadata -old-config-style -generate types,client,spec internal/assets/ens_metadata_service_0.0.1-alpha.1.yaml > internal/ensmetadata/ensmetadata.go
 builds:
   - binary: gloomberg
-    env:
-      - CGO_ENABLED=0
-    flags:
-      - -trimpath
-    goos:
-      - linux
-      - darwin
-      - windows
-    goarch:
-      - amd64
-      - arm64
-
-    ignore:
-      - goos: windows
-        goarch: arm64
+    env: ["CGO_ENABLED=0"]
+    flags: ["-trimpath"]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
 
     # Set the modified timestamp on the output binary, typically
     # you would do this to ensure a build was reproducible. Pass
@@ -50,70 +38,43 @@ universal_binaries:
     replace: true
 
 dockers:
-- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64"]
-  use: buildx
-  dockerfile: .github/run.Dockerfile
-  build_flag_templates: ["--platform=linux/amd64"]
-- image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
-  use: buildx
-  goarch: arm64
-  dockerfile: .github/run.Dockerfile
-  build_flag_templates: ["--platform=linux/arm64/v8"]
+  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64"]
+    use: buildx
+    dockerfile: .github/run.Dockerfile
+    build_flag_templates: ["--platform=linux/amd64"]
+  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
+    use: buildx
+    goarch: arm64
+    dockerfile: .github/run.Dockerfile
+    build_flag_templates: ["--platform=linux/arm64/v8"]
 
 docker_manifests:
-- name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
-  image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
-- name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
-  image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
+  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
+    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+  - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
+    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
 
-# config the checksum filename
-# https://goreleaser.com/customization/checksum
-checksum:
-  name_template: "checksums.txt"
+kos:
+  - repository: "ghcr.io/benleb/gloomberg"
+    bare: true
+    preserve_import_paths: false
+    tags: ["{{.Tag}}", latest]
+    platforms: [linux/amd64, linux/arm64]
 
-snapshot:
-  # name_template: "{{ incpatch .Version }}-dev"
-  name_template: "{{ .Summary }}"
+# config the checksum filename | https://goreleaser.com/customization/checksum
+checksum: { name_template: "checksums.txt" }
 
-changelog:
-  sort: asc
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
+snapshot: { name_template: "{{ .Summary }}" }
+
+changelog: { sort: asc, filters: { exclude: ["^docs:", "^test:"] } }
 
 announce:
   telegram:
-    # Whether its enabled or not.
-    # Defaults to false.
-    enabled: false
+    # Whether its enabled or not. Defaults to false.
+    enabled: true
 
     # Integer representation of your channel
-    chat_id: -575512868
+    chat_id: -1001808788625
 
-    # Message template to use while publishing.
-    # Defaults to `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
-    message_template: "💸 🚀 🙌  {{ .ProjectName }} {{.Tag}} is out! → {{ .ReleaseURL }} 🙌 🚀 💸"
-
-# gomod:
-#   # Proxy a module from proxy.golang.org, making the builds verifiable.
-#   # This will only be effective if running against a tag. Snapshots will ignore this setting.
-#   # Notice: for this to work your `build.main` must be a package, not a `.go` file.
-#   #
-#   # Default is false.
-#   proxy: true
-
-#   # If proxy is true, use these environment variables when running `go mod` commands (namely, `go mod tidy`).
-#   # Defaults to `os.Environ()`.
-#   env:
-#     - GOPROXY=https://proxy.golang.org,direct
-#     - GOSUMDB=sum.golang.org
-#   #   - GOPRIVATE=example.com/blah
-
-#   # Sets the `-mod` flag value.
-#   # Defaults to empty.
-#   mod: mod
-
-#   # Which Go binary to use.
-#   # Defaults to `go`.
-#   gobinary: go1.18
+    # Message template to use while publishing | `{{ .ProjectName }} {{ .Tag }} is out! Check it out at {{ .ReleaseURL }}`
+    message_template: '🚀🙌 {{ .ProjectName }} *{{ replace .Tag "." "\\." }}* is out 🙌🚀  → {{ replace .ReleaseURL "." "\\." }}'

@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <meta http-equiv="X-UA-Compatible" content="ie=edge" />
+
+        <title>{{.Title}}</title>
+
+        {{ template "style" . }}
+    </head>
+
+    <body>
+        <main>
+            <div class="stream">
+
+                <div id="id22" class="message eventType">
+                    <span class="time">{{.Time}}</span>
+                    <span class="typemoji">{{.Typemoji}}</span>
+
+                    <span>ID:</span>
+                    <span>Msg</span>
+
+                    <span class="pricearrow" style="color: #FF0099;">→</span>
+
+                    <span class="price">{{.Price}}</span>
+                    <span class="currency" style="color: #0099FF;">Ξ</span>
+
+                </div>
+            </div>
+
+            <div class="commandline">
+                <form id="commandline" live-submit="send" live-hook="input">
+                    <input autocomplete="off" type="text" name="message" autofocus disabled />
+                    <button type="submit" disabled>go</button>
+                </form>
+            </div>
+
+            <div class="side-top">
+                <p>gas: <span class="gas-price" live-update="replace">{{.Assigns.GasPrice}}</span>gw</p>
+            </div>
+
+            <div class="side-trending"></div>
+
+            <div class="side-wallets"></div>
+
+            <div class="side-footer"></div>
+        </main>
+
+        {{ template "javascript" . }}
+
+    </body>
+
+</html>

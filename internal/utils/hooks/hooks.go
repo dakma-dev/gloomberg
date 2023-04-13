@@ -1,3 +1,4 @@
+//nolint:forcetypeassert
 package hooks
 
 import (
@@ -96,7 +97,7 @@ func StringToLipglossColorHookFunc() mapstructure.DecodeHookFunc {
 }
 
 //// StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
-//func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
+// func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
 //	return func(
 //		f reflect.Type,
 //		t reflect.Type,

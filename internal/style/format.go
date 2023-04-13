@@ -8,7 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// FormatTokenInfo func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, faint bool, color bool) string {
+// FormatTokenInfo func FormatTokenInfo(tokenID *big.Int, collection *collections.GbCollection, faint bool, color bool) string {.
 func FormatTokenInfo(tokenID *big.Int, collectionName string, primaryStyle lipgloss.Style, secondaryStyle lipgloss.Style, faint bool, color bool) string {
 	var (
 		prefix = "#"
@@ -45,9 +45,9 @@ func FormatTokenInfo(tokenID *big.Int, collectionName string, primaryStyle lipgl
 	return tokenInfo
 }
 
-func GetNodeColor(eventType int, numNodes int) lipgloss.Color {
+func GetNodeColor(eventType int) lipgloss.Color {
 	if eventType == 3 {
-		return lipgloss.Color("#20293d")
+		return "#20293d"
 	}
 
 	return ""
