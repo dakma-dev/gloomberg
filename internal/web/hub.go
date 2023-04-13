@@ -153,6 +153,7 @@ func (wh *WsHub) broadcastTTx() {
 func (wh *WsHub) setupEventHandlers() {
 	wh.handlers[EventSendMessage] = func(e Event, wc *WsClient) error {
 		gbl.Log.Error(e)
+
 		return nil
 	}
 }
@@ -165,10 +166,11 @@ func (wh *WsHub) routeEvent(event Event, wc *WsClient) error {
 		if err := handler(event, wc); err != nil {
 			return err
 		}
+
 		return nil
-	} else {
-		return ErrEventNotSupported
 	}
+
+	return ErrEventNotSupported
 }
 
 // serveWS is a HTTP Handler that the has the Manager that allows connections
@@ -186,6 +188,7 @@ func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		// handle error
 		gbl.Log.Error(err)
+
 		return
 	}
 
