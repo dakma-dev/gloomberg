@@ -26,7 +26,6 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/trapri"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/slugs"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/benleb/gloomberg/internal/web"
@@ -62,7 +61,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	gbl.Log.Info(header)
 
 	// make version available to all packages
-	utils.GloombergVersion = Version
+	internal.GloombergVersion = Version
 
 	// global defaults
 	viper.Set("http.timeout", 27*time.Second)

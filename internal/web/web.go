@@ -12,9 +12,9 @@ import (
 	"log"
 	"net/http"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
-	"github.com/benleb/gloomberg/internal/utils"
 )
 
 func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
@@ -33,7 +33,7 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 
 	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		data := map[string]string{
-			"Title": "gloomberg | " + utils.GloombergVersion,
+			"Title": "gloomberg | " + internal.GloombergVersion,
 		}
 
 		tmpl.Execute(w, data)

@@ -1,7 +1,7 @@
 package marketplace
 
 import (
-	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -124,7 +124,7 @@ var Unknown = MarketPlace{
 	Name:  "Unknown",
 	Color: lipgloss.Color("#777777"),
 	ContractAddresses: map[common.Address]bool{
-		utils.ZeroAddress: true,
+		internal.ZeroAddress: true,
 	},
 	Tag: "¦",
 }

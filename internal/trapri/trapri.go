@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
@@ -110,8 +111,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	// ttx.Events = uniqueNFTEvents
 
 	// a watched wallet is involved
-	isOwnWallet := gb.OwnWallets.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != utils.ZeroAddress
-	isWatchUsersWallet := gb.Watcher.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != utils.ZeroAddress
+	isOwnWallet := gb.OwnWallets.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
+	isWatchUsersWallet := gb.Watcher.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
 
 	// telegram notification
 	if viper.GetBool("notifications.telegram.enabled") && (isOwnWallet || isWatchUsersWallet) && ttx.Action != totra.Transfer {
@@ -277,7 +278,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			fmtTokenID.WriteString(formatTokenID(collection, transfer.Token.ID))
 
 			// add a marker for burned tokens
-			if transfer.To == utils.ZeroAddress {
+			if transfer.To == internal.ZeroAddress {
 				fmtTokenID.WriteString("🔥")
 
 				if ttx.Action == totra.ReBurn {
@@ -600,11 +601,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	buyer := ttx.Transfers[0].To
 
-	if ttx.IsReBurn() && len(ttx.Transfers) > 1 && buyer == utils.ZeroAddress {
+	if ttx.IsReBurn() && len(ttx.Transfers) > 1 && buyer == internal.ZeroAddress {
 		buyer = ttx.Transfers[1].To
 	} else if ttx.IsBurn() {
 		for _, fromAddresses := range ttx.GetNFTSenderAddresses() {
-			if fromAddresses != utils.ZeroAddress {
+			if fromAddresses != internal.ZeroAddress {
 				buyer = fromAddresses
 
 				break

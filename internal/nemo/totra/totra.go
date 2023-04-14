@@ -14,7 +14,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/topic"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -352,11 +351,11 @@ func (ttx *TokenTransaction) IsMint() bool {
 	}
 
 	// mints comes always from the zero address and never go to it
-	if senders[utils.ZeroAddress] == nil {
+	if senders[internal.ZeroAddress] == nil {
 		return false
 	}
 
-	if receivers[utils.ZeroAddress] != nil {
+	if receivers[internal.ZeroAddress] != nil {
 		return false
 	}
 
@@ -378,7 +377,7 @@ func (ttx *TokenTransaction) IsAirdrop() bool {
 	receivers := ttx.GetNFTReceiverAddresses()
 
 	// airdrops come from the zeroAddress
-	if len(senders) != 1 || senders[0] != utils.ZeroAddress {
+	if len(senders) != 1 || senders[0] != internal.ZeroAddress {
 		return false
 	}
 
@@ -410,7 +409,7 @@ func (ttx *TokenTransaction) IsReBurn() bool {
 		}
 	}
 
-	if receivers[utils.ZeroAddress] == nil || senders[utils.ZeroAddress] == nil {
+	if receivers[internal.ZeroAddress] == nil || senders[internal.ZeroAddress] == nil {
 		return false
 	}
 
@@ -426,7 +425,7 @@ func (ttx *TokenTransaction) IsBurn() bool {
 	receivers := ttx.GetNFTReceivers()
 
 	// there must be exactly one receiver and it must be the zero address
-	if len(receivers) != 1 || receivers[utils.ZeroAddress] == nil {
+	if len(receivers) != 1 || receivers[internal.ZeroAddress] == nil {
 		return false
 	}
 
@@ -468,7 +467,7 @@ func (ttx *TokenTransaction) IsTransfer() bool {
 
 	for _, transfer := range ttx.Transfers {
 		if transfer.Standard.IsERC721orERC1155() {
-			if transfer.To == utils.ZeroAddress || transfer.From == utils.ZeroAddress {
+			if transfer.To == internal.ZeroAddress || transfer.From == internal.ZeroAddress {
 				return false
 			}
 		}

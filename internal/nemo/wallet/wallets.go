@@ -3,7 +3,7 @@ package wallet
 import (
 	"sort"
 
-	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -44,7 +44,7 @@ func (ws *Wallets) ContainsAddressFromSlice(addresses []common.Address) common.A
 		}
 	}
 
-	return utils.ZeroAddress
+	return internal.ZeroAddress
 }
 
 func (ws *Wallets) SortByBalance() []*Wallet {

@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 
 	"github.com/VividCortex/ewma"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -16,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -249,7 +249,7 @@ func (uc *Collection) CalculateSaLiRa(address common.Address) (float64, float64)
 	uc.SaLiRa.Add(float64(uc.Counters.Sales) / float64(uc.Counters.Listings))
 	currentSaLiRa := uc.SaLiRa.Value()
 
-	if address != utils.ZeroAddress {
+	if address != internal.ZeroAddress {
 		go cache.StoreSalira(context.TODO(), address, currentSaLiRa)
 	}
 

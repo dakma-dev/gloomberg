@@ -7,17 +7,11 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/nemo/topic"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/spf13/viper"
-)
-
-var (
-	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
-	ZeroHash    = common.Hash{}
-
-	GloombergVersion = "unknown"
 )
 
 // GetLinks returns the links to etherscan, opensea and blur.
@@ -88,7 +82,7 @@ func ParseFirstTopic(topics []common.Hash) topic.Topic {
 
 func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Address, *big.Int) {
 	if len(topics) < 3 {
-		return "", ZeroAddress, ZeroAddress, nil
+		return "", internal.ZeroAddress, internal.ZeroAddress, nil
 	}
 
 	logTopic := topic.Topic(topics[0].Hex())

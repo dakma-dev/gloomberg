@@ -9,8 +9,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/term"
@@ -197,7 +197,7 @@ func ShortenAddress(address *common.Address) string {
 // ShortenAddressStyled returns a shortened address styled with colors.
 func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string {
 	// gray out zero address
-	if *address == utils.ZeroAddress {
+	if *address == internal.ZeroAddress {
 		gray := DarkGrayStyle.Copy().Faint(false).Render
 		darkGray := DarkGrayStyle.Copy().Faint(true).Render
 

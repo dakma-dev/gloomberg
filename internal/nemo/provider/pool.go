@@ -10,12 +10,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -462,7 +462,7 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 		return "", errors.New("address is empty")
 	}
 
-	if address == utils.ZeroAddress {
+	if address == internal.ZeroAddress {
 		return "", errors.New("address is zero address")
 	}
 
