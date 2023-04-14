@@ -119,14 +119,14 @@ func FromConfig(config interface{}) (*Pool, error) {
 
 	// handle reconnects
 	go func() {
-		// reconnect if no logs received for 27 seconds ~ 3 blocks
-		maxDelay := time.Duration(27 * time.Second)
+		// reconnect if no logs received for a while
+		maxDelay := 27 * time.Second // 27s ~ 3 blocks
 		reconnectTicker := time.NewTicker(maxDelay)
 
 		for range reconnectTicker.C {
 			// if last log is older than maxDelay, we reconnect
-			if providerPool.LastLogReceivedAt.Add(maxDelay).Before(time.Now()) {
-				infoMsg := fmt.Sprintf("❌ 🔌 no logs received for %dsec, reconnecting to our providers/ethereum nodes", maxDelay)
+			if !providerPool.LastLogReceivedAt.IsZero() && providerPool.LastLogReceivedAt.Add(maxDelay).Before(time.Now()) {
+				infoMsg := fmt.Sprintf("❌ 🔌 no logs received for %.0fsec, reconnecting to our providers/ethereum nodes", maxDelay.Seconds())
 				gbl.Log.Info(infoMsg)
 
 				providerPool.ReconnectProviders()
@@ -152,7 +152,10 @@ func FromConfig(config interface{}) (*Pool, error) {
 	return providerPool, nil
 }
 
+// func (pp *Pool) ReconnectProviders(queueLogs *chan types.Log) {
 func (pp *Pool) ReconnectProviders() {
+	gbl.Log.Info("🔌 trying to re-connect...")
+
 	// compatibility with old config key
 	var providerConfig interface{}
 	if cfg := viper.Get("provider"); cfg != nil {
@@ -161,11 +164,24 @@ func (pp *Pool) ReconnectProviders() {
 		providerConfig = viper.Get("nodes")
 	}
 
+	if pp.queueLogs == nil {
+		gbl.Log.Fatal("❌ queueLogs is nil - can npt re-subscribe, exiting")
+
+		return
+	}
+
+	// store the current queueLogs channel
+	queueLogs := pp.queueLogs
+
+	// reconnect to the providers
 	if pool, err := FromConfig(providerConfig); err != nil {
 		gbl.Log.Fatal("❌ running provider failed, exiting")
 	} else if pool != nil {
 		pp = pool
 	}
+
+	// restore the queueLogs channel
+	pp.queueLogs = queueLogs
 
 	// re-subscribe
 	if _, err := pp.Subscribe(pp.queueLogs); err != nil {
