@@ -37,6 +37,7 @@ type Pool struct {
 type methodCall string
 
 const (
+	BlockNumber        methodCall = "eth_blockNumber"
 	TransactionByHash  methodCall = "eth_getTransactionByHash"
 	TransactionReceipt methodCall = "eth_getTransactionReceipt"
 
@@ -303,6 +304,11 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return tx, nil
 			}
 
+		case BlockNumber:
+			if blockNumber, err := provider.Client.BlockNumber(ctx); err == nil {
+				return blockNumber, nil
+			}
+
 		case TransactionReceipt:
 			if params.TxHash == (common.Hash{}) {
 				return nil, errors.New("invalid transaction hash")
@@ -381,6 +387,16 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 	}
 
 	return nil, err
+}
+
+// BlockNumber returns the most recent block number.
+func (pp *Pool) BlockNumber(ctx context.Context) (uint64, error) {
+	num, err := pp.callMethod(ctx, BlockNumber, methodCallParams{})
+	if blockNum, ok := num.(uint64); err == nil && ok {
+		return blockNum, nil
+	}
+
+	return 0, err
 }
 
 // TransactionByHash returns the transaction for the given hash.
@@ -518,19 +534,6 @@ func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
 // 	}
 
 // 	return append(localNodeclients, clients...)
-// }
-
-// // BlockNumber returns the most recent block number.
-// func (pp *Pool) BlockNumber(ctx context.Context) (uint64, error) {
-// 	var err error
-
-// 	for _, client := range pp.getClients() {
-// 		if blockNumber, err := client.BlockNumber(ctx); err == nil {
-// 			return blockNumber, nil
-// 		}
-// 	}
-
-// 	return 0, err
 // }
 
 // // BlockByNumber returns the given full block.
