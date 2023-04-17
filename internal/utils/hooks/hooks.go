@@ -56,6 +56,26 @@ func StringToDurationHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
+// StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
+func StringToTimeHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data any,
+	) (any, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+
+		if t != reflect.TypeOf(time.Time{}) {
+			return data, nil
+		}
+
+		// Convert it by parsing
+		return time.Parse(time.RFC3339, data.(string))
+	}
+}
+
 // StringToInt64HookFunc is a mapstructure hook function that converts a string to a common.Address.
 func StringToInt64HookFunc() mapstructure.DecodeHookFunc {
 	return func(
