@@ -18,7 +18,7 @@ import (
 // seaWatcherCmd represents the seawa command.
 var seaWatcherCmd = &cobra.Command{
 	Use:     "seawatcher",
-	Aliases: []string{"seawa", "oswwatcher", "osw"},
+	Aliases: []string{"seawa"},
 	Short:   "receives events from the OpenSea API and pushes them to the redis database",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
@@ -60,10 +60,24 @@ func run(_ *cobra.Command, _ []string) {
 		}()
 	}
 
+	var redisAddress string
+	network := "tcp"
+
+	if viper.IsSet("redis.address") {
+		redisAddress = viper.GetString("redis.address")
+		if strings.HasPrefix(redisAddress, "unix://") {
+			network = "unix"
+			redisAddress = strings.Replace(redisAddress, "unix://", "", 1)
+		}
+	} else {
+		// fallback to old config
+		redisAddress = viper.GetString("redis.host") + ":" + fmt.Sprint(viper.GetInt("redis.port"))
+	}
 	//
 	// init redis client
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     viper.GetString("redis.host") + ":" + fmt.Sprint(viper.GetInt("redis.port")),
+		Network:  network,
+		Addr:     redisAddress,
 		Password: viper.GetString("redis.password"),
 		DB:       viper.GetInt("redis.database"),
 	}).WithContext(context.Background())

@@ -260,11 +260,24 @@ func (p *provider) connect() error {
 		p.Client = nil
 	}
 
-	rpcClient, err := rpc.DialContext(context.Background(), p.Endpoint)
-	if err != nil {
-		gbl.Log.Debugf("Failed to connect to node %s: %s", p.Name, err)
+	var rpcClient *rpc.Client
 
-		return err
+	if strings.HasPrefix(p.Endpoint, "unix://") {
+		p.Endpoint = strings.TrimPrefix(p.Endpoint, "unix://")
+
+		rpcClient, err = rpc.DialIPC(context.Background(), p.Endpoint)
+		if err != nil {
+			gbl.Log.Debugf("Failed to connect to node %s: %s", p.Name, err)
+
+			return err
+		}
+	} else {
+		rpcClient, err = rpc.DialContext(context.Background(), p.Endpoint)
+		if err != nil {
+			gbl.Log.Debugf("Failed to connect to node %s: %s", p.Name, err)
+
+			return err
+		}
 	}
 
 	ethClient := ethclient.NewClient(rpcClient)
