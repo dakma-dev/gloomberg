@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	apiKeyEtherscan, apiKeyMoralis, apiKeyOpensea, cfgFile string
-	endpoints, ownWallets                                  []string
+	cfgFile    string
+	ownWallets []string
 
 	lo = internal.BasePrinter
 )
