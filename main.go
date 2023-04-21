@@ -3,6 +3,7 @@ package main
 
 import (
 	"github.com/benleb/gloomberg/cmd"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 )
@@ -12,7 +13,7 @@ var version = "dev" // commit    = "none"
 // builtBy   = "unknown"
 
 func main() {
-	cmd.Version = version
+	internal.GloombergVersion = version
 
 	// cmd.BuildDate = buildDate
 	// cmd.BuiltBy = builtBy

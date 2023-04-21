@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -36,8 +37,6 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
-
-var Version string
 
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
@@ -541,9 +540,6 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.workers.pubsub.listings", 2)
 
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
-
-	// gas
-	viper.SetDefault("interval.gas", time.Second*37)
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", time.Second*53)

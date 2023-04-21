@@ -87,10 +87,6 @@ func (c *GbCache) cacheName(ctx context.Context, address common.Address, keyFunc
 	if c.rdb != nil {
 		gbl.Log.Debugf("redis | caching %s -> %s", keyFunc(address), value)
 
-		if ctx == nil {
-			ctx = c.rdb.Context()
-		}
-
 		err := c.rdb.SetEX(ctx, keyFunc(address), value, duration).Err()
 
 		if err != nil {
@@ -119,10 +115,6 @@ func (c *GbCache) getName(ctx context.Context, address common.Address, keyFunc f
 
 	if c.rdb != nil {
 		gbl.Log.Debugf("redis | searching for: %s", keyFunc(address))
-
-		if ctx == nil {
-			ctx = c.rdb.Context()
-		}
 
 		name, err := c.rdb.Get(ctx, keyFunc(address)).Result()
 
@@ -175,7 +167,7 @@ func (c *GbCache) getName(ctx context.Context, address common.Address, keyFunc f
 	return "", errors.New("name not found in cache")
 }
 
-func (c *GbCache) cacheFloat(address common.Address, keyFunc func(common.Address) string, value float64, duration time.Duration) {
+func (c *GbCache) cacheFloat(ctx context.Context, address common.Address, keyFunc func(common.Address) string, value float64, duration time.Duration) {
 	c.mu.Lock()
 	// c.addressToName[address] = value
 	c.localFloatCache[keyFunc(address)] = value
@@ -184,7 +176,7 @@ func (c *GbCache) cacheFloat(address common.Address, keyFunc func(common.Address
 	if c.rdb != nil {
 		gbl.Log.Debugf("redis | caching %s -> %f", keyFunc(address), value)
 
-		err := c.rdb.SetEX(c.rdb.Context(), keyFunc(address), value, duration).Err()
+		err := c.rdb.SetEX(ctx, keyFunc(address), value, duration).Err()
 
 		if err != nil {
 			gbl.Log.Warnf("redis | error while adding: %s", err.Error())
@@ -194,7 +186,7 @@ func (c *GbCache) cacheFloat(address common.Address, keyFunc func(common.Address
 	}
 }
 
-func (c *GbCache) getFloat(address common.Address, keyFunc func(common.Address) string) (float64, error) {
+func (c *GbCache) getFloat(ctx context.Context, address common.Address, keyFunc func(common.Address) string) (float64, error) {
 	c.mu.RLock()
 	// value := c.addressToName[address]
 	value := c.localFloatCache[keyFunc(address)]
@@ -209,7 +201,7 @@ func (c *GbCache) getFloat(address common.Address, keyFunc func(common.Address) 
 	if c.rdb != nil {
 		gbl.Log.Debugf("redis | searching for: %s", keyFunc(address))
 
-		value, err := c.rdb.Get(c.rdb.Context(), keyFunc(address)).Float64()
+		value, err := c.rdb.Get(ctx, keyFunc(address)).Float64()
 
 		switch {
 		case errors.Is(err, nil):
@@ -275,25 +267,25 @@ func StoreBlurSlug(ctx context.Context, contractAddress common.Address, slug str
 func StoreFloor(ctx context.Context, address common.Address, value float64) {
 	c := New(ctx)
 
-	c.cacheFloat(address, keyFloorPrice, value, viper.GetDuration("cache.floor_ttl"))
+	c.cacheFloat(ctx, address, keyFloorPrice, value, viper.GetDuration("cache.floor_ttl"))
 }
 
 func GetFloor(ctx context.Context, address common.Address) (float64, error) {
 	c := New(ctx)
 
-	return c.getFloat(address, keyFloorPrice)
+	return c.getFloat(ctx, address, keyFloorPrice)
 }
 
 func StoreSalira(ctx context.Context, address common.Address, value float64) {
 	c := New(ctx)
 
-	c.cacheFloat(address, keySalira, value, viper.GetDuration("cache.salira_ttl"))
+	c.cacheFloat(ctx, address, keySalira, value, viper.GetDuration("cache.salira_ttl"))
 }
 
 func GetSalira(ctx context.Context, address common.Address) (float64, error) {
 	c := New(ctx)
 
-	return c.getFloat(address, keySalira)
+	return c.getFloat(ctx, address, keySalira)
 }
 
 // NotificationLock implements a lock to prevent sending multiple notifications for the same event
@@ -312,10 +304,6 @@ func NotificationLock(ctx context.Context, txID common.Hash) (bool, error) {
 	var err error
 
 	if c.rdb != nil {
-		if ctx == nil {
-			ctx = c.rdb.Context()
-		}
-
 		unlocked, err = c.rdb.SetNX(ctx, keyNotificationsLock(txID), releaseKey.String(), viper.GetDuration("cache.notifications_lock_ttl")).Result()
 
 		gbl.Log.Debugf("📣 %s | locked %+v", txID.String(), unlocked)

@@ -6,7 +6,9 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/charmbracelet/log"
 	"github.com/go-redis/redis/v8"
@@ -40,7 +42,7 @@ func init() {
 }
 
 func run(_ *cobra.Command, _ []string) {
-	log.Info(fmt.Sprintf("⚓️ starting seawatcher %s…", Version))
+	log.Info(fmt.Sprintf("⚓️ starting seawatcher %s…", internal.GloombergVersion))
 
 	//
 	// init metrics
@@ -73,6 +75,7 @@ func run(_ *cobra.Command, _ []string) {
 		// fallback to old config
 		redisAddress = viper.GetString("redis.host") + ":" + fmt.Sprint(viper.GetInt("redis.port"))
 	}
+
 	//
 	// init redis client
 	rdb := redis.NewClient(&redis.Options{

@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/cmd/flotscmd"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -45,6 +47,9 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	// subcommands
+	rootCmd.AddCommand(flotscmd.FlotsCmd)
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
@@ -57,17 +62,17 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
 	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
 
-	// rpc nodes
-	rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
-	_ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
+	// // rpc nodes
+	// rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
+	// _ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
 
-	// apis
-	rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
-	_ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
-	rootCmd.PersistentFlags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
-	_ = viper.BindPFlag("api_keys.moralis", rootCmd.Flags().Lookup("moralis"))
-	rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
-	_ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
+	// // apis
+	// rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")
+	// _ = viper.BindPFlag("api_keys.etherscan", rootCmd.Flags().Lookup("etherscan"))
+	// rootCmd.PersistentFlags().StringVar(&apiKeyMoralis, "moralis", "", "Moralis API Key")
+	// _ = viper.BindPFlag("api_keys.moralis", rootCmd.Flags().Lookup("moralis"))
+	// rootCmd.PersistentFlags().StringVar(&apiKeyOpensea, "opensea", "", "Opensea API Key")
+	// _ = viper.BindPFlag("api_keys.opensea", rootCmd.Flags().Lookup("opensea"))
 
 	// rootCmd.DebugFlags()
 	// rootCmd.AddGroup(&cobra.Group{ID: "logging", Title: "logging"})

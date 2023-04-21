@@ -488,7 +488,7 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 		return cachedName, nil
 	}
 
-	name, err := pp.callMethod(context.Background(), ResolveENSAddress, methodCallParams{Address: address})
+	name, err := pp.callMethod(ctx, ResolveENSAddress, methodCallParams{Address: address})
 	gbl.Log.Debugf("pp.callMethod result - ens ensName for address %s is %+v", address.Hex(), name)
 
 	if ensName, ok := name.(string); err == nil && ok && ensName != "" {

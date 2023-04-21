@@ -225,7 +225,12 @@ func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 				gbl.Log.Debugf("🧶 json metadata: %+v", metadata)
 
 				if name, ok := metadata["name"]; ok {
-					return name.(string), nil
+					tokenName, ok := name.(string)
+					if !ok {
+						gbl.Log.Warnf("🧶 json metadata name is not a string: %v", name)
+					}
+
+					return tokenName, nil
 				}
 
 			default:
