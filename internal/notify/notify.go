@@ -19,6 +19,7 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -157,6 +158,11 @@ func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.Token
 		action = totra.Purchase
 	}
 
+	tokenPrice := ttx.GetPrice()
+	if transfer.AmountEtherReturned != nil && transfer.AmountEtherReturned.Cmp(big.NewInt(0)) > 0 {
+		tokenPrice = price.NewPrice(transfer.AmountEtherReturned)
+	}
+
 	// build message to send
 	msgTelegram := strings.Builder{}
 	msgTelegram.WriteString(action.Icon())
@@ -169,7 +175,7 @@ func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.Token
 	}
 
 	msgTelegram.WriteString(" *" + style.FormatTokenInfo(transfer.Token.ID, collection.Name, collection.Style(), collection.StyleSecondary(), false, false) + "*")
-	msgTelegram.WriteString(" for *" + fmt.Sprintf("%.3f", ttx.GetPrice().Ether()) + "*Ξ")
+	msgTelegram.WriteString(" for *" + fmt.Sprintf("%.3f", tokenPrice) + "*Ξ")
 	msgTelegram.WriteString("\n")
 	msgTelegram.WriteString(" " + style.ShortenAddress(&triggerAddress) + " |")
 	msgTelegram.WriteString(" [Tx](" + etherscanURL + ")")
