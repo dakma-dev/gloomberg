@@ -2,27 +2,46 @@ package web
 
 import "encoding/json"
 
-// Event is the Messages sent over the websocket
+// Message is the Messages sent over the websocket
 // Used to differ between different actions
-type Event struct {
+type Message struct {
 	// Type is the message type sent
 	Type string `json:"type"`
 	// Payload is the data Based on the Type
-	Payload json.RawMessage `json:"payload"`
+	Payload any `json:"payload"`
 }
 
-// EventHandler is a function signature that is used to affect messages on the socket and triggered
+// MessageHandler is a function signature that is used to affect messages on the socket and triggered
 // depending on the type
-type EventHandler func(event Event, c *WsClient) error
+type MessageHandler func(message Message, c *WsClient) error
 
 const (
-	// EventSendMessage is the event name for new chat messages sent
-	EventSendMessage = "send_message"
+	// MessageSendMessage is the message name for new chat messages sent
+	// MsgSendMessage = "send_message"
+
+	MsgNewSale  = "new_event"
+	MsgGasPrice = "gas_price"
+
+	MsgCommand = "cmd"
 )
 
-// SendMessageEvent is the payload sent in the
-// send_message event
-type SendMessageEvent struct {
+type MessagePayload json.RawMessage
+
+// payloads for message types
+type NewEventMessage struct {
+	Message string `json:"message"`
+	From    string `json:"from"`
+}
+
+// payloads for message types
+type GasPriceMessage struct {
+	Normal float64 `json:"normal"`
+	Fast   float64 `json:"fast"`
+}
+
+// SendMessageMessage is the payload sent in the
+// send_message message
+type SendMessageMessage struct {
 	Message string `json:"message"`
 	From    string `json:"from"`
 }

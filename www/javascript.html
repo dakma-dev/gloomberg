@@ -1,9 +1,13 @@
 {{ define "javascript" }}
 
+<!-- ReconnectingWebSocket | https://github.com/joewalnes/reconnecting-websocket -->
+<script src="/js/reconnecting-websocket.min.js"></script>
+
 <!-- Javascript to Connect to Websocket and Handle New messages -->
 <script type="text/javascript">
     // selectedchat is by default General.
     var selectedchat = "general";
+    var eventStream = document.getElementById("event_stream");
 
     /**
      * Event is used to wrap all messages Send and Recieved
@@ -11,8 +15,20 @@
      * The type is used as a RPC
      * */
     class Event {
-        // Each Event needs a Type
-        // The payload is not required
+        constructor(type, payload) {
+            this.type = type;
+            this.payload = payload;
+        }
+    }
+
+    class NewSaleMsg {
+        constructor(type, payload) {
+            this.type = type;
+            this.payload = payload;
+        }
+    }
+
+    class GasPriceMsg {
         constructor(type, payload) {
             this.type = type;
             this.payload = payload;
@@ -28,12 +44,34 @@
             // console.warn("no 'type' field in event");
         }
         switch (event.type) {
-            case "new_message":
-                console.log("new message");
+            // case "new_message":
+            //     console.log(event.type + ": " + JSON.stringify(event.payload));
+            //     break;
+            case "new_event":
+                console.log(event.type + ": " + JSON.stringify(event.payload));
+
+                var newEvet = document.createElement("div")
+
+                newEvet.classList.add("message");
+                newEvet.innerText = JSON.stringify(event.payload)
+
+                appendEvent(newEvet);
+
+                break;
+            case "gas_price":
+                console.log(event.type + ": " + JSON.stringify(event.payload));
                 break;
             default:
-                // console.warn("unsupported message type");
+                console.warn("unsupported message type: " + JSON.stringify(event.type));
                 break;
+        }
+    }
+
+    function appendEvent(item) {
+        var doScroll = eventStream.scrollTop > eventStream.scrollHeight - eventStream.clientHeight - 1;
+        eventStream.appendChild(item);
+        if (doScroll) {
+            eventStream.scrollTop = eventStream.scrollHeight - eventStream.clientHeight;
         }
     }
 
@@ -71,6 +109,7 @@
         // Format as JSON and send
         conn.send(JSON.stringify(event));
     }
+
     /**
      * Once the website loads, we want to apply listeners and connect to websocket
      * */
@@ -85,11 +124,11 @@
             var url = "wss://" + document.location.host + "/ws";
 
             // connect to gloomberg websocket
-            conn = new WebSocket(url);
+            conn = new ReconnectingWebSocket(url);
 
             // connected
             conn.onopen = function (evt) {
-                console.log("✅ connected to " + url + "! LFG mfer! 🚀");
+                console.log("🟢 connected to " + url + "! LFG mfer! 🚀");
 
                 // set 'connected' class to visualize the connection status
                 document.body.classList.add("connected");
@@ -105,8 +144,6 @@
 
             // new message received
             conn.onmessage = function (evt) {
-                console.log(evt);
-
                 // parse websocket message as JSON
                 const eventData = JSON.parse(evt.data);
 

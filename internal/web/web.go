@@ -31,16 +31,18 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 		gbl.Log.Error(err)
 	}
 
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		data := map[string]string{
 			"Title": "gloomberg | " + internal.GloombergVersion,
 		}
 
-		tmpl.Execute(w, data)
+		if err := tmpl.Execute(w, data); err != nil {
+			gbl.Log.Error("Error executing template: ", err)
+		}
 	})
 
-	// // Serve the ./frontend directory at Route /
-	// http.Handle("/", http.FileServer(http.Dir("./www")))
+	// static js files (the stripping feels a bit weird...)
+	http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./www/js"))))
 
 	http.HandleFunc("/ws", hub.serveWS)
 
