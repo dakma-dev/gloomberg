@@ -566,13 +566,16 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	// show "from" if its a transfer or a watched address
 	if !ttx.IsListing() {
 		var fmtFrom string
+		uniqueFrom := make(map[common.Address]int)
 
-		if tfFrom := ttx.GetNFTSenderAddresses(); len(tfFrom) > 0 {
-			uniqueFrom := make(map[common.Address]bool)
-
-			for _, fromAddr := range tfFrom {
-				uniqueFrom[fromAddr] = true
+		if tfFrom := ttx.GetNFTSenders(); len(tfFrom) > 0 {
+			for fromAddr, transfers := range tfFrom {
+				uniqueFrom[fromAddr] = len(transfers)
 				transferFrom = fromAddr
+
+				// if uniqueFrom[fromAddr] > 1 {
+				// 	gbl.Log.Infof("🤷 transferFrom addresses: %+v", uniqueFrom)
+				// }
 			}
 
 			if len(uniqueFrom) > 1 {
@@ -594,6 +597,10 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		}
 
 		out.WriteString(fmtFrom)
+
+		if uniqueFrom[transferFrom] > 1 {
+			out.WriteString(fmt.Sprintf(" (%d)", uniqueFrom[transferFrom]))
+		}
 	}
 
 	// buyer
