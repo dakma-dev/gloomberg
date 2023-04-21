@@ -14,6 +14,8 @@ import (
 var (
 	apiKeyEtherscan, apiKeyMoralis, apiKeyOpensea, cfgFile string
 	endpoints, ownWallets                                  []string
+
+	lo = internal.BasePrinter
 )
 
 // rootCmd represents the base command when called without any subcommands.

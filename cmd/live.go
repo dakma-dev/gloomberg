@@ -56,12 +56,22 @@ var liveCmd = &cobra.Command{
 
 func runGloomberg(_ *cobra.Command, _ []string) {
 	// print header
-	header := style.GetHeader(Version)
+	header := style.GetHeader(internal.GloombergVersion)
 	fmt.Println(header)
 	gbl.Log.Info(header)
 
-	// make version available to all packages
-	internal.GloombergVersion = Version
+	// file logger | open file and create if non-existent
+	logFile, err := os.OpenFile(viper.GetString("log.log_file"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		gbl.Log.Fatal(err)
+	}
+	defer logFile.Close()
+
+	// loFi := internal.FileLogger(logFile)
+
+	lo.Print(header)
+
+	// loFi.Print(header)
 
 	// global defaults
 	viper.Set("http.timeout", 27*time.Second)
