@@ -169,13 +169,12 @@ func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.Token
 	msgTelegram.WriteString(" " + strings.ReplaceAll(userName, "_", "\\_"))
 	msgTelegram.WriteString(" " + action.ActionName())
 
-	value := ttx.Tx.Value()
-	if value != nil && value.Cmp(big.NewInt(1)) > 1 {
-		msgTelegram.WriteString(" " + value.String() + "x") // erc1155 token value/amounts
+	if transfer.AmountTokens != nil && transfer.AmountTokens.Cmp(big.NewInt(1)) > 1 {
+		msgTelegram.WriteString(" " + transfer.AmountTokens.String() + "x") // erc1155 token value/amounts
 	}
 
 	msgTelegram.WriteString(" *" + style.FormatTokenInfo(transfer.Token.ID, collection.Name, collection.Style(), collection.StyleSecondary(), false, false) + "*")
-	msgTelegram.WriteString(" for *" + fmt.Sprintf("%.3f", tokenPrice) + "*Ξ")
+	msgTelegram.WriteString(" for *" + fmt.Sprintf("%.3f", tokenPrice.Ether()) + "*Ξ")
 	msgTelegram.WriteString("\n")
 	msgTelegram.WriteString(" " + style.ShortenAddress(&triggerAddress) + " |")
 	msgTelegram.WriteString(" [Tx](" + etherscanURL + ")")
