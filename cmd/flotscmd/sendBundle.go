@@ -37,12 +37,12 @@ var sendBundleCmd = &cobra.Command{
 		//
 		// simulate with call bundle
 		callBundle := flots.CallBundle(rawTxs)
-		lo.Info(fmt.Sprintf("🟢 call bundle: %+v\n\n\n", callBundle))
+		lo.Print(fmt.Sprintf("🟢 call bundle: %+v\n\n\n", callBundle))
 
 		//
 		// send bundle
 		bundleHash := flots.SendBundleWithRawTxs(rawTxs)
-		fmt.Printf("🟢 bundle sent! hash: %s\n\n", bundleHash)
+		lo.Print(fmt.Sprintf("🟢 bundle sent! hash: %s\n\n", bundleHash))
 
 		// store (blocknum + plusBlocks) at time of sending the bundle (not sure if this is needed at all)
 		latestBlockPlusWhenSending := flots.LatestBlockPlus()

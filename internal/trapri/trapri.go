@@ -287,7 +287,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			}
 
 			// if it is an ENS we use the resolved domain name as "token id"
-			if transfer.Token.Address == external.ENSContract {
+			if transfer.Token.Address == internal.ENSContractAddress || transfer.Token.Address == internal.ENSNameWrapperContractAddress {
 				// set custom collection name
 				collection.Name = "ENS"
 
@@ -354,7 +354,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			name = "⸘Unknown‽"
 
 		// if its an ENS nft, we use the resolved domain name as token id and slightly modify the collection name
-		case contractAddress == external.ENSContract && ensMetadata != nil:
+		case (contractAddress == internal.ENSContractAddress || contractAddress == internal.ENSNameWrapperContractAddress) && ensMetadata != nil:
 			name = collection.Style().Copy().Faint(true).Render(collection.Name + collection.StyleSecondary().Render(":"))
 
 		// default collection name

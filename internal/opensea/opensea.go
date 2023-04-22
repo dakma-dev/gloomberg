@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
@@ -87,7 +86,8 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 		for _, contract := range collection.PrimaryAssetContracts {
 			contractAddress := common.HexToAddress(contract.Address)
 
-			if userCollections.Collections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
+			// if userCollections.Collections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
+			if userCollections.Collections[contractAddress] != nil {
 				continue
 			}
 

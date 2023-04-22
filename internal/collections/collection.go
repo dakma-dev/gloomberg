@@ -11,7 +11,6 @@ import (
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
-	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
@@ -82,7 +81,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 	switch {
 	case name != "":
 		collectionName = name
-	case contractAddress == external.ENSContract:
+	case contractAddress == internal.ENSContractAddress, contractAddress == internal.ENSNameWrapperContractAddress:
 		collectionName = "ENS"
 	default:
 		name, err := gbCache.GetCollectionName(contractAddress)

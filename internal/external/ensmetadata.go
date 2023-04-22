@@ -10,9 +10,9 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/ethereum/go-ethereum/common"
 )
 
 type ENSMetadataAttribute struct {
@@ -34,12 +34,7 @@ type ENSMetadata struct {
 	Version         int                    `json:"version"`
 }
 
-const (
-	ensMetadataAPI     = "https://metadata.ens.domains"
-	ensContractAddress = "0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85"
-)
-
-var ENSContract = common.HexToAddress(ensContractAddress)
+const ensMetadataAPI = "https://metadata.ens.domains"
 
 func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 	if tokenID == nil {
@@ -47,12 +42,7 @@ func GetENSMetadataForTokenID(tokenID *big.Int) (*ENSMetadata, error) {
 	}
 
 	// build url
-	url := ensMetadataAPI + "/" + "mainnet" + "/" + ensContractAddress + "/" + fmt.Sprint(tokenID)
-
-	// client, _ := newClient()
-	// request, _ := http.NewRequest("GET", url, nil)
-
-	// response, err := client.Do(request)
+	url := ensMetadataAPI + "/" + "mainnet" + "/" + internal.ENSContractAddress.String() + "/" + fmt.Sprint(tokenID)
 
 	response, err := utils.HTTP.Get(context.Background(), url)
 	if err != nil {
