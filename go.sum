@@ -450,8 +450,8 @@ github.com/labstack/echo/v4 v4.5.0/go.mod h1:czIriw4a0C1dFun+ObrXp7ok03xON0N1awS
 github.com/labstack/gommon v0.3.0/go.mod h1:MULnywXg0yavhxWKc+lOruYdAhDwPK9wf0OL7NoOu+k=
 github.com/leanovate/gopter v0.2.9/go.mod h1:U2L/78B+KVFIx2VmW6onHJQzXtFb+p5y3y2Sh+Jxxv8=
 github.com/lib/pq v1.0.0/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
-github.com/lmittmann/flashbots v0.6.1 h1:8ixlQ0NULlJggVNSiM4nfs26WPobx2Z4lNI/+QxWSIs=
-github.com/lmittmann/flashbots v0.6.1/go.mod h1:9JdkGL8QT5pDL8W7ZS+5n4mwVkikR7yAWLhklcr7OBc=
+github.com/lmittmann/flashbots v0.6.2 h1:ycw/3bUt9BiAE6wD/QCZMdfVQDRKEVONzlbwsDvpWlc=
+github.com/lmittmann/flashbots v0.6.2/go.mod h1:KKsuvpdpiGTusoKoP17rxVKbNd9idEcfaNHU7t26zFA=
 github.com/lmittmann/w3 v0.11.2 h1:k1P/KtBTIWm8ozSJp5bkQwHOu+9BCJkqgalbI8tnkjs=
 github.com/lmittmann/w3 v0.11.2/go.mod h1:S8iGrfAz1ApJttB6nz/gfFDOy7iVvznweMMRF+SchJA=
 github.com/lucasb-eyer/go-colorful v1.2.0 h1:1nnpGOrhyZZuNyfu1QjKiUICQ74+3FNCN69Aj6K7nkY=
