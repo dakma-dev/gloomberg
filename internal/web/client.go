@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	// pongWait is how long we will await a pong response from client
+	// pongWait is how long we will await a pong response from client.
 	pongWait = 10 * time.Second
 
 	// pingInterval has to be less than pongWait, We cant multiply by 0.9 to get 90% of time
-	// The reason why it has to be less than PingRequency is becuase otherwise it will send a new Ping before getting response
+
 	pingInterval = (pongWait * 9) / 10
 )
 
@@ -31,7 +31,7 @@ type WsClient struct {
 	egress chan Message
 }
 
-// NewClient is used to initialize a new Client with all required values initialized
+// NewClient is used to initialize a new Client with all required values initialized.
 func NewClient(conn net.Conn, hub *WsHub) *WsClient {
 	return &WsClient{
 		conn:   conn,
@@ -41,8 +41,8 @@ func NewClient(conn net.Conn, hub *WsHub) *WsClient {
 }
 
 // readMessages will start the client to read messages and handle them
-// appropriatly.
-// This is suppose to be ran as a goroutine
+// appropriately.
+// This is suppose to be ran as a goroutine.
 func (wc *WsClient) readMessages() {
 	defer func() {
 		// Graceful Close the Connection once this
@@ -56,7 +56,7 @@ func (wc *WsClient) readMessages() {
 		// in the connection
 		msg, op, err := wsutil.ReadClientData(wc.conn)
 		if err != nil {
-			// If Connection is closed, we will Recieve an error here
+			// If Connection is closed, we will Receive an error here
 			gbl.Log.Debugf("error reading message: %v", err)
 
 			break // Break the loop to close conn & Cleanup
@@ -79,15 +79,15 @@ func (wc *WsClient) readMessages() {
 	}
 }
 
-// pongHandler is used to handle PongMessages for the Client
-func (wc *WsClient) pongHandler(pongMsg string) error {
-	// Current time + Pong Wait time
-	log.Println("pong")
+// // pongHandler is used to handle PongMessages for the Client.
+// func (wc *WsClient) pongHandler(pongMsg string) error {
+// 	// Current time + Pong Wait time
+// 	log.Println("pong")
 
-	return wc.conn.SetReadDeadline(time.Now().Add(pongWait))
-}
+// 	return wc.conn.SetReadDeadline(time.Now().Add(pongWait))
+// }
 
-// writeMessages is a process that listens for new messages to output to the Client
+// writeMessages is a process that listens for new messages to output to the Client.
 func (wc *WsClient) writeMessages() {
 	// Create a ticker that triggers a ping at given interval
 	ticker := time.NewTicker(pingInterval)
@@ -132,7 +132,7 @@ func (wc *WsClient) writeMessages() {
 			}
 		}
 
-		gbl.Log.Info("sent message: %+v", message)
+		gbl.Log.Infof("sent message: %+v", message)
 
 		// case <-ticker.C:
 		// 	log.Println("ping")

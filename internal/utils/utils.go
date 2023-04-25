@@ -1,10 +1,8 @@
 package utils
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 
 	"github.com/benleb/gloomberg/internal"
@@ -64,7 +62,7 @@ func WalletShortAddress(address common.Address) string {
 //	return pattern.ReplaceAllString(str, "")
 //}
 
-// PrepareURL replaces the ipfs:// scheme or "https://ipfs.io" with the configured ipfs gateway
+// PrepareURL replaces the ipfs:// scheme or "https://ipfs.io" with the configured ipfs gateway.
 func PrepareURL(url string) string {
 	const schemeIPFS = "ipfs://"
 
@@ -106,27 +104,27 @@ func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	return logTopic, fromAddress, toAddress, rawTokenID
 }
 
-// TODO MERGE SOMEHOW WITH duplicated methods.
-func GetERC1155TokenID(data []byte) *big.Int {
-	half := len(data) / 2
-	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
+// // TODO MERGE SOMEHOW WITH duplicated methods.
+// func GetERC1155TokenID(data []byte) *big.Int {
+// 	half := len(data) / 2
+// 	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
 
-	return big.NewInt(tokenID)
-}
+// 	return big.NewInt(tokenID)
+// }
 
-func GetERC1155TokenValue(data []byte) *big.Int {
-	half := len(data) / 2
-	value, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[half:], "\x00")), 16, 64)
+// func GetERC1155TokenValue(data []byte) *big.Int {
+// 	half := len(data) / 2
+// 	value, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[half:], "\x00")), 16, 64)
 
-	return big.NewInt(value)
-}
+// 	return big.NewInt(value)
+// }
 
-func GetERC1155TokenIDAndAmount(data []byte) (*big.Int, *big.Int) {
-	tokenID := GetERC1155TokenID(data)
-	value := GetERC1155TokenValue(data)
+// func GetERC1155TokenIDAndAmount(data []byte) (*big.Int, *big.Int) {
+// 	tokenID := GetERC1155TokenID(data)
+// 	value := GetERC1155TokenValue(data)
 
-	return tokenID, value
-}
+// 	return tokenID, value
+// }
 
 func WeiToEther(wei *big.Int) *big.Float {
 	f := new(big.Float)

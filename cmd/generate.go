@@ -23,7 +23,7 @@ var (
 	parallel int
 )
 
-// generateCmd represents the generate command
+// generateCmd represents the generate command.
 var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "A brief description of your command",

@@ -181,6 +181,22 @@ func (ttx *TokenTransaction) GetNFTSenders() map[common.Address][]*TokenTransfer
 	return nftSenders
 }
 
+func (ttx *TokenTransaction) GetNonZeroNFTSenders() map[common.Address][]*TokenTransfer {
+	nftSenders := ttx.GetNFTSenders()
+
+	nonZeroSenders := make(map[common.Address][]*TokenTransfer, 0)
+
+	for addr, sender := range nftSenders {
+		if addr == internal.ZeroAddress {
+			continue
+		}
+
+		nonZeroSenders[addr] = sender
+	}
+
+	return nonZeroSenders
+}
+
 func (ttx *TokenTransaction) GetNFTSenderAddresses() []common.Address {
 	nftSenders := ttx.GetNFTSenders()
 

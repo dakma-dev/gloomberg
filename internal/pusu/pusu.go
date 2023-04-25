@@ -46,7 +46,7 @@ func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransac
 	}
 }
 
-// SubscribeToListings subscribes to all collections for which we have a slug
+// SubscribeToListings subscribes to all collections for which we have a slug.
 func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction) {
 	slugAddresses := gb.CollectionDB.OpenseaSlugAddresses()
 	if len(slugAddresses) == 0 {

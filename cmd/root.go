@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/cmd/flotscmd"
-	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -16,8 +15,6 @@ import (
 var (
 	cfgFile    string
 	ownWallets []string
-
-	lo = internal.BasePrinter
 )
 
 // rootCmd represents the base command when called without any subcommands.

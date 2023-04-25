@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+// Log is the logger used to write to the logfile (with caller and timestamp reporting)
 var Log *zap.SugaredLogger
 
 func GetSugaredLogger() *zap.SugaredLogger {

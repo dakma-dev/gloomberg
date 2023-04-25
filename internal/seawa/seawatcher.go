@@ -504,7 +504,7 @@ func (sw *SeaWatcher) on(eventType osmodels.EventType, collectionSlug string, ev
 // 	}()
 // }
 
-// Start starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to
+// Start starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
 func (sw *SeaWatcher) Start() {
 	// subscribe to new slugs
 	pubsubMgmt := sw.rdb.Subscribe(context.Background(), internal.TopicSeaWatcherMgmt)
