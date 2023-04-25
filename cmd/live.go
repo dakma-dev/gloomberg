@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -58,19 +57,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	header := style.GetHeader(internal.GloombergVersion)
 	fmt.Println(header)
 	gbl.Log.Info(header)
-
-	// file logger | open file and create if non-existent
-	logFile, err := os.OpenFile(viper.GetString("log.log_file"), os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		gbl.Log.Fatal(err)
-	}
-	defer logFile.Close()
-
-	// loFi := internal.FileLogger(logFile)
-
-	lo.Print(header)
-
-	// loFi.Print(header)
 
 	// global defaults
 	viper.Set("http.timeout", 27*time.Second)
@@ -293,6 +279,22 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}
 	}
 
+	// start central terminal printer
+	go func() {
+		gbl.Log.Debug("starting terminal printer...")
+
+		for eventLine := range terminalPrinterQueue {
+			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+
+			if viper.GetBool("log.debug") {
+				debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
+				eventLine = fmt.Sprint(debugPrefix, eventLine)
+			}
+
+			fmt.Println(eventLine)
+		}
+	}()
+
 	slugTicker := time.NewTicker(7 * time.Second)
 	go slugs.SlugWorker(slugTicker, &gb.QueueSlugs)
 
@@ -442,20 +444,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				gbl.Log.Error(err)
 			}
 		}()
-	}
-
-	gbl.Log.Debug("starting terminal printer...")
-
-	for eventLine := range terminalPrinterQueue {
-		gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
-
-		if viper.GetBool("log.debug") {
-			debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
-			eventLine = fmt.Sprint(debugPrefix, eventLine)
-		}
-
-		fmt.Println(eventLine)
-		// gbl.Log.Info(eventLine)
 	}
 
 	// loop forever
