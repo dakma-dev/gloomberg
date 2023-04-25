@@ -119,6 +119,19 @@
         // document.getElementById("chatroom-selection").onsubmit = changeChatRoom;
         // document.getElementById("chatroom-message").onsubmit = sendMessage;
 
+        const transport = new WebTransport("https://" + document.location.host + "/webtransport", {
+
+        });
+
+        // Optionally, set up functions to respond to
+        // the connection closing:
+        transport.closed.then(() => {
+            console.log(`The HTTP/3 connection to ${url} closed gracefully.`);
+        }).catch((error) => {
+            console.error(`The HTTP/3 connection to ${url} closed due to ${error}.`);
+        });
+
+
         // check websockets support
         if (window["WebSocket"]) {
             var url = "wss://" + document.location.host + "/ws";
