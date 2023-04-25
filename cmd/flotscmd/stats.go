@@ -7,40 +7,68 @@ import (
 	"fmt"
 
 	"github.com/benleb/gloomberg/internal/flots"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lmittmann/w3"
 	"github.com/spf13/cobra"
 )
 
-// statsCmd represents the userStats command
+// statsCmd represents the userStats command.
 var statsCmd = &cobra.Command{
 	Use:     "stats",
 	Aliases: []string{"userStats", "bundleStats"},
 	Short:   "gets the user stats and, if a bundle hash is provided, the bundle stats for that bundle",
 
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("stats called")
+		// print header
+		fmt.Println("\n" + flashBotsTitle + "\n")
 
 		flots := flots.New()
 
 		userStats := flots.GetUserStats()
 
-		// print user statistics
-		lo.Info(fmt.Sprintf("High priority: %t", userStats.IsHighPriority))
-		lo.Info(fmt.Sprintf("7 day fees: %s ETH", w3.FromWei(userStats.Last7dValidatorPayments, 18)))
-		lo.Info(fmt.Sprintf("Total fees: %s ETH", w3.FromWei(userStats.AllTimeValidatorPayments, 18)))
-
-		if flagBBundleHash == "" {
-			return
+		// colorize
+		var prioStyle lipgloss.Style
+		if userStats.IsHighPriority {
+			prioStyle = style.TrendGreenStyle.Copy().Bold(true)
+		} else {
+			prioStyle = style.TrendRedStyle.Copy().Bold(true)
 		}
 
-		fmt.Printf("\n\n\n\n")
+		// print user statistics
+		fmt.Printf("  user: %s\n\n", style.Bold(flots.UserAddress().String()))
 
-		bundleHash := common.HexToHash(flagBBundleHash)
-		lo.Info(fmt.Sprintf("bundleStats | blockNum: %d | bundleHash: %s\n", flots.LatestBlock().Uint64(), bundleHash.String()))
+		fmt.Printf("    high priority: %s\n", prioStyle.Render(fmt.Sprint(userStats.IsHighPriority)))
+		fmt.Printf("    7 day fees: %sΞ\n", style.Bold(w3.FromWei(userStats.Last7dValidatorPayments, 18)))
+		fmt.Printf("    total fees: %sΞ\n", style.Bold(w3.FromWei(userStats.AllTimeValidatorPayments, 18)))
 
-		bundleStats := flots.GetBundleStats(bundleHash)
-		lo.Info(fmt.Sprintf("bundleStats: %+v\n", bundleStats))
+		// print bundle statistics if a bundleHash was given
+		if bundleHash := common.HexToHash(flagBBundleHash); bundleHash != (common.Hash{}) {
+			fmt.Printf("\n\n - - - - - - - - - - - - - -\n\n")
+
+			bundleStats := flots.GetBundleStats(bundleHash)
+
+			// colorize
+			if bundleStats.IsHighPriority {
+				prioStyle = style.TrendGreenStyle.Copy().Bold(true)
+			} else {
+				prioStyle = style.TrendRedStyle.Copy().Bold(true)
+			}
+
+			fmt.Printf("  bundle: %s\n\n", style.Bold(bundleHash.String()))
+
+			fmt.Printf("    receivedAt: %s\n", style.Bold(fmt.Sprint(bundleStats.ReceivedAt)))
+			fmt.Printf("    isSimulated: %s\n", style.Bold(fmt.Sprint(bundleStats.IsSimulated)))
+			if bundleStats.IsSimulated {
+				fmt.Printf("    simulatedAt: %s\n", style.Bold(fmt.Sprint(bundleStats.SimulatedAt)))
+			}
+			fmt.Printf("    isHighPriority: %s\n", prioStyle.Render(fmt.Sprint(bundleStats.IsHighPriority)))
+			fmt.Printf("    consideredByBuildersAt: %s\n", style.Bold(fmt.Sprint(len(bundleStats.ConsideredByBuildersAt))))
+			fmt.Printf("    sealedByBuildersAt: %s\n", style.Bold(fmt.Sprint(bundleStats.SealedByBuildersAt)))
+		}
+
+		fmt.Printf("\n")
 	},
 }
 

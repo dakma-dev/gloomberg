@@ -1,6 +1,7 @@
 package flots
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 
@@ -21,6 +22,8 @@ type Client struct {
 	fbClient *w3.Client
 
 	PlusBlocks *big.Int
+
+	SignerPublicKey *ecdsa.PublicKey
 }
 
 func New() *Client {
@@ -32,10 +35,16 @@ func New() *Client {
 		log.Fatal("❌ invalid or missing flots mainnet provider")
 	}
 
+	//
+	// create the flots client
+	flots := &Client{PlusBlocks: big.NewInt(viper.GetInt64("flots.plusBlocks"))}
+
 	// check for valid flashbots signer key
 	if signerKey, err := crypto.HexToECDSA(viper.GetString("flots.signerKey")); err == nil {
 		// create the flashbots client
 		fbClient = flashbots.MustDial(viper.GetString("flots.relay"), signerKey)
+
+		flots.SignerPublicKey = &signerKey.PublicKey
 	} else {
 		log.Fatal(fmt.Sprintf("❌ invalid or missing signer key: %v", err))
 	}
@@ -50,21 +59,19 @@ func New() *Client {
 		log.Fatal("❌ invalid or missing flots mainnet provider")
 	}
 
-	//
-	// create the flots client
-	flots := &Client{
-		w3Client: w3Client,
-		fbClient: fbClient,
-
-		PlusBlocks: big.NewInt(viper.GetInt64("flots.plusBlocks")),
-	}
+	flots.fbClient = fbClient
+	flots.w3Client = w3Client
 
 	log.Debug(fmt.Sprintf("flots: %+v\n", flots))
 
 	return flots
 }
 
-// LatestBlock gets the latest block number
+func (c *Client) UserAddress() common.Address {
+	return crypto.PubkeyToAddress(*c.SignerPublicKey)
+}
+
+// LatestBlock gets the latest block number.
 func (c *Client) LatestBlock() *big.Int {
 	var latestBlock big.Int
 
@@ -79,7 +86,7 @@ func (c *Client) LatestBlock() *big.Int {
 	return &latestBlock
 }
 
-// LatestBlockPlus gets the latest block number plus the configured offset
+// LatestBlockPlus gets the latest block number plus the configured offset.
 func (c *Client) LatestBlockPlus() *big.Int {
 	return new(big.Int).Add(c.LatestBlock(), c.PlusBlocks)
 }
