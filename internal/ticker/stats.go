@@ -28,10 +28,10 @@ import (
 var ErrWalletBalance = fmt.Errorf("error fetching wallet balance")
 
 var (
-	listStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder(), false, true, false, false).
-			BorderForeground(style.Subtle).
-			MarginRight(0)
+	listStyle = lipgloss.NewStyle()
+	// Border(lipgloss.NormalBorder(), false, true, false, false).
+	// BorderForeground(style.Subtle)
+	// MarginRight(0).
 
 	itemStyle = lipgloss.NewStyle().Padding(0, 2)
 	listItem  = itemStyle.Render
@@ -174,8 +174,8 @@ func (s *Stats) Print(queueOutput chan string) {
 	}
 
 	if len(s.OwnEventsHistory) > 0 || len(s.EventHistory) > 0 {
-		eventsList := listStyle.Copy().UnsetWidth().UnsetBorderRight().PaddingLeft(0).Render
-		statsLists = append(statsLists, eventsList(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
+		eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
+		statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
 	}
 
 	formattedStatsLists = lipgloss.JoinHorizontal(lipgloss.Top, statsLists...)
@@ -273,7 +273,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	}
 
 	// combine lists
-	statsOutput := []string{listStyle.Copy().PaddingLeft(1).Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
+	statsOutput := []string{listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
 
 	if len(secondcolumn) > 0 {
 		statsOutput = append(statsOutput, listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, secondcolumn...)))
@@ -393,11 +393,11 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan s
 
 	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
 
+	time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))
+
+	tickerPrintStats.Reset(intervalPrintStats)
+
 	go func() {
-		time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))
-
-		tickerPrintStats.Reset(intervalPrintStats)
-
 		for range tickerPrintStats.C {
 			s.Print(queueOutput)
 		}
