@@ -3,6 +3,7 @@ package trapri
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"math/big"
 	"strings"
@@ -22,7 +23,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
@@ -348,6 +348,19 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		case totra.Mint:
 			collection.AddMint()
 		}
+	}
+
+	// add to stats
+	if gb.Stats != nil && ttx.TotalTokens > 0 {
+		if ttx.IsMint() {
+			gb.Stats.AddMint(ttx.TotalTokens)
+		}
+
+		if ttx.AmountPaid.Uint64() > 0 {
+			gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
+		}
+
+		log.Println(ttx.Action)
 	}
 
 	// TODO implement multi-collection handling
@@ -685,13 +698,16 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		}
 	}
 
+	//
+	// 🌈 finally print the sale/listing/whatever 🌈
 	if !viper.GetBool("ui.headless") {
 		terminalPrinterQueue <- out.String()
 	}
 
-	if isOwn && ticker.StatsTicker != nil && !ttx.IsLoan() {
+	// add to history
+	if isOwn && !ttx.IsLoan() {
 		if !ttx.IsListing() || (ttx.IsListing() && isOwnWallet) {
-			ticker.StatsTicker.EventHistory = append(ticker.StatsTicker.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
+			gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
 		}
 	}
 

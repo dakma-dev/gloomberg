@@ -1,4 +1,4 @@
-package ticker
+package stats
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -35,8 +36,6 @@ var (
 
 	itemStyle = lipgloss.NewStyle().Padding(0, 2)
 	listItem  = itemStyle.Render
-
-	StatsTicker *Stats
 )
 
 type Stats struct {
@@ -83,13 +82,15 @@ func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider
 
 	stats.Reset()
 
-	StatsTicker = stats
-
 	return stats
 }
 
 func (s *Stats) salesPerMinute() float64 {
 	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
+}
+
+func (s *Stats) mintsPerMinute() float64 {
+	return float64((s.mints * 60) / uint64(s.interval.Seconds()))
 }
 
 func (s *Stats) salesVolumePerMinute() float64 {
@@ -135,15 +136,15 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	return s.wallets, nil
 }
 
-func (s *Stats) AddSale(value *big.Int) float64 {
+func (s *Stats) AddSale(amountTokens int64, value *big.Int) float64 {
 	s.salesVolume.Add(s.salesVolume, value)
-	atomic.AddUint64(&s.sales, 1)
+	atomic.AddUint64(&s.sales, uint64(amountTokens))
 
 	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
 }
 
-func (s *Stats) AddMint() {
-	atomic.AddUint64(&s.mints, 1)
+func (s *Stats) AddMint(amountTokens int64) {
+	atomic.AddUint64(&s.mints, uint64(amountTokens))
 }
 
 func (s *Stats) Print(queueOutput chan string) {
@@ -228,16 +229,25 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 	}
 
+	//
 	// per minute stats
-	volumeLabel := style.DarkGrayStyle.Render("Ξ v/m")
-	volumeValue := style.GrayStyle.Render(fmt.Sprintf("%5.1f", s.salesVolumePerMinute()))
-	salesLabel := style.DarkGrayStyle.Render("s/m")
-	salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(s.salesPerMinute())))
+	if volume := s.salesVolumePerMinute(); volume > 0.0 {
+		volumeLabel := style.DarkGrayStyle.Render("Ξ  /m")
+		volumeValue := style.GrayStyle.Render(fmt.Sprintf("%5.1f", volume))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
+	}
 
-	firstColumn = append(firstColumn, []string{
-		listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel)),
-		listItem(fmt.Sprintf("%s %s", salesValue, salesLabel)),
-	}...)
+	if sales := s.salesPerMinute(); sales > 0.0 {
+		salesLabel := style.DarkGrayStyle.Render("s/m")
+		salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(sales)))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
+	}
+
+	if mints := s.mintsPerMinute(); mints > 0.0 {
+		mintsLabel := style.DarkGrayStyle.Render("m/m")
+		mintsValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(mints)))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)
+	}
 
 	//
 	// second column
@@ -363,7 +373,12 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 		tokenInfo := event.FmtTokensTransferred[0] // strings.Join(event.FmtTokensTransferred, " | ")
 
+		isOwnWallet := s.wallets.ContainsAddressFromSlice(event.TokenTransaction.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
+
 		timeNow := rowStyle.Render(event.ReceivedAt.Format("15:04:05"))
+		if isOwnWallet {
+			timeNow = collectionStyle.Render(event.ReceivedAt.Format("15:04:05"))
+		}
 
 		pricePerItem := price.NewPrice(event.AmountPaid)
 		if event.TokenTransaction.TotalTokens > 0 {

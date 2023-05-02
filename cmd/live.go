@@ -23,8 +23,8 @@ import (
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/pusu"
 	"github.com/benleb/gloomberg/internal/seawa"
+	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/trapri"
 	"github.com/benleb/gloomberg/internal/utils/slugs"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
@@ -291,15 +291,15 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		// start gasline ticker
 		gasTicker = time.NewTicker(tickerInterval)
-		go ticker.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
+		go stats.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
 	}
 
 	//
 	// statsbox
-	stats := ticker.New(gasTicker, gb.OwnWallets, gb.ProviderPool)
+	gb.Stats = stats.New(gasTicker, gb.OwnWallets, gb.ProviderPool)
 
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
-		stats.StartTicker(statsInterval, terminalPrinterQueue)
+		gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
 	}
 
 	//
