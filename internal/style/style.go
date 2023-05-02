@@ -35,6 +35,7 @@ var (
 	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
 	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999999"))
+	Gray5Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
 	Gray7Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#777"))
 	Gray8Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#888"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
