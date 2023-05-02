@@ -3,7 +3,6 @@ package trapri
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"math/big"
 	"strings"
@@ -359,8 +358,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		if ttx.AmountPaid.Uint64() > 0 {
 			gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
 		}
-
-		log.Println(ttx.Action)
 	}
 
 	// TODO implement multi-collection handling
