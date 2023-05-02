@@ -3,6 +3,7 @@ package utils
 import (
 	"fmt"
 	"math/big"
+	"regexp"
 	"strings"
 
 	"github.com/benleb/gloomberg/internal"
@@ -62,10 +63,16 @@ func WalletShortAddress(address common.Address) string {
 //	return pattern.ReplaceAllString(str, "")
 //}
 
-// PrepareURL replaces the ipfs:// scheme or "https://ipfs.io" with the configured ipfs gateway.
+// PrepareURL removes not allowed characters and replaces the ipfs:// scheme or "https://ipfs.io" with the configured ipfs gateway.
 func PrepareURL(url string) string {
 	const schemeIPFS = "ipfs://"
 
+	// regex with characters allowed in a URL
+	regexURL := regexp.MustCompile(`[^a-zA-Z0-9-_/:.,?&@=#%]`)
+	// strip characters not in regex
+	url = string(regexURL.ReplaceAll([]byte(url), []byte("")))
+
+	// replace ipfs scheme/gateway
 	url = strings.Replace(url, schemeIPFS, viper.GetString("ipfs.gateway"), 1)
 	url = strings.Replace(url, "https://ipfs.io", viper.GetString("ipfs.gateway"), 1)
 
