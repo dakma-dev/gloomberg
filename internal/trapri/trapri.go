@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"strconv"
 	"strings"
 	"time"
 
@@ -75,46 +74,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		txHash = ttx.Tx.Hash()
 	}
 
-	// // print the eventTx
-	// originNode := gb.Nodes.GetRandomNode()
-
-	// isMintOrSaleOrPurchase := collections.EventType(ttx.Action) == collections.Mint || collections.EventType(ttx.Action) == collections.Sale || collections.EventType(ttx.Action) == collections.Purchase
-
 	// is a collections from configured collections + own wallets
 	isOwnCollection := false
-
-	// for _, event := range ttx.Events {
-	// 	if event.Collection != nil {
-	// 		event.Collection = GetCollection(gb, event.ContractAddress, event.TokenID)
-
-	// 		if event.Collection != nil && event.Collection.IgnorePrinting {
-	// 			gbl.Log.Debugf("event/collection %s is ignored for printing", style.Bold(event.Collection.Name))
-
-	// 			return
-	// 		}
-
-	// 		if event.Collection.Name == "" && event.ContractAddress == internal.ENSContractAddress {
-	// 			event.Collection.Name = "ENS"
-	// 		}
-	// 	}
-	// }
-
-	// // unify events
-	// unifyEventsMap := make(map[string]*trotra.TokenEvent, 0)
-
-	// for _, ev := range ttx.Events {
-	// 	if ev.Collection != nil {
-	// 		unifyEventsMap[utils.GetNFTID(ev.ContractAddress, ev.TokenID)] = ev
-	// 	}
-	// }
-
-	// uniqueNFTEvents := make([]*trotra.TokenEvent, 0)
-
-	// for _, ev := range unifyEventsMap {
-	// 	uniqueNFTEvents = append(uniqueNFTEvents, ev)
-	// }
-
-	// ttx.Events = uniqueNFTEvents
 
 	// a watched wallet is involved
 	isOwnWallet := gb.OwnWallets.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
@@ -138,9 +99,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	if len(ttx.GetTransfersByContract()) >= 1 && currentCollection == nil {
 		currentCollection = tokencollections.GetCollection(gb, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
 	}
-
-	// price-dependent styling
-	// var currentFloorPrice float64
 
 	// defaults
 	priceStyle := style.DarkWhiteStyle
@@ -170,58 +128,16 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
 	formattedFaintCurrencySymbol := priceCurrencyStyle.Copy().Faint(true).Render("Ξ")
 
-	// migration helper
-	marker := " "
-
-	// // origin node marker
-	// if viper.GetBool("log.debug") {
-	// 	out.WriteString(originNode.GetStyledMarker())
-	// }
-
-	// out.WriteString(style.GrayStyle.Render("·"))
 	out.WriteString(ttx.Marketplace.RenderFaintTag())
 
 	// timestamp styling
 	// WEN...??
 	now := time.Now()
 	currentTime := now.Format("15:04:05")
-	timeNow := style.GrayStyle.Copy().Faint(true).Render(currentTime)
-
-	// // explicitly configured colors
-	// // TODO implement multi-collection handling
-	// switch {
-	// case collections.EventType(ttx.Action) == collections.Sale && ttx.Events[0].Collection.Highlight.Sales != "":
-	// 	timeNow = lipgloss.NewStyle().Foreground(ttx.Events[0].Collection.Highlight.Sales).Render(currentTime)
-	// case ttx.Events[0].Collection.Highlight.Color != "":
-	// 	timeNow = lipgloss.NewStyle().Foreground(ttx.Events[0].Collection.Highlight.Color).Render(currentTime)
-	// }
+	timeNow := style.Gray5Style.Render(currentTime)
 
 	// prepare links
 	etherscanURL, _, blurURL := utils.GetLinks(txHash, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
-	//
-	// price per item
-	// numEvents := len(ttx.EventsByContract[ttx.Events[0].ContractAddress])
-	// numEventsPerContract := make(map[common.Address]int, 0)
-
-	// numEvents := 0
-	// for _, events := range ttx.EventsByContract {
-	// 	numEvents += len(events)
-	// }
-
-	// if numEvents == 0 {
-	// 	gbl.Log.Warnf("numEvents == 0 for %s", txHash)
-
-	// 	return
-	// }
-
-	// if ttx.Events[0].Standard == standard.ERC1155 {
-	// 	numEvents = 0
-	// 	for _, event := range ttx.EventsByContract {
-	// 		for _, event := range event {
-	// 			numEvents += int(event.Amount.Int64())
-	// 		}
-	// 	}
-	// }
 
 	// print collection name and token id
 	// TODO implement multi-collection handling
@@ -435,10 +351,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	}
 
 	// TODO implement multi-collection handling
-	if isOwnCollection && ttx.IsListing() {
-		coloredColon := currentCollection.Render(":")
-		timeStyle := style.Gray7Style.Render
-		timeNow = fmt.Sprint(timeStyle(fmt.Sprintf("%02d", now.Hour())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Minute())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Second())))
+	if ttx.IsListing() {
+		// coloredColon := currentCollection.Render(":")
+		// timeStyle := style.Gray7Style.Render
+		// timeNow = fmt.Sprint(timeStyle(fmt.Sprintf("%02d", now.Hour())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Minute())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Second())))
+		timeNow = style.Gray7Style.Render(currentTime)
 	} else if isOwnCollection {
 		timeNow = currentCollection.Style().Copy().Bold(true).Render(currentTime)
 	}
@@ -453,7 +370,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// time & type
 	out.WriteString(timeNow)
-	out.WriteString(marker + ttx.Action.Icon())
+	out.WriteString(" " + ttx.Action.Icon())
 	out.WriteString(" " + divider)
 
 	var fixWidthPrice string
@@ -665,16 +582,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	out.WriteString(arrow.String() + fmtBuyer)
 
-	// maybe importan wallet indicator
+	// 'maybe important wallet' indicator
 	if wwatcher.MIWC.MIWs.Contains(buyer) {
-		var miwLevel string
-		if wwatcher.MIWC.WeightedMIWs[buyer] > 1 {
-			miwLevel = "⭐ " + strconv.Itoa(wwatcher.MIWC.WeightedMIWs[buyer]) + " ⭐"
-		} else {
-			miwLevel = strconv.Itoa(wwatcher.MIWC.WeightedMIWs[buyer])
-		}
+		level := strings.Repeat(" 👀", int(math.Min(3.0, float64(wwatcher.MIWC.WeightedMIWs[buyer]))))
+		out.WriteString(" " + level)
 
-		out.WriteString("   " + style.PinkBoldStyle.Render(fmt.Sprintf("👀 MIW! %s 👀", miwLevel)))
+		// out.WriteString("   " + style.PinkBoldStyle.Render(level))
 	}
 
 	// TODO think about how to do this for multi-collection tx

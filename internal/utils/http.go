@@ -47,7 +47,7 @@ func (h *HTTPClient) httpCall(ctx context.Context, url string, method string, cu
 		return nil, err
 	}
 
-	request, err := CreateRequest(ctx, strings.TrimSpace(url), method, customHeader, payload)
+	request, err := createRequest(ctx, strings.TrimSpace(url), method, customHeader, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +56,7 @@ func (h *HTTPClient) httpCall(ctx context.Context, url string, method string, cu
 }
 
 // func createGetRequest(url string, customHeader http.Header) (*http.Request, error) {.
-func CreateRequest(ctx context.Context, url string, method string, customHeader http.Header, payload *strings.Reader) (*http.Request, error) {
+func createRequest(ctx context.Context, url string, method string, customHeader http.Header, payload *strings.Reader) (*http.Request, error) {
 	var request *http.Request
 	var err error
 

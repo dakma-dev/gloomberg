@@ -67,9 +67,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
 
-	// everything to print to the console
-	terminalPrinterQueue := make(chan string, 256)
-
 	// init redis client
 	rdb := redis.NewClient(&redis.Options{
 		Addr: strings.Join([]string{
@@ -85,16 +82,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &watch.Watcher{},
 		Rdb:          rdb,
-		// OutputQueues: make(map[string]chan *models.Event),
-		QueueSlugs: make(chan common.Address, 1024),
+		QueueSlugs:   make(chan common.Address, 1024),
 	}
-
-	// queueEvents := make(chan *collections.Event, 1024)
-
-	// // read nodes from config & establish connections to the nodes
-	// if ethNodes := config.GetNodesFromConfig(); ethNodes != nil {
-	// 	gb.Nodes = ethNodes
-	// }
 
 	// compatibility with old config key
 	var providerConfig interface{}
@@ -104,30 +93,23 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		providerConfig = viper.Get("nodes")
 	}
 
+	//
+	// init provider pool
 	if pool, err := provider.FromConfig(providerConfig); err != nil {
 		gbl.Log.Fatal("❌ running provider failed, exiting")
 	} else if pool != nil {
 		gb.ProviderPool = pool
 	}
 
-	// notify.DecodeBase64Image(notify.MiniEpiGif)
-
-	// //
-	// // create chainwatcher
-	// if cWatcher := chainwatcher.New(gb.Nodes, gb.CollectionDB, nil); cWatcher == nil {
-	// 	gbl.Log.Fatal("❌ running chainwatcher failed, exiting")
-	// } else {
-	// 	gb.ChainWatcher = cWatcher
-	// }
+	//
+	// queue for everything to print to the console
+	terminalPrinterQueue := make(chan string, 256)
 
 	//
-	// subscribe to the chain logs/events and start the workers
-	// logs.CreateSubscriptions(gb, &queueEvents)
-
 	// nepa
-	queueTokenTransactions := make(chan *totra.TokenTransaction, 10240)
-	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 10240)
-	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 10240)
+	queueTokenTransactions := make(chan *totra.TokenTransaction, 256)
+	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 256)
+	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	nePa := nepa.NewNePa(gb, queueTokenTransactions)
 
 	// trapri | ttx printer to process and format the token transactions
@@ -149,7 +131,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// }
 
 	//
-	// websockets server
+	// websockets client
 	if viper.GetBool("websockets.client.enabled") {
 		ws.StartWsClient(viper.GetString("websockets.client.url"), &queueWsInTokenTransactions)
 	}
@@ -279,6 +261,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}
 	}
 
+	//
 	// start central terminal printer
 	go func() {
 		gbl.Log.Debug("starting terminal printer...")
@@ -298,6 +281,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	slugTicker := time.NewTicker(7 * time.Second)
 	go slugs.SlugWorker(slugTicker, &gb.QueueSlugs)
 
+	//
 	// gasline ticker
 	var gasTicker *time.Ticker
 
@@ -310,10 +294,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		go ticker.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
 	}
 
-	// statsbox ticker
+	//
+	// statsbox
 	stats := ticker.New(gasTicker, gb.OwnWallets, gb.ProviderPool)
 
-	// start statsbox ticker
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
 		stats.StartTicker(statsInterval, terminalPrinterQueue)
 	}
@@ -390,43 +374,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// 	// stop spinner
 	// 	_ = webSpinner.Stop()
-	// }
-
-	// //  gasTicker
-	// if tickerInterval := viper.GetDuration("interval.gas"); gb.Nodes != nil && len(gb.Nodes.GetLocalNodes()) > 0 && tickerInterval > 0 {
-	// 	ticker := time.NewTicker(tickerInterval)
-
-	// 	go func() {
-	// 		for range ticker.C {
-	// 			gbl.Log.Info("getting gas price...")
-
-	// 			if gasInfo, err := gb.Nodes.GetRandomLocalNode().GetCurrentGasInfo(); err == nil && gasInfo != nil {
-	// 				// gas price
-	// 				if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-	// 					gasPriceGwei, _ := nodes.WeiToGwei(gasInfo.GasPriceWei).Float64()
-	// 					gasPrice := int(math.Round(gasPriceGwei))
-	// 					gb.GasPrice = gasPrice
-	// 					gb.WebEventStream.GasPrice = &gb.GasPrice
-	// 					gbl.Log.Infof("set gas price gb.GasPrice: %v | gb.WebEventStream.GasPrice: %v", gb.GasPrice, gb.WebEventStream.GasPrice)
-	// 				}
-	// 			}
-	// 		}
-	// 	}()
-	// }
-
-	// //
-	// // distribution of the events to the outputs
-	// for workerID := 1; workerID <= viper.GetInt("server.workers.output"); workerID++ {
-	// 	go func(workerID int) {
-	// 		for event := range queueEvents {
-	// 			gbl.Log.Debugf("%d ~ %d | pushing event to outputs...", workerID, len(queueEvents)) // , event)
-
-	// 			for outputName, outputQueue := range gb.OutputQueues {
-	// 				gbl.Log.Debugf("%d ~ %d | pushing event to %s queue", workerID, len(queueEvents), outputName)
-	// 				outputQueue <- event
-	// 			}
-	// 		}
-	// 	}(workerID)
 	// }
 
 	// prometheus metrics
