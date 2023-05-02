@@ -8,9 +8,11 @@ package web
 //
 
 import (
+	"crypto/tls"
 	"fmt"
 	"html/template"
 	"net/http"
+	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -59,6 +61,7 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 		log.Fatal(s.ListenAndServeTLS(certPath, keyPath))
 	}()
 
+	// index page
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
 		data := map[string]string{
 			"Title": "gloomberg | " + internal.GloombergVersion,
@@ -72,8 +75,27 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 	// static js files (the stripping feels a bit weird...)
 	http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./www/js"))))
 
+	// websocket endpoint
 	http.HandleFunc("/ws", hub.serveWS)
 
-	// Serve on port :8080, fudge yeah hardcoded port
-	log.Fatal(http.ListenAndServeTLS(listenOn, certPath, keyPath, nil))
+	// load tls certificate
+	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	// create http server
+	server := &http.Server{
+		Addr:              listenOn,
+		ReadHeaderTimeout: 2 * time.Second,
+		Handler:           nil,
+		TLSConfig: &tls.Config{
+			Certificates: []tls.Certificate{cert},
+			MinVersion:   tls.VersionTLS12,
+			MaxVersion:   0,
+		},
+	}
+
+	// start http server
+	log.Fatal(server.ListenAndServe())
 }
