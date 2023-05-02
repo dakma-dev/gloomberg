@@ -17,15 +17,13 @@ import (
 )
 
 var (
-	Pink = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
-	// OwnerGreen = lipgloss.AdaptiveColor{Light: "#43BF6D", Dark: "#73F59F"}.
+	Pink        = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
 	Subtle      = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
 	DarkGray    = lipgloss.Color("#333")
 	darkerGray  = lipgloss.Color("#222")
 	darkestGray = lipgloss.Color("#111")
 
-	OpenseaToneBlue = lipgloss.Color("#5f7699")
-	// OpenseaToneBlue2     = lipgloss.Color("#20293d").
+	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	BlurOrange           = lipgloss.Color("#FF8700")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#667066"))
@@ -44,11 +42,10 @@ var (
 	DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
 	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
-	// OwnerGreenBoldStyle  = BoldStyle.Copy().Foreground(OwnerGreen).
-	GrayBoldStyle     = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
-	Sharrow           = BoldStyle.Copy().SetString("→")
-	DividerArrowRight = LightGrayStyle.Copy().Bold(true).SetString("→")
-	DividerArrowLeft  = GrayBoldStyle.SetString("←")
+	GrayBoldStyle        = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
+	Sharrow              = BoldStyle.Copy().SetString("→")
+	DividerArrowRight    = LightGrayStyle.Copy().Bold(true).SetString("→")
+	DividerArrowLeft     = GrayBoldStyle.SetString("←")
 
 	// darkestGray          = lipgloss.Color("#111")
 	// DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray).
