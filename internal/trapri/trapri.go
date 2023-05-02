@@ -45,8 +45,14 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 	for ttx := range queueTokenTransactions {
 		go formatTokenTransaction(gb, ttx, terminalPrinterQueue)
 
-		// send to ws
-		queueWsOutTokenTransactions <- ttx
+		// send to ws if webserver enabled & the queue is not congested
+		if viper.GetBool("web.enabled") {
+			if len(queueWsOutTokenTransactions) < cap(queueWsOutTokenTransactions)-10 {
+				queueWsOutTokenTransactions <- ttx
+			} else {
+				gbl.Log.Warnf("🧱 ws out queue is congested")
+			}
+		}
 	}
 }
 
