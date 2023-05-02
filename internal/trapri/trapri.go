@@ -353,9 +353,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	if gb.Stats != nil && ttx.TotalTokens > 0 {
 		if ttx.IsMint() {
 			gb.Stats.AddMint(ttx.TotalTokens)
-		}
-
-		if ttx.AmountPaid.Uint64() > 0 {
+		} else if ttx.AmountPaid.Uint64() > 0 {
 			gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
 		}
 	}
