@@ -231,19 +231,19 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 	//
 	// per minute stats
-	if volume := s.salesVolumePerMinute(); volume > 0.0 {
-		volumeLabel := style.DarkGrayStyle.Render("Ξ  /m")
-		volumeValue := style.GrayStyle.Render(fmt.Sprintf("%5.1f", volume))
+	if volume := s.salesVolumePerMinute(); volume > 0 {
+		volumeLabel := style.DarkGrayStyle.Render("Ξ /m")
+		volumeValue := style.GrayStyle.Render(fmt.Sprintf("%6.2f", volume))
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
 	}
 
-	if sales := s.salesPerMinute(); sales > 0.0 {
+	if sales := s.salesPerMinute(); sales > 0 {
 		salesLabel := style.DarkGrayStyle.Render("s/m")
 		salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(sales)))
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
 	}
 
-	if mints := s.mintsPerMinute(); mints > 0.0 {
+	if mints := s.mintsPerMinute(); mints > 0 {
 		mintsLabel := style.DarkGrayStyle.Render("m/m")
 		mintsValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(mints)))
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)

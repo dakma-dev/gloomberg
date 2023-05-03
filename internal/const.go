@@ -30,7 +30,7 @@ var (
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	ZeroHash    = common.Hash{}
 
-	// BaseLogger is the logger used to print to the terminal without reporting caller or timestamp
+	// BaseLogger is the logger used to print to the terminal without reporting caller or timestamp.
 	BaseLogger = log.NewWithOptions(os.Stdout, log.Options{
 		ReportCaller:    false,
 		ReportTimestamp: false,
@@ -39,7 +39,7 @@ var (
 	fileLogger = map[string]*log.Logger{}
 )
 
-// LoFi is the logger used to log to the log file with caller and timestamp reporting
+// LoFi is the logger used to log to the log file with caller and timestamp reporting.
 func LoFi(filePath string) *log.Logger {
 	if filePath == "" {
 		filePath = viper.GetString("log.log_file")
