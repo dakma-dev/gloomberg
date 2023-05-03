@@ -16,7 +16,7 @@ require (
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.1
 	github.com/nshafer/phx v0.2.0
-	github.com/prometheus/client_golang v1.15.0
+	github.com/prometheus/client_golang v1.15.1
 	github.com/quic-go/quic-go v0.34.0
 	github.com/quic-go/webtransport-go v0.5.2
 	github.com/spf13/cobra v1.7.0
