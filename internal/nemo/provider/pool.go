@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -50,6 +51,7 @@ const (
 	ERC1155TotalSupply methodCall = "erc1155_total_supply"
 
 	ResolveENSAddress methodCall = "resolve_ens_address"
+	ResolveENS        methodCall = "resolve_ens"
 
 	GasInfo methodCall = "gas_info"
 )
@@ -58,6 +60,7 @@ type methodCallParams struct {
 	TxHash  common.Hash    `json:"hash"`
 	Address common.Address `json:"contract_address"`
 	TokenID *big.Int       `json:"token_id"`
+	EnsName string         `json:"ens_name"`
 }
 
 var callMethodCounter uint64
@@ -194,6 +197,21 @@ func (pp *Pool) ReconnectProviders() {
 
 func (pp *Pool) PreferredProviderAvailable() bool {
 	return len(pp.getPreferredProviders()) > 0
+}
+
+func (pp *Pool) GetLogsByBlockNumber(blockNumber int64) []types.Log {
+	filterQuery := ethereum.FilterQuery{
+		FromBlock: big.NewInt(blockNumber),
+		ToBlock:   big.NewInt(blockNumber),
+	}
+
+	for _, provider := range pp.getProviders() {
+		if logs, err := provider.Client.FilterLogs(context.Background(), filterQuery); err == nil {
+			return logs
+		}
+	}
+
+	return nil
 }
 
 func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
@@ -376,6 +394,11 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return ensAddress, nil
 			}
 
+		case ResolveENS:
+			if ensAddress, err := provider.ensLookup(params.EnsName); err == nil {
+				return ensAddress, nil
+			}
+
 		case GasInfo:
 			if gasInfo, err := provider.getGasInfo(ctx); err == nil {
 				return gasInfo, nil
@@ -498,6 +521,28 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 	}
 
 	return "", errors.New("ens ensName not found")
+}
+
+func (pp *Pool) ResolveAddressForENS(ctx context.Context, ensName string) (common.Address, error) {
+
+	if ensName == "" {
+		return common.Address{}, errors.New("ensName is empty")
+	}
+
+	address, err := pp.callMethod(ctx, ResolveENS, methodCallParams{EnsName: ensName})
+	gbl.Log.Debugf("pp.callMethod result - hex address for ensName %s is %+v", ensName, address)
+
+	if err == nil && address != "" {
+		return address.(common.Address), nil
+		//		cache.StoreENSName(ctx, address, ensName)
+		//		return ensName, nil
+	}
+
+	if err != nil {
+		gbl.Log.Errorf("pp.callMethod error - hex address for ensName %s is %+v", ensName, err)
+	}
+
+	return common.Address{}, errors.New("ens address not found")
 }
 
 func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {

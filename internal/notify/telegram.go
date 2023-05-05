@@ -13,7 +13,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func sendTelegramMessage(chatID int64, text string, imageURI string) (tgbotapi.Message, error) {
+func sendTelegramMessage(chatID int64, text string, imageURI string, replyToMessageID int, replyMarkup interface{}) (tgbotapi.Message, error) {
 	if tgBot == nil {
 		tgBot, err := getBot()
 
@@ -88,6 +88,7 @@ func sendTelegramMessage(chatID int64, text string, imageURI string) (tgbotapi.M
 			Name:   "animation." + extension,
 			Reader: imageReader,
 		})
+		msg.ReplyToMessageID = replyToMessageID
 		msg.ParseMode = parseMode
 		msg.DisableNotification = disableNotifications
 
@@ -101,7 +102,7 @@ func sendTelegramMessage(chatID int64, text string, imageURI string) (tgbotapi.M
 		msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(imageURI))
 		msg.ParseMode = parseMode
 		msg.DisableNotification = disableNotifications
-
+		msg.ReplyToMessageID = replyToMessageID
 		msg.Caption = text
 
 		gbl.Log.Infof("🔔 📸 sending photo | msg: %+v", msg)
@@ -113,7 +114,11 @@ func sendTelegramMessage(chatID int64, text string, imageURI string) (tgbotapi.M
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = parseMode
 	msg.DisableNotification = disableNotifications
+	// send msg to topic (topics are simply replies to a message)
 
+	msg.ReplyMarkup = replyMarkup
+
+	msg.ReplyToMessageID = replyToMessageID
 	msg.DisableWebPagePreview = true
 
 	gbl.Log.Debugf("🔔 📸 sending message | msg: %+v", msg)

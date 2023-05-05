@@ -80,6 +80,11 @@ func (np *NePa) Run() {
 		return
 	}
 
+	//logs := np.gb.ProviderPool.GetLogsByBlockNumber(17184457)
+	//for _, log := range logs {
+	//	np.newLogs <- log
+	//}
+
 	gbl.Log.Infof("✍️ subscribed to logs via %d nodes", subscribedTo)
 
 	// for _, node := range ethNodes {

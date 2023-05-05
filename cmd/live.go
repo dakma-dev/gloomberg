@@ -138,6 +138,11 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// subscribe to the chain logs/events and start the workers
 	// logs.CreateSubscriptions(gb, &queueEvents)
 
+	if viper.GetBool("smart_wallets.enabled") {
+		alphaTicker := ticker.NewAlphaScore(gb)
+		go alphaTicker.AlphaCallerTicker(gb, time.NewTicker(time.Minute*1))
+	}
+
 	// nepa
 	queueTokenTransactions := make(chan *totra.TokenTransaction, 10240)
 	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 10240)
@@ -306,6 +311,26 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		// start gasline ticker
 		gasTicker = time.NewTicker(tickerInterval)
 		go ticker.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
+	}
+
+	// manifold ticker
+	if viper.GetBool("notifications.manifold.enabled") && (!viper.GetBool("notifications.disabled")) {
+		manifoldTicker := time.NewTicker(time.Hour * 1)
+		newManifoldTicker := ticker.NewManifoldTicker(gb)
+
+		if viper.GetBool("notifications.manifold.enabled") {
+			go newManifoldTicker.ManifoldTicker(manifoldTicker, &terminalPrinterQueue)
+			fmt.Println("Manifold notifications started")
+		}
+
+		manifoldTickerDakma := time.NewTicker(time.Minute * 1)
+		go newManifoldTicker.OneMinuteTicker(manifoldTickerDakma)
+	}
+
+	if viper.GetBool("notifications.bluechip.enabled") {
+		// blue chip ticker
+		newBluechipTicker := ticker.NewBlueChipTicker(gb)
+		go newBluechipTicker.BlueChipTicker(time.NewTicker(time.Minute*5), &terminalPrinterQueue)
 	}
 
 	// statsbox ticker

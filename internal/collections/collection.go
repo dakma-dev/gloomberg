@@ -66,6 +66,7 @@ type Collection struct {
 		Transfers   uint64
 		Listings    uint64
 		SalesVolume *big.Int
+		MintVolume  *big.Int
 	} `mapstructure:"counters"`
 
 	SaLiRa             ewma.MovingAverage  `mapstructure:"salira"`
@@ -234,6 +235,11 @@ func (uc *Collection) AddMint() {
 	atomic.AddUint64(&uc.Counters.Mints, 1)
 }
 
+func (uc *Collection) AddMintVolume(value *big.Int, numItems uint64) {
+	atomic.AddUint64(&uc.Counters.Mints, numItems)
+	uc.Counters.MintVolume.Add(uc.Counters.MintVolume, value)
+}
+
 func (uc *Collection) AddListing(numItems uint64) {
 	atomic.AddUint64(&uc.Counters.Listings, numItems)
 }
@@ -275,6 +281,7 @@ func (uc *Collection) ResetStats() {
 	uc.Counters.Transfers = 0
 	uc.Counters.Listings = 0
 	uc.Counters.SalesVolume = big.NewInt(0)
+	uc.Counters.MintVolume = big.NewInt(0)
 }
 
 // GenerateColors generates two colors based on contract address of the collection.

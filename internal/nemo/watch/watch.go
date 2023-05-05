@@ -42,10 +42,11 @@ type WatchUser struct {
 }
 
 type WatchGroup struct {
-	Name           string         `mapstructure:"group"`
-	TelegramChatID int64          `mapstructure:"telegram_chat_id"`
-	Users          []*WatchUser   `mapstructure:"users"`
-	Wallets        []*WatchWallet `mapstructure:"wallets"`
+	Name             string         `mapstructure:"group"`
+	TelegramChatID   int64          `mapstructure:"telegram_chat_id"`
+	ReplyToMessageID int            `mapstructure:"telegram_reply_to_message_id"`
+	Users            []*WatchUser   `mapstructure:"users"`
+	Wallets          []*WatchWallet `mapstructure:"wallets"`
 
 	// addresses []common.Address
 	// Contracts      []WatchContract `mapstructure:"contracts"`

@@ -17,7 +17,7 @@ import (
 // GetLinks returns the links to etherscan, opensea and blur.
 func GetLinks(txHash common.Hash, contractAddress common.Address, tokenID int64) (string, string, string) {
 	etherscanURL := GetEtherscanTxURL(txHash.String())
-	openseaURL := getOpenseaLink(contractAddress.String(), tokenID)
+	openseaURL := GetOpenseaLink(contractAddress.String(), tokenID)
 	blurURL := getBlurLink(contractAddress.String(), tokenID)
 
 	return etherscanURL, openseaURL, blurURL
@@ -39,7 +39,7 @@ func getBlurLink(contractAddress string, tokenID int64) string {
 }
 
 // opensea.io.
-func getOpenseaLink(contractAddress string, tokenID int64) string {
+func GetOpenseaLink(contractAddress string, tokenID int64) string {
 	return fmt.Sprintf("https://opensea.io/assets/%s/%d", contractAddress, tokenID)
 }
 

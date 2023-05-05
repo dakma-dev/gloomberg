@@ -323,3 +323,31 @@ func ReleaseNotificationLock(ctx context.Context, contractAddress common.Address
 
 	return c.getName(ctx, contractAddress, keyContract)
 }
+
+func NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duration time.Duration) (bool, error) {
+	c := New(ctx)
+
+	releaseKey := uuid.New()
+
+	c.mu.Lock()
+	c.localCache[keyNotificationsLock(txID)] = releaseKey.String()
+	c.mu.Unlock()
+
+	unlocked := false
+
+	var err error
+
+	if c.rdb != nil {
+		unlocked, err = c.rdb.SetNX(c.rdb.Context(), keyNotificationsLock(txID), releaseKey.String(), duration).Result()
+
+		gbl.Log.Debugf("📣 %s | locked %+v", txID.String(), unlocked)
+
+		if err != nil {
+			gbl.Log.Warnf("❌ redis | error while adding: %s", err.Error())
+		} else {
+			gbl.Log.Debugf("📣 redis | added: %s -> %s", keyNotificationsLock(txID), releaseKey)
+		}
+	}
+
+	return unlocked, nil
+}

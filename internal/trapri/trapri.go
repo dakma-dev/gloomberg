@@ -47,6 +47,11 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 
 		// send to ws
 		queueWsOutTokenTransactions <- ttx
+
+		// send to bluechip ticker
+		ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
+
+		ticker.AlphaCaller.AddEvent(ttx)
 	}
 }
 
@@ -391,7 +396,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		case totra.Sale, totra.Purchase:
 			collection.AddSale(ttx.AmountPaid, uint64(numCollectionTokens))
 		case totra.Mint:
-			collection.AddMint()
+			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
 		}
 	}
 
@@ -516,7 +521,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	// 	trendIndicatorStyle = style.CreateTrendIndicator(0.0, currentFloorPrice)
 	// }
 
-	// currentFloorPriceStyle := style.DarkerGrayStyle
+	currentFloorPriceStyle := style.DarkerGrayStyle
 
 	// if currentFloorPrice > 0.0 {
 	// 	currentFloorPriceStyle = style.GrayStyle.Copy().Faint(true)
@@ -524,6 +529,31 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// trendIndicatorFaintStyle := trendIndicatorStyle.Copy().Faint(true)
 	// out.WriteString(" " + currentFloorPriceStyle.Render(fmt.Sprintf("%6.3f", currentFloorPrice)) + trendIndicatorFaintStyle.Render("Ξ"))
+
+	// print sales for collection
+	if viper.GetBool("show.sales") {
+		out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Sales) + style.BoldStyle.Render(""))
+		if currentCollection.Counters.Sales < 10 {
+			out.WriteString(" ")
+		}
+		if currentCollection.Counters.Sales < 100 {
+			out.WriteString(" ")
+		}
+		// print bluechip collection sales
+		if ticker.BlueChips != nil && ticker.BlueChips.GetStats(currentCollection.ContractAddress) != nil {
+			out.WriteString("/" + lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render(fmt.Sprintf("%d", ticker.BlueChips.GetStats(currentCollection.ContractAddress).Sales)))
+		} else {
+			out.WriteString(" ")
+		}
+		// print collection volume
+		volume := utils.WeiToEther(currentCollection.Counters.SalesVolume)
+		out.WriteString(" | " + currentFloorPriceStyle.Render(fmt.Sprintf("Σ%6.1fΞ", volume)))
+
+		if ttx.Action == totra.Mint {
+			out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Mints))
+		}
+
+	}
 
 	//
 	// show the burned token(s) on the same line on the right side
@@ -699,6 +729,29 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		for _, fmtTokenCollection := range fmtTokensTransferred[1:] {
 			out.WriteString("\n" + strings.Repeat(" ", 31))
 			out.WriteString(style.DarkGrayStyle.Render("+") + fmtTokenCollection)
+		}
+	}
+
+	// add blue chip icons
+	if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != totra.Burn {
+		if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
+			out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
+		}
+
+		for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Holder {
+			if i == 0 {
+				out.WriteString("·")
+			}
+
+			out.WriteString(style.BoldStyle.Render(ticker.GetEmojiMapping(blueChipTypes)))
+		}
+	}
+
+	// add manifold event to manifold ticker
+	if ttx.Tx.To() != nil && ticker.Manifold.IsManifoldContractAddress(*ttx.Tx.To()) {
+		if viper.GetBool("notifications.manifold.enabled") {
+			gbl.Log.Infof("tx %s is a tx to the manifold (lazy claim) contract", ttx.TxReceipt.TxHash.Hex())
+			ticker.Manifold.AppendManifoldEvent(ttx)
 		}
 	}
 
