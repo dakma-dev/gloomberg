@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+
 	// Package image/jpeg and others is not used explicitly in the code below,
 	// but is imported for its initialization side-effect, which allows
 	// image.Decode to understand JPEG formatted images. Uncomment these
@@ -44,11 +45,11 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 			return
 		}
 
-		gbl.Log.Infof("🔐 notification lock for %s acquired, trying to send...", style.BoldStyle.Render(ttx.Tx.Hash().String()))
+		gbl.Log.Infof("🔐 notification lock for %s acquired (for %ssec), trying to send...", style.BoldStyle.Render(ttx.Tx.Hash().String()), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
 	}
 
-	messagesPerUserMap := make(map[*watch.WatchUser]*strings.Builder, 0)
-	imagesPerUserMap := make(map[*watch.WatchUser]string, 0)
+	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder, 0)
+	imagesPerUserMap := make(map[*watch.WUser]string, 0)
 
 	for contractAddress, transfers := range ttx.GetTransfersByContract() {
 		for _, transfer := range transfers {
@@ -63,7 +64,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 			}
 
 			var triggerAddress common.Address
-			var triggerUser *watch.WatchUser
+			var triggerUser *watch.WUser
 
 			if user := gb.Watcher.WatchUsers[transfer.From]; user != nil {
 				triggerUser = user
@@ -123,11 +124,11 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 			imageURI = uri
 		}
 
-		sendNotificationViaTelegram(msgTelegram.String(), chatID, imageURI)
+		SendMessageViaTelegram(msgTelegram.String(), chatID, imageURI)
 	}
 }
 
-func sendNotificationViaTelegram(message string, chatID int64, imageURI string) {
+func SendMessageViaTelegram(message string, chatID int64, imageURI string) {
 	// send telegram message
 	msg, err := sendTelegramMessage(chatID, message, imageURI)
 	if err != nil {

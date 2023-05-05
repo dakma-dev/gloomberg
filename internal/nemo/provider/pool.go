@@ -230,6 +230,65 @@ func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
 	return subscribedTo, nil
 }
 
+func (pp *Pool) SubscribeToEverything(queueLogs chan types.Log) (uint64, error) {
+	if queueLogs == nil {
+		return 0, errors.New("queueLogs channel is nil")
+	}
+
+	// store channel for later use/reconnects
+	pp.queueLogs = queueLogs
+
+	// subscribe
+	availableProvider := pp.getProviders()
+	if len(pp.getPreferredProviders()) > 0 {
+		availableProvider = pp.getPreferredProviders()
+	}
+
+	subscribedTo := uint64(0)
+
+	for _, provider := range availableProvider {
+		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
+		if _, err := provider.subscribeTo(pp.queueLogs, [][]common.Hash{}, []common.Address{}); err != nil {
+			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+		} else {
+			subscribedTo++
+			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
+		}
+	}
+
+	if subscribedTo == 0 {
+		return 0, errors.New("no provider available")
+	}
+
+	return subscribedTo, nil
+}
+
+func (pp *Pool) SubscribeToEverythingPending(queuePendingTx chan *types.Transaction) (uint64, error) {
+	// subscribe
+	availableProvider := pp.getProviders()
+	if len(pp.getPreferredProviders()) > 0 {
+		availableProvider = pp.getPreferredProviders()
+	}
+
+	subscribedTo := uint64(0)
+
+	for _, provider := range availableProvider {
+		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
+		if _, err := provider.GethClient.SubscribeFullPendingTransactions(context.TODO(), queuePendingTx); err != nil {
+			gbl.Log.Warnf("subscribe to pending transactions via node %d failed: %s", provider.Name, err)
+		} else {
+			subscribedTo++
+			gbl.Log.Infof("✍️ subscribed to pending transactions via node %s", style.Bold(provider.Name))
+		}
+	}
+
+	if subscribedTo == 0 {
+		return 0, errors.New("no provider available")
+	}
+
+	return subscribedTo, nil
+}
+
 func (pp *Pool) getPreferredProviders() []*provider {
 	if pp.providers != nil && len(pp.providers) == 0 {
 		return nil
@@ -266,9 +325,9 @@ func (pp *Pool) getProviders() []*provider {
 	return append(preferredProviders, providers...)
 }
 
-func (pp *Pool) GetWETHABI(ctx context.Context, contractAddress common.Address) (*abis.WETH, error) {
+func (pp *Pool) GetWETHABI(contractAddress common.Address) (*abis.WETH, error) {
 	for _, provider := range pp.getProviders() {
-		if wethABI, err := provider.getWETHABI(ctx, contractAddress); err == nil {
+		if wethABI, err := provider.getWETHABI(contractAddress); err == nil {
 			return wethABI, nil
 		}
 	}
@@ -276,9 +335,9 @@ func (pp *Pool) GetWETHABI(ctx context.Context, contractAddress common.Address) 
 	return nil, errors.New("no provider available")
 }
 
-func (pp *Pool) GetERC1155ABI(ctx context.Context, contractAddress common.Address) (*abis.ERC1155, error) {
+func (pp *Pool) GetERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
 	for _, provider := range pp.getProviders() {
-		if erc1155ABI, err := provider.getERC1155ABI(ctx, contractAddress); err == nil {
+		if erc1155ABI, err := provider.getERC1155ABI(contractAddress); err == nil {
 			return erc1155ABI, nil
 		}
 	}
@@ -333,7 +392,7 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return nil, errors.New("invalid contract address")
 			}
 
-			if collectionName, err := provider.getERC721CollectionName(ctx, params.Address); err == nil {
+			if collectionName, err := provider.getERC721CollectionName(params.Address); err == nil {
 				return collectionName, nil
 			}
 
@@ -342,7 +401,7 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return nil, errors.New("invalid contract address")
 			}
 
-			if metadata, err := provider.getERC721CollectionMetadata(ctx, params.Address); err == nil {
+			if metadata, err := provider.getERC721CollectionMetadata(params.Address); err == nil {
 				return metadata, nil
 			}
 

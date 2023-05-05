@@ -1,7 +1,6 @@
 package totra
 
 import (
-	"context"
 	"math/big"
 	"time"
 
@@ -580,7 +579,7 @@ func parseERC721TransferLog(txLog *types.Log) *TokenTransfer {
 
 func parseERC1155TransferLog(txLog *types.Log, providerPool *provider.Pool) *TokenTransfer {
 	// abiERC1155, err := abis.NewERC1155(txLog.Address, ethNode.Client)
-	abiERC1155, err := providerPool.GetERC1155ABI(context.Background(), txLog.Address)
+	abiERC1155, err := providerPool.GetERC1155ABI(txLog.Address)
 	if err != nil {
 		gbl.Log.Errorf("❗️ error binding erc1155 contract abi: %s", err)
 
@@ -608,7 +607,7 @@ func parseERC1155TransferLog(txLog *types.Log, providerPool *provider.Pool) *Tok
 }
 
 func parseERC20TransferLog(txLog *types.Log, providerPool *provider.Pool) *TokenTransfer {
-	abiWETH, err := providerPool.GetWETHABI(context.Background(), txLog.Address)
+	abiWETH, err := providerPool.GetWETHABI(txLog.Address)
 	if err != nil {
 		gbl.Log.Errorf("❗️ error binding erc721 contract abi: %s", err)
 

@@ -63,7 +63,7 @@ func (p *provider) ID() string {
 
 func (p *provider) getTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	// get the contractERC721 ABIs
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
 		gbl.Log.Error(err)
 
@@ -112,9 +112,9 @@ func (p *provider) getTokenImageURI(ctx context.Context, contractAddress common.
 	return metadata.Image, nil
 }
 
-func (p *provider) getERC721CollectionName(ctx context.Context, contractAddress common.Address) (string, error) {
+func (p *provider) getERC721CollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABI
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
 		gbl.Log.Error(err)
 
@@ -130,11 +130,11 @@ func (p *provider) getERC721CollectionName(ctx context.Context, contractAddress 
 	return "", nil
 }
 
-func (p *provider) getERC721CollectionMetadata(ctx context.Context, contractAddress common.Address) (map[string]interface{}, error) {
+func (p *provider) getERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
 	collectionMetadata := make(map[string]interface{}, 0)
 
 	// get the contractERC721 ABIs
-	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
+	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
 		gbl.Log.Error(err)
 
@@ -214,6 +214,7 @@ func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 				gbl.Log.Debugf("🧶 json metadata in uri field: %v", data)
 
 				var metadata map[string]interface{}
+
 				err := json.Unmarshal([]byte(data), &metadata)
 				if err != nil {
 					gbl.Log.Warn(err)
@@ -335,7 +336,7 @@ func (p *provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash,
 	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (p *provider) getERC721ABI(ctx context.Context, contractAddress common.Address) (*abis.ERC721v3, error) {
+func (p *provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
@@ -347,7 +348,7 @@ func (p *provider) getERC721ABI(ctx context.Context, contractAddress common.Addr
 	return contractERC721, nil
 }
 
-func (p *provider) getERC1155ABI(ctx context.Context, contractAddress common.Address) (*abis.ERC1155, error) {
+func (p *provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
 	// get the contractERC721 ABIs
 	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
 	if err != nil {
@@ -359,7 +360,7 @@ func (p *provider) getERC1155ABI(ctx context.Context, contractAddress common.Add
 	return contractERC1155, nil
 }
 
-func (p *provider) getWETHABI(ctx context.Context, contractAddress common.Address) (*abis.WETH, error) {
+func (p *provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error) {
 	// get the contractERC721 ABIs
 	contractWETH, err := abis.NewWETH(contractAddress, p.Client)
 	if err != nil {

@@ -104,34 +104,12 @@ func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 	// parse token id
 	rawTokenID := big.NewInt(0)
 	if len(topics) >= 4 {
-		// TODO WRONG FOR Transfer Single
+		// WRONG FOR TransferSingle?
 		rawTokenID = topics[3].Big()
 	}
 
 	return logTopic, fromAddress, toAddress, rawTokenID
 }
-
-// // TODO MERGE SOMEHOW WITH duplicated methods.
-// func GetERC1155TokenID(data []byte) *big.Int {
-// 	half := len(data) / 2
-// 	tokenID, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[:half], "\x00")), 16, 64)
-
-// 	return big.NewInt(tokenID)
-// }
-
-// func GetERC1155TokenValue(data []byte) *big.Int {
-// 	half := len(data) / 2
-// 	value, _ := strconv.ParseInt(common.Bytes2Hex(bytes.Trim(data[half:], "\x00")), 16, 64)
-
-// 	return big.NewInt(value)
-// }
-
-// func GetERC1155TokenIDAndAmount(data []byte) (*big.Int, *big.Int) {
-// 	tokenID := GetERC1155TokenID(data)
-// 	value := GetERC1155TokenValue(data)
-
-// 	return tokenID, value
-// }
 
 func WeiToEther(wei *big.Int) *big.Float {
 	f := new(big.Float)

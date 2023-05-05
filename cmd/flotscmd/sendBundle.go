@@ -86,8 +86,10 @@ func init() {
 	FlotsCmd.AddCommand(sendBundleCmd)
 
 	sendBundleCmd.Flags().StringSliceVarP(&flagRawTransactions, "rawtxs", "t", make([]string, 0), "signed transactions (get them from https://flashbots-bundler.surge.sh/rpc for example)")
+
 	_ = callBundleCmd.MarkFlagRequired("rawtxs")
 
 	sendBundleCmd.Flags().Int64Var(&flagPlusBlocks, "plusBlocks", 5, "blocks to add to the current block number")
+
 	_ = viper.BindPFlag("flots.plusBlocks", sendBundleCmd.Flags().Lookup("plusBlocks"))
 }

@@ -66,12 +66,12 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 				return
 			}
 
-			if newWallet.Name == "" {
-				newWallet.Name = utils.WalletShortAddress(newWallet.Address)
-			}
-
 			if newWallet.Color == "" {
 				newWallet.Color = style.GenerateColorWithSeed(newWallet.Address.Hash().Big().Int64())
+			}
+
+			if newWallet.Name == "" {
+				newWallet.Name = utils.WalletShortAddress(newWallet.Address)
 			}
 
 			newWallet.ENS = &ens.Name{}
@@ -89,7 +89,7 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 
 			newWallet.Balance, newWallet.BalanceBefore = big.NewInt(0), big.NewInt(0)
 
-			gbl.Log.Infof("✅ successfully added own wallet: %s (%s)", newWallet.Render(newWallet.Name), lipgloss.NewStyle().Foreground(newWallet.Color).Faint(true).Render(newWallet.Address.String()))
+			gbl.Log.Infof("✅ successfully added own wallet: %s (%s)", newWallet.Render(newWallet.Name), style.ShortenAddressStyled(&newWallet.Address, lipgloss.NewStyle().Foreground(newWallet.Color)))
 
 			mu.Lock()
 			ownWallets[newWallet.Address] = newWallet
@@ -304,10 +304,10 @@ func GetWatchRulesFromConfig() *watch.Watcher {
 	mu := sync.Mutex{}
 
 	watcher := watch.Watcher{
-		UserAddresses:   make(map[common.Address]*watch.WatchGroup, 0),
-		WalletAddresses: make(map[common.Address]*watch.WatchGroup, 0),
-		Groups:          make(map[string]*watch.WatchGroup, 0),
-		WatchUsers:      make(map[common.Address]*watch.WatchUser, 0),
+		UserAddresses:   make(map[common.Address]*watch.WGroup, 0),
+		WalletAddresses: make(map[common.Address]*watch.WGroup, 0),
+		Groups:          make(map[string]*watch.WGroup, 0),
+		WatchUsers:      make(map[common.Address]*watch.WUser, 0),
 	}
 
 	watchSpinner := style.GetSpinner("setting up watch rules...")
@@ -321,7 +321,7 @@ func GetWatchRulesFromConfig() *watch.Watcher {
 	}
 
 	for _, group := range rawWatchConfig {
-		var newWatchGroup *watch.WatchGroup
+		var newWatchGroup *watch.WGroup
 
 		decodeHooks := mapstructure.ComposeDecodeHookFunc(
 			hooks.StringToAddressHookFunc(),
