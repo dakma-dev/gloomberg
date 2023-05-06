@@ -107,7 +107,7 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 
 				if telegramMessage.Len() > 0 {
 					if viper.GetString("notifications.manifold.dakma") != "" {
-						notify.SendNotificationViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.bluechip.telegram_chat_id"), "", viper.GetInt("notifications.bluechip.telegram_reply_to_message_id"), nil)
+						notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.bluechip.telegram_chat_id"), "", viper.GetInt("notifications.bluechip.telegram_reply_to_message_id"), nil)
 						counters.Sales = 0
 					}
 				}

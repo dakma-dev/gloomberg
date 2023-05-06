@@ -8,9 +8,7 @@ import (
 	"github.com/muesli/termenv"
 )
 
-var version = "dev" // commit    = "none"
-// buildDate = "unknown"
-// builtBy   = "unknown"
+var version = "dev"
 
 func main() {
 	internal.GloombergVersion = version

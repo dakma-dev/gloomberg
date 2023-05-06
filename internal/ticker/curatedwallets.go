@@ -108,7 +108,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 					),
 				)
 
-				notify.SendNotificationViaTelegram(message.String(), viper.GetInt64("notifications.smart_wallets.telegram_chat_id"), "", viper.GetInt("notifications.smart_wallets.telegram_reply_to_message_id"), replyMarkup)
+				notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.smart_wallets.telegram_chat_id"), "", viper.GetInt("notifications.smart_wallets.telegram_reply_to_message_id"), replyMarkup)
 			}
 
 		}

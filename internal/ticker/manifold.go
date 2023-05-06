@@ -142,7 +142,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 		if telegramMessage.Len() > 0 && viper.GetBool("notifications.manifold.enabled") {
 			// manifold ticker channel id -1001725324468
 			// no styling information for telegram
-			notify.SendNotificationViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), "", viper.GetInt("notifications.manifold.telegram_reply_to_message_id"), nil)
+			notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), "", viper.GetInt("notifications.manifold.telegram_reply_to_message_id"), nil)
 		}
 	}
 }
@@ -222,10 +222,10 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 		// send telegram message
 		if telegramMessage.Len() > 0 {
 			if viper.GetString("notifications.manifold.dakma") != "" {
-				notify.SendNotificationViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
+				notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
 			}
 
-			notify.SendNotificationViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), "", 0, nil)
+			notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), "", 0, nil)
 		}
 	}
 }

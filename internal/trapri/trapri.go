@@ -145,7 +145,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	etherscanURL, _, blurURL := utils.GetLinks(txHash, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
 
 	// print collection name and token id
-	// TODO implement multi-collection handling
 	fmtTokensTransferred := make([]string, 0)
 	fmtTokensHistory := make([]string, 0)
 	ttxCollections := make(map[common.Address]*collections.Collection, 0)
@@ -335,40 +334,26 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			ttx.TotalTokens += numCollectionTokens
 		}
 
-		// counting
+		// collection counting
 		switch ttx.Action {
 		case totra.Sale, totra.Purchase:
-			// numItems := uint64(numCollectionTokens)
-			// amountPaid := ttx.AmountPaid
-
-			// // if its a bid dump we just count half of the items
-			// if isBidDump {
-			// 	numItems /= 2
-			// 	amountPaid = amountPaid.Div(amountPaid, big.NewInt(2))
-			// }
-
-			// collection.AddSale(amountPaid, numItems)
-
 			collection.AddSale(ttx.AmountPaid, uint64(numCollectionTokens))
 		case totra.Mint:
 			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
 		}
 	}
 
-	// add to stats
-	if gb.Stats != nil && ttx.TotalTokens > 0 {
-		if ttx.IsMint() {
-			gb.Stats.AddMint(ttx.TotalTokens)
-		} else if ttx.AmountPaid.Uint64() > 0 {
+	// total counting
+	if gb.Stats != nil {
+		switch ttx.Action {
+		case totra.Sale, totra.Purchase:
 			gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
+		case totra.Mint:
+			gb.Stats.AddMint(ttx.TotalTokens)
 		}
 	}
 
-	// TODO implement multi-collection handling
 	if ttx.IsListing() {
-		// coloredColon := currentCollection.Render(":")
-		// timeStyle := style.Gray7Style.Render
-		// timeNow = fmt.Sprint(timeStyle(fmt.Sprintf("%02d", now.Hour())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Minute())), coloredColon, timeStyle(fmt.Sprintf("%02d", now.Second())))
 		timeNow = style.Gray7Style.Render(currentTime)
 	} else if isOwnCollection {
 		timeNow = currentCollection.Style().Copy().Bold(true).Render(currentTime)
@@ -449,7 +434,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		ttx.DoNotPrint = true
 	}
 
-	// TODO: disable for multi-collection tx?
+	// average price (makes no sense for multi-collections tx)
 	averagePrice := ttx.GetPrice()
 	if ttx.TotalTokens > 1 {
 		averagePrice = price.NewPrice(big.NewInt(0).Div(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
@@ -629,8 +614,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		// out.WriteString("   " + style.PinkBoldStyle.Render(level))
 	}
 
-	// TODO think about how to do this for multi-collection tx
-	// sales/listings count & salira
+	// sales/listings count & salira | think about how to do this for multi-collection tx?!
 	if currentCollection.Counters.Sales+currentCollection.Counters.Listings > 0 {
 		var salesAndListings string
 
@@ -755,7 +739,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// add to history
 	if isOwn && !ttx.IsLoan() {
-		if !ttx.IsListing() || (ttx.IsListing() && isOwnWallet) {
+		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && gb.Stats != nil {
 			gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
 		}
 	}

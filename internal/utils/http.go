@@ -58,6 +58,7 @@ func (h *HTTPClient) httpCall(ctx context.Context, url string, method string, cu
 // func createGetRequest(url string, customHeader http.Header) (*http.Request, error) {.
 func createRequest(ctx context.Context, url string, method string, customHeader http.Header, payload *strings.Reader) (*http.Request, error) {
 	var request *http.Request
+
 	var err error
 
 	if payload != nil {

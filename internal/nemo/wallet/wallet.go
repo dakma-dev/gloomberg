@@ -21,7 +21,7 @@ type Wallet struct {
 }
 
 func (w *Wallet) ColoredName(maxWalletNameLength int) string {
-	return lipgloss.NewStyle().Foreground(w.Color).Faint(true).Width(maxWalletNameLength).Render(w.Name)
+	return lipgloss.NewStyle().Foreground(w.Color).Faint(true).Width(maxWalletNameLength).MaxWidth(maxWalletNameLength).Render(w.Name)
 }
 
 func (w *Wallet) Render(text string) string {

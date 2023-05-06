@@ -2,7 +2,7 @@ package watch
 
 import "github.com/ethereum/go-ethereum/common"
 
-type WatcherUsers map[common.Address]*WatchUser
+type WatcherUsers map[common.Address]*WUser
 
 // Contains returns true if the given string is in the slice.
 func (wu *WatcherUsers) Contains(address common.Address) bool {
@@ -20,33 +20,33 @@ func (wu *WatcherUsers) ContainsOneOf(addresses map[common.Address]bool) common.
 }
 
 type Watcher struct {
-	Groups          map[string]*WatchGroup
-	UserAddresses   map[common.Address]*WatchGroup
-	WalletAddresses map[common.Address]*WatchGroup
+	Groups          map[string]*WGroup
+	UserAddresses   map[common.Address]*WGroup
+	WalletAddresses map[common.Address]*WGroup
 	WatchUsers      WatcherUsers
 }
 
-type WatchWallet struct {
+type WWallet struct {
 	Name    string         `mapstructure:"name"`
 	Address common.Address `mapstructure:"address"`
 }
 
-type WatchUser struct {
-	Name             string         `mapstructure:"name"`
-	TelegramUsername string         `mapstructure:"telegram_username"`
-	Wallets          []*WatchWallet `mapstructure:"wallets"`
+type WUser struct {
+	Name             string     `mapstructure:"name"`
+	TelegramUsername string     `mapstructure:"telegram_username"`
+	Wallets          []*WWallet `mapstructure:"wallets"`
 
 	WalletAddresses []common.Address
 
-	Group *WatchGroup
+	Group *WGroup
 }
 
-type WatchGroup struct {
-	Name             string         `mapstructure:"group"`
-	TelegramChatID   int64          `mapstructure:"telegram_chat_id"`
+type WGroup struct {
+	Name           string     `mapstructure:"group"`
+	TelegramChatID int64      `mapstructure:"telegram_chat_id"`
+	Users          []*WUser   `mapstructure:"users"`
+	Wallets        []*WWallet `mapstructure:"wallets"`
 	ReplyToMessageID int            `mapstructure:"telegram_reply_to_message_id"`
-	Users            []*WatchUser   `mapstructure:"users"`
-	Wallets          []*WatchWallet `mapstructure:"wallets"`
 
 	// addresses []common.Address
 	// Contracts      []WatchContract `mapstructure:"contracts"`
