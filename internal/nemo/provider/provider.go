@@ -474,6 +474,19 @@ func (p *provider) getENSForAddress(ctx context.Context, address common.Address)
 	return ensName, nil
 }
 
+func (p *provider) ensLookup(ensName string) (common.Address, error) {
+	var err error
+
+	// do a lookup for the ensName to validate its authenticity
+	resolvedAddress, err := ens.Resolve(p.Client, ensName)
+	if err != nil {
+		gbl.Log.Debugf("ens resolve error: %s : %s", ensName, err)
+		return common.Address{}, err
+	}
+
+	return resolvedAddress, nil
+}
+
 func (p *provider) reverseLookupAndValidate(address common.Address) (string, error) {
 	var ensName string
 

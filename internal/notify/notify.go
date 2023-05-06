@@ -115,8 +115,10 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 	for user, msgTelegram := range messagesPerUserMap {
 		chatID := viper.GetInt64("notifications.telegram.chat_id")
 
+		var replyToMessageID int
 		if user != nil && user.Group.TelegramChatID != 0 {
 			chatID = user.Group.TelegramChatID
+			replyToMessageID = user.Group.ReplyToMessageID
 		}
 
 		var imageURI string
@@ -124,13 +126,13 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 			imageURI = uri
 		}
 
-		SendMessageViaTelegram(msgTelegram.String(), chatID, imageURI)
+		SendMessageViaTelegram(msgTelegram.String(), chatID, imageURI, replyToMessageID, nil)
 	}
 }
 
-func SendMessageViaTelegram(message string, chatID int64, imageURI string) {
+func SendMessageViaTelegram(message string, chatID int64, imageURI string, replyToMessageID int, replyMarkup interface{}) {
 	// send telegram message
-	msg, err := sendTelegramMessage(chatID, message, imageURI)
+	msg, err := sendTelegramMessage(chatID, message, imageURI, replyToMessageID, replyMarkup)
 	if err != nil {
 		gbl.Log.Warnf("❌ failed to send telegram message: %s | imageURI: '%s' | msgTelegram: '%s'", err, imageURI, message)
 
