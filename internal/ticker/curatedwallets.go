@@ -177,7 +177,14 @@ func (s *AlphaScore) AddEvent(eventTx *totra.TokenTransaction) {
 		return
 	}
 
+	if s == nil || s.gb == nil {
+		return
+	}
+
 	contractAddress, tokenID := getFirstContractAddressAndTokenID(eventTx)
+	if tokenID == nil {
+		tokenID = big.NewInt(0)
+	}
 
 	currentCollection := tokencollections.GetCollection(s.gb, contractAddress, tokenID.Int64())
 

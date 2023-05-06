@@ -106,7 +106,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// queue for everything to print to the console
 	terminalPrinterQueue := make(chan string, 256)
 
-	if viper.GetBool("smart_wallets.enabled") {
+	if viper.GetBool("notifications.smart_wallets.enabled") {
 		alphaTicker := ticker.NewAlphaScore(gb)
 		go alphaTicker.AlphaCallerTicker(gb, time.NewTicker(time.Minute*1))
 	}
