@@ -1,4 +1,4 @@
-package ticker
+package stats
 
 import (
 	"context"
@@ -10,6 +10,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -28,15 +29,13 @@ import (
 var ErrWalletBalance = fmt.Errorf("error fetching wallet balance")
 
 var (
-	listStyle = lipgloss.NewStyle().
-			Border(lipgloss.NormalBorder(), false, true, false, false).
-			BorderForeground(style.Subtle).
-			MarginRight(0)
+	listStyle = lipgloss.NewStyle()
+	// Border(lipgloss.NormalBorder(), false, true, false, false).
+	// BorderForeground(style.Subtle)
+	// MarginRight(0).
 
 	itemStyle = lipgloss.NewStyle().Padding(0, 2)
 	listItem  = itemStyle.Render
-
-	StatsTicker *Stats
 )
 
 type Stats struct {
@@ -83,13 +82,15 @@ func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider
 
 	stats.Reset()
 
-	StatsTicker = stats
-
 	return stats
 }
 
 func (s *Stats) salesPerMinute() float64 {
 	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
+}
+
+func (s *Stats) mintsPerMinute() float64 {
+	return float64((s.mints * 60) / uint64(s.interval.Seconds()))
 }
 
 func (s *Stats) salesVolumePerMinute() float64 {
@@ -135,15 +136,15 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	return s.wallets, nil
 }
 
-func (s *Stats) AddSale(value *big.Int) float64 {
+func (s *Stats) AddSale(amountTokens int64, value *big.Int) float64 {
 	s.salesVolume.Add(s.salesVolume, value)
-	atomic.AddUint64(&s.sales, 1)
+	atomic.AddUint64(&s.sales, uint64(amountTokens))
 
 	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
 }
 
-func (s *Stats) AddMint() {
-	atomic.AddUint64(&s.mints, 1)
+func (s *Stats) AddMint(amountTokens int64) {
+	atomic.AddUint64(&s.mints, uint64(amountTokens))
 }
 
 func (s *Stats) Print(queueOutput chan string) {
@@ -174,8 +175,8 @@ func (s *Stats) Print(queueOutput chan string) {
 	}
 
 	if len(s.OwnEventsHistory) > 0 || len(s.EventHistory) > 0 {
-		eventsList := listStyle.Copy().UnsetWidth().UnsetBorderRight().PaddingLeft(0).Render
-		statsLists = append(statsLists, eventsList(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
+		eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
+		statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
 	}
 
 	formattedStatsLists = lipgloss.JoinHorizontal(lipgloss.Top, statsLists...)
@@ -228,16 +229,25 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 	}
 
+	//
 	// per minute stats
-	volumeLabel := style.DarkGrayStyle.Render("Ξ v/m")
-	volumeValue := style.GrayStyle.Render(fmt.Sprintf("%5.1f", s.salesVolumePerMinute()))
-	salesLabel := style.DarkGrayStyle.Render("s/m")
-	salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(s.salesPerMinute())))
+	if volume := s.salesVolumePerMinute(); volume > 0 {
+		volumeLabel := style.DarkGrayStyle.Render("Ξ /m")
+		volumeValue := style.GrayStyle.Render(fmt.Sprintf("%6.2f", volume))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
+	}
 
-	firstColumn = append(firstColumn, []string{
-		listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel)),
-		listItem(fmt.Sprintf("%s %s", salesValue, salesLabel)),
-	}...)
+	if sales := s.salesPerMinute(); sales > 0 {
+		salesLabel := style.DarkGrayStyle.Render("s/m")
+		salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(sales)))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
+	}
+
+	if mints := s.mintsPerMinute(); mints > 0 {
+		mintsLabel := style.DarkGrayStyle.Render("m/m")
+		mintsValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(mints)))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)
+	}
 
 	//
 	// second column
@@ -273,7 +283,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	}
 
 	// combine lists
-	statsOutput := []string{listStyle.Copy().PaddingLeft(1).Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
+	statsOutput := []string{listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
 
 	if len(secondcolumn) > 0 {
 		statsOutput = append(statsOutput, listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, secondcolumn...)))
@@ -363,7 +373,12 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 		tokenInfo := event.FmtTokensTransferred[0] // strings.Join(event.FmtTokensTransferred, " | ")
 
+		isOwnWallet := s.wallets.ContainsAddressFromSlice(event.TokenTransaction.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
+
 		timeNow := rowStyle.Render(event.ReceivedAt.Format("15:04:05"))
+		if isOwnWallet {
+			timeNow = collectionStyle.Render(event.ReceivedAt.Format("15:04:05"))
+		}
 
 		pricePerItem := price.NewPrice(event.AmountPaid)
 		if event.TokenTransaction.TotalTokens > 0 {
@@ -393,11 +408,11 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan s
 
 	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
 
+	time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))
+
+	tickerPrintStats.Reset(intervalPrintStats)
+
 	go func() {
-		time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))
-
-		tickerPrintStats.Reset(intervalPrintStats)
-
 		for range tickerPrintStats.C {
 			s.Print(queueOutput)
 		}

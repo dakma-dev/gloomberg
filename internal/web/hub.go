@@ -20,7 +20,7 @@ import (
 
 /*
 *
-wsUpgrader is used to upgrade incomming HTTP requests into a persitent websocket connection
+wsUpgrader is used to upgrade incomming HTTP requests into a persitent websocket connection.
 */
 var (
 	// allowedOrigins = []string{"https://localhost:8080", "https://10.0.0.99:8080", "https://mia.home.benleb.de:8080"}
@@ -30,7 +30,7 @@ var (
 	// 	CheckOrigin:       checkOrigin,
 	// 	ReadBufferSize:    1024,
 	// 	WriteBufferSize:   1024,
-	// }
+	// }.
 
 	ErrEventNotSupported = errors.New("this event type is not supported")
 )
@@ -159,7 +159,7 @@ func (wh *WsHub) broadcastTTx() {
 	}
 }
 
-// setupEventHandlers configures and adds all handlers
+// setupEventHandlers configures and adds all handlers.
 func (wh *WsHub) setupEventHandlers() {
 	wh.handlers[MsgCommand] = func(msg Message, _ *WsClient) error {
 		gbl.Log.Info("received message: ", msg)
@@ -169,7 +169,7 @@ func (wh *WsHub) setupEventHandlers() {
 	}
 }
 
-// routeEvent is used to make sure the correct event goes into the correct handler
+// routeEvent is used to make sure the correct event goes into the correct handler.
 func (wh *WsHub) routeEvent(event Message, wc *WsClient) error {
 	// Check if Handler is present in Map
 	if handler, ok := wh.handlers[event.Type]; ok {
@@ -184,7 +184,7 @@ func (wh *WsHub) routeEvent(event Message, wc *WsClient) error {
 	return ErrEventNotSupported
 }
 
-// serveWS is a HTTP Handler that the has the Manager that allows connections
+// serveWS is a HTTP Handler that the has the Manager that allows connections.
 func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
 	gbl.Log.Info("New connection")
 
@@ -209,7 +209,7 @@ func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
 	// conn.Close()
 }
 
-// addClient will add clients to our clientList
+// addClient will add clients to our clientList.
 func (wh *WsHub) addClient(client *WsClient) {
 	// Lock so we can manipulate
 	wh.Lock()
@@ -221,7 +221,7 @@ func (wh *WsHub) addClient(client *WsClient) {
 	gbl.Log.Info("client added")
 }
 
-// removeClient will remove the client and clean up
+// removeClient will remove the client and clean up.
 func (wh *WsHub) removeClient(client *WsClient) {
 	wh.Lock()
 	defer wh.Unlock()

@@ -12,6 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/seawa"
+	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
@@ -24,6 +25,7 @@ type Gloomberg struct {
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
+	Stats        *stats.Stats
 
 	Rdb *redis.Client
 

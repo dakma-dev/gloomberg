@@ -124,14 +124,15 @@ func FromConfig(config interface{}) (*Pool, error) {
 	// handle reconnects
 	go func() {
 		// reconnect if no logs received for a while
-		maxDelay := 27 * time.Second // 27s ~ 3 blocks
+		maxDelay := internal.BlockTime * 3
 		reconnectTicker := time.NewTicker(maxDelay)
 
 		for range reconnectTicker.C {
 			// if last log is older than maxDelay, we reconnect
 			if !providerPool.LastLogReceivedAt.IsZero() && providerPool.LastLogReceivedAt.Add(maxDelay).Before(time.Now()) {
-				infoMsg := fmt.Sprintf("❌ 🔌 no logs received for %.0fsec, reconnecting to our providers/ethereum nodes", maxDelay.Seconds())
+				infoMsg := fmt.Sprintf(" ❗️ no logs received for %s, reconnecting...", style.Bold(fmt.Sprintf("%.0fsec", maxDelay.Seconds())))
 				gbl.Log.Info(infoMsg)
+				fmt.Print("\n" + infoMsg + "\n")
 
 				providerPool.ReconnectProviders()
 
@@ -156,7 +157,7 @@ func FromConfig(config interface{}) (*Pool, error) {
 	return providerPool, nil
 }
 
-// func (pp *Pool) ReconnectProviders(queueLogs *chan types.Log) {
+// func (pp *Pool) ReconnectProviders(queueLogs *chan types.Log) {.
 func (pp *Pool) ReconnectProviders() {
 	gbl.Log.Info("🔌 trying to re-connect...")
 
