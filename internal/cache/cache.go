@@ -343,7 +343,7 @@ func ReleaseNotificationLock(ctx context.Context, contractAddress common.Address
 }
 
 func NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duration time.Duration) (bool, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	releaseKey := uuid.New()
 
