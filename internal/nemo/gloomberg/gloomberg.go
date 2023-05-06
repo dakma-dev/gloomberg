@@ -15,7 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/rueidis"
 )
 
 type Gloomberg struct {
@@ -27,7 +27,7 @@ type Gloomberg struct {
 	OwnWallets   *wallet.Wallets
 	Stats        *stats.Stats
 
-	Rdb *redis.Client
+	Rdb rueidis.Client
 
 	QueueSlugs chan common.Address
 }
@@ -54,7 +54,7 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		return
 	}
 
-	if err := gb.Rdb.Publish(context.Background(), internal.TopicSeaWatcherMgmt, jsonMgmtEvent).Err(); err != nil {
+	if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 		gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 	} else {
 		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(gb.CollectionDB.OpenseaSlugs()))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -31,8 +32,8 @@ import (
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -67,23 +68,20 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
 
-	// init redis client
-	rdb := redis.NewClient(&redis.Options{
-		Addr: strings.Join([]string{
-			viper.GetString("redis.host"),
-			fmt.Sprint(viper.GetInt("redis.port")),
-		}, ":"),
-		Password: viper.GetString("redis.password"),
-		DB:       viper.GetInt("redis.database"),
-	}).WithContext(context.Background())
+	cache.Initialize()
 
 	gb := &gloomberg.Gloomberg{
 		CollectionDB: collections.New(),
 		OwnWallets:   &wallet.Wallets{},
 		Watcher:      &watch.Watcher{},
-		Rdb:          rdb,
-		QueueSlugs:   make(chan common.Address, 1024),
+
+		QueueSlugs: make(chan common.Address, 1024),
+
+		Rdb: GetRedisClient(),
 	}
+
+	// cleanup for redis db/cache
+	defer gb.Rdb.Close()
 
 	// compatibility with old config key
 	var providerConfig interface{}
@@ -296,7 +294,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// statsbox
-	gb.Stats = stats.New(gasTicker, gb.OwnWallets, gb.ProviderPool)
+	gb.Stats = stats.New(gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
 
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
 		gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
@@ -306,24 +304,18 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// subscribe to redis pubsub channel to receive events from gloomberg central
 	if viper.GetBool("pubsub.listings.subscribe") {
 		// subscribe to redis pubsub channel
-		pusu.SubscribeToListings(gb, queueTokenTransactions)
+		go pusu.SubscribeToListings(gb, queueTokenTransactions)
 
 		// initially send all our slugs & events to subscribe to
 		gb.SendSlugsToServer()
 
-		//
-		// subscribe to mgmt channel to receive SendSlugs events
-		pubsubMgmt := rdb.Subscribe(context.Background(), internal.TopicSeaWatcherMgmt)
-		ch := pubsubMgmt.Channel(redis.WithChannelSize(1024))
-
 		go func() {
-			// loop over incoming events
-			for msg := range ch {
-				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Payload))
+			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
+				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Message))
 
 				var mgmtEvent *seawa.MgmtEvent
 
-				if err := json.Unmarshal([]byte(msg.Payload), &mgmtEvent); err != nil {
+				if err := json.Unmarshal([]byte(msg.Message), &mgmtEvent); err != nil {
 					gbl.Log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
 				}
 
@@ -331,8 +323,30 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 					gbl.Log.Info(fmt.Sprintf("🚇 SendSlugs received on channel %s", msg.Channel))
 					gb.SendSlugsToServer()
 				}
+			})
+			if err != nil {
+				gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", internal.TopicSeaWatcherMgmt, err.Error())
+
+				return
 			}
 		}()
+		// go func() {
+		// 	// loop over incoming events
+		// 	for msg := range ch {
+		// 		gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Payload))
+
+		// 		var mgmtEvent *seawa.MgmtEvent
+
+		// 		if err := json.Unmarshal([]byte(msg.Payload), &mgmtEvent); err != nil {
+		// 			gbl.Log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
+		// 		}
+
+		// 		if mgmtEvent.Action == seawa.SendSlugs {
+		// 			gbl.Log.Info(fmt.Sprintf("🚇 SendSlugs received on channel %s", msg.Channel))
+		// 			gb.SendSlugsToServer()
+		// 		}
+		// 	}
+		// }()
 	}
 
 	//

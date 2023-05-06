@@ -12,37 +12,35 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/trapri"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
+	"github.com/redis/rueidis"
 )
 
 func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransactions chan *totra.TokenTransaction) {
-	pubsub := gb.Rdb.Subscribe(context.Background(), channel)
-
-	ch := pubsub.Channel(redis.WithChannelSize(1024))
-
-	for msg := range ch {
-		gbl.Log.Infof("🚇 subscribe channel %s (%d)", msg.Channel, len(ch))
-
+	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(channel).Build(), func(msg rueidis.PubSubMessage) {
 		// validate json
-		if !json.Valid([]byte(msg.Payload)) {
-			gbl.Log.Warnf("❗️ invalid json: %s", msg.Payload)
+		if !json.Valid([]byte(msg.Message)) {
+			gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
 
-			continue
+			return
 		}
 
 		// create the event transaction
 		var ttx totra.TokenTransaction
 
 		// unmarshal event transaction from json
-		err := json.Unmarshal([]byte(msg.Payload), &ttx)
+		err := json.Unmarshal([]byte(msg.Message), &ttx)
 		if err != nil {
-			gbl.Log.Warnf("❗️ error unmarshalling event Tx: %+v | %s", msg.Payload, err)
+			gbl.Log.Warnf("❗️ error unmarshalling event Tx: %+v | %s", msg.Message, err)
 
-			continue
+			return
 		}
 
 		queueTokenTransactions <- &ttx
+	})
+	if err != nil {
+		gbl.Log.Errorf("❌ error subscribing to redis channel %s: %s", channel, err.Error())
+
+		return
 	}
 }
 
@@ -63,53 +61,48 @@ func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *t
 		channels = append(channels, channelPattern)
 	}
 
-	pubsub := gb.Rdb.PSubscribe(context.Background(), channels...)
+	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
+		gbl.Log.Debugf("🚇 received msg on channel %s: %s", msg.Channel, msg.Message)
 
-	ch := pubsub.Channel(redis.WithChannelSize(1024))
+		var itemListedEvent osmodels.ItemListedEvent
 
-	for i := 0; i < viper.GetInt("server.pubsub.listings"); i++ {
-		go func(i int) {
-			gbl.Log.Infof("🚇 starting pusu listings receiver #%d | subscriptions: %d", i, len(channels))
+		// validate json
+		if !json.Valid([]byte(msg.Message)) {
+			gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
 
-			for msg := range ch {
-				gbl.Log.Debugf("🚇 received msg on channel %s (%d): %s", msg.Channel, len(ch), msg.Payload)
+			return
+		}
 
-				var itemListedEvent osmodels.ItemListedEvent
+		// unmarshal
+		if err := json.Unmarshal([]byte(msg.Message), &itemListedEvent); err != nil {
+			gbl.Log.Errorf("❌ error json.Unmarshal: %+v\n", err.Error())
 
-				// validate json
-				if !json.Valid([]byte(msg.Payload)) {
-					gbl.Log.Warnf("❗️ invalid json: %s", msg.Payload)
+			return
+		}
 
-					continue
-				}
+		// nftID is a string in the format <chain>/<contract>/<tokenID>
+		nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
+		if len(nftID) != 3 {
+			gbl.Log.Warnf("🤷‍♀️ error parsing nftID: %s | %+v", itemListedEvent.Payload.Item.NftID, nftID)
 
-				// unmarshal
-				if err := json.Unmarshal([]byte(msg.Payload), &itemListedEvent); err != nil {
-					gbl.Log.Errorf("❌ error json.Unmarshal: %+v\n", err.Error())
+			return
+		}
 
-					continue
-				}
+		//
+		// discard listings for ignored collections
+		if collection, ok := gb.CollectionDB.Collections[common.HexToAddress(nftID[1])]; ok && collection.IgnorePrinting {
+			gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
 
-				// nftID is a string in the format <chain>/<contract>/<tokenID>
-				nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
-				if len(nftID) != 3 {
-					gbl.Log.Warnf("🤷‍♀️ error parsing nftID: %s | %+v", itemListedEvent.Payload.Item.NftID, nftID)
+			return
+		}
 
-					continue
-				}
+		// print
+		trapri.FormatListing(gb, &itemListedEvent, queueTokenTransactions)
+	})
+	if err != nil {
+		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())
 
-				//
-				// discard listings for ignored collections
-				if collection, ok := gb.CollectionDB.Collections[common.HexToAddress(nftID[1])]; ok && collection.IgnorePrinting {
-					gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
-
-					continue
-				}
-
-				// print
-				trapri.FormatListing(gb, &itemListedEvent, queueTokenTransactions)
-			}
-		}(i)
+		return
 	}
 }
 
@@ -122,10 +115,9 @@ func Publish(gb *gloomberg.Gloomberg, channel string, event any) {
 		return
 	}
 
-	// publish event to redis pubsub
-	err = gb.Rdb.Publish(context.Background(), channel, marshalledEvent).Err()
-	if err != nil {
-		gbl.Log.Warnf("❗️ error publishing event to redis: %s", err)
+	// publish event to redis pubsub channel
+	if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(channel).Message(string(marshalledEvent)).Build()).Error() != nil {
+		gbl.Log.Warnf("❗️ error publishing event to redis: %s", err.Error())
 	} else {
 		gbl.Log.Debug("published event to redis")
 	}

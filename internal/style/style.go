@@ -192,6 +192,26 @@ func ShortenAddress(address *common.Address) string {
 	)
 }
 
+func ShortenedTokenIDStyled(tokenID *big.Int, primaryStyle lipgloss.Style, secondaryStyle lipgloss.Style) string {
+	shortened := false
+
+	// shorten token id if it's too long
+	if tokenID.Cmp(big.NewInt(999_999)) > 0 {
+		tokenID = big.NewInt(tokenID.Int64() % 10000)
+		shortened = true
+	}
+
+	// token id
+	prefix := secondaryStyle.Render("#")
+	id := primaryStyle.Render(fmt.Sprint(tokenID))
+
+	if shortened {
+		id += secondaryStyle.Render("…")
+	}
+
+	return prefix + id
+}
+
 // ShortenAddressStyled returns a shortened address styled with colors.
 func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string {
 	// gray out zero address

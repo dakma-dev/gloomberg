@@ -1,13 +1,9 @@
 package cache
 
 import (
-	"context"
 	"fmt"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redis/redis/v8"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -47,17 +43,4 @@ func keyFloorPrice(address common.Address) string {
 
 func keySalira(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordSalira)
-}
-
-func NewRedisClient(ctx context.Context) *redis.Client {
-	rdb := redis.NewClient(&redis.Options{
-		Addr: strings.Join([]string{
-			viper.GetString("redis.host"),
-			fmt.Sprint(viper.GetInt("redis.port")),
-		}, ":"),
-		Password: viper.GetString("redis.password"),
-		DB:       viper.GetInt("redis.database"),
-	}).WithContext(ctx)
-
-	return rdb
 }

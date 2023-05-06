@@ -1,17 +1,13 @@
 package cmd
 
 import (
-	"context"
-	"fmt"
 	"net"
 	"net/http"
 	"strconv"
-	"strings"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/charmbracelet/log"
-	"github.com/go-redis/redis/v8"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -36,7 +32,7 @@ func init() {
 }
 
 func run(_ *cobra.Command, _ []string) {
-	log.Info(fmt.Sprintf("⚓️ starting seawatcher %s…", internal.GloombergVersion))
+	log.Infof("⚓️ starting seawatcher %s…", internal.GloombergVersion)
 
 	//
 	// init metrics
@@ -48,38 +44,21 @@ func run(_ *cobra.Command, _ []string) {
 
 			http.Handle("/metrics", promhttp.Handler())
 
-			log.Info(fmt.Sprintf("⚓️ 📐 metrics: http://%s", listenAddress))
+			log.Infof("⚓️ 📐 metrics: http://%s", listenAddress)
 
 			if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
-				log.Error(fmt.Sprintf("⚓️ 📐 ❌ error starting metrics server: %s", err))
+				log.Errorf("⚓️ 📐 ❌ error starting metrics server: %s", err)
 			}
 		}()
 	}
 
-	var redisAddress string
-	network := "tcp"
-
-	if viper.IsSet("redis.address") {
-		redisAddress = viper.GetString("redis.address")
-		if strings.HasPrefix(redisAddress, "unix://") {
-			network = "unix"
-			redisAddress = strings.Replace(redisAddress, "unix://", "", 1)
-		}
-	} else {
-		// fallback to old config
-		redisAddress = viper.GetString("redis.host") + ":" + fmt.Sprint(viper.GetInt("redis.port"))
-	}
-
-	//
-	// init redis client
-	rdb := redis.NewClient(&redis.Options{
-		Network:  network,
-		Addr:     redisAddress,
-		Password: viper.GetString("redis.password"),
-		DB:       viper.GetInt("redis.database"),
-	}).WithContext(context.Background())
-
-	//
 	// start sea watcher & loop forever
-	seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), rdb).Start()
+	seaWatcher := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), GetRedisClient())
+
+	go seaWatcher.Run()
+
+	// publish a "SendSlugs" event to the management channel to request the slugs/events to subscribe to from the clients
+	seaWatcher.PublishSendSlugs()
+
+	select {}
 }

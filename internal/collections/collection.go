@@ -3,9 +3,7 @@ package collections
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
-	"math/rand"
 	"sync/atomic"
 
 	"github.com/VividCortex/ewma"
@@ -76,7 +74,7 @@ type Collection struct {
 func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource) *Collection {
 	var collectionName string
 
-	gbCache := cache.New(context.TODO())
+	gbCache := cache.GetCache()
 
 	switch {
 	case name != "":
@@ -279,13 +277,11 @@ func (uc *Collection) ResetStats() {
 
 // GenerateColors generates two colors based on contract address of the collection.
 func (uc *Collection) generateColorsFromAddress() {
-	rng := rand.New(rand.NewSource(uc.ContractAddress.Hash().Big().Int64())) //nolint:gosec
-
 	if uc.Colors.Primary == "" {
-		uc.Colors.Primary = lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rng.Intn(256), rng.Intn(256), rng.Intn(256)))
+		uc.Colors.Primary = style.GenerateColorWithSeed(uc.ContractAddress.Hash().Big().Int64())
 	}
 
 	if uc.Colors.Secondary == "" {
-		uc.Colors.Secondary = lipgloss.Color(fmt.Sprintf("#%02x%02x%02x", rng.Intn(256), rng.Intn(256), rng.Intn(256)))
+		uc.Colors.Secondary = style.GenerateColorWithSeed(uc.ContractAddress.Big().Int64() ^ 2)
 	}
 }

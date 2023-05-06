@@ -3,55 +3,73 @@ package cache
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-redis/redis/v8"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
-// enable other cache/datastore backends besides redis?
-// type ExtCache interface {
-// 	cacheName(address common.Address, keyFunc func(common.Address) string, value string, duration time.Duration)
-// 	getName(address common.Address, keyFunc func(common.Address) string) (string, error)
-// }
-
 var gbCache *GbCache
 
 const noENSName = "NO-ENS-NAME"
 
 type GbCache struct {
-	mu  *sync.RWMutex
 	rdb *redis.Client
+
+	mu *sync.RWMutex
+
 	// addressToName map[common.Address]string
+
 	localCache      map[string]string
 	localFloatCache map[string]float64
 }
 
-func New(ctx context.Context) *GbCache {
+func Initialize() *GbCache {
+	// init redis client
+	rdb := redis.NewClient(&redis.Options{
+		Addr: strings.Join([]string{
+			viper.GetString("redis.host"),
+			fmt.Sprint(viper.GetInt("redis.port")),
+		}, ":"),
+		Password: viper.GetString("redis.password"),
+		DB:       viper.GetInt("redis.database"),
+	}).WithContext(context.Background())
+
 	if gbCache != nil {
-		return gbCache
+		log.Warn("cache already initialized")
 	}
 
 	gbCache = &GbCache{
+		rdb: rdb,
+
 		mu: &sync.RWMutex{},
-		// addressToName: make(map[common.Address]string),
+
 		localCache:      make(map[string]string),
 		localFloatCache: make(map[string]float64),
 	}
 
-	if viper.GetBool("redis.enabled") {
-		if client := NewRedisClient(ctx); client != nil {
-			gbCache.rdb = client
-		} else {
-			viper.Set("redis.enabled", false)
-		}
+	return gbCache
+}
+
+func GetCache() *GbCache {
+	if gbCache != nil {
+		return gbCache
 	}
 
-	return gbCache
+	gbCache = Initialize()
+
+	if gbCache != nil {
+		return gbCache
+	}
+
+	return nil
 }
 
 func (c *GbCache) GetRDB() *redis.Client {
@@ -228,62 +246,62 @@ func (c *GbCache) getFloat(ctx context.Context, address common.Address, keyFunc 
 
 // names.
 func StoreENSName(ctx context.Context, walletAddress common.Address, ensName string) {
-	c := New(ctx)
+	c := GetCache()
 	c.cacheName(ctx, walletAddress, keyENS, ensName, viper.GetDuration("cache.ens_ttl"))
 }
 
 func GetENSName(ctx context.Context, walletAddress common.Address) (string, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	return c.getName(ctx, walletAddress, keyENS)
 }
 
 func StoreContractName(ctx context.Context, contractAddress common.Address, contractName string) {
-	c := New(ctx)
+	c := GetCache()
 
 	c.cacheName(ctx, contractAddress, keyContract, contractName, viper.GetDuration("cache.names_ttl"))
 }
 
 func GetContractName(ctx context.Context, contractAddress common.Address) (string, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	return c.getName(ctx, contractAddress, keyContract)
 }
 
 // slugs.
 func StoreOSSlug(ctx context.Context, contractAddress common.Address, slug string) {
-	c := New(ctx)
+	c := GetCache()
 
 	c.cacheName(ctx, contractAddress, keyOSSlug, slug, viper.GetDuration("cache.slug_ttl"))
 }
 
 func StoreBlurSlug(ctx context.Context, contractAddress common.Address, slug string) {
-	c := New(ctx)
+	c := GetCache()
 
 	c.cacheName(ctx, contractAddress, keyBlurSlug, slug, viper.GetDuration("cache.slug_ttl"))
 }
 
 // numbers.
 func StoreFloor(ctx context.Context, address common.Address, value float64) {
-	c := New(ctx)
+	c := GetCache()
 
 	c.cacheFloat(ctx, address, keyFloorPrice, value, viper.GetDuration("cache.floor_ttl"))
 }
 
 func GetFloor(ctx context.Context, address common.Address) (float64, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	return c.getFloat(ctx, address, keyFloorPrice)
 }
 
 func StoreSalira(ctx context.Context, address common.Address, value float64) {
-	c := New(ctx)
+	c := GetCache()
 
 	c.cacheFloat(ctx, address, keySalira, value, viper.GetDuration("cache.salira_ttl"))
 }
 
 func GetSalira(ctx context.Context, address common.Address) (float64, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	return c.getFloat(ctx, address, keySalira)
 }
@@ -291,7 +309,7 @@ func GetSalira(ctx context.Context, address common.Address) (float64, error) {
 // NotificationLock implements a lock to prevent sending multiple notifications for the same event
 // see https://redis.io/docs/manual/patterns/distributed-locks/#correct-implementation-with-a-single-instance
 func NotificationLock(ctx context.Context, txID common.Hash) (bool, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	releaseKey := uuid.New()
 
@@ -319,7 +337,7 @@ func NotificationLock(ctx context.Context, txID common.Hash) (bool, error) {
 }
 
 func ReleaseNotificationLock(ctx context.Context, contractAddress common.Address) (string, error) {
-	c := New(ctx)
+	c := GetCache()
 
 	return c.getName(ctx, contractAddress, keyContract)
 }

@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -22,6 +21,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
 )
 
@@ -41,6 +41,7 @@ var (
 type Stats struct {
 	wallets      *wallet.Wallets
 	providerPool *provider.Pool
+	rdb          rueidis.Client
 
 	interval time.Duration
 
@@ -67,10 +68,11 @@ type Stats struct {
 	DiscardedMints             uint64
 }
 
-func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool) *Stats {
+func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool, rdb rueidis.Client) *Stats {
 	stats := &Stats{
 		wallets:      wallets,
 		providerPool: providerPool,
+		rdb:          rdb,
 
 		OwnEventsHistory: make([]string, viper.GetInt("stats.lines")),
 		EventHistory:     make([]*totra.HistoryTokenTransaction, 0),
@@ -263,17 +265,44 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 	// redis stats
 	if viper.GetBool("redis.enabled") {
-		if rdb := cache.New(context.TODO()).GetRDB(); rdb != nil {
-			namesLabel := style.DarkGrayStyle.Render("n-cache")
-			namesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.DBSize(context.Background()).Val()))
+		if s.rdb != nil {
+			dbSize, err := s.rdb.Do(context.TODO(), s.rdb.B().Dbsize().Build()).AsInt64()
+			if err != nil {
+				gbl.Log.Warnf("failed to get redis dbsize: %v", err)
+			}
+
+			dbInfo, err := s.rdb.Do(context.TODO(), s.rdb.B().Info().Section("stats").Build()).ToString()
+			if err != nil {
+				gbl.Log.Warnf("failed to get redis dbsize: %v", err)
+			}
+
+			// cache hitrate
+			var keyspaceHits, keyspaceMisses int
+			for _, stat := range strings.Split(dbInfo, "\n") {
+				if strings.HasPrefix(stat, "keyspace_hits:") {
+					keyspaceHits, _ = fmt.Sscanf(stat, "keyspace_hits:%d", &keyspaceHits)
+				}
+
+				if strings.HasPrefix(stat, "keyspace_misses:") {
+					keyspaceMisses, _ = fmt.Sscanf(stat, "keyspace_misses:%d", &keyspaceMisses)
+				}
+			}
+
+			// calculate hitrate
+			hitrate := float64(keyspaceHits) / float64(keyspaceHits+keyspaceMisses)
+
+			// cache size
+			namesLabel := style.DarkGrayStyle.Render("  cache")
+			namesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", dbSize))
 
 			// salesLabel := style.DarkGrayStyle.Render("s-cache")
 			// salesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.XLen(context.Background(), "sales").Val()))
 
-			hitrate := float64(rdb.PoolStats().Hits) / float64(rdb.PoolStats().Hits+rdb.PoolStats().Misses) * 100
+			// hitrate
 			hitrateLabel := style.DarkGrayStyle.Render("hitrate")
 			hitrateValue := fmt.Sprint(style.GrayStyle.Render(fmt.Sprintf("%8.2f", hitrate)), style.DarkGrayStyle.Render("%"))
 
+			// add to second column
 			secondcolumn = append(secondcolumn, []string{
 				listItem(fmt.Sprintf("%s %s", namesLabel, namesValue)),
 				// listItem(fmt.Sprintf("%s %s", salesLabel, salesValue)),
