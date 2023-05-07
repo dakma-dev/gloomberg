@@ -1,0 +1,10 @@
+2023-05-07 13:47:37 [34minfo[0m provider/provider.go:312 nuc syncing: <nil>
+2023-05-07 13:47:37 [34minfo[0m provider/pool.go:120 ✅ added node [1mnuc[0m
+2023-05-07 13:47:37 [34minfo[0m provider/pool.go:273 ✍️ subscribed to all transfer topics via node [1mnuc[0m
+2023-05-07 13:47:37 [34minfo[0m provider/pool.go:299 ✍️ subscribed to pending transactions via node [1mnuc[0m
+2023-05-07 13:47:38 [35mdebug[0m provider/pool.go:371 callMethodCounter: 100
+2023-05-07 13:47:48 [35mdebug[0m provider/pool.go:371 callMethodCounter: 200
+2023-05-07 13:47:48 [35mdebug[0m provider/pool.go:371 callMethodCounter: 300
+2023-05-07 13:48:00 [35mdebug[0m provider/pool.go:371 callMethodCounter: 400
+2023-05-07 13:48:11 [35mdebug[0m provider/pool.go:371 callMethodCounter: 500
+2023-05-07 13:48:11 [35mdebug[0m provider/pool.go:371 callMethodCounter: 600
