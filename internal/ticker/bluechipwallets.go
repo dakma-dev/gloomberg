@@ -2,9 +2,10 @@ package ticker
 
 import (
 	"encoding/json"
+	"os"
+
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
-	"os"
 )
 
 type Wallets struct {
@@ -18,7 +19,7 @@ type Wallet struct {
 	Score   int32 `json:"score"`
 }
 
-type getOwnersForCollection struct {
+type GetOwnersForCollectionResponse struct {
 	OwnerAddresses []string `json:"ownerAddresses"`
 }
 
@@ -28,6 +29,7 @@ func (s *Wallet) Contains(e HolderTypes) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -39,7 +41,7 @@ const (
 	CryptoPunks
 	RLD
 	DOODLES
-	PUDGY_PENGUINS
+	PUDGYPENGUINS
 	MOONBIRDS
 	CloneX
 	Goblintown
@@ -48,7 +50,7 @@ const (
 	Captainz
 )
 
-func ReadWalletsFromJSON(filePath string) *getOwnersForCollection {
+func ReadWalletsFromJSON(filePath string) *GetOwnersForCollectionResponse {
 	// read json file
 	file, err := os.Open(filePath)
 	if err != nil {
@@ -57,11 +59,12 @@ func ReadWalletsFromJSON(filePath string) *getOwnersForCollection {
 	defer file.Close()
 
 	// decode json
-	var blueChipWallets *getOwnersForCollection
+	var blueChipWallets *GetOwnersForCollectionResponse
 
 	err = json.NewDecoder(file).Decode(&blueChipWallets)
 	if err != nil {
 		gbl.Log.Error(err)
 	}
+
 	return blueChipWallets
 }

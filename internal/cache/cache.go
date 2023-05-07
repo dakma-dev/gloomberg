@@ -356,7 +356,7 @@ func NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duratio
 	var err error
 
 	if c.rdb != nil {
-		unlocked, err = c.rdb.SetNX(c.rdb.Context(), keyNotificationsLock(txID), releaseKey.String(), duration).Result()
+		unlocked, err = c.rdb.SetNX(ctx, keyNotificationsLock(txID), releaseKey.String(), duration).Result()
 
 		gbl.Log.Debugf("📣 %s | locked %+v", txID.String(), unlocked)
 

@@ -5,113 +5,121 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"os"
+
+	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"io"
-	"os"
 )
 
 var (
-	apikey string
+	apikey          string
+	snapshotAddress string
 )
 
-type getOwnersForCollection struct {
-	OwnerAddresses []string `json:"ownerAddresses"`
-}
-
-// generateCmd represents the generate command
+// generateCmd represents the generate command.
 var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
 	Short: "Generate snapshot of wallets",
 	Long:  `Generate snapshot of wallets using third API provider.`,
 	Run: func(cmd *cobra.Command, args []string) {
-
 		// check if argument is given
-		if len(args) < 1 {
+		if len(args) < 1 && snapshotAddress == "" {
 			fmt.Println("❌ missing argument: contract address")
+
 			return
 		}
 
-		// get first argument
-		contract := args[0]
+		var contract string
+
+		if len(args) < 1 {
+			contract = snapshotAddress
+		} else {
+			// get first argument
+			contract = args[0]
+		}
+
+		// check if argument is given
+		if snapshotAddress != "" {
+			contract = snapshotAddress
+		}
 
 		viper.Set("log.logFile", "/tmp/gloomberg-generate.log")
 		viper.Set("log.verbose", true)
 
 		fmt.Println("--")
-		fmt.Println(fmt.Sprintf("🔍 getOwnersForCollection from alchemy · contract: %s", contract))
+
+		fmt.Printf("🔍 getOwnersForCollection from alchemy · contract: %s\n", contract)
 
 		// check if apikey is set
 		if apikey == "" {
-			fmt.Println(fmt.Sprintf("❌ missing argument: apikey"))
+			fmt.Printf("❌ missing argument: apikey\n")
+
 			return
 		}
 
 		// https://eth-mainnet.g.alchemy.com/nft/v2/{apiKey}/getOwnersForCollection
-		//contract := "0x769272677fab02575e84945f03eca517acc544cc"
+		// contract := "0x769272677fab02575e84945f03eca517acc544cc"
 		url := "https://eth-mainnet.g.alchemy.com/nft/v2/" + apikey + "/getOwnersForCollection?contractAddress=" + contract
 		response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
 		if err != nil {
 			if os.IsTimeout(err) {
-				fmt.Println(fmt.Sprintf("⌛️ getContractMetadata from alchemy · timeout while fetching: %+v", err.Error()))
+				fmt.Printf("⌛️ getContractMetadata from alchemy · timeout while fetching: %+v\n", err.Error())
 			} else {
-				fmt.Println(fmt.Sprintf("❌ getContractMetadata from alchemy · error: %+v", err.Error()))
+				fmt.Printf("❌ getContractMetadata from alchemy · error: %+v\n", err.Error())
 			}
+
 			return
 		}
 
-		//gbl.Log.Debugf("getContractMetadata status: %s", response.Status)
 		defer response.Body.Close()
+
 		// read the response body
 		responseBody, err := io.ReadAll(response.Body)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("❌ getContractMetadata from alchemy · response read error: %+v", err.Error()))
+			fmt.Printf("❌ getContractMetadata from alchemy · response read error: %+v\n", err.Error())
+
 			return
 		}
-		// decode
-
-		var owners *getOwnersForCollection
 
 		// decode the data
-		dec := json.NewDecoder(bytes.NewReader(responseBody))
+		var owners *ticker.GetOwnersForCollectionResponse
+		if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&owners); err != nil {
+			fmt.Printf("❌  decode error: %s\n", err.Error())
 
-		if err := dec.Decode(&owners); err != nil {
-			fmt.Println(fmt.Sprintf("❌  decode error: %s", err.Error()))
-			//gbl.Log.Warnf("multiAccountBalance decode error: %s", err.Error())
+			return
 		}
 
-		fmt.Println(fmt.Sprintf("👛 %d owners found", len(owners.OwnerAddresses)))
-		//fmt.Println(owners)
+		fmt.Printf("👛 %d owners found\n", len(owners.OwnerAddresses))
+
 		// save struct as json
 		jsonString, err := json.Marshal(owners)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("❌  decode error: %s", err.Error()))
+			fmt.Printf("❌  decode error: %s\n", err.Error())
 		}
 		// write jsonString to file
 		fileName := "./wallets/" + contract + ".json"
-		fmt.Println(fmt.Sprintf("📝 writing file: %s", fileName))
-		err = os.WriteFile(fileName, jsonString, 0644)
-		if err != nil {
-			fmt.Println(fmt.Sprintf("❌  writing file error: %s", err.Error()))
-		}
 
+		fmt.Printf("📝 writing file: %s\n", fileName)
+
+		err = os.WriteFile(fileName, jsonString, 0o644) //nolint:gosec
+		if err != nil {
+			fmt.Printf("❌  writing file error: %s\n", err.Error())
+		}
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(snapshotCmd)
 
-	snapshotCmd.Flags().StringVar(&apikey, "alchemy-key", "", "alchemy api key")
+	// intentionally called the flag "snapshot.alchemy.key" to make the difference between the flag and the viper key clear
+	// (usually the flag and the viper key have the same name to avoid confusion)
+	snapshotCmd.Flags().StringVar(&apikey, "alchemy.key", "", "alchemy api key")
+	// bind the cobra/pflags flag "alchemy.key" to the viper key "alchemy.apiKey
+	_ = viper.BindPFlag("alchemy.apiKey", snapshotCmd.Flags().Lookup("alchemy.key"))
 
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// generateCmd.PersistentFlags().String("foo", "", "A help for foo")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// generateCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
-
+	// we do not need to bind the address flag to a viper key because we do not need it anywhere else
+	snapshotCmd.Flags().StringVar(&snapshotAddress, "address", "", "contract address to snapshot")
 }

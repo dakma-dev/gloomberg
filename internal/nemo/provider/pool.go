@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -18,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -50,7 +50,7 @@ const (
 	ERC1155TokenName   methodCall = "erc1155_token_name" //nolint:gosec
 	ERC1155TotalSupply methodCall = "erc1155_total_supply"
 
-	ResolveENSAddress methodCall = "resolve_ens_address"
+	ReverseResolveENS methodCall = "resolve_ens_address"
 	ResolveENS        methodCall = "resolve_ens"
 
 	GasInfo methodCall = "gas_info"
@@ -445,7 +445,7 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				}
 			}
 
-		case ResolveENSAddress:
+		case ReverseResolveENS:
 			if params.Address == (common.Address{}) {
 				return nil, errors.New("invalid contract address")
 			}
@@ -556,7 +556,7 @@ func (pp *Pool) ERC1155TotalSupply(ctx context.Context, contractAddress common.A
 // ens related
 //
 
-func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address) (string, error) {
+func (pp *Pool) ReverseResolveAddressToENS(ctx context.Context, address common.Address) (string, error) {
 	if address == (common.Address{}) {
 		return "", errors.New("address is empty")
 	}
@@ -571,7 +571,7 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 		return cachedName, nil
 	}
 
-	name, err := pp.callMethod(ctx, ResolveENSAddress, methodCallParams{Address: address})
+	name, err := pp.callMethod(ctx, ReverseResolveENS, methodCallParams{Address: address})
 	gbl.Log.Debugf("pp.callMethod result - ens ensName for address %s is %+v", address.Hex(), name)
 
 	if ensName, ok := name.(string); err == nil && ok && ensName != "" {
@@ -583,8 +583,7 @@ func (pp *Pool) ResolveENSForAddress(ctx context.Context, address common.Address
 	return "", errors.New("ens ensName not found")
 }
 
-func (pp *Pool) ResolveAddressForENS(ctx context.Context, ensName string) (common.Address, error) {
-
+func (pp *Pool) ResolveENS(ctx context.Context, ensName string) (common.Address, error) {
 	if ensName == "" {
 		return common.Address{}, errors.New("ensName is empty")
 	}
@@ -593,7 +592,9 @@ func (pp *Pool) ResolveAddressForENS(ctx context.Context, ensName string) (commo
 	gbl.Log.Debugf("pp.callMethod result - hex address for ensName %s is %+v", ensName, address)
 
 	if err == nil && address != "" {
-		return address.(common.Address), nil
+		if addr, ok := address.(common.Address); ok {
+			return addr, nil
+		}
 		//		cache.StoreENSName(ctx, address, ensName)
 		//		return ensName, nil
 	}

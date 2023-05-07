@@ -77,7 +77,7 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 			newWallet.ENS = &ens.Name{}
 
 			if providerPool != nil {
-				if name, err := providerPool.ResolveENSForAddress(context.TODO(), newWallet.Address); err != nil {
+				if name, err := providerPool.ReverseResolveAddressToENS(context.TODO(), newWallet.Address); err != nil {
 					gbl.Log.Debugf("  ❌ name not resolved: %s -> %+v", newWallet.Address, err)
 				} else {
 					newWallet.ENS.Name = name

@@ -4,6 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
+	"os"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
@@ -14,11 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/spf13/viper"
-	"math/big"
-	"os"
-	"strings"
-	"sync"
-	"time"
 )
 
 var (
@@ -44,11 +45,8 @@ type CollectionStats struct {
 }
 
 func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicker *time.Ticker) {
-
 	for range alphaCallerTicker.C {
-
 		for collectionAddress, collection := range AlphaCaller.CollectionData {
-
 			// skip collections with no transactions
 			if len(collection.Transactions) == 0 {
 				continue
@@ -61,7 +59,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 			collectionName := gb.CollectionDB.Collections[collectionAddress].Name
 			message.WriteString(fmt.Sprintf("*%d Wallet(s) interacted with %s \n\n*", walletCount, collectionName))
 			message.WriteString(fmt.Sprintf("*%s* Score: *%d* %s \n\n", collectionName, collection.Score, getScoreEmoji(collection.Score, walletCount)))
-			message.WriteString(fmt.Sprintf("_Latest Transactions per Wallets:_\n"))
+			message.WriteString("_Latest Transactions per Wallets:_\n")
 			var tokenID *big.Int
 			var txHash common.Hash
 
@@ -74,13 +72,13 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 				blocksAgo := currentBlock - tx.TxReceipt.BlockNumber.Uint64()
 
 				message.WriteString(fmt.Sprintf("%d Blocks ago | %s (%d) *%s*  \n", blocksAgo, wallet.Ens, wallet.Score, tx.Action.ActionName()))
-				//tokenID = tx.Transfers[0].Token.ID
+				// tokenID = tx.Transfers[0].Token.ID
 				_, tokenID = getFirstContractAddressAndTokenID(tx)
 				txHash = tx.TxReceipt.TxHash
 			}
 
 			if len(collection.ArchivedTransactions) > 0 {
-				message.WriteString(fmt.Sprintf("\n\nArchived Transactions per Wallets: \n"))
+				message.WriteString("\n\nArchived Transactions per Wallets: \n")
 			}
 
 			for _, tx := range collection.ArchivedTransactions {
@@ -96,7 +94,6 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 
 			// send notification via telegram
 			if viper.GetString("notifications.smart_wallets.telegram_chat_id") != "" {
-
 				etherscanURL, openseaURL, blurURL := utils.GetLinks(txHash, collectionAddress, tokenID.Int64())
 
 				// emoji arrow up
@@ -110,13 +107,11 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 
 				notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.smart_wallets.telegram_chat_id"), "", viper.GetInt("notifications.smart_wallets.telegram_reply_to_message_id"), replyMarkup)
 			}
-
 		}
 	}
 }
 
 func getScoreEmoji(score int32, walletCount int) string {
-
 	// walletCount to int32
 	averageScore := 0
 	if walletCount > 0 {
@@ -149,15 +144,14 @@ func NewAlphaScore(gb *gloomberg.Gloomberg) *AlphaScore {
 
 	// build wallet map
 	for _, address := range fromJSON.Addresses {
-
 		// do a lookup address for ens name
-		resolvedAddress, err := gb.ProviderPool.ResolveAddressForENS(context.TODO(), address.Ens)
+		resolvedAddress, err := gb.ProviderPool.ResolveENS(context.TODO(), address.Ens)
 		if err != nil {
-			fmt.Println(fmt.Sprintf("ens resolve error: %s -> %s: %s", address.Ens, address, err))
-			//gbl.Log.Info("ens resolve error")
+			fmt.Printf("ens resolve error: %s -> %v: %s\n", address.Ens, address, err)
+
 			continue
 		}
-		//fmt.Println(fmt.Sprintf("ens resolve success: %s -> %s", address.Ens, resolvedAddress))
+
 		address.Address = resolvedAddress
 		AlphaCaller.WalletMap[address.Address] = address
 	}
@@ -198,9 +192,11 @@ func getFirstContractAddressAndTokenID(eventTx *totra.TokenTransaction) (common.
 		if transfer.Standard.IsERC721orERC1155() {
 			contractAddress = transfer.Token.Address
 			tokenID = transfer.Token.ID
+
 			break
 		}
 	}
+
 	return contractAddress, tokenID
 }
 
@@ -257,7 +253,6 @@ func ReadCuratedWalletsFromJSON(filePath string) *Wallets {
 	file, err := os.Open(filePath)
 	if err != nil {
 		fmt.Println("error opening file")
-		//gbl.Log.Error(err)
 	}
 	defer file.Close()
 
@@ -267,7 +262,7 @@ func ReadCuratedWalletsFromJSON(filePath string) *Wallets {
 	err = json.NewDecoder(file).Decode(&blueChipWallets)
 	if err != nil {
 		fmt.Println("error decoding file")
-		//gbl.Log.Error(err)
 	}
+
 	return blueChipWallets
 }

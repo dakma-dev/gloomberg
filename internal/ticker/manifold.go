@@ -3,6 +3,12 @@ package ticker
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"sort"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -10,17 +16,11 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
-	"math/big"
-	"sort"
-	"strings"
-	"sync"
-	"time"
-
-	"github.com/benleb/gloomberg/internal/style"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var (
@@ -44,14 +44,13 @@ func (s *ManifoldStats) IsManifoldContractAddress(address common.Address) bool {
 
 func (s *ManifoldStats) AppendManifoldEvent(event *totra.TokenTransaction) {
 	if s != nil && s.ManifoldEvents != nil {
-
 		// check if we already know the transaction the log belongs to
 		alreadyPrintedMu.Lock()
 		known, ok := alreadyPrinted[event.TxReceipt.TxHash]
 		alreadyPrintedMu.Unlock()
 		if known && ok {
 			// we already know this transaction
-			//gbl.Log.Infof("MANIFOLD: already known eventTx: %s", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
+
 			return
 		}
 
@@ -78,7 +77,6 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 		telegramMessage := strings.Builder{}
 		for _, event := range s.ManifoldEvents {
-
 			fmt.Println("handling manifold event!")
 
 			collection := s.getCollection(event)
@@ -114,7 +112,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 			openseaURL := utils.GetOpenseaLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
-			//telegramMessage.WriteString(" " + event.Collection.Name)
+
 			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(fmt.Sprint(collection.Counters.Mints)))
 			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
 			if collection.Counters.Mints > 200 {
@@ -148,9 +146,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 }
 
 func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
-
 	for range manifoldTicker.C {
-
 		maxTickerStatsLines := 5
 
 		// sort by sales
@@ -164,7 +160,6 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 		telegramMessage := strings.Builder{}
 		for _, event := range s.ManifoldEvents {
-
 			collection := s.getCollection(event)
 			if aggregrateEvents[collection.ContractAddress] {
 				continue
@@ -180,6 +175,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 				notificationLock, err := cache.NotificationLockWtihDuration(context.TODO(), collection.ContractAddress.Hash(), time.Hour*8)
 				if !notificationLock || err != nil {
 					gbl.Log.Infof("notification lock for %s already exists", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
+
 					continue
 				}
 				gbl.Log.Infof("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
@@ -195,7 +191,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 			openseaURL := utils.GetOpenseaLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
-			//telegramMessage.WriteString(" " + collection.Name)
+			// telegramMessage.WriteString(" " + collection.Name)
 			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
 			if collection.Counters.Mints >= 200 {
 				telegramMessage.WriteString(" " + "🚀")
@@ -214,7 +210,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 			maxTickerStatsLines--
 
-			// TODO own counter
+			// TODO own counter | yepp, own counter! will drive us crazy otherwise :D
 			collection.Counters.Mints = 0
 			collection.Counters.SalesVolume = big.NewInt(0)
 		}
@@ -236,6 +232,7 @@ func (s *ManifoldStats) getCollection(ttx *totra.TokenTransaction) *collections.
 	if len(ttx.GetTransfersByContract()) >= 1 && currentCollection == nil {
 		currentCollection = tokencollections.GetCollection(s.gb, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
 	}
+
 	return currentCollection
 }
 
@@ -246,6 +243,8 @@ func NewManifoldTicker(gb *gloomberg.Gloomberg) *ManifoldStats {
 		ManifoldEvents: make([]*totra.TokenTransaction, 0),
 		gb:             gb,
 	}
+
 	Manifold = stats
+
 	return Manifold
 }

@@ -2,21 +2,23 @@ package ticker
 
 import (
 	"fmt"
-	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
-	"github.com/benleb/gloomberg/internal/notify"
-	"github.com/benleb/gloomberg/internal/style"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
-	"github.com/spf13/viper"
 	"math/big"
 	"os"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
+	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/notify"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils/gbl"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/spf13/viper"
 )
 
 var (
@@ -31,12 +33,12 @@ type BlueChipStats struct {
 	CollectionStats    map[common.Address]*Counters
 	NotifcationEnabled bool
 
-	RWMu *sync.RWMutex
-
 	WhaleEvents  []*totra.TokenTransaction
 	WhaleWallets map[common.Address]*Wallet
 
 	gb *gloomberg.Gloomberg
+
+	sync.RWMutex
 }
 
 type Counters struct {
@@ -54,8 +56,8 @@ type Counters struct {
 }
 
 type BlueChipRanking struct {
-	bcType HolderTypes
-	count  uint64
+	// bcType HolderTypes
+	// count  uint64
 }
 
 func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan string) {
@@ -63,7 +65,6 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 	for range ticker.C {
 		// iterate over Counters
 		for address, counters := range BlueChips.CollectionStats {
-
 			if counters.Sales > viper.GetUint64("notifications.bluechip.threshold") {
 				line := strings.Builder{}
 
@@ -74,13 +75,13 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 
 				// send telegram message
 				telegramMessage := strings.Builder{}
-				telegramMessage.WriteString(fmt.Sprintf("🔵 bought: "))
+				telegramMessage.WriteString("🔵 bought: ")
 				openseaURL := fmt.Sprintf("https://opensea.io/assets/ethereum/%s", counters.gbCollection.ContractAddress)
 				telegramMessage.WriteString(fmt.Sprintf("%s: %d txs", "["+counters.gbCollection.Name+"]("+openseaURL+")", counters.Sales))
 
-				//var bluechipShare float64
-				//bluechipShare = (float64(counters.Sales) / float64(counters.gbCollection.Counters.Sales)) * 100.0
-				//telegramMessage.WriteString(fmt.Sprintf(" %d%%", int(math.Round(bluechipShare))))
+				// var bluechipShare float64
+				// bluechipShare = (float64(counters.Sales) / float64(counters.gbCollection.Counters.Sales)) * 100.0
+				// telegramMessage.WriteString(fmt.Sprintf(" %d%%", int(math.Round(bluechipShare))))
 				// add emoji for each wallet
 
 				rankingMap := counters.RankingMap
@@ -100,10 +101,10 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 
 				fmt.Println(keys)
 				for _, key := range keys {
-					telegramMessage.WriteString(fmt.Sprintf("%s", GetEmojiMapping(key)))
+					telegramMessage.WriteString(GetEmojiMapping(key))
 				}
 
-				telegramMessage.WriteString(fmt.Sprintf("\n"))
+				telegramMessage.WriteString("\n")
 
 				if telegramMessage.Len() > 0 {
 					if viper.GetString("notifications.manifold.dakma") != "" {
@@ -113,7 +114,6 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 				}
 			}
 		}
-
 	}
 }
 
@@ -131,7 +131,7 @@ func GetEmojiMapping(holderType HolderTypes) string {
 		return "👯"
 	case MOONBIRDS:
 		return "🦉"
-	case PUDGY_PENGUINS:
+	case PUDGYPENGUINS:
 		return "🐧"
 	case DOODLES:
 		return "🌈"
@@ -145,20 +145,19 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 		BlueChipEvents:  make([]*totra.TokenTransaction, 0),
 		CollectionStats: make(map[common.Address]*Counters, 0),
 		WalletMap:       make(map[common.Address]*Wallet, 0),
-		RWMu:            &sync.RWMutex{},
-		gb:              gb,
+		// RWMu:            &sync.RWMutex{},
+		gb: gb,
 	}
-	BlueChips.RWMu.RLock()
-	defer BlueChips.RWMu.RUnlock()
+	BlueChips.RLock()
+	defer BlueChips.RUnlock()
 
 	miwSpinner := style.GetSpinner("setting up blue chip wallets...")
 	_ = miwSpinner.Start()
 
 	// bayc, mayc, cryptopunks, azuki, cool cats, world of women, clone x
-	//fromJSON := ReadWalletsFromJSON("wallets/bluechipwallets_19022023.json")
 
 	// fill bluechip wallet map
-	//for _, address := range fromJSON.Addresses {
+	// for _, address := range fromJSON.Addresses {
 	//	BlueChips.WalletMap[address.Address] = address
 	//}
 
@@ -169,7 +168,7 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 	readBlueChipWalltesFromJSON("wallets/0x513cd71defc801b9c1aa763db47b5df223da77a2.json", RLD)
 	readBlueChipWalltesFromJSON("wallets/0x8a90cab2b38dba80c64b7734e58ee1db38b8992e.json", DOODLES)
 	readBlueChipWalltesFromJSON("wallets/0x23581767a106ae21c074b2276d25e5c3e136a68b.json", MOONBIRDS)
-	readBlueChipWalltesFromJSON("wallets/0xbd3531da5cf5857e7cfaa92426877b022e612cf8.json", PUDGY_PENGUINS)
+	readBlueChipWalltesFromJSON("wallets/0xbd3531da5cf5857e7cfaa92426877b022e612cf8.json", PUDGYPENGUINS)
 	readBlueChipWalltesFromJSON("wallets/0x769272677fab02575e84945f03eca517acc544cc.json", Captainz)
 
 	readBlueChipWalltesFromJSON("wallets/0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b.json", CloneX)
@@ -181,12 +180,14 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 		_ = miwSpinner.StopFail()
 	}
 	_ = miwSpinner.Stop()
+
 	return BlueChips
 }
 
 func readBlueChipWalltesFromJSON(file string, bluechipType HolderTypes) {
 	if _, err := os.Stat(file); errors.Is(err, os.ErrNotExist) {
-		fmt.Println(fmt.Sprintf("file %s does not exist", file))
+		gbl.Log.Error("file %s does not exist", file)
+
 		return
 	}
 	fromJSON := ReadWalletsFromJSON(file)
@@ -209,6 +210,7 @@ func readBlueChipWalltesFromJSON(file string, bluechipType HolderTypes) {
 func allowedAction(action totra.TxType) bool {
 	switch action {
 	case totra.Sale, totra.Purchase, totra.Mint:
+
 		return true
 	}
 
@@ -216,8 +218,7 @@ func allowedAction(action totra.TxType) bool {
 }
 
 func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransaction) {
-
-	if len(eventTx.Transfers) <= 0 || !s.ContainsWallet(eventTx.Transfers[0].To) {
+	if len(eventTx.Transfers) < 1 || !s.ContainsWallet(eventTx.Transfers[0].To) {
 		return
 	}
 
@@ -241,8 +242,8 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 		contractAddress = eventTx.Transfers[0].Token.Address
 	}
 
-	s.RWMu.Lock()
-	defer s.RWMu.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	if s.CollectionStats[contractAddress] == nil {
 		s.CollectionStats[contractAddress] = &Counters{
 			Sales:       0,
@@ -265,7 +266,6 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 	wallet := s.WalletMap[recipientAddress]
 	for _, holderType := range wallet.Holder {
 		s.CollectionStats[contractAddress].RankingMap[holderType]++
-
 	}
 	numCollectionTokens := uint64(0)
 	for _, transfer := range eventTx.Transfers {
@@ -281,34 +281,35 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 		s.CollectionStats[contractAddress].Sales++
 		s.CollectionStats[contractAddress].Mints++
 	}
-
 }
 
 func (s *BlueChipStats) ContainsWallet(address common.Address) bool {
-	if s == nil {
+	s.RLock()
+
+	if s.WalletMap == nil {
+		s.RUnlock()
+
 		return false
 	}
-	s.RWMu.RLock()
-	if s == nil || s.WalletMap == nil {
-		s.RWMu.RUnlock()
-		return false
-	}
+
 	if s.WalletMap[address] != nil {
-		s.RWMu.RUnlock()
+		s.RUnlock()
+
 		return true
 	}
-	s.RWMu.RUnlock()
+
+	s.RUnlock()
+
 	return false
 }
 
 func (s *BlueChipStats) GetStats(address common.Address) *Counters {
-	if s == nil {
+	s.RLock()
+	defer s.RUnlock()
+
+	if s.CollectionStats == nil {
 		return nil
 	}
-	s.RWMu.RLock()
-	defer s.RWMu.RUnlock()
-	if s == nil || s.CollectionStats == nil {
-		return nil
-	}
+
 	return s.CollectionStats[address]
 }

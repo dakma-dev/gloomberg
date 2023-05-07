@@ -3,7 +3,6 @@ package trapri
 import (
 	"context"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/ticker"
 	"math"
 	"math/big"
 	"strings"
@@ -23,6 +22,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
@@ -502,7 +502,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		if ttx.Action == totra.Mint {
 			out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Mints))
 		}
-
 	}
 
 	//
@@ -559,7 +558,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()))
 
-		if fromENS, err := gb.ProviderPool.ResolveENSForAddress(context.TODO(), transferFrom); err == nil {
+		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(context.TODO(), transferFrom); err == nil {
 			gbl.Log.Debugf("🤷 from address %s has ENS %s", transferFrom.Hex(), fromENS)
 			fmtFrom = fromStyle.Render(fromENS)
 		} else {
@@ -589,7 +588,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Hash().Big().Int64()))
 
-	if buyerENS, err := gb.ProviderPool.ResolveENSForAddress(context.TODO(), buyer); err == nil {
+	if buyerENS, err := gb.ProviderPool.ReverseResolveAddressToENS(context.TODO(), buyer); err == nil {
 		gbl.Log.Debugf("✅ resolved ENS name for %s: %s", buyer.Hex(), buyerENS)
 
 		fmtBuyer = buyerStyle.Render(buyerENS)
@@ -680,10 +679,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	}
 
 	// add manifold event to manifold ticker
-	if ttx.Tx.To() != nil && ticker.Manifold.IsManifoldContractAddress(*ttx.Tx.To()) {
-		if viper.GetBool("notifications.manifold.enabled") {
-			gbl.Log.Infof("tx %s is a tx to the manifold (lazy claim) contract", ttx.TxReceipt.TxHash.Hex())
-			ticker.Manifold.AppendManifoldEvent(ttx)
+	if viper.GetBool("notifications.manifold.enabled") && (!viper.GetBool("notifications.disabled")) {
+		if ttx.Tx.To() != nil && ticker.Manifold.IsManifoldContractAddress(*ttx.Tx.To()) {
+			if viper.GetBool("notifications.manifold.enabled") {
+				gbl.Log.Infof("tx %s is a tx to the manifold (lazy claim) contract", ttx.TxReceipt.TxHash.Hex())
+				ticker.Manifold.AppendManifoldEvent(ttx)
+			}
 		}
 	}
 

@@ -80,8 +80,8 @@ func (np *NePa) Run() {
 		return
 	}
 
-	//logs := np.gb.ProviderPool.GetLogsByBlockNumber(17184457)
-	//for _, log := range logs {
+	// logs := np.gb.ProviderPool.GetLogsByBlockNumber(17184457)
+	// for _, log := range logs {
 	//	np.newLogs <- log
 	//}
 

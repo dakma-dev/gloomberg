@@ -481,6 +481,7 @@ func (p *provider) ensLookup(ensName string) (common.Address, error) {
 	resolvedAddress, err := ens.Resolve(p.Client, ensName)
 	if err != nil {
 		gbl.Log.Debugf("ens resolve error: %s : %s", ensName, err)
+
 		return common.Address{}, err
 	}
 

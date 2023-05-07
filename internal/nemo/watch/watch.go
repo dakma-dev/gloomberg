@@ -42,11 +42,11 @@ type WUser struct {
 }
 
 type WGroup struct {
-	Name           string     `mapstructure:"group"`
-	TelegramChatID int64      `mapstructure:"telegram_chat_id"`
-	Users          []*WUser   `mapstructure:"users"`
-	Wallets        []*WWallet `mapstructure:"wallets"`
-	ReplyToMessageID int            `mapstructure:"telegram_reply_to_message_id"`
+	Name             string     `mapstructure:"group"`
+	TelegramChatID   int64      `mapstructure:"telegram_chat_id"`
+	Users            []*WUser   `mapstructure:"users"`
+	Wallets          []*WWallet `mapstructure:"wallets"`
+	ReplyToMessageID int        `mapstructure:"telegram_reply_to_message_id"`
 
 	// addresses []common.Address
 	// Contracts      []WatchContract `mapstructure:"contracts"`
