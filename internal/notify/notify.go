@@ -1,13 +1,13 @@
 package notify
 
+// Package image/jpeg and others is not used explicitly in the code below,
+// but is imported for its initialization side-effect, which allows
+// image.Decode to understand JPEG/PNG/GIF formatted images.
+
 import (
 	"context"
 	"encoding/base64"
 	"fmt"
-	// Package image/jpeg and others is not used explicitly in the code below,
-	// but is imported for its initialization side-effect, which allows
-	// image.Decode to understand JPEG formatted images. Uncomment these
-	// two lines to also understand GIF and PNG images.
 	_ "image/gif"
 	_ "image/jpeg"
 	_ "image/png"

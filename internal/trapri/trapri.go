@@ -41,6 +41,10 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 		}()
 	}
 
+	// ! critical path !
+	// this is the main loop of the formatter
+	// blocking/delaying here will block/delay the whole stream
+	// when adding additional calls here, prefer goroutines with conditional select
 	for ttx := range queueTokenTransactions {
 		go formatTokenTransaction(gb, ttx, terminalPrinterQueue)
 
@@ -54,9 +58,13 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 		}
 
 		// send to bluechip ticker
-		ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
+		if viper.GetBool("notifications.bluechip.enabled") {
+			ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
+		}
 
-		ticker.AlphaCaller.AddEvent(ttx)
+		if viper.GetBool("notifications.smart_wallets.enabled") {
+			ticker.AlphaCaller.AddEvent(ttx)
+		}
 	}
 }
 
@@ -664,17 +672,19 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	}
 
 	// add blue chip icons
-	if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != totra.Burn {
-		if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
-			out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
-		}
-
-		for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Holder {
-			if i == 0 {
-				out.WriteString("·")
+	if viper.GetBool("notifications.bluechip.enabled") {
+		if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != totra.Burn {
+			if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
+				out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
 			}
 
-			out.WriteString(style.BoldStyle.Render(ticker.GetEmojiMapping(blueChipTypes)))
+			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Holder {
+				if i == 0 {
+					out.WriteString("·")
+				}
+
+				out.WriteString(style.BoldStyle.Render(ticker.GetEmojiMapping(blueChipTypes)))
+			}
 		}
 	}
 
