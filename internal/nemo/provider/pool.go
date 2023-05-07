@@ -12,6 +12,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/benleb/gloomberg/internal/abis/erc20"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
@@ -347,6 +348,16 @@ func (pp *Pool) GetWETHABI(contractAddress common.Address) (*abis.WETH, error) {
 	for _, provider := range pp.getProviders() {
 		if wethABI, err := provider.getWETHABI(contractAddress); err == nil {
 			return wethABI, nil
+		}
+	}
+
+	return nil, errors.New("no provider available")
+}
+
+func (pp *Pool) GeERC20ABI(contractAddress common.Address) (*erc20.ERC20, error) {
+	for _, provider := range pp.getProviders() {
+		if erc20ABI, err := provider.getERC20ABI(contractAddress); err == nil {
+			return erc20ABI, nil
 		}
 	}
 
