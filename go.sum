@@ -610,8 +610,8 @@ github.com/quic-go/webtransport-go v0.5.2 h1:GA6Bl6oZY+g/flt00Pnu0XtivSD8vukOu3l
 github.com/quic-go/webtransport-go v0.5.2/go.mod h1:OhmmgJIzTTqXK5xvtuX0oBpLV2GkLWNDA+UeTGJXErU=
 github.com/r3labs/sse/v2 v2.10.0 h1:hFEkLLFY4LDifoHdiCN/LlGBAdVJYsANaLqNYa1l/v0=
 github.com/r3labs/sse/v2 v2.10.0/go.mod h1:Igau6Whc+F17QUgML1fYe1VPZzTV6EMCnYktEmkNJ7I=
-github.com/redis/rueidis v1.0.0 h1:LrUhkD46Es7neMvpTgqyYGRpvlGG4F6dLIRq+nUw/ho=
-github.com/redis/rueidis v1.0.0/go.mod h1:yxbpgX+VYNxCvdE0KEQXDeUFcF2hB2Oz/TJiaqFxoEU=
+github.com/redis/rueidis v1.0.2 h1:1eE2BbQD0M9ge3/4/g/HFmLTrlCjnJpBbFhyGLUuEYE=
+github.com/redis/rueidis v1.0.2/go.mod h1:yxbpgX+VYNxCvdE0KEQXDeUFcF2hB2Oz/TJiaqFxoEU=
 github.com/retailnext/hllpp v1.0.1-0.20180308014038-101a6d2f8b52/go.mod h1:RDpi1RftBQPUCDRw6SmxeaREsAaRKnOclghuzp/WRzc=
 github.com/rivo/uniseg v0.1.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
 github.com/rivo/uniseg v0.2.0/go.mod h1:J6wj4VEh+S6ZtnVlnTBMWIodfgj8LQOQFoIToxlJtxc=
