@@ -284,6 +284,9 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 }
 
 func (s *BlueChipStats) ContainsWallet(address common.Address) bool {
+	if s == nil {
+		return false
+	}
 	s.RLock()
 
 	if s.WalletMap == nil {

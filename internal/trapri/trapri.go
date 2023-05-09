@@ -690,7 +690,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// add manifold event to manifold ticker
 	if viper.GetBool("notifications.manifold.enabled") && (!viper.GetBool("notifications.disabled")) {
-		if ttx.Tx.To() != nil && ticker.Manifold.IsManifoldContractAddress(*ttx.Tx.To()) {
+		if ttx.IsMovingNFTs() && ttx.Tx.To() != nil && ticker.Manifold.IsManifoldContractAddress(*ttx.Tx.To()) {
 			if viper.GetBool("notifications.manifold.enabled") {
 				gbl.Log.Infof("tx %s is a tx to the manifold (lazy claim) contract", ttx.TxReceipt.TxHash.Hex())
 				ticker.Manifold.AppendManifoldEvent(ttx)

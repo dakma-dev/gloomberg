@@ -201,6 +201,9 @@ func getFirstContractAddressAndTokenID(eventTx *totra.TokenTransaction) (common.
 }
 
 func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAddress common.Address, eventTx *totra.TokenTransaction) {
+	if eventTx.IsListing() {
+		return
+	}
 	// check if we already know the transaction the log belongs to
 	alphaCallerKnownTXMu.Lock()
 	known, ok := alphaCallerKnownTX[eventTx.TxReceipt.TxHash]
@@ -254,7 +257,12 @@ func ReadCuratedWalletsFromJSON(filePath string) *Wallets {
 	if err != nil {
 		fmt.Println("error opening file")
 	}
-	defer file.Close()
+	defer func(file *os.File) {
+		err := file.Close()
+		if err != nil {
+			fmt.Println("error closing file")
+		}
+	}(file)
 
 	// decode json
 	var blueChipWallets *Wallets
