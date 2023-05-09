@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/benleb/gloomberg/internal/abis"
+	"github.com/benleb/gloomberg/internal/abis/erc20"
 	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -370,6 +371,18 @@ func (p *provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error
 	}
 
 	return contractWETH, nil
+}
+
+func (p *provider) getERC20ABI(contractAddress common.Address) (*erc20.ERC20, error) {
+	// get the contractERC721 ABIs
+	contractERC20, err := erc20.NewERC20(contractAddress, p.Client)
+	if err != nil {
+		gbl.Log.Error(err)
+
+		return nil, err
+	}
+
+	return contractERC20, nil
 }
 
 func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC721, error) {

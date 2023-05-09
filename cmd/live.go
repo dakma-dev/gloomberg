@@ -326,6 +326,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	//
+	// subscribe to OpenSea API
+	if viper.GetBool("listings.enabled") {
+		go runSeawatcher(nil, nil)
+	}
+
+	//
 	// subscribe to redis pubsub channel to receive events from gloomberg central
 	if viper.GetBool("pubsub.listings.subscribe") {
 		// subscribe to redis pubsub channel
