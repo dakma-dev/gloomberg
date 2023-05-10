@@ -236,7 +236,6 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 
 			case standard.ERC1155:
 				transfer = parseERC1155TransferLog(txLog, providerPool)
-
 				// if transfer != nil {
 				// 	out := strings.Builder{}
 				// 	out.WriteString(fmt.Sprintf("from: %+v | to: %+v | amount: %+v | tokenid: %+v | addr: %+v\n", style.ShortenAddress(&transfer.OldFrom), style.ShortenAddress(transfer.To()), transfer.AmountTokens(), transfer.Token.ID, transfer.Token.Address))
@@ -408,7 +407,6 @@ func (ttx *TokenTransaction) IsReBurn() bool {
 	// we define a "re-burn", a return-burn 😁😂, as a tx that moves one or more nfts to the zero address
 	// and gets one or more nfts from the zero address back
 	// -> the currently typical burn events
-
 	senders := ttx.GetNFTSenders()
 	receivers := ttx.GetNFTReceivers()
 

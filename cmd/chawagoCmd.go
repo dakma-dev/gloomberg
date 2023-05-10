@@ -227,7 +227,7 @@ var chawagoCmd = &cobra.Command{
 						valueStyle = valueStyle.Bold(true)
 					}
 
-					tokenStyle := lipgloss.NewStyle().Bold(true).Foreground(style.GenerateColorWithSeed(int64(token.Address.Big().Int64())))
+					tokenStyle := lipgloss.NewStyle().Bold(true).Foreground(style.GenerateColorWithSeed(token.Address.Big().Int64()))
 					tokenStyleFaint := tokenStyle.Copy().Faint(true)
 
 					msg.WriteString(token.Icon + " " + valueStyle.Render(fmt.Sprintf("%5.2f", amountPaid.Ether())) + "Ξ")

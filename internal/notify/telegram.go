@@ -33,8 +33,8 @@ func sendTelegramMessage(chatID int64, text string, imageURI string, replyToMess
 	parseMode := "markdown" // "markdownv2"?
 	disableNotifications := false
 
-	var detectedCcontentType string
-	var headerContentType string
+	var detectedCcontentType, headerContentType string
+
 	var imageReader io.Reader
 
 	// if an imageURI is provided, we try to attach it to the message

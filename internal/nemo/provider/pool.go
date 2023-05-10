@@ -29,14 +29,14 @@ import (
 type Pool struct {
 	LastLogReceivedAt time.Time `json:"-" mapstructure:"-"`
 
-	providers []*provider
+	providers []*Provider
 
 	queueLogs chan types.Log
 
 	// gb *gloomberg.Gloomberg `json:"-" mapstructure:"-"`
 }
 
-func (pp *Pool) GetProviders() []*provider {
+func (pp *Pool) GetProviders() []*Provider {
 	return pp.providers
 }
 
@@ -71,10 +71,10 @@ type methodCallParams struct {
 var callMethodCounter uint64
 
 func FromConfig(config interface{}) (*Pool, error) {
-	var rawPool []*provider
+	var rawPool []*Provider
 
 	providerPool := &Pool{
-		providers: make([]*provider, 0),
+		providers: make([]*Provider, 0),
 	}
 
 	// spinner
@@ -345,12 +345,12 @@ func (pp *Pool) SubscribeToEverythingPending(queuePendingTx chan *types.Transact
 	return subscribedTo, nil
 }
 
-func (pp *Pool) getPreferredProviders() []*provider {
+func (pp *Pool) getPreferredProviders() []*Provider {
 	if pp.providers != nil && len(pp.providers) == 0 {
 		return nil
 	}
 
-	providers := make([]*provider, 0, len(pp.providers))
+	providers := make([]*Provider, 0, len(pp.providers))
 
 	for _, provider := range pp.providers {
 		if provider.Preferred {
@@ -361,8 +361,8 @@ func (pp *Pool) getPreferredProviders() []*provider {
 	return providers
 }
 
-func (pp *Pool) getProviders() []*provider {
-	providers := make([]*provider, 0)
+func (pp *Pool) getProviders() []*Provider {
+	providers := make([]*Provider, 0)
 
 	// get all provider
 	providers = append(providers, pp.providers...)
@@ -373,7 +373,7 @@ func (pp *Pool) getProviders() []*provider {
 	})
 
 	// prefer preferred (formerly 'local') providers if available
-	preferredProviders := make([]*provider, 0)
+	preferredProviders := make([]*Provider, 0)
 	if prefProviders := pp.getPreferredProviders(); len(prefProviders) > 0 {
 		preferredProviders = append(preferredProviders, prefProviders...)
 	}

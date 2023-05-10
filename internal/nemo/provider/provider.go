@@ -30,8 +30,8 @@ import (
 	"github.com/wealdtech/go-ens/v3"
 )
 
-// provider represents a rpc-endpoint provider configuration.
-type provider struct {
+// Provider represents a rpc-endpoint Provider configuration.
+type Provider struct {
 	Name      string `json:"name" mapstructure:"name"`
 	Endpoint  string `json:"endpoint" mapstructure:"endpoint"`
 	Preferred bool   `json:"preferred" mapstructure:"preferred"`
@@ -55,14 +55,14 @@ type provider struct {
 // }
 
 // ID returns the provider id consisting of the first and last 4 characters of the pid in a human readable format.
-func (p *provider) ID() string {
+func (p *Provider) ID() string {
 	// remove leading zeroes from the pid
 	pid := common.TrimLeftZeroes(p.PID.Bytes())
 
 	return string(pid[0:4]) + "…" + string(pid[28:32])
 }
 
-func (p *provider) getTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (p *Provider) getTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
@@ -89,7 +89,7 @@ func (p *provider) getTokenURI(contractAddress common.Address, tokenID *big.Int)
 	return tokenURI, nil
 }
 
-func (p *provider) getTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
 	gbl.Log.Debugf("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	tokenURI, err := p.getTokenURI(contractAddress, tokenID)
@@ -113,7 +113,7 @@ func (p *provider) getTokenImageURI(ctx context.Context, contractAddress common.
 	return metadata.Image, nil
 }
 
-func (p *provider) getERC721CollectionName(contractAddress common.Address) (string, error) {
+func (p *Provider) getERC721CollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABI
 	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
@@ -131,7 +131,7 @@ func (p *provider) getERC721CollectionName(contractAddress common.Address) (stri
 	return "", nil
 }
 
-func (p *provider) getERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
+func (p *Provider) getERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
 	collectionMetadata := make(map[string]interface{}, 0)
 
 	// get the contractERC721 ABIs
@@ -169,7 +169,7 @@ func (p *provider) getERC721CollectionMetadata(contractAddress common.Address) (
 	return collectionMetadata, nil
 }
 
-func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
 	//
 	// ERC1155
 	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
@@ -257,7 +257,7 @@ func (p *provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 }
 
 // connect tries to connect to the provider and returns an error if it fails.
-func (p *provider) connect() error {
+func (p *Provider) connect() error {
 	var err error
 
 	// reconnect handling
@@ -318,11 +318,11 @@ func (p *provider) connect() error {
 	return err
 }
 
-func (p *provider) subscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+func (p *Provider) subscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle))}, {}, {}, {}}, nil)
 }
 
-func (p *provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
+func (p *Provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {
 	ctx := context.Background()
 
 	if topics == nil && contractAddresses == nil {
@@ -337,7 +337,7 @@ func (p *provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash,
 	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
-func (p *provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3, error) {
+func (p *Provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
@@ -349,7 +349,7 @@ func (p *provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3,
 	return contractERC721, nil
 }
 
-func (p *provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
+func (p *Provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
 	// get the contractERC721 ABIs
 	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
 	if err != nil {
@@ -361,7 +361,7 @@ func (p *provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155,
 	return contractERC1155, nil
 }
 
-func (p *provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error) {
+func (p *Provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error) {
 	// get the contractERC721 ABIs
 	contractWETH, err := abis.NewWETH(contractAddress, p.Client)
 	if err != nil {
@@ -373,7 +373,7 @@ func (p *provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error
 	return contractWETH, nil
 }
 
-func (p *provider) getERC20ABI(contractAddress common.Address) (*erc20.ERC20, error) {
+func (p *Provider) getERC20ABI(contractAddress common.Address) (*erc20.ERC20, error) {
 	// get the contractERC721 ABIs
 	contractERC20, err := erc20.NewERC20(contractAddress, p.Client)
 	if err != nil {
@@ -460,7 +460,7 @@ func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC72
 // 	wgENS.Wait()
 // }
 
-func (p *provider) getENSForAddress(ctx context.Context, address common.Address) (string, error) {
+func (p *Provider) getENSForAddress(ctx context.Context, address common.Address) (string, error) {
 	var ensName string
 
 	if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
@@ -487,7 +487,7 @@ func (p *provider) getENSForAddress(ctx context.Context, address common.Address)
 	return ensName, nil
 }
 
-func (p *provider) ensLookup(ensName string) (common.Address, error) {
+func (p *Provider) ensLookup(ensName string) (common.Address, error) {
 	var err error
 
 	// do a lookup for the ensName to validate its authenticity
@@ -501,7 +501,7 @@ func (p *provider) ensLookup(ensName string) (common.Address, error) {
 	return resolvedAddress, nil
 }
 
-func (p *provider) reverseLookupAndValidate(address common.Address) (string, error) {
+func (p *Provider) reverseLookupAndValidate(address common.Address) (string, error) {
 	var ensName string
 
 	var err error
@@ -537,7 +537,7 @@ func (p *provider) reverseLookupAndValidate(address common.Address) (string, err
 //
 
 // GetCurrentGasInfo returns the current gas price and tip.
-func (p *provider) getGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
+func (p *Provider) getGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
 	// header, err := p.Client.BlockByNumber(ctx, nil)
 	header, err := p.Client.HeaderByNumber(ctx, nil)
 	if err != nil {
