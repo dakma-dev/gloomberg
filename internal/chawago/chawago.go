@@ -41,48 +41,6 @@ func (t *TxWithLogs) Sender() *common.Address {
 	return &sender
 }
 
-func (t *TxWithLogs) CheckAddress(address common.Address) Topic {
-	if t.To() != nil && *t.To() == address {
-		log.Debugf("✅ %s is recipient of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-		return -1
-	}
-
-	if t.Sender() != nil && *t.Sender() == address {
-		log.Debugf("✅ %s is sender of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-		return -1
-	}
-
-	if !t.Pending {
-		for _, rawLog := range t.Logs {
-			switch {
-			case len(rawLog.Topics) >= 1 && rawLog.Topics[0] == address.Hash():
-				log.Debugf("✅ %s found in topic 0 of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-				return Topic0
-
-			case len(rawLog.Topics) >= 2 && rawLog.Topics[1] == address.Hash():
-				log.Debugf("✅ %s found in topic 1 of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-				return Topic1
-
-			case len(rawLog.Topics) >= 3 && rawLog.Topics[2] == address.Hash():
-				log.Debugf("✅ %s found in topic 2 of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-				return Topic2
-
-			case len(rawLog.Topics) >= 4 && rawLog.Topics[3] == address.Hash():
-				log.Debugf("✅ %s found in topic 3 of %s", style.TerminalLink("https://etherscan.io/address/"+address.String(), address.String()), style.TerminalLink("https://etherscan.io/tx/"+t.Hash().String(), "transaction"))
-
-				return Topic3
-			}
-		}
-	}
-
-	return -1
-}
-
 // GetTransactionsForLogs utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
 func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLogs, providerPool *provider.Pool) {
@@ -95,13 +53,6 @@ func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLog
 
 		go func() {
 			for rawLog := range qRawLogs {
-				// filter logs without topics
-				if len(rawLog.Topics) == 0 {
-					log.Printf("❕ log without topics: %s", style.BoldStyle.Render(rawLog.TxHash.String()))
-
-					continue
-				}
-
 				// skip if we already processed this logs tx
 				knownTransactionsMu.Lock()
 				known, ok := knownTransactions[rawLog.TxHash]
