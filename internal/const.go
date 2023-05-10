@@ -27,6 +27,18 @@ var (
 	ENSContractAddress            = common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85")
 	ENSNameWrapperContractAddress = common.HexToAddress("0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401")
 
+	// uniswapv2.
+
+	UniswapV2FactoryContractAddress  = common.HexToAddress("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f")
+	UniswapV2Router01ContractAddress = common.HexToAddress("0xf164fC0Ec4E93095b804a4795bBe1e041497b92a")
+
+	// uniswapv3.
+
+	UniswapV3FactoryContractAddress       = common.HexToAddress("0x1F98431c8aD98523631AE4a59f267346ea31F984")
+	UniswapUniversalRouterContractAddress = common.HexToAddress("0xEf1c6E67703c7BD7107eed8303Fbe6EC2554BF6B")
+	UniswapV3QuoterContractAddress        = common.HexToAddress("0xb27308f9F90D607463bb33eA1BeBb41C27CE5AB6")
+	UniswapV3QuoterV2ContractAddress      = common.HexToAddress("0x61fFE014bA17989E743c5F6cB21bF9697530B21e")
+
 	ZeroAddress = common.HexToAddress("0x0000000000000000000000000000000000000000")
 	ZeroHash    = common.Hash{}
 

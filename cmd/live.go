@@ -64,7 +64,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	viper.Set("http.timeout", 27*time.Second)
 
 	// show listings for own collections if an opensea api key is set
-	if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
+	// if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
+	if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
 		viper.Set("listings.enabled", true)
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
@@ -522,7 +523,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
-	viper.SetDefault("ticker.statsbox", time.Second*53)
+	viper.SetDefault("ticker.statsbox", time.Second*93)
 	viper.SetDefault("ticker.gasline", time.Second*39)
 
 	viper.SetDefault("stats.enabled", true)

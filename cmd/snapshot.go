@@ -24,7 +24,7 @@ var snapshotCmd = &cobra.Command{
 	Use:   "snapshot",
 	Short: "Generate snapshot of wallets",
 	Long:  `Generate snapshot of wallets using third API provider.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, args []string) {
 		// check if argument is given
 		if len(args) < 1 && snapshotAddress == "" {
 			fmt.Println("❌ missing argument: contract address")

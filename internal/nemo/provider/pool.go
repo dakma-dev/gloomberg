@@ -36,6 +36,10 @@ type Pool struct {
 	// gb *gloomberg.Gloomberg `json:"-" mapstructure:"-"`
 }
 
+func (pp *Pool) GetProviders() []*provider {
+	return pp.providers
+}
+
 type methodCall string
 
 const (
@@ -268,6 +272,39 @@ func (pp *Pool) SubscribeToEverything(queueLogs chan types.Log) (uint64, error) 
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.subscribeTo(pp.queueLogs, [][]common.Hash{}, []common.Address{}); err != nil {
+			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+		} else {
+			subscribedTo++
+			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
+		}
+	}
+
+	if subscribedTo == 0 {
+		return 0, errors.New("no provider available")
+	}
+
+	return subscribedTo, nil
+}
+
+func (pp *Pool) SubscribeToTopics(queueLogs chan types.Log, topics [][]common.Hash) (uint64, error) {
+	if queueLogs == nil {
+		return 0, errors.New("queueLogs channel is nil")
+	}
+
+	// store channel for later use/reconnects
+	pp.queueLogs = queueLogs
+
+	// subscribe
+	availableProvider := pp.getProviders()
+	if len(pp.getPreferredProviders()) > 0 {
+		availableProvider = pp.getPreferredProviders()
+	}
+
+	subscribedTo := uint64(0)
+
+	for _, provider := range availableProvider {
+		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
+		if _, err := provider.subscribeTo(pp.queueLogs, topics, nil); err != nil {
 			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++

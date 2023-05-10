@@ -24,7 +24,12 @@ func getBot() (*tgbotapi.BotAPI, error) {
 		return nil, ErrNoTelegramAPIToken
 	}
 
-	if bot, err := tgbotapi.NewBotAPI(token); err == nil {
+	endpoint := "https://api.telegram.org"
+	if customEndpoint := viper.GetString("notifications.telegram.api_endpoint"); customEndpoint != "" {
+		endpoint = customEndpoint + "/bot%s/%s"
+	}
+
+	if bot, err := tgbotapi.NewBotAPIWithAPIEndpoint(token, endpoint); err == nil {
 		tgBot = bot
 	} else {
 		gbl.Log.Error(err)

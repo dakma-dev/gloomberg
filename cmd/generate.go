@@ -28,7 +28,7 @@ var generateCmd = &cobra.Command{
 	Use:   "generate",
 	Short: "Generate secure wallets with vanity addresses",
 
-	Run: func(cmd *cobra.Command, args []string) {
+	Run: func(_ *cobra.Command, _ []string) {
 		viper.Set("log.logFile", "/tmp/gloomberg-generate.log")
 		viper.Set("log.verbose", true)
 
