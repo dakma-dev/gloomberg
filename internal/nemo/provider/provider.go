@@ -13,7 +13,6 @@ import (
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/abis/erc20"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
@@ -459,33 +458,6 @@ func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC72
 
 // 	wgENS.Wait()
 // }
-
-func (p *Provider) getENSForAddress(ctx context.Context, address common.Address) (string, error) {
-	var ensName string
-
-	if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
-		gbl.Log.Debugf("ens ensName for address %s is cached", address.Hex())
-
-		return cachedName, nil
-	}
-
-	resolvedName, err := p.reverseLookupAndValidate(address)
-	if err != nil {
-		gbl.Log.Debugf("ens reverse lookup failed for address %s: %s", address.Hex(), err)
-
-		return "", err
-	}
-
-	if resolvedName == "" {
-		gbl.Log.Debugf("address %s has no associated ens ensName", address.Hex())
-	}
-
-	ensName = resolvedName
-
-	cache.StoreENSName(ctx, address, ensName)
-
-	return ensName, nil
-}
 
 func (p *Provider) ensLookup(ensName string) (common.Address, error) {
 	var err error

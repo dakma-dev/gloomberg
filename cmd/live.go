@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -23,6 +22,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nepa"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/pusu"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
@@ -70,7 +70,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	}
 
-	cache.Initialize()
+	rdb := GetRedisClient()
 
 	gb := &gloomberg.Gloomberg{
 		CollectionDB: collections.New(),
@@ -79,7 +79,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		QueueSlugs: make(chan common.Address, 1024),
 
-		Rdb: GetRedisClient(),
+		Rdb:    rdb,
+		Rueidi: rueidica.NewRueidica(rdb),
 	}
 
 	// cleanup for redis db/cache
@@ -99,6 +100,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gbl.Log.Fatal("❌ running provider failed, exiting")
 	} else if pool != nil {
 		gb.ProviderPool = pool
+		gb.ProviderPool.Rueidi = gb.Rueidi
 	}
 
 	//
@@ -154,7 +156,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// collection from config file
 	collectionsSpinner.Message("setting up config collections...")
 
-	for _, collection := range config.GetCollectionsFromConfiguration(gb.ProviderPool) {
+	for _, collection := range config.GetCollectionsFromConfiguration(gb.ProviderPool, gb.Rueidi) {
 		gb.CollectionDB.RWMu.Lock()
 		gb.CollectionDB.Collections[collection.ContractAddress] = collection
 		gb.CollectionDB.RWMu.Unlock()
@@ -283,7 +285,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}()
 
 	slugTicker := time.NewTicker(7 * time.Second)
-	go slugs.SlugWorker(slugTicker, &gb.QueueSlugs)
+	go slugs.SlugWorker(slugTicker, &gb.QueueSlugs, gb.Rueidi)
 
 	//
 	// gasline ticker
@@ -362,6 +364,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				return
 			}
 		}()
+
 		// go func() {
 		// 	// loop over incoming events
 		// 	for msg := range ch {

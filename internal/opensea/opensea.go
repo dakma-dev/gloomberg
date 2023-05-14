@@ -16,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -36,14 +37,14 @@ func GetWalletCollections(gb *gloomberg.Gloomberg) []*collections.Collection {
 	gbCollections := make([]*collections.Collection, 0)
 
 	for _, w := range *gb.OwnWallets {
-		gbCollections = append(gbCollections, GetCollectionsFor(w.Address, gb.CollectionDB, gb.ProviderPool, 1)...)
+		gbCollections = append(gbCollections, GetCollectionsFor(w.Address, gb.CollectionDB, gb.ProviderPool, 1, gb.Rueidi)...)
 	}
 
 	return gbCollections
 }
 
 // GetCollectionsFor returns the collections a wallet owns at least one item of.
-func GetCollectionsFor(walletAddress common.Address, userCollections *collections.CollectionDB, providerPool *provider.Pool, try int) []*collections.Collection {
+func GetCollectionsFor(walletAddress common.Address, userCollections *collections.CollectionDB, providerPool *provider.Pool, try int, rueidica *rueidica.Rueidica) []*collections.Collection {
 	receivedCollections := make([]*collections.Collection, 0)
 
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/collections?asset_owner=%s&offset=0&limit=300", walletAddress)
@@ -57,7 +58,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 		gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s (try %d, sleep %ds)", walletAddress.Hex(), try, backoffSeconds)
 
 		if try <= viper.GetInt("ens.resolve_max_retries") {
-			GetCollectionsFor(walletAddress, userCollections, providerPool, try+1)
+			GetCollectionsFor(walletAddress, userCollections, providerPool, try+1, rueidica)
 		} else {
 			gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s, giving up after %d retries...", walletAddress.Hex(), try-1)
 		}
@@ -95,7 +96,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 				continue
 			}
 
-			userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collectionsource.FromWallet)
+			userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collectionsource.FromWallet, nil)
 			userCollection.OpenseaSlug = collection.Slug
 
 			receivedCollections = append(receivedCollections, userCollection)

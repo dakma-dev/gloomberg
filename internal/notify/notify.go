@@ -14,7 +14,6 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
@@ -37,7 +36,7 @@ import (
 func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 	// try to acquire the lock
 	if viper.GetBool("redis.enabled") {
-		notificationLock, err := cache.NotificationLock(context.TODO(), ttx.Tx.Hash())
+		notificationLock, err := gb.Rueidi.NotificationLock(context.TODO(), ttx.Tx.Hash())
 		if !notificationLock || err != nil {
 			gbl.Log.Infof("🔒 notification lock for %s already exists", style.BoldStyle.Render(ttx.Tx.Hash().String()))
 

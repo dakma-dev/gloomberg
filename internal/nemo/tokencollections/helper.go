@@ -28,7 +28,7 @@ func GetCollection(gb *gloomberg.Gloomberg, contractAddress common.Address, toke
 			gbl.Log.Debugf("failed to get collection name: %s", err)
 		}
 
-		collection = collections.NewCollection(contractAddress, name, gb.ProviderPool, collectionsource.FromStream)
+		collection = collections.NewCollection(contractAddress, name, gb.ProviderPool, collectionsource.FromStream, gb.Rueidi)
 
 		if collection != nil {
 			gb.CollectionDB.RWMu.Lock()

@@ -111,6 +111,8 @@ func init() {
 
 	// collection/contract names
 	viper.SetDefault("cache.names_ttl", 48*time.Hour)
+	viper.SetDefault("cache.names_client_ttl", 1*time.Minute)
+
 	// ens/wallet names
 	viper.SetDefault("cache.ens_ttl", 48*time.Hour)
 

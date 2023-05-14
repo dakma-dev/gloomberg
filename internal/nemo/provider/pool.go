@@ -13,9 +13,9 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/abis/erc20"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/ethereum/go-ethereum"
@@ -32,6 +32,8 @@ type Pool struct {
 	providers []*Provider
 
 	queueLogs chan types.Log
+
+	Rueidi *rueidica.Rueidica
 
 	// gb *gloomberg.Gloomberg `json:"-" mapstructure:"-"`
 }
@@ -272,10 +274,43 @@ func (pp *Pool) SubscribeToEverything(queueLogs chan types.Log) (uint64, error) 
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.subscribeTo(pp.queueLogs, [][]common.Hash{}, []common.Address{}); err != nil {
-			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+			gbl.Log.Warnf("subscribe to everything via node %d failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++
-			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
+			gbl.Log.Infof("✍️ subscribed to everything via node %s", style.Bold(provider.Name))
+		}
+	}
+
+	if subscribedTo == 0 {
+		return 0, errors.New("no provider available")
+	}
+
+	return subscribedTo, nil
+}
+
+func (pp *Pool) SubscribeToAddresses(queueLogs chan types.Log, addresses []common.Address) (uint64, error) {
+	if queueLogs == nil {
+		return 0, errors.New("queueLogs channel is nil")
+	}
+
+	// store channel for later use/reconnects
+	pp.queueLogs = queueLogs
+
+	// subscribe
+	availableProvider := pp.getProviders()
+	if len(pp.getPreferredProviders()) > 0 {
+		availableProvider = pp.getPreferredProviders()
+	}
+
+	subscribedTo := uint64(0)
+
+	for _, provider := range availableProvider {
+		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
+		if _, err := provider.subscribeTo(pp.queueLogs, [][]common.Hash{}, addresses); err != nil {
+			gbl.Log.Warnf("subscribe to addresses failed: %v | %v", addresses, err)
+		} else {
+			subscribedTo++
+			gbl.Log.Infof("✍️ subscribed to address %v", addresses)
 		}
 	}
 
@@ -415,6 +450,7 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 	var err error
 
 	atomic.AddUint64(&callMethodCounter, 1)
+
 	if callMethodCounter%100 == 0 {
 		gbl.Log.Debugf("callMethodCounter: %d", callMethodCounter)
 	}
@@ -498,7 +534,11 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return nil, errors.New("invalid contract address")
 			}
 
-			if ensAddress, err := provider.getENSForAddress(ctx, params.Address); err == nil {
+			if ensAddress, err := pp.Rueidi.GetCachedENSName(ctx, params.Address); err == nil {
+				return ensAddress, nil
+			}
+
+			if ensAddress, err := provider.reverseLookupAndValidate(params.Address); err == nil {
 				return ensAddress, nil
 			}
 
@@ -613,7 +653,8 @@ func (pp *Pool) ReverseResolveAddressToENS(ctx context.Context, address common.A
 		return "", errors.New("address is zero address")
 	}
 
-	if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
+	// if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
+	if cachedName, err := pp.Rueidi.GetCachedENSName(ctx, address); err == nil && cachedName != "" {
 		gbl.Log.Debugf("ens ensName for address %s is cached: %s", address.Hex(), cachedName)
 
 		return cachedName, nil
@@ -623,7 +664,8 @@ func (pp *Pool) ReverseResolveAddressToENS(ctx context.Context, address common.A
 	gbl.Log.Debugf("pp.callMethod result - ens ensName for address %s is %+v", address.Hex(), name)
 
 	if ensName, ok := name.(string); err == nil && ok && ensName != "" {
-		cache.StoreENSName(ctx, address, ensName)
+		// cache.StoreENSName(ctx, address, ensName)
+		pp.Rueidi.StoreENSName(ctx, address, ensName)
 
 		return ensName, nil
 	}
@@ -655,8 +697,7 @@ func (pp *Pool) ResolveENS(ctx context.Context, ensName string) (common.Address,
 }
 
 func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
-	// return nc.getNode().GetCurrentGasInfo()
-
+	// return nc.getNode().GetCurrentGasInfo()s
 	gas, err := pp.callMethod(context.Background(), GasInfo, methodCallParams{})
 	if gasInfo, ok := gas.(*nemo.GasInfo); err == nil && ok {
 		return gasInfo, nil

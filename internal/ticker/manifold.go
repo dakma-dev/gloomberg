@@ -9,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
@@ -172,12 +171,13 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 			// try to acquire the lock
 			if viper.GetBool("redis.enabled") {
-				notificationLock, err := cache.NotificationLockWtihDuration(context.TODO(), collection.ContractAddress.Hash(), time.Hour*8)
+				notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(context.TODO(), collection.ContractAddress.Hash(), time.Hour*8)
 				if !notificationLock || err != nil {
 					gbl.Log.Infof("notification lock for %s already exists", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
 
 					continue
 				}
+
 				gbl.Log.Infof("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
 			}
 

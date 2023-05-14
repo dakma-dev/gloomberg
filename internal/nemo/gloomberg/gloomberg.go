@@ -11,9 +11,11 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 )
@@ -27,7 +29,8 @@ type Gloomberg struct {
 	OwnWallets   *wallet.Wallets
 	Stats        *stats.Stats
 
-	Rdb rueidis.Client
+	Rdb    rueidis.Client
+	Rueidi *rueidica.Rueidica
 
 	QueueSlugs chan common.Address
 }
@@ -45,6 +48,8 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		return
 	}
 
+	log.Printf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
+
 	mgmtEvent := &seawa.MgmtEvent{Action: seawa.Subscribe, Slugs: slugs}
 
 	jsonMgmtEvent, err := json.Marshal(mgmtEvent)
@@ -57,6 +62,6 @@ func (gb *Gloomberg) SendSlugsToServer() {
 	if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 		gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 	} else {
-		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(gb.CollectionDB.OpenseaSlugs()))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
+		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
 	}
 }

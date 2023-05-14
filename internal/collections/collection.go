@@ -8,11 +8,11 @@ import (
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
@@ -72,10 +72,10 @@ type Collection struct {
 	PreviousFloorPrice float64             `mapstructure:"previousFloorPrice"`
 }
 
-func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource) *Collection {
+func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
 	var collectionName string
 
-	gbCache := cache.GetCache()
+	ctx := context.Background()
 
 	switch {
 	case name != "":
@@ -83,7 +83,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 	case contractAddress == internal.ENSContractAddress, contractAddress == internal.ENSNameWrapperContractAddress:
 		collectionName = "ENS"
 	default:
-		name, err := gbCache.GetCollectionName(contractAddress)
+		name, err := rueidi.GetCachedContractName(ctx, contractAddress)
 
 		switch {
 		case errors.Is(err, nil):
@@ -94,7 +94,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 			}
 
 		case nodes != nil:
-			if name, err := nodes.ERC721CollectionName(context.Background(), contractAddress); err == nil {
+			if name, err := nodes.ERC721CollectionName(ctx, contractAddress); err == nil {
 				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
 
 				if name != "" {
@@ -102,7 +102,8 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 				}
 
 				// cache collection name
-				gbCache.CacheCollectionName(contractAddress, collectionName)
+				// gbCache.CacheCollectionName(contractAddress, collectionName)
+				rueidi.StoreContractName(ctx, contractAddress, collectionName)
 			}
 
 		default:
@@ -243,7 +244,7 @@ func (uc *Collection) AddListing(numItems uint64) {
 }
 
 // CalculateSaLiRa updates the salira moving average of a given collection.
-func (uc *Collection) CalculateSaLiRa(address common.Address) (float64, float64) {
+func (uc *Collection) CalculateSaLiRa(address common.Address, rueidica *rueidica.Rueidica) (float64, float64) {
 	if uc.Counters.Listings <= 0 {
 		return 0.0, 0.0
 	}
@@ -253,7 +254,8 @@ func (uc *Collection) CalculateSaLiRa(address common.Address) (float64, float64)
 	currentSaLiRa := uc.SaLiRa.Value()
 
 	if address != internal.ZeroAddress {
-		go cache.StoreSalira(context.TODO(), address, currentSaLiRa)
+		// go cache.StoreSalira(context.TODO(), address, currentSaLiRa)
+		go rueidica.StoreSalira(context.Background(), address, currentSaLiRa)
 	}
 
 	return previousSaLiRa, currentSaLiRa

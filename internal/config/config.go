@@ -7,7 +7,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
@@ -15,6 +14,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
@@ -134,17 +134,17 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 	return (*wallet.Wallets)(&ownWallets)
 }
 
-func GetCollectionsFromConfiguration(providerPool *provider.Pool) []*collections.Collection {
+func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *rueidica.Rueidica) []*collections.Collection {
 	ownCollections := make([]*collections.Collection, 0)
 
 	for address, collection := range viper.GetStringMap("collections") {
 		contractAddress := common.HexToAddress(address)
-		currentCollection := collections.NewCollection(contractAddress, "", providerPool, collectionsource.FromConfiguration)
+		currentCollection := collections.NewCollection(contractAddress, "", providerPool, collectionsource.FromConfiguration, rueidica)
 
 		if collection == nil && common.IsHexAddress(address) {
 			gbl.Log.Infof("reading collection without details: %+v", address)
 
-			currentCollection = collections.NewCollection(contractAddress, "", providerPool, collectionsource.FromConfiguration)
+			currentCollection = collections.NewCollection(contractAddress, "", providerPool, collectionsource.FromConfiguration, rueidica)
 
 			// general settings
 			if viper.Sub("collections."+currentCollection.ContractAddress.String()+".buy") != nil && !viper.IsSet("show.listings") {
@@ -209,9 +209,9 @@ func ValidateRawBuyRule(rule *viper.Viper, slug string) *nemo.BuyRule {
 
 	// set name to ruleKey or a generic one for the catch-all
 	name := slug
-	if contractName, err := cache.GetContractName(context.TODO(), common.HexToAddress(rule.GetString("contract_address"))); err == nil && contractName != "" {
-		name = contractName
-	}
+	// if contractName, err := cache.GetContractName(context.TODO(), common.HexToAddress(rule.GetString("contract_address"))); err == nil && contractName != "" {
+	// 	name = contractName
+	// }
 
 	rule.Set("name", name)
 

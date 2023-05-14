@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/cache"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -80,6 +79,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// 	return
 	// }
+
+	ctx := context.Background()
 
 	// fake a txHash for listings
 	txHash := common.Hash{}
@@ -253,8 +254,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			// useful for mints, burns, etc., especially if they happen over a long* period of time
 			var fmtTotalSupply string
 			if transfer.Standard == standard.ERC1155 && (isOwnWallet || isOwnCollection || isWatchUsersWallet) {
-				// if supply, err := gb.Nodes.TotalSupplyERC1155(context.Background(), transfer.Token.Address, transfer.Token.ID); err == nil {
-				if supply, err := gb.ProviderPool.ERC1155TotalSupply(context.Background(), transfer.Token.Address, transfer.Token.ID); err == nil {
+				// if supply, err := gb.Nodes.TotalSupplyERC1155(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
+				if supply, err := gb.ProviderPool.ERC1155TotalSupply(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
 					// fmtTokenID.WriteString(style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(supply.String()))
 					fmtTotalSupply = style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(supply.String())
 				}
@@ -566,7 +567,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()))
 
-		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(context.TODO(), transferFrom); err == nil {
+		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, transferFrom); err == nil {
 			gbl.Log.Debugf("🤷 from address %s has ENS %s", transferFrom.Hex(), fromENS)
 			fmtFrom = fromStyle.Render(fromENS)
 		} else {
@@ -596,7 +597,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Hash().Big().Int64()))
 
-	if buyerENS, err := gb.ProviderPool.ReverseResolveAddressToENS(context.TODO(), buyer); err == nil {
+	if buyerENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, buyer); err == nil {
 		gbl.Log.Debugf("✅ resolved ENS name for %s: %s", buyer.Hex(), buyerENS)
 
 		fmtBuyer = buyerStyle.Render(buyerENS)
@@ -637,7 +638,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 		out.WriteString(" | " + salesAndListings)
 
-		if previousMASaLiRa, currentMASaLiRa := currentCollection.CalculateSaLiRa(currentCollection.ContractAddress); currentMASaLiRa > 0 {
+		if previousMASaLiRa, currentMASaLiRa := currentCollection.CalculateSaLiRa(currentCollection.ContractAddress, gb.Rueidi); currentMASaLiRa > 0 {
 			// coloring moving average salira
 			saLiRaStyle := style.TrendGreenStyle
 
@@ -652,7 +653,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			)
 
 			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
-		} else if cachedSalira, err := cache.GetSalira(context.TODO(), currentCollection.ContractAddress); cachedSalira > 0 && err == nil {
+		} else if cachedSalira, err := gb.Rueidi.GetCachedSalira(ctx, currentCollection.ContractAddress); cachedSalira > 0 && err == nil {
 			salira := fmt.Sprint(
 				style.GrayStyle.Render(" ~ "),
 				style.GrayStyle.Render(fmt.Sprintf("%4.2f", cachedSalira)),
