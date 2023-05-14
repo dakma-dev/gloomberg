@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -54,16 +55,13 @@ type AccountBalancesResponse struct {
 }
 
 type AccountBalance struct {
-	Account     string   `json:"account"`
-	BalanceETH  *big.Int `json:"balance"`
-	BalanceWETH *big.Int `json:"balance_weth"`
+	Account         string   `json:"account"`
+	BalanceETH      *big.Int `json:"balance"`
+	BalanceWETH     *big.Int `json:"balance_weth"`
+	BalanceBlurPool *big.Int `json:"balance_blurpool"`
 }
 
 type Token string
-
-const (
-	WETH Token = "0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"
-)
 
 const apiBaseURL = "https://api.etherscan.io/api"
 
@@ -155,6 +153,16 @@ func GetBalances(wallets *wallet.Wallets) ([]*AccountBalance, error) {
 		}
 
 		balance.BalanceWETH = wethBalance
+
+		// blur pool
+		blurPoolBalance, err := GetBlurPoolBalance(common.HexToAddress(balance.Account))
+		if err != nil || blurPoolBalance == nil {
+			gbl.Log.Warnf("could not get blur pool balance for %s: %s", balance.Account, err.Error())
+
+			continue
+		}
+
+		balance.BalanceBlurPool = blurPoolBalance
 
 		// throttle to avoid hitting the apis reqs/s limit
 		time.Sleep(time.Millisecond * 173)
@@ -266,7 +274,11 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 // }
 
 func GetWETHBalance(walletAddress common.Address) (*big.Int, error) {
-	return GetTokenBalance(walletAddress, common.HexToAddress(string(WETH)))
+	return GetTokenBalance(walletAddress, internal.WETHContractAddress)
+}
+
+func GetBlurPoolBalance(walletAddress common.Address) (*big.Int, error) {
+	return GetTokenBalance(walletAddress, internal.BlurPoolTokenContractAddress)
 }
 
 func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) (*big.Int, error) {

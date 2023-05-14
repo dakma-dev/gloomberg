@@ -120,7 +120,16 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	for _, balance := range balances {
 		walletAddress := common.HexToAddress(balance.Account)
 
-		balanceTotalWei := big.NewInt(0).Add(balance.BalanceETH, balance.BalanceWETH)
+		// init with ETH Balance
+		balanceTotalWei := balance.BalanceETH
+
+		// add WETH Balance
+		balanceTotalWei = big.NewInt(0).Add(balanceTotalWei, balance.BalanceWETH)
+
+		// add BlurPool Balance
+		balanceTotalWei = big.NewInt(0).Add(balanceTotalWei, balance.BalanceBlurPool)
+
+		gbl.Log.Debugf("%s: %6.3fΞ total || %6.3f ETH | %6.3f WETH | %6.3f BlurPool", balanceTotalWei, balance.Account, utils.WeiToEther(balance.BalanceETH), utils.WeiToEther(balance.BalanceWETH), utils.WeiToEther(balance.BalanceBlurPool))
 
 		(*s.wallets)[walletAddress].BalanceBefore = (*s.wallets)[walletAddress].Balance
 		(*s.wallets)[walletAddress].Balance = balanceTotalWei
@@ -278,6 +287,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 			// cache hitrate
 			var keyspaceHits, keyspaceMisses int
+
 			for _, stat := range strings.Split(dbInfo, "\n") {
 				if strings.HasPrefix(stat, "keyspace_hits:") {
 					keyspaceHits, _ = fmt.Sscanf(stat, "keyspace_hits:%d", &keyspaceHits)
