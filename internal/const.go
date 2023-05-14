@@ -17,6 +17,8 @@ const (
 	TopicSeaWatcherMgmt = TopicSeaWatcher + "/mgmt"
 
 	BlockTime = 12 * time.Second
+
+	NoENSName = "NO-ENS-NAME"
 )
 
 var (

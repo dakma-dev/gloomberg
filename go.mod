@@ -13,6 +13,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/lmittmann/flashbots v0.6.2
 	github.com/lmittmann/w3 v0.11.2
+	github.com/metachris/eth-go-bindings v0.5.0
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.1
@@ -22,7 +23,7 @@ require (
 	github.com/quic-go/quic-go v0.34.0
 	github.com/quic-go/webtransport-go v0.5.2
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.2
+	github.com/redis/rueidis v1.0.3
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
 	github.com/theckman/yacspin v0.13.12

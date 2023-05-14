@@ -42,6 +42,14 @@ func GetOpenseaLink(contractAddress string, tokenID int64) string {
 	return fmt.Sprintf("https://opensea.io/assets/%s/%d", contractAddress, tokenID)
 }
 
+func GetDexscreenerLink(contractAddress string) string {
+	return fmt.Sprintf("https://dexscreener.com/ethereum/%s", strings.ToLower(contractAddress))
+}
+
+func GetTokenSnifferLink(contractAddress string) string {
+	return fmt.Sprintf("https://tokensniffer.com/token/eth/%s", strings.ToLower(contractAddress))
+}
+
 func WalletShortAddress(address common.Address) string {
 	addressBytes := address.Bytes()
 

@@ -115,6 +115,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 		chatID := viper.GetInt64("notifications.telegram.chat_id")
 
 		var replyToMessageID int
+
 		if user != nil && user.Group.TelegramChatID != 0 {
 			chatID = user.Group.TelegramChatID
 			replyToMessageID = user.Group.ReplyToMessageID
