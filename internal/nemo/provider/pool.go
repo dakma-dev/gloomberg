@@ -665,7 +665,10 @@ func (pp *Pool) ReverseResolveAddressToENS(ctx context.Context, address common.A
 
 	if ensName, ok := name.(string); err == nil && ok && ensName != "" {
 		// cache.StoreENSName(ctx, address, ensName)
-		pp.Rueidi.StoreENSName(ctx, address, ensName)
+		err := pp.Rueidi.StoreENSName(ctx, address, ensName)
+		if err != nil {
+			gbl.Log.Errorf("error storing ensName %s for address %s: %s", ensName, address.Hex(), err)
+		}
 
 		return ensName, nil
 	}
@@ -683,10 +686,13 @@ func (pp *Pool) ResolveENS(ctx context.Context, ensName string) (common.Address,
 
 	if err == nil && address != "" {
 		if addr, ok := address.(common.Address); ok {
+			err := pp.Rueidi.StoreENSName(ctx, addr, ensName)
+			if err != nil {
+				gbl.Log.Errorf("error storing ensName %s for address %s: %s", ensName, address, err)
+			}
+
 			return addr, nil
 		}
-		//		cache.StoreENSName(ctx, address, ensName)
-		//		return ensName, nil
 	}
 
 	if err != nil {

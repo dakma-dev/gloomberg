@@ -117,6 +117,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	// defaults
 	priceStyle := style.DarkWhiteStyle
 	priceArrowColor := style.DarkGray
+
 	if ttx.GetPrice().Ether() >= 0.01 {
 		priceArrowColor = style.GetPriceShadeColor(ttx.GetPrice().Ether())
 	}
@@ -253,6 +254,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			// for erc1155 we get the current total supply of the token
 			// useful for mints, burns, etc., especially if they happen over a long* period of time
 			var fmtTotalSupply string
+
 			if transfer.Standard == standard.ERC1155 && (isOwnWallet || isOwnCollection || isWatchUsersWallet) {
 				// if supply, err := gb.Nodes.TotalSupplyERC1155(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
 				if supply, err := gb.ProviderPool.ERC1155TotalSupply(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
@@ -288,7 +290,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 					if numCollectionTokens == int64(len(transfers)) && ttx.From == sender {
 						// all tokens sold by the same address -> dumped into bids
 						// isBidDump = true
-
 						if numCollectionTokens > 5 || ttx.GetPrice().Ether() > 3.0 {
 							// if its a significant amount of tokens or ether we use a reddish style
 							numberStyle = style.TrendRedStyle
@@ -416,6 +417,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	if len(fmtTokensTransferred) == 0 {
 		gbl.Log.Debugf("🧐 no tokens transferred: %s | %+v", style.TerminalLink(utils.GetEtherscanTxURL(txHash.String()), txHash.String()), ttx.Transfers)
+
 		for _, transfer := range ttx.Transfers {
 			gbl.Log.Debugf(
 				"  transfer of %dx %s | %+v",
@@ -492,6 +494,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	// print sales for collection
 	if viper.GetBool("show.sales") {
 		out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Sales) + style.BoldStyle.Render(""))
+
 		if currentCollection.Counters.Sales < 10 {
 			out.WriteString(" ")
 		}

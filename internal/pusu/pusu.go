@@ -55,6 +55,7 @@ func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *t
 
 	// create a list of channels to subscribe to
 	channels := make([]string, 0)
+
 	for _, collectionAddress := range slugAddresses {
 		channelPattern := internal.TopicSeaWatcher + "/" + collectionAddress.String() + "/*"
 

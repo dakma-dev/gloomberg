@@ -37,7 +37,7 @@ func (cs *CollectionDB) OpenseaSlugsAndAddresses() map[string]common.Address {
 	slugAddresses := make(map[string]common.Address, 0)
 
 	for _, c := range cs.Collections {
-		if slug := c.OpenseaSlug; slug != "" && !c.IgnorePrinting && c.Show.Listings {
+		if slug := c.OpenseaSlug; slug != "" && !c.IgnorePrinting { // && c.Show.Listings {
 			slugAddresses[slug] = c.ContractAddress
 		}
 	}

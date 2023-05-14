@@ -103,7 +103,10 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 
 				// cache collection name
 				// gbCache.CacheCollectionName(contractAddress, collectionName)
-				rueidi.StoreContractName(ctx, contractAddress, collectionName)
+				err := rueidi.StoreContractName(ctx, contractAddress, collectionName)
+				if err != nil {
+					gbl.Log.Errorf("error storing contract name: %s | %s", style.ShortenAddress(&contractAddress), err)
+				}
 			}
 
 		default:

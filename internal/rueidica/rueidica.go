@@ -21,14 +21,12 @@ import (
 )
 
 const (
-	keywordContractName      string = "contractName"
-	keywordENS               string = "ensDomain"
-	keywordOSSlug            string = "osslug"
-	keywordBlurSlug          string = "blurslug"
-	keywordSalira            string = "salira"
-	keywordNotificationsLock string = "notification"
-	keyDelimiter             string = ":"
-	// keywordFloorPrice        string = "floor"
+	keywordContractName string = "contractName"
+	keywordENS          string = "ensDomain"
+	keywordOSSlug       string = "osslug"
+	keywordBlurSlug     string = "blurslug"
+	keywordSalira       string = "salira"
+	keyDelimiter        string = ":"
 )
 
 type Rueidica struct {
@@ -103,11 +101,12 @@ func (r *Rueidica) getCachedName(ctx context.Context, address common.Address, ke
 	if r != nil {
 		cachedName, err := r.DoCache(ctx, r.B().Get().Key(keyFunc(address)).Cache(), clientCacheTTL).ToString()
 
-		if err != nil && rueidis.IsRedisNil(err) {
+		switch {
+		case err != nil && rueidis.IsRedisNil(err):
 			gbl.Log.Debugf("rueidis | no name in cache for %s", address.Hex())
-		} else if err != nil {
+		case err != nil:
 			gbl.Log.Errorf("rueidis | error getting cached name: %s", err)
-		} else {
+		default:
 			gbl.Log.Debugf("rueidis | found name: %s -> %s", keyFunc(address), cachedName)
 		}
 
@@ -123,13 +122,14 @@ func (r *Rueidica) getCachedNumber(ctx context.Context, address common.Address, 
 	if r != nil {
 		cachedNumber, err := r.DoCache(ctx, r.B().Get().Key(keyFunc(address)).Cache(), clientCacheTTL).ToString()
 
-		if err != nil && rueidis.IsRedisNil(err) {
+		switch {
+		case err != nil && rueidis.IsRedisNil(err):
 			gbl.Log.Debugf("rueidis | no number in cache for %s", address.Hex())
 
 			return 0, err
-		} else if err != nil {
+		case err != nil:
 			gbl.Log.Errorf("rueidis | error getting cached number: %s", err)
-		} else {
+		default:
 			gbl.Log.Debugf("rueidis | found number: %s -> %f", keyFunc(address), cachedNumber)
 		}
 
@@ -274,10 +274,6 @@ func keyENS(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordENS)
 }
 
-func keyNotificationsLock(txID common.Hash) string {
-	return fmt.Sprint(txID.Hex(), keyDelimiter, keywordNotificationsLock)
-}
-
 func keyOSSlug(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordOSSlug)
 }
@@ -289,7 +285,3 @@ func keyBlurSlug(address common.Address) string {
 func keySalira(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordSalira)
 }
-
-// func KeyFloorPrice(address common.Address) string {
-// 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordFloorPrice)
-// }

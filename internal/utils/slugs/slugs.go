@@ -12,6 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/rueidica"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -35,7 +36,11 @@ func SlugWorker(slugTicker *time.Ticker, slugQueue *chan common.Address, rueidic
 		gbl.Log.Infof("fetching opensea slug for: %s", address.Hex())
 
 		if osslug := opensea.GetCollectionSlug(address); osslug != "" {
-			rueidica.StoreOSSlug(context.Background(), address, osslug)
+			err := rueidica.StoreOSSlug(context.Background(), address, osslug)
+			if err != nil {
+				gbl.Log.Errorf("error storing opensea slug: %s | %s", style.ShortenAddress(&address), err)
+			}
+
 			gbl.Log.Infof("caching opensea slug for: %s\n", address.Hex())
 		} else {
 			gbl.Log.Warnf("❌ fetching opensea slug for collection %s failed: no slug found", address.Hex())
@@ -46,7 +51,11 @@ func SlugWorker(slugTicker *time.Ticker, slugQueue *chan common.Address, rueidic
 		gbl.Log.Infof("fetching blur slug for: %s", address.Hex())
 
 		if blurslug, err := GetBlurSlugByName(address); err == nil && blurslug != "" {
-			rueidica.StoreBlurSlug(context.Background(), address, blurslug)
+			err := rueidica.StoreBlurSlug(context.Background(), address, blurslug)
+			if err != nil {
+				gbl.Log.Errorf("error storing blur slug: %s | %s", style.ShortenAddress(&address), err)
+			}
+
 			gbl.Log.Infof("caching blur slug for: %s\n", address.Hex())
 		} else {
 			gbl.Log.Warnf("❌ fetching blur slug for collection %s failed: no slug found", address.Hex())
