@@ -163,17 +163,17 @@ func (r *Rueidica) cacheName(ctx context.Context, address common.Address, name s
 // notifications lock
 
 // NotificationLock implements a lock to prevent sending multiple notifications for the same event
-// Refactored to use the Redlock algorithm as recommended in the “[Redis SET doc].”
+// Refactored to use the Redlock algorithm as recommended in the [redis SET doc].
 //
-// [Redis SET doc]: https://redis.io/commands/set/#patterns
+// [redis SET doc]: https://redis.io/commands/set/#patterns
 func (r *Rueidica) NotificationLock(ctx context.Context, txID common.Hash) (bool, error) {
 	return r.NotificationLockWtihDuration(ctx, txID, viper.GetDuration("cache.notifications_lock_ttl"))
 }
 
 // NotificationLockWtihDuration implements a lock to prevent sending multiple notifications for the same event
-// Refactored to use the Redlock algorithm as recommended in the “[Redis SET doc].”
+// Refactored to use the Redlock algorithm as recommended in the [redis SET doc].
 //
-// [Redis SET doc]: https://redis.io/commands/set/#patterns
+// [redis SET doc]: https://redis.io/commands/set/#patterns
 func (r *Rueidica) NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duration time.Duration) (bool, error) {
 	var connectAddr net.Addr
 
@@ -201,67 +201,18 @@ func (r *Rueidica) NotificationLockWtihDuration(ctx context.Context, txID common
 
 	// Obtain a new mutex by using the same name for all instances wanting the
 	// same lock.
-	mutexname := txID.Hex()
-	mutex := rs.NewMutex(mutexname)
+	mutex := rs.NewMutex("txID.Hex()", redsync.WithExpiry(duration))
 
 	// Obtain a lock for our given mutex. After this is successful, no one else
 	// can obtain the same lock (the same mutex name) until we unlock it.
-	if err := mutex.Lock(); err != nil {
+	if err := mutex.LockContext(ctx); err != nil {
 		gbl.Log.Errorf("rueidis | %s | %s", txID.Hex(), style.Bold("acquire lock failed"))
 
 		return false, err
 	}
 
-	gbl.Log.Debugf("rueidis | %s | %s notifications for %.0f", txID.Hex(), style.Bold("locked"), duration.Seconds())
-
-	// Do your work that requires the lock.
-	go func() {
-		releaseTimer := time.NewTimer(duration)
-
-		<-releaseTimer.C
-
-		// Release the lock so other processes or threads can obtain a lock.
-		if ok, err := mutex.Unlock(); !ok || err != nil {
-			gbl.Log.Errorf("rueidis | error unlocking notification: %s", err)
-		}
-
-		gbl.Log.Debugf("rueidis | %s | %s notifications after %.0fs", txID.Hex(), style.Bold("unlocked"), duration.Seconds())
-	}()
-
 	return true, nil
 }
-
-// 	func (r *Rueidica) NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duration time.Duration) (bool, error) {
-// 	releaseKey := uuid.New()
-
-// 	unlocked := false
-// 	// unlocked, err = c.rdb.SetNX(ctx, keyNotificationsLock(txID), releaseKey.String(), duration).Result()
-
-// 	response := r.Do(ctx, r.B().Set().Key(keyNotificationsLock(txID)).Value(releaseKey.String()).Nx().ExSeconds(int64(duration.Seconds())).Build())
-
-// 	msg, err := response.ToString()
-// 	if err != nil {
-// 		gbl.Log.Errorf("notifications lock %s: %+v", txID.Hex(), err)
-
-// 		return false, err
-// 	}
-
-// 	log.Print("")
-// 	log.Printf("notifications lock %s: %+v", txID.Hex(), response)
-// 	log.Printf("notifications lock %s: %+v", txID.Hex(), msg)
-// 	log.Printf("notifications lock %s: %+v", txID.Hex(), msg)
-// 	log.Print("")
-
-// 	gbl.Log.Debugf("📣 %s | locked %+v", txID.String(), unlocked)
-
-// 	// if err != nil {
-// 	// 	gbl.Log.Warnf("❌ redis | error while adding: %s", err.Error())
-// 	// } else {
-// 	// 	gbl.Log.Debugf("📣 redis | added: %s -> %s", keyNotificationsLock(txID), releaseKey)
-// 	// }
-
-// 	return unlocked, nil
-// }
 
 //
 // keys
