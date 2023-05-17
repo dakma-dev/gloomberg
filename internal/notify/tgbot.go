@@ -24,7 +24,7 @@ func getBot() (*tgbotapi.BotAPI, error) {
 		return nil, ErrNoTelegramAPIToken
 	}
 
-	endpoint := "https://api.telegram.org"
+	endpoint := tgbotapi.APIEndpoint
 	if customEndpoint := viper.GetString("notifications.telegram.api_endpoint"); customEndpoint != "" {
 		endpoint = customEndpoint + "/bot%s/%s"
 	}
