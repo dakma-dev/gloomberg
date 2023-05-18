@@ -480,10 +480,6 @@ func init() { //nolint:gochecknoinits
 	liveCmd.Flags().Bool("headless", false, "run without terminal output")
 	_ = viper.BindPFlag("ui.headless", liveCmd.Flags().Lookup("headless"))
 
-	// lugges
-	liveCmd.Flags().Bool("lugges", false, "enable lugges mode")
-	_ = viper.BindPFlag("lugges", liveCmd.Flags().Lookup("lugges"))
-
 	// web ui
 	liveCmd.Flags().Bool("web-ui", false, "enable web ui")
 	_ = viper.BindPFlag("web.enabled", liveCmd.Flags().Lookup("web-ui"))
