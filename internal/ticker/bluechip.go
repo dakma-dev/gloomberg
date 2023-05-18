@@ -62,6 +62,7 @@ type BlueChipRanking struct {
 
 func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan string) {
 	rowStyle := style.AlmostWhiteStyle
+
 	for range ticker.C {
 		// iterate over Counters
 		for address, counters := range BlueChips.CollectionStats {
@@ -76,13 +77,10 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 				// send telegram message
 				telegramMessage := strings.Builder{}
 				telegramMessage.WriteString("🔵 bought: ")
-				openseaURL := fmt.Sprintf("https://opensea.io/assets/ethereum/%s", counters.gbCollection.ContractAddress)
-				telegramMessage.WriteString(fmt.Sprintf("%s: %d txs", "["+counters.gbCollection.Name+"]("+openseaURL+")", counters.Sales))
 
-				// var bluechipShare float64
-				// bluechipShare = (float64(counters.Sales) / float64(counters.gbCollection.Counters.Sales)) * 100.0
-				// telegramMessage.WriteString(fmt.Sprintf(" %d%%", int(math.Round(bluechipShare))))
-				// add emoji for each wallet
+				openseaURL := fmt.Sprintf("https://opensea.io/assets/ethereum/%s", counters.gbCollection.ContractAddress)
+
+				telegramMessage.WriteString(fmt.Sprintf("%s: %d txs", "["+counters.gbCollection.Name+"]("+openseaURL+")", counters.Sales))
 
 				rankingMap := counters.RankingMap
 				// sort rankingMap by value
@@ -92,14 +90,10 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 					keys = append(keys, key)
 				}
 
-				fmt.Println(rankingMap)
-				fmt.Println(keys)
-
 				sort.SliceStable(keys, func(i, j int) bool {
 					return rankingMap[keys[i]] > rankingMap[keys[j]]
 				})
 
-				fmt.Println(keys)
 				for _, key := range keys {
 					telegramMessage.WriteString(GetEmojiMapping(key))
 				}
@@ -109,6 +103,7 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 				if telegramMessage.Len() > 0 {
 					if viper.GetString("notifications.manifold.dakma") != "" {
 						notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.bluechip.telegram_chat_id"), "", viper.GetInt("notifications.bluechip.telegram_reply_to_message_id"), nil)
+
 						counters.Sales = 0
 					}
 				}
@@ -135,8 +130,15 @@ func GetEmojiMapping(holderType HolderTypes) string {
 		return "🐧"
 	case DOODLES:
 		return "🌈"
+	case Goblintown:
+		return "👹"
+	case CYBERKONGZ:
+		return "🦍"
+	case Captainz:
+		return "🏴‍☠️"
+	case CloneX:
+		return "👟"
 	}
-
 	return ""
 }
 
@@ -210,7 +212,6 @@ func readBlueChipWalltesFromJSON(file string, bluechipType HolderTypes) {
 func allowedAction(action totra.TxType) bool {
 	switch action {
 	case totra.Sale, totra.Purchase, totra.Mint:
-
 		return true
 	}
 
@@ -225,25 +226,35 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 	if !(allowedAction(eventTx.Action)) {
 		return
 	}
+
+	if !eventTx.IsMovingNFTs() {
+		return
+	}
 	// check if we already know the transaction the log belongs to
 	knownTXMu.Lock()
 	known, ok := knownTX[eventTx.TxReceipt.TxHash]
 	knownTXMu.Unlock()
+
 	if known && ok {
 		// we already know this transaction
 		return
 	}
+
 	if eventTx.Transfers == nil {
 		return
 	}
 
 	var contractAddress common.Address
-	if len(eventTx.GetTransfersByContract()) >= 1 {
-		contractAddress = eventTx.Transfers[0].Token.Address
+
+	for _, transfer := range eventTx.Transfers {
+		if transfer.Standard.IsERC721orERC1155() {
+			contractAddress = transfer.Token.Address
+		}
 	}
 
 	s.Lock()
 	defer s.Unlock()
+
 	if s.CollectionStats[contractAddress] == nil {
 		s.CollectionStats[contractAddress] = &Counters{
 			Sales:       0,
@@ -267,14 +278,15 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 	for _, holderType := range wallet.Holder {
 		s.CollectionStats[contractAddress].RankingMap[holderType]++
 	}
+
 	numCollectionTokens := uint64(0)
+
 	for _, transfer := range eventTx.Transfers {
 		numCollectionTokens += transfer.AmountTokens.Uint64()
 	}
 
 	switch eventTx.Action {
 	case totra.Sale:
-		fmt.Println(uint64(eventTx.TotalTokens))
 		s.CollectionStats[contractAddress].SalesTXs++
 		s.CollectionStats[contractAddress].Sales++
 	case totra.Mint:
@@ -287,6 +299,7 @@ func (s *BlueChipStats) ContainsWallet(address common.Address) bool {
 	if s == nil {
 		return false
 	}
+
 	s.RLock()
 
 	if s.WalletMap == nil {

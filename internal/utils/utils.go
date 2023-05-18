@@ -39,7 +39,7 @@ func getBlurLink(contractAddress string, tokenID int64) string {
 
 // opensea.io.
 func GetOpenseaLink(contractAddress string, tokenID int64) string {
-	return fmt.Sprintf("https://opensea.io/assets/%s/%d", contractAddress, tokenID)
+	return fmt.Sprintf("https://opensea.io/assets/ethereum/%s/%d", contractAddress, tokenID)
 }
 
 func GetDexscreenerLink(contractAddress string) string {
@@ -120,6 +120,9 @@ func ParseTopics(topics []common.Hash) (topic.Topic, common.Address, common.Addr
 }
 
 func WeiToEther(wei *big.Int) *big.Float {
+	if wei == nil {
+		return new(big.Float)
+	}
 	f := new(big.Float)
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)
