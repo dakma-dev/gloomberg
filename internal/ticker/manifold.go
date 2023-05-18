@@ -3,6 +3,10 @@ package ticker
 import (
 	"context"
 	"fmt"
+	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/wallet"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/mitchellh/mapstructure"
 	"math/big"
 	"sort"
 	"strings"
@@ -10,7 +14,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -23,13 +26,10 @@ import (
 )
 
 var (
-	Manifold                   *ManifoldStats
-	ManifoldContractAddressOld = common.HexToAddress("0x44e94034afce2dd3cd5eb62528f239686fc8f162")
-	ManifoldContractAddressNew = common.HexToAddress("0xE7d3982E214F9DFD53d23a7f72851a7044072250")
-	ManifoldContractAddress    = common.HexToAddress("0x7581871e1c11f85ec7f02382632b8574fad11b22")
-	ManifoldContractMultiBurn  = common.HexToAddress("0xde659726CfD166aCa4867994d396EFeF386EAD68")
-	alreadyPrinted             = make(map[common.Hash]bool, 0)
-	alreadyPrintedMu           = &sync.RWMutex{}
+	Manifold                  *ManifoldStats
+	manifoldContractAddresses = make(map[common.Address]bool, 0)
+	alreadyPrinted            = make(map[common.Hash]bool, 0)
+	alreadyPrintedMu          = &sync.RWMutex{}
 )
 
 type ManifoldStats struct {
@@ -37,8 +37,49 @@ type ManifoldStats struct {
 	gb             *gloomberg.Gloomberg
 }
 
+func getManifoldAddressesFromConfig() {
+	// get yaml object from viper
+	rawWatchConfig, ok := viper.Get("contracts.manifold").([]interface{})
+	if !ok {
+		gbl.Log.Warnf("watch configuration is not an array, skipping")
+
+		return
+	}
+	for _, walletConfig := range rawWatchConfig {
+
+		var contract *wallet.Wallet
+
+		decodeHooks := mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToLipglossColorHookFunc(),
+		)
+
+		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: decodeHooks,
+			Result:     &contract,
+		})
+
+		err := decoder.Decode(walletConfig)
+		if err != nil {
+			gbl.Log.Warnf("reading wallet group configuration failed: %+v", err)
+
+			return
+		}
+
+		// print the wallet address
+		gbl.Log.Infof("watching manifold contract: %s", contract.Address.String())
+		manifoldContractAddresses[contract.Address] = true
+	}
+}
+
 func (s *ManifoldStats) IsManifoldContractAddress(address common.Address) bool {
-	return address == ManifoldContractAddressOld || address == ManifoldContractAddressNew || address == ManifoldContractAddress || address == ManifoldContractMultiBurn
+
+	if _, ok := manifoldContractAddresses[address]; ok {
+		return true
+	}
+
+	return false
+	//return address == ManifoldContractAddressOld || address == ManifoldContractAddressNew || address == ManifoldContractAddress || address == ManifoldContractMultiBurn || address == ManifoldContract1 || address == ManifoldContract2 || address == ManifoldContract3 || address == ManifoldContract4 || address == ManifoldContract5 || address == ManifoldContract6 || address == ManiFoldContract7
 }
 
 func (s *ManifoldStats) AppendManifoldEvent(event *totra.TokenTransaction) {
@@ -76,8 +117,6 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 		telegramMessage := strings.Builder{}
 		for _, event := range s.ManifoldEvents {
-			fmt.Println("handling manifold event!")
-
 			collection := s.getCollection(event)
 			if aggregrateEvents[collection.ContractAddress] {
 				continue
@@ -90,9 +129,11 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			manifoldLine.WriteString(eventTimestamp)
 			manifoldLine.WriteString(" " + event.Action.Icon())
+
 			if event.TotalTokens == 0 {
 				event.TotalTokens = 1
 			}
+
 			pricePerItem := big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TotalTokens))
 			priceEtherPerItem, _ := utils.WeiToEther(pricePerItem).Float64()
 			manifoldLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
@@ -101,11 +142,13 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 			manifoldLine.WriteString(collectionStyle.Faint(true).Render("Ξ"))
 			telegramMessage.WriteString("Ξ")
 			var tokenInfo string
+
 			if event.TotalTokens > 1 {
 				tokenInfo = fmt.Sprintf("%s %s", rowStyle.Render(fmt.Sprintf("%dx", event.TotalTokens)), collectionStyle.Faint(true).Render(collection.Name))
 			} else {
 				tokenInfo = style.FormatTokenInfo(event.Transfers[0].Token.ID, collection.Name, collection.Style(), collection.StyleSecondary(), true, true)
 			}
+
 			manifoldLine.WriteString(" " + tokenInfo)
 
 			openseaURL := utils.GetOpenseaLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
@@ -117,10 +160,12 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 			if collection.Counters.Mints > 200 {
 				telegramMessage.WriteString(" " + "🚀")
 			}
+
 			mintVolumeEther, _ := utils.WeiToEther(collection.Counters.MintVolume).Float64()
 			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(fmt.Sprint(mintVolumeEther)))
 			manifoldLine.WriteString(intro)
 			telegramMessage.WriteString(" | " + fmt.Sprint(mintVolumeEther) + "Ξ")
+
 			if mintVolumeEther > 10 {
 				telegramMessage.WriteString(" " + "🚀")
 			}
@@ -158,6 +203,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 		aggregrateEvents := make(map[common.Address]bool, 0)
 
 		telegramMessage := strings.Builder{}
+
 		for _, event := range s.ManifoldEvents {
 			collection := s.getCollection(event)
 			if aggregrateEvents[collection.ContractAddress] {
@@ -193,11 +239,13 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 			// telegramMessage.WriteString(" " + collection.Name)
 			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
+
 			if collection.Counters.Mints >= 200 {
 				telegramMessage.WriteString(" " + "🚀")
 			}
 
 			telegramMessage.WriteString(" | " + fmt.Sprint(salesVolumeEther) + "Ξ")
+
 			if salesVolumeEther >= 10 {
 				telegramMessage.WriteString(" " + "🚀")
 			}
@@ -245,6 +293,8 @@ func NewManifoldTicker(gb *gloomberg.Gloomberg) *ManifoldStats {
 	}
 
 	Manifold = stats
+
+	getManifoldAddressesFromConfig()
 
 	return Manifold
 }
