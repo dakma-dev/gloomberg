@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"math/big"
 	"os"
 	"strings"
@@ -54,38 +55,62 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 
 			message := strings.Builder{}
 
-			walletCount := len(collection.Transactions) + len(collection.ArchivedTransactions)
+			transactions := len(collection.Transactions) + len(collection.ArchivedTransactions)
 
 			collectionName := gb.CollectionDB.Collections[collectionAddress].Name
-			message.WriteString(fmt.Sprintf("*%d Wallet(s) interacted with %s \n\n*", walletCount, collectionName))
-			message.WriteString(fmt.Sprintf("*%s* Score: *%d* %s \n\n", collectionName, collection.Score, getScoreEmoji(collection.Score, walletCount)))
+			//message.WriteString(fmt.Sprintf("*%d curated transactions \n\n*", transactions))
+			averageScore := int(collection.Score / int32(transactions))
+			message.WriteString(fmt.Sprintf("*%s* Ø Score : *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
 			message.WriteString("_Latest Transactions per Wallets:_\n")
+
 			var tokenID *big.Int
+
 			var txHash common.Hash
 
 			currentBlock, _ := gb.ProviderPool.BlockNumber(context.TODO())
+
 			for _, tx := range collection.Transactions {
 				wallet := AlphaCaller.WalletMap[tx.From]
 
-				// get current block number
-
 				blocksAgo := currentBlock - tx.TxReceipt.BlockNumber.Uint64()
 
-				message.WriteString(fmt.Sprintf("%d Blocks ago | %s (%d) *%s*  \n", blocksAgo, wallet.Ens, wallet.Score, tx.Action.ActionName()))
+				// get correct ActionType
+				if tx.Action != totra.Mint && tx.GetNFTReceivers()[tx.From] != nil {
+					tx.Action = totra.Purchase
+				}
+
+				amountTokens := 0
+
+				for _, transfer := range tx.Transfers {
+					if transfer.Standard.IsERC721orERC1155() {
+						if transfer.To == tx.From {
+							amountTokens += int(transfer.AmountTokens.Int64())
+						}
+					}
+				}
+
+				message.WriteString(fmt.Sprintf("%d Blocks ago | *%s* (%d) *%s* (%dx)  \n", blocksAgo, wallet.Ens, wallet.Score, tx.Action.ActionName(), amountTokens))
 				// tokenID = tx.Transfers[0].Token.ID
 				_, tokenID = getFirstContractAddressAndTokenID(tx)
 				txHash = tx.TxReceipt.TxHash
 			}
 
 			if len(collection.ArchivedTransactions) > 0 {
-				message.WriteString("\n\nArchived Transactions per Wallets: \n")
+				message.WriteString("\n\n_Archived Transactions per Wallets:_ \n")
 			}
 
+			archivedWalletMap := make(map[common.Address]bool, 0)
 			for _, tx := range collection.ArchivedTransactions {
-				wallet := AlphaCaller.WalletMap[tx.From]
-				gloombergReceivedEventAt := tx.ReceivedAt
+				if archivedWalletMap[tx.From] {
+					continue
+				}
 
-				message.WriteString(fmt.Sprintf("%s | Wallet %s %s (%d) \n", gloombergReceivedEventAt.Format(time.RFC822), wallet.Ens, tx.Action.ActionName(), wallet.Score))
+				wallet := AlphaCaller.WalletMap[tx.From]
+
+				gloombergReceivedEventAt := tx.ReceivedAt
+				message.WriteString(fmt.Sprintf("%s | *%s* (*%d*) %s  \n", gloombergReceivedEventAt.Format(time.TimeOnly), wallet.Ens, wallet.Score, tx.Action.ActionName()))
+
+				archivedWalletMap[tx.From] = true
 			}
 
 			// move transactions to archived
@@ -104,6 +129,17 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 						tgbotapi.NewInlineKeyboardButtonURL("🔵OS", openseaURL),
 					),
 				)
+
+				// try to acquire the lock
+				if viper.GetBool("redis.enabled") {
+					notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(context.TODO(), txHash, time.Hour*1)
+					if !notificationLock || err != nil {
+						gbl.Log.Debugf("notification lock for %s already exists", style.BoldStyle.Render(txHash.String()))
+						continue
+					}
+
+					gbl.Log.Debugf("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(txHash.String()))
+				}
 
 				notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.smart_wallets.telegram_chat_id"), "", viper.GetInt("notifications.smart_wallets.telegram_reply_to_message_id"), replyMarkup)
 			}
@@ -187,7 +223,9 @@ func (s *AlphaScore) AddEvent(eventTx *totra.TokenTransaction) {
 
 func getFirstContractAddressAndTokenID(eventTx *totra.TokenTransaction) (common.Address, *big.Int) {
 	var contractAddress common.Address
+
 	var tokenID *big.Int
+
 	for _, transfer := range eventTx.Transfers {
 		if transfer.Standard.IsERC721orERC1155() {
 			contractAddress = transfer.Token.Address
@@ -208,10 +246,12 @@ func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAd
 	alphaCallerKnownTXMu.Lock()
 	known, ok := alphaCallerKnownTX[eventTx.TxReceipt.TxHash]
 	alphaCallerKnownTXMu.Unlock()
+
 	if known && ok {
 		// we already know this transaction
 		return
 	}
+
 	if collection == nil {
 		return
 	}
@@ -224,7 +264,7 @@ func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAd
 		return
 	}
 
-	fmt.Println("Updating score for collection: ", collection.Name, recipientAddress.String(), eventTx.TxReceipt.TxHash.String())
+	//fmt.Println("Updating score for collection: ", collection.Name, recipientAddress.String(), eventTx.TxReceipt.TxHash.String())
 
 	s.RWMu.Lock()
 	if s.CollectionData[collection.ContractAddress] == nil {
@@ -239,11 +279,18 @@ func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAd
 			gbCollection: collection,
 		}
 	}
+
 	s.CollectionData[collection.ContractAddress].Transactions = append(s.CollectionData[collection.ContractAddress].Transactions, eventTx)
+
+	// get correct ActionType
+	if eventTx.GetNFTReceivers()[eventTx.From] != nil {
+		eventTx.Action = totra.Purchase
+	}
 
 	if eventTx.Action == totra.Purchase || eventTx.Action == totra.Mint {
 		s.CollectionData[collection.ContractAddress].Score += s.WalletMap[recipientAddress].Score
 	}
+
 	if eventTx.Action == totra.Sale {
 		s.CollectionData[collection.ContractAddress].Score -= s.WalletMap[recipientAddress].Score
 	}
@@ -257,6 +304,7 @@ func ReadCuratedWalletsFromJSON(filePath string) *Wallets {
 	if err != nil {
 		fmt.Println("error opening file")
 	}
+
 	defer func(file *os.File) {
 		err := file.Close()
 		if err != nil {
