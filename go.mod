@@ -9,10 +9,9 @@ require (
 	github.com/ethereum/go-ethereum v1.11.6
 	github.com/go-redsync/redsync/v4 v4.8.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
-	github.com/gobwas/ws v1.2.0
+	github.com/gobwas/ws v1.2.1
 	github.com/lmittmann/flashbots v0.6.2
 	github.com/lmittmann/w3 v0.11.2
-	github.com/metachris/eth-go-bindings v0.5.0
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.1
