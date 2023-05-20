@@ -81,31 +81,57 @@ func sendTelegramMessage(chatID int64, text string, imageURI string, replyToMess
 
 	// based on the content type, we have to send a different type of message to telegram
 	switch {
-	case detectedCcontentType == "image/gif", strings.HasPrefix(detectedCcontentType, "video/"), strings.HasPrefix(imageURI, "https://arweave.net/"):
-		extension := strings.TrimPrefix(strings.TrimPrefix(detectedCcontentType, "image/"), "video/")
+	case strings.HasPrefix(detectedCcontentType, "image/"), strings.HasSuffix(imageURI, ".jpg"), strings.HasSuffix(imageURI, ".png"):
+		msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(imageURI))
+		msg.ParseMode = parseMode
+		msg.DisableNotification = disableNotifications
+		msg.Caption = text
+
+		if replyToMessageID != 0 {
+			msg.ReplyToMessageID = replyToMessageID
+		}
+
+		gbl.Log.Infof("🔔 📸 sending photo | msg: %+v", msg)
+
+		return tgBot.Send(msg)
+
+	case detectedCcontentType == "image/gif":
+		extension := strings.TrimPrefix(detectedCcontentType, "image/")
 
 		msg := tgbotapi.NewAnimation(chatID, tgbotapi.FileReader{
-			Name:   "animation." + extension,
+			Name:   "gbAnimation." + extension,
 			Reader: imageReader,
 		})
-		msg.ReplyToMessageID = replyToMessageID
 		msg.ParseMode = parseMode
 		msg.DisableNotification = disableNotifications
 
 		msg.Caption = text
+
+		if replyToMessageID != 0 {
+			msg.ReplyToMessageID = replyToMessageID
+		}
 
 		gbl.Log.Infof("🔔 📸 sending animation | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 
-	case strings.HasPrefix(detectedCcontentType, "image/"), strings.HasSuffix(imageURI, ".jpg"), strings.HasSuffix(imageURI, ".png"):
-		msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(imageURI))
+	case strings.HasPrefix(detectedCcontentType, "video/"):
+		extension := strings.TrimPrefix(detectedCcontentType, "video/")
+
+		msg := tgbotapi.NewVideo(chatID, tgbotapi.FileReader{
+			Name:   "gbVideo." + extension,
+			Reader: imageReader,
+		})
 		msg.ParseMode = parseMode
 		msg.DisableNotification = disableNotifications
-		msg.ReplyToMessageID = replyToMessageID
+
 		msg.Caption = text
 
-		gbl.Log.Infof("🔔 📸 sending photo | msg: %+v", msg)
+		if replyToMessageID != 0 {
+			msg.ReplyToMessageID = replyToMessageID
+		}
+
+		gbl.Log.Infof("🔔 📸 sending video | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 	}
@@ -118,7 +144,10 @@ func sendTelegramMessage(chatID int64, text string, imageURI string, replyToMess
 
 	msg.ReplyMarkup = replyMarkup
 
-	msg.ReplyToMessageID = replyToMessageID
+	if replyToMessageID != 0 {
+		msg.ReplyToMessageID = replyToMessageID
+	}
+
 	msg.DisableWebPagePreview = true
 
 	gbl.Log.Debugf("🔔 📸 sending message | msg: %+v", msg)
