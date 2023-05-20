@@ -2,7 +2,6 @@ package flots
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 
 	"github.com/charmbracelet/log"
@@ -46,7 +45,7 @@ func New() *Client {
 
 		flots.SignerPublicKey = &signerKey.PublicKey
 	} else {
-		log.Fatal(fmt.Sprintf("❌ invalid or missing signer key: %v", err))
+		log.Fatalf("❌ invalid or missing signer key: %v", err)
 	}
 
 	//
@@ -62,7 +61,7 @@ func New() *Client {
 	flots.fbClient = fbClient
 	flots.w3Client = w3Client
 
-	log.Debug(fmt.Sprintf("flots: %+v\n", flots))
+	log.Debugf("flots: %+v\n", flots)
 
 	return flots
 }
@@ -78,7 +77,7 @@ func (c *Client) LatestBlock() *big.Int {
 	if err := c.w3Client.Call(
 		eth.BlockNumber().Returns(&latestBlock),
 	); err != nil {
-		log.Error(fmt.Sprintf("❌ failed to fetch latest block: %v", err))
+		log.Errorf("❌ failed to fetch latest block: %v", err)
 
 		return nil
 	}
@@ -97,7 +96,7 @@ func (c *Client) GetUserStats() *flashbots.UserStatsV2Response {
 	if err := c.fbClient.Call(
 		flashbots.UserStatsV2(c.LatestBlockPlus()).Returns(&userStats),
 	); err != nil {
-		log.Info(fmt.Sprintf("Failed to fetch user stats: %v\n", err))
+		log.Errorf("Failed to fetch user stats: %v\n", err)
 
 		return nil
 	}
@@ -111,7 +110,7 @@ func (c *Client) GetBundleStats(bundleHash common.Hash) *flashbots.BundleStatsV2
 	if err := c.fbClient.Call(
 		flashbots.BundleStatsV2(bundleHash, c.LatestBlockPlus()).Returns(&bundleStats),
 	); err != nil {
-		log.Fatal(fmt.Sprintf("❌ failed to fetch bundle stats: %v\n", err))
+		log.Fatalf("❌ failed to fetch bundle stats: %v\n", err)
 
 		return nil
 	}
@@ -126,7 +125,7 @@ func (c *Client) CallBundle(rawTxs [][]byte) *flashbots.CallBundleResponse {
 		RawTransactions: rawTxs,
 	}
 
-	log.Info(fmt.Sprintf("callBundleRequest: %+v\n", callBundleRequest))
+	log.Debugf("callBundleRequest: %+v\n", callBundleRequest)
 
 	//
 	// call bundle
@@ -135,7 +134,7 @@ func (c *Client) CallBundle(rawTxs [][]byte) *flashbots.CallBundleResponse {
 	if err := c.fbClient.Call(
 		flashbots.CallBundle(callBundleRequest).Returns(&callBundle),
 	); err != nil {
-		log.Fatal(fmt.Sprintf("❌ failed to call bundle: %v\n", err))
+		log.Fatalf("❌ failed to call bundle: %v\n", err)
 
 		return nil
 	}
@@ -150,7 +149,7 @@ func (c *Client) SendBundleWithRawTxs(rawTxs [][]byte) common.Hash {
 		BlockNumber:     c.LatestBlockPlus(),
 	}
 
-	log.Info(fmt.Sprintf("sendBundleRequest: %+v\n", sendBundleRequest))
+	log.Debugf("sendBundleRequest: %+v\n", sendBundleRequest)
 
 	//
 	// call bundle
@@ -159,7 +158,40 @@ func (c *Client) SendBundleWithRawTxs(rawTxs [][]byte) common.Hash {
 	if err := c.fbClient.Call(
 		flashbots.SendBundle(sendBundleRequest).Returns(&bundleHash),
 	); err != nil {
-		log.Fatal(fmt.Sprintf("❌ failed to send bundle: %v\n", err))
+		log.Fatalf("❌ failed to send bundle: %v\n", err)
+
+		return common.Hash{}
+	}
+
+	return bundleHash
+}
+
+func (c *Client) MevSendBundle(rawTxs [][]byte) common.Hash {
+	// create request
+	mevSendBundleRequest := &MevSendBundleRequest{
+		Version: "v0.1",
+		Body:    []MevBundleTx{},
+		Inclusion: MevParamInclusion{
+			Block:    c.LatestBlock().Text(16),
+			MaxBlock: c.LatestBlockPlus().Text(16),
+		},
+		Privacy: MevParamPrivacy{
+			Hints: []string{
+				"calldata", "contract_address", "logs", "function_selector", "hash",
+			},
+		},
+	}
+
+	log.Debugf("sendBundleRequest: %+v\n", mevSendBundleRequest)
+
+	//
+	// call bundle
+	var bundleHash common.Hash
+
+	if err := c.fbClient.Call(
+		MevSendBundle(mevSendBundleRequest).Returns(&bundleHash),
+	); err != nil {
+		log.Fatalf("❌ failed to send bundle: %v\n", err)
 
 		return common.Hash{}
 	}

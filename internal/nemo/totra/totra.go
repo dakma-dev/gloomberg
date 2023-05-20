@@ -14,7 +14,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/topic"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -78,7 +77,7 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 		tfLogsByStandard[logStandard] = append(tfLogsByStandard[logStandard], txLog)
 	}
 
-	msg, err := core.TransactionToMessage(tx, types.LatestSignerForChainID(tx.ChainId()), nil)
+	sender, err := types.LatestSignerForChainID(tx.ChainId()).Sender(tx)
 	if err != nil {
 		gbl.Log.Warnf("could not get message for tx %s: %s", tx.Hash().Hex(), err)
 	}
@@ -86,7 +85,7 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 	ttx := &TokenTransaction{
 		Tx:             tx,
 		TxReceipt:      receipt,
-		From:           msg.From,
+		From:           sender,
 		logsByStandard: tfLogsByStandard,
 		Transfers:      make([]*TokenTransfer, 0),
 		AmountPaid:     tx.Value(),
@@ -99,6 +98,8 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 
 	// marketplace
 	switch {
+	case tx.To() == nil:
+		ttx.Marketplace = &marketplace.Unknown
 	case marketplace.OpenSea.ContractAddresses[*tx.To()]:
 		ttx.Marketplace = &marketplace.OpenSea
 	case marketplace.Blur.ContractAddresses[*tx.To()]:

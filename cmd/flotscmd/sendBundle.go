@@ -27,23 +27,24 @@ var sendBundleCmd = &cobra.Command{
 			log.Fatal("❌ no raw transactions provided!")
 		}
 
+		fmt.Println("")
 		fmt.Println("transactions:")
 
 		rawTxs := make([][]byte, 0)
 		for idx, rawtx := range flagRawTransactions {
 			rawTxs = append(rawTxs, hexutil.MustDecode(rawtx))
-			fmt.Printf("  tx %d: %+v", idx, rawtx)
+			fmt.Printf("  tx %d: %+v\n", idx, rawtx)
 		}
 
 		//
 		// simulate with call bundle
 		callBundle := flots.CallBundle(rawTxs)
-		fmt.Printf("🟢 call bundle: %+v\n\n\n", callBundle)
+		fmt.Printf("\n🟢 call bundle: %+v\n", callBundle)
 
 		//
 		// send bundle
 		bundleHash := flots.SendBundleWithRawTxs(rawTxs)
-		fmt.Printf("🟢 bundle sent! hash: %s\n\n", bundleHash)
+		fmt.Printf("\n🟢 bundle sent! hash: %s\n\n", bundleHash)
 
 		// store (blocknum + plusBlocks) at time of sending the bundle (not sure if this is needed at all)
 		latestBlockPlusWhenSending := flots.LatestBlockPlus()
