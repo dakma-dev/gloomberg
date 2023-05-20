@@ -12,6 +12,10 @@ dev.md
 *.sqlite
 .idea
 
+bazel-*
+*.bazel
+.bazelrc
+
 # testing
 cmd/rawtx.go
 ranks/
