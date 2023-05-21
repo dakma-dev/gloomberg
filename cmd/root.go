@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/cmd/flotscmd"
+	"github.com/benleb/gloomberg/cmd/oncecmd"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -46,6 +47,7 @@ func init() {
 
 	// subcommands
 	rootCmd.AddCommand(flotscmd.FlotsCmd)
+	rootCmd.AddCommand(oncecmd.OnceCmd)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
