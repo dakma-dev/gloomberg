@@ -13,6 +13,8 @@ const (
 	ReBurn
 	Airdrop
 	Loan
+	CollectionOffer
+	ItemBid
 )
 
 func (et TxType) String() string {
@@ -41,6 +43,10 @@ func (et TxType) Icon() string {
 		return "🎁"
 	case Loan:
 		return "💸"
+	case CollectionOffer:
+		return "📜"
+	case ItemBid:
+		return "🏷"
 	case Unknown:
 		return "🔬"
 	default:

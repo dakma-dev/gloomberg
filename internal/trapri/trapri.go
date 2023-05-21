@@ -320,6 +320,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			name = collection.Render(collection.Name)
 		}
 
+		if ttx.IsListing() {
+			// print token name for listing
+			name = collection.Render(ttx.Transfers[0].Token.Name)
+		}
+
 		maxShown := 5
 		idsShown := int(math.Min(float64(len(fmtTokenIds[contractAddress])), float64(maxShown)))
 

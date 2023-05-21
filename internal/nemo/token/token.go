@@ -13,6 +13,9 @@ type Token struct {
 
 	// address of the token contract || erc721: tx.To() | erc1155: topic[1]
 	Address common.Address `json:"address"`
+
+	// optional name of the token (opensea api source)
+	Name string `json:"name,omitempty"`
 }
 
 func (t *Token) String() string {

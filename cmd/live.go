@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"net"
 	"net/http"
 	"strconv"
@@ -213,6 +214,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			}
 
 			gbl.Log.Infof("collections from wallets: %d", len(walletCollections))
+
+			GetWalletTokens(gb)
 		}
 
 		// print collections from config & wallet holdings
@@ -331,7 +334,18 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// subscribe to OpenSea API
 	if viper.GetBool("listings.enabled") {
-		go runSeawatcher(nil, nil)
+		//go runSeawatcher(nil, nil)
+
+		seaWatcher := startOpenseaSubscription()
+
+		opensea.StartEventHandler(gb, seaWatcher.EventChannel(), seaWatcher)
+		// listen on chan
+
+		// subscribe to redis pubsub channel - standalone
+		go pusu.SubscribeToListings(gb, queueTokenTransactions)
+
+		time.Sleep(1 * time.Second)
+		gb.SendSlugsToServer()
 	}
 
 	//
@@ -528,4 +542,31 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)
 	viper.SetDefault("stats.lines", 5)
+}
+
+func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
+	gbTokens := make([]*token.Token, 0)
+
+	for _, w := range *gb.OwnWallets {
+		tokensForWallet := opensea.GetTokensFor(w.Address, 2, "")
+		gbTokens = append(gbTokens, tokensForWallet...)
+
+		tokenMapForWallet := make(map[common.Address]map[string]*token.Token)
+		for _, t := range tokensForWallet {
+			if _, ok := tokenMapForWallet[t.Address]; !ok {
+				tokenMapForWallet[t.Address] = make(map[string]*token.Token)
+			}
+			tokenMapForWallet[t.Address][t.ID.String()] = t
+		}
+		w.Tokens = tokenMapForWallet
+	}
+	fmt.Println("", len(gbTokens), "tokens loaded")
+
+	//create map
+	gbTokensMap := make(map[common.Address]*token.Token)
+	for _, t := range gbTokens {
+		gbTokensMap[t.Address] = t
+	}
+
+	return gbTokensMap
 }

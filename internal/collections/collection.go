@@ -67,9 +67,10 @@ type Collection struct {
 		MintVolume  *big.Int
 	} `mapstructure:"counters"`
 
-	SaLiRa             ewma.MovingAverage  `mapstructure:"salira"`
-	FloorPrice         *ewma.MovingAverage `mapstructure:"floorPrice"`
-	PreviousFloorPrice float64             `mapstructure:"previousFloorPrice"`
+	SaLiRa                 ewma.MovingAverage  `mapstructure:"salira"`
+	FloorPrice             *ewma.MovingAverage `mapstructure:"floorPrice"`
+	PreviousFloorPrice     float64             `mapstructure:"previousFloorPrice"`
+	HighestCollectionOffer float64
 }
 
 func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
@@ -125,9 +126,10 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 
 		Source: source,
 
-		FloorPrice:         &floorPrice,
-		PreviousFloorPrice: 0,
-		SaLiRa:             ewma.NewMovingAverage(),
+		FloorPrice:             &floorPrice,
+		PreviousFloorPrice:     0,
+		SaLiRa:                 ewma.NewMovingAverage(),
+		HighestCollectionOffer: 0,
 	}
 
 	if nodes != nil {

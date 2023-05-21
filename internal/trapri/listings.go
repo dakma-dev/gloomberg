@@ -57,6 +57,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 		receivedAt = time.Now()
 	}
 
+	itemName := strings.Split(event.Payload.Item.Metadata.Name, " #")[0]
 	//
 	// create a TokenTransaction
 	ttxListing := &totra.TokenTransaction{
@@ -77,6 +78,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 				Token: &token.Token{
 					Address: contractAddress,
 					ID:      big.NewInt(tokenID),
+					Name:    itemName,
 				},
 			},
 		},
