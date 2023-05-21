@@ -59,3 +59,15 @@ func (ws *Wallets) SortByBalance() []*Wallet {
 
 	return slice
 }
+
+func (ws *Wallets) ContainsToken(tokenAddress common.Address, tokenID string) bool {
+	for _, w := range *ws {
+		if w.Tokens[tokenAddress] != nil {
+			if w.Tokens[tokenAddress][tokenID] != nil {
+				return true
+			}
+		}
+	}
+
+	return false
+}

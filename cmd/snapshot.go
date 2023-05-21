@@ -61,7 +61,6 @@ var snapshotCmd = &cobra.Command{
 		}
 
 		// https://eth-mainnet.g.alchemy.com/nft/v2/{apiKey}/getOwnersForCollection
-		// contract := "0x769272677fab02575e84945f03eca517acc544cc"
 		url := "https://eth-mainnet.g.alchemy.com/nft/v2/" + apikey + "/getOwnersForCollection?contractAddress=" + contract
 		response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
 		if err != nil {

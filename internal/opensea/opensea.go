@@ -5,7 +5,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"io"
+	"math/big"
 	"net/http"
 	"os"
 	"time"
@@ -13,7 +16,6 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/rueidica"
@@ -41,6 +43,71 @@ func GetWalletCollections(gb *gloomberg.Gloomberg) []*collections.Collection {
 	}
 
 	return gbCollections
+}
+
+func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token.Token {
+	receivedNFTs := make([]*token.Token, 0)
+	limit := 70
+	url := fmt.Sprintf("https://api.opensea.io/api/v1/assets?owner=%s&limit=%d&cursor=%s", walletAddress, limit, cursor)
+	response, err := utils.HTTP.GetWithHeader(context.Background(), url, openSeaHeader())
+
+	if os.IsTimeout(err) {
+		backoffSeconds := try * 2
+		sleepTime := time.Duration(backoffSeconds) * time.Second
+		time.Sleep(sleepTime)
+
+		gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s (try %d, sleep %ds)", walletAddress.Hex(), try, backoffSeconds)
+
+		if try <= viper.GetInt("ens.resolve_max_retries") {
+			return GetTokensFor(walletAddress, try+1, cursor)
+		} else {
+			gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s, giving up after %d retries...", walletAddress.Hex(), try-1)
+		}
+
+		return receivedNFTs
+	} else if err != nil {
+		//return receivedCollections
+	}
+	defer response.Body.Close()
+
+	// create a variable of the same type as our model
+	var collectionResponse *osmodels.OpenSeaAssetsResponse
+
+	responseBody, _ := io.ReadAll(response.Body)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		return receivedNFTs
+	}
+
+	//fmt.Println(string(responseBody))
+
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionResponse); err != nil {
+		gbl.Log.Errorf("⌛️ error while decoding wallet collections for %s: %s", walletAddress.Hex(), err)
+	}
+
+	assets := collectionResponse.Assets
+	for _, asset := range assets {
+		//fmt.Printf("Asset: %s tokenIDs %s\n", asset.Collection.Slug, asset.TokenID)
+		tokenID, ok := new(big.Int).SetString(asset.TokenID, 10)
+		if !ok {
+			fmt.Println("SetString: error")
+		}
+		receivedNFTs = append(receivedNFTs, &token.Token{
+			Address: common.HexToAddress(asset.AssetContract.Address),
+			Name:    asset.Name,
+			// string to bigint
+			ID: tokenID,
+		})
+	}
+
+	//fmt.Printf("Length: %d\n", len(assets))
+
+	if collectionResponse.Next != "" {
+		fmt.Printf("next page: %s", collectionResponse.Next)
+		receivedNFTs = append(receivedNFTs, GetTokensFor(walletAddress, 0, collectionResponse.Next)...)
+	}
+	return receivedNFTs
 }
 
 // GetCollectionsFor returns the collections a wallet owns at least one item of.
@@ -208,4 +275,52 @@ func GetListings(contractAddress common.Address, tokenID int64) []osmodels.Seapo
 	}
 
 	return listingsResponse.Orders
+}
+
+func GetCollectionStats(collectionSlug string) *osmodels.CollectionStats {
+	url := fmt.Sprintf("https://api.opensea.io/api/v1/collection/%s/stats", collectionSlug)
+
+	response, err := utils.HTTP.GetWithHeader(context.Background(), url, openSeaHeader())
+	if err != nil {
+		if os.IsTimeout(err) {
+			gbl.Log.Warn("TIMEOUT while fetching listings, trying again next round... ", collectionSlug)
+		} else {
+			gbl.Log.Warn("ooopsss an error occurred while fetching asset events, please try again:", err)
+		}
+		return nil
+	}
+
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		fmt.Printf("❌ GetCollectionStats from os· error: %+v\n", response.Status)
+
+		return nil
+	}
+
+	// create a variable of the same type as our model
+	var collectionStats *osmodels.CollectionStatsResponse
+
+	responseBody, _ := io.ReadAll(response.Body)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		return nil
+	}
+
+	//fmt.Println(string(responseBody))
+
+	// decode the data
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionStats); err != nil {
+		return nil
+	}
+
+	if collectionStats == nil {
+		gbl.Log.Errorf("⌛️ error while decoding asset contract for %s: %s", collectionSlug, err)
+
+		return nil
+	}
+
+	return collectionStats.Stats
+
 }

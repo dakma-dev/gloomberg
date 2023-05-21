@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"math/big"
 
 	"github.com/charmbracelet/lipgloss"
@@ -18,6 +19,7 @@ type Wallet struct {
 	Balance       *big.Int
 	BalanceBefore *big.Int
 	BalanceTrend  string
+	Tokens        map[common.Address]map[string]*token.Token
 }
 
 func (w *Wallet) ColoredName(maxWalletNameLength int) string {
