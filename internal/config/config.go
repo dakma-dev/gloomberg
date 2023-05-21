@@ -9,7 +9,6 @@ import (
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
@@ -197,107 +196,107 @@ func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *ruei
 	return ownCollections
 }
 
-func ValidateRawBuyRule(rule *viper.Viper, slug string) *nemo.BuyRule {
-	// initialize buy conditions with "safe" values
-	var (
-		// checking general key & threshold
-		generalPrivateKey = viper.GetString("buy.private_key")
-		maxPrice          = 0.0
-		minSales          = uint64(5)
-		minListings       = uint64(5)
-	)
+// func ValidateRawBuyRule(rule *viper.Viper, slug string) *nemo.BuyRule {
+// 	// initialize buy conditions with "safe" values
+// 	var (
+// 		// checking general key & threshold
+// 		generalPrivateKey = viper.GetString("buy.private_key")
+// 		maxPrice          = 0.0
+// 		minSales          = uint64(5)
+// 		minListings       = uint64(5)
+// 	)
 
-	// set name to ruleKey or a generic one for the catch-all
-	name := slug
-	// if contractName, err := cache.GetContractName(context.TODO(), common.HexToAddress(rule.GetString("contract_address"))); err == nil && contractName != "" {
-	// 	name = contractName
-	// }
+// 	// set name to ruleKey or a generic one for the catch-all
+// 	name := slug
+// 	// if contractName, err := cache.GetContractName(context.TODO(), common.HexToAddress(rule.GetString("contract_address"))); err == nil && contractName != "" {
+// 	// 	name = contractName
+// 	// }
 
-	rule.Set("name", name)
+// 	rule.Set("name", name)
 
-	// check price threshold value
-	if rule.IsSet("threshold") && (rule.GetFloat64("threshold") < 0.0 || rule.GetFloat64("threshold") > 1.0) {
-		gbl.Log.Warnf("🤷‍♀️ %s| invalid rule.Threshold (%.3f) value, skipping auto-buy", name, rule.GetFloat64("threshold"))
+// 	// check price threshold value
+// 	if rule.IsSet("threshold") && (rule.GetFloat64("threshold") < 0.0 || rule.GetFloat64("threshold") > 1.0) {
+// 		gbl.Log.Warnf("🤷‍♀️ %s| invalid rule.Threshold (%.3f) value, skipping auto-buy", name, rule.GetFloat64("threshold"))
 
-		return nil
-	}
+// 		return nil
+// 	}
 
-	if viper.IsSet("buy.rules.min_sales") {
-		minSales = viper.GetUint64("buy.rules.min_sales")
-	}
+// 	if viper.IsSet("buy.rules.min_sales") {
+// 		minSales = viper.GetUint64("buy.rules.min_sales")
+// 	}
 
-	if viper.IsSet("buy.rules.min_listings") {
-		minListings = viper.GetUint64("buy.rules.min_listings")
-	}
+// 	if viper.IsSet("buy.rules.min_listings") {
+// 		minListings = viper.GetUint64("buy.rules.min_listings")
+// 	}
 
-	if !rule.IsSet("private_key") {
-		rule.Set("private_key", generalPrivateKey)
-	}
+// 	if !rule.IsSet("private_key") {
+// 		rule.Set("private_key", generalPrivateKey)
+// 	}
 
-	if !rule.IsSet("min_sales") {
-		rule.Set("min_sales", minSales)
-	}
+// 	if !rule.IsSet("min_sales") {
+// 		rule.Set("min_sales", minSales)
+// 	}
 
-	if !rule.IsSet("min_listings") {
-		rule.Set("min_listings", minListings)
-	}
+// 	if !rule.IsSet("min_listings") {
+// 		rule.Set("min_listings", minListings)
+// 	}
 
-	if !rule.IsSet("max_price") {
-		rule.Set("max_price", maxPrice)
-	}
+// 	if !rule.IsSet("max_price") {
+// 		rule.Set("max_price", maxPrice)
+// 	}
 
-	var buyRule *nemo.BuyRule
-	if err := rule.Unmarshal(&buyRule, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
-		hooks.StringToAddressHookFunc(),
-		hooks.StringToDurationHookFunc(),
-		hooks.StringToLipglossColorHookFunc(),
-	))); err != nil {
-		gbl.Log.Errorf("❌ error unmarshalling buy rule %s: %s", name, err)
+// 	var buyRule *nemo.BuyRule
+// 	if err := rule.Unmarshal(&buyRule, viper.DecodeHook(mapstructure.ComposeDecodeHookFunc(
+// 		hooks.StringToAddressHookFunc(),
+// 		hooks.StringToDurationHookFunc(),
+// 		hooks.StringToLipglossColorHookFunc(),
+// 	))); err != nil {
+// 		gbl.Log.Errorf("❌ error unmarshalling buy rule %s: %s", name, err)
 
-		return nil
-	}
+// 		return nil
+// 	}
 
-	return buyRule
-}
+// 	return buyRule
+// }
 
-func GetGeneralBuyRuleFromConfiguration() *nemo.BuyRule {
-	// initialize buy conditions with "safe" values
-	var (
-		// checking general key & threshold
-		privateKey  = viper.GetString("buy.private_key")
-		threshold   = viper.GetFloat64("buy.threshold")
-		maxPrice    = 0.0
-		minSales    = uint64(100)
-		minListings = uint64(100)
-	)
+// func GetGeneralBuyRuleFromConfiguration() *nemo.BuyRule {
+// 	// initialize buy conditions with "safe" values
+// 	var (
+// 		// checking general key & threshold
+// 		privateKey  = viper.GetString("buy.private_key")
+// 		threshold   = viper.GetFloat64("buy.threshold")
+// 		maxPrice    = 0.0
+// 		minSales    = uint64(100)
+// 		minListings = uint64(100)
+// 	)
 
-	if viper.IsSet("buy.min_sales") {
-		minSales = viper.GetUint64("buy.min_sales")
-	}
+// 	if viper.IsSet("buy.min_sales") {
+// 		minSales = viper.GetUint64("buy.min_sales")
+// 	}
 
-	if viper.IsSet("buy.min_listings") {
-		minListings = viper.GetUint64("buy.min_listings")
-	}
+// 	if viper.IsSet("buy.min_listings") {
+// 		minListings = viper.GetUint64("buy.min_listings")
+// 	}
 
-	if privateKey == "" || threshold == 0.0 || (threshold < 0.0 || threshold > 1.0) {
-		gbl.Log.Warnf("❌ invalid private key (%s) or threshold (%f), skipping general rule", privateKey, threshold)
+// 	if privateKey == "" || threshold == 0.0 || (threshold < 0.0 || threshold > 1.0) {
+// 		gbl.Log.Warnf("❌ invalid private key (%s) or threshold (%f), skipping general rule", privateKey, threshold)
 
-		return nil
-	}
+// 		return nil
+// 	}
 
-	// create the general/general buy rule
-	buyRule := &nemo.BuyRule{
-		ID:          0,
-		Name:        "*everything*",
-		PrivateKey:  privateKey,
-		Threshold:   threshold,
-		MinSales:    minSales,
-		MinListings: minListings,
-		MaxPrice:    maxPrice,
-	}
+// 	// create the general/general buy rule
+// 	buyRule := &nemo.BuyRule{
+// 		ID:          0,
+// 		Name:        "*everything*",
+// 		PrivateKey:  privateKey,
+// 		Threshold:   threshold,
+// 		MinSales:    minSales,
+// 		MinListings: minListings,
+// 		MaxPrice:    maxPrice,
+// 	}
 
-	return buyRule
-}
+// 	return buyRule
+// }
 
 // GetWatchRulesFromConfig reads configured users to be notified from config.
 func GetWatchRulesFromConfig() *watch.Watcher {

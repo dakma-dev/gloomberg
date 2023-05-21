@@ -43,7 +43,6 @@ func (t *TxWithLogs) Sender() *common.Address {
 
 // GetTransactionsForLogs utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
-// func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLogs, providerPool *provider.Pool) {
 func GetTransactionsForLogs(qRawLogs chan types.Log, providerPool *provider.Pool) chan *TxWithLogs {
 	return GetTransactionsForLogsWithChannel(qRawLogs, make(chan *TxWithLogs, 10240), providerPool)
 }
