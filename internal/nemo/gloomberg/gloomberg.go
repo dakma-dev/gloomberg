@@ -33,6 +33,8 @@ type Gloomberg struct {
 	Rueidi *rueidica.Rueidica
 
 	QueueSlugs chan common.Address
+
+	TerminalPrinterQueue chan string
 }
 
 func (gb *Gloomberg) SendSlugsToServer() {
