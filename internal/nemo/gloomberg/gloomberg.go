@@ -50,7 +50,7 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		return
 	}
 
-	log.Printf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
+	log.Debugf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
 
 	mgmtEvent := &seawa.MgmtEvent{Action: seawa.Subscribe, Slugs: slugs}
 

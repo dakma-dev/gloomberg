@@ -57,7 +57,7 @@ func GetTransactionsForLogsWithChannel(qRawLogs chan types.Log, qTxsWithLogs cha
 
 	// handle received logs
 	for workerID := 1; workerID <= numWorkersRawLogs; workerID++ {
-		log.Printf("starting rawLogs worker %d", workerID)
+		log.Debugf("starting rawLogs worker %d", workerID)
 
 		go func() {
 			for rawLog := range qRawLogs {
