@@ -24,9 +24,10 @@ import (
 )
 
 var (
-	AlphaCaller          *AlphaScore
-	alphaCallerKnownTX   = make(map[common.Hash]bool, 0)
-	alphaCallerKnownTXMu = &sync.RWMutex{}
+	AlphaCaller              *AlphaScore
+	alphaCallerKnownTX       = make(map[common.Hash]bool, 0)
+	alphaCallerKnownTXMu     = &sync.RWMutex{}
+	minTXCountForNotifcation = 2
 )
 
 type AlphaScore struct {
@@ -53,6 +54,10 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 				continue
 			}
 
+			if len(collection.Transactions) < minTXCountForNotifcation {
+				continue
+			}
+
 			message := strings.Builder{}
 
 			transactions := len(collection.Transactions) + len(collection.ArchivedTransactions)
@@ -60,8 +65,8 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 			collectionName := gb.CollectionDB.Collections[collectionAddress].Name
 			//message.WriteString(fmt.Sprintf("*%d curated transactions \n\n*", transactions))
 			averageScore := int(collection.Score / int32(transactions))
-			message.WriteString(fmt.Sprintf("*%s* Ø Score : *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
-			message.WriteString("_Latest Transactions per Wallets:_\n")
+			message.WriteString(fmt.Sprintf("*%s* Score : Ø: *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
+			message.WriteString("_ 🔥 Latest Transactions per Wallets:_\n")
 
 			var tokenID *big.Int
 
@@ -89,7 +94,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 					}
 				}
 
-				message.WriteString(fmt.Sprintf("%d Blocks ago | *%s* (%d) *%s* (%dx)  \n", blocksAgo, wallet.Ens, wallet.Score, tx.Action.ActionName(), amountTokens))
+				message.WriteString(fmt.Sprintf("%d blocks ago | *%s* (%d) *%s* (%dx)  \n", blocksAgo, wallet.Ens, wallet.Score, tx.Action.ActionName(), amountTokens))
 				// tokenID = tx.Transfers[0].Token.ID
 				_, tokenID = getFirstContractAddressAndTokenID(tx)
 				txHash = tx.TxReceipt.TxHash
@@ -154,7 +159,7 @@ func getScoreEmoji(score int32, walletCount int) string {
 		averageScore = int(score / int32(walletCount))
 	}
 
-	if averageScore < 0 {
+	if averageScore < 3 {
 		return "🔴"
 	}
 
@@ -193,7 +198,7 @@ func NewAlphaScore(gb *gloomberg.Gloomberg) *AlphaScore {
 	}
 
 	if len(fromJSON.Addresses) > 0 {
-		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(AlphaCaller.WalletMap))), " curated wallets with alpha scores loaded", "\n")))
+		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(AlphaCaller.WalletMap))), " curated wallets with scores loaded", "\n")))
 		_ = miwSpinner.Stop()
 	} else {
 		_ = miwSpinner.StopFail()
@@ -218,7 +223,23 @@ func (s *AlphaScore) AddEvent(eventTx *totra.TokenTransaction) {
 
 	currentCollection := tokencollections.GetCollection(s.gb, contractAddress, tokenID.Int64())
 
+	if s.ignoreContract(contractAddress) {
+		return
+	}
+
 	s.UpdateScore(currentCollection, eventTx.From, eventTx)
+}
+
+func (s *AlphaScore) ignoreContract(contractAddress common.Address) bool {
+	// Uniswap V3: Positions NFT
+	if contractAddress == common.HexToAddress("0xc36442b4a4522e871399cd717abdd847ab11fe88") {
+		return true
+	}
+	// Emblem Vault V4
+	if contractAddress == common.HexToAddress("0x82C7a8f707110f5FBb16184A5933E9F78a34c6ab") {
+		return true
+	}
+	return false
 }
 
 func getFirstContractAddressAndTokenID(eventTx *totra.TokenTransaction) (common.Address, *big.Int) {

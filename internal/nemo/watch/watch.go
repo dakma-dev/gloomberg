@@ -31,6 +31,10 @@ type WWallet struct {
 	Address common.Address `mapstructure:"address"`
 }
 
+type ChatID struct {
+	ChatID int64 `mapstructure:"chat_id"`
+}
+
 type WUser struct {
 	Name             string     `mapstructure:"name"`
 	TelegramUsername string     `mapstructure:"telegram_username"`
@@ -42,11 +46,12 @@ type WUser struct {
 }
 
 type WGroup struct {
-	Name             string     `mapstructure:"group"`
-	TelegramChatID   int64      `mapstructure:"telegram_chat_id"`
-	Users            []*WUser   `mapstructure:"users"`
-	Wallets          []*WWallet `mapstructure:"wallets"`
-	ReplyToMessageID int        `mapstructure:"telegram_reply_to_message_id"`
+	Name              string     `mapstructure:"group"`
+	TelegramChatID    int64      `mapstructure:"telegram_chat_id"`
+	ReplyToMessageID  int        `mapstructure:"telegram_reply_to_message_id"`
+	AdditionalChatIDs []*ChatID  `mapstructure:"telegram_chat_ids"`
+	Users             []*WUser   `mapstructure:"users"`
+	Wallets           []*WWallet `mapstructure:"wallets"`
 
 	// addresses []common.Address
 	// Contracts      []WatchContract `mapstructure:"contracts"`

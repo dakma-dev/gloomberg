@@ -126,14 +126,21 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 		}
 
 		SendMessageViaTelegram(msgTelegram.String(), chatID, imageURI, replyToMessageID, nil)
+
+		if user.Group.AdditionalChatIDs != nil {
+			for _, additionalChatID := range user.Group.AdditionalChatIDs {
+				SendMessageViaTelegram(msgTelegram.String(), additionalChatID.ChatID, "", 0, nil)
+			}
+		}
+
 	}
 }
 
 func SendMessageViaTelegram(message string, chatID int64, imageURI string, replyToMessageID int, replyMarkup interface{}) {
 	// send telegram message
-	msg, err := sendTelegramMessage(chatID, message, imageURI, replyToMessageID, replyMarkup)
+	msg, err := sendTelegramMessageWithMarkup(chatID, message, imageURI, replyToMessageID, replyMarkup)
 	if err != nil {
-		gbl.Log.Warnf("❌ failed to send telegram message: %s | imageURI: '%s' | msgTelegram: '%s'", err, imageURI, message)
+		gbl.Log.Warnf("❌ failed to send telegram message: %s | chatID: '%s' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
 
 		return
 	}

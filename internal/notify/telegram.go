@@ -13,7 +13,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-func sendTelegramMessage(chatID int64, text string, imageURI string, replyToMessageID int, replyMarkup interface{}) (tgbotapi.Message, error) {
+func bulkSendTelegramMessage(chatIDs []int64, text string, imageURI string) {
+
+	for _, chatID := range chatIDs {
+		sendTelegramMessage(chatID, text, imageURI)
+	}
+}
+
+func sendTelegramMessage(chatID int64, text string, imageURI string) (tgbotapi.Message, error) {
+	return sendTelegramMessageWithMarkup(chatID, text, imageURI, 0, nil)
+}
+
+func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, replyToMessageID int, replyMarkup interface{}) (tgbotapi.Message, error) {
 	if tgBot == nil {
 		tgBot, err := getBot()
 
