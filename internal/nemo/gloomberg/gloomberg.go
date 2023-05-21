@@ -33,6 +33,8 @@ type Gloomberg struct {
 	Rueidi *rueidica.Rueidica
 
 	QueueSlugs chan common.Address
+
+	TerminalPrinterQueue chan string
 }
 
 func (gb *Gloomberg) SendSlugsToServer() {
@@ -48,7 +50,7 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		return
 	}
 
-	log.Printf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
+	log.Debugf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
 
 	mgmtEvent := &seawa.MgmtEvent{Action: seawa.Subscribe, Slugs: slugs}
 

@@ -12,9 +12,13 @@ dev.md
 *.sqlite
 .idea
 
+bazel-*
+*.bazel
+.bazelrc
+
 # testing
 cmd/rawtx.go
-ranks/
+internal/ddb
 
 # not ready for prime time
 deployment/

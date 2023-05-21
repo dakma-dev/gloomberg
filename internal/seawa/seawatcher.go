@@ -444,6 +444,7 @@ func printItemListed(itemListedEvent osmodels.ItemListedEvent) {
 	priceWei, _ := priceWeiRaw.Int(nil)
 
 	var listedBy string
+
 	listedByAddress := common.HexToAddress(itemListedEvent.Payload.Maker.Address)
 	listedByStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(listedByAddress.Big().Int64()))
 

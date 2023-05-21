@@ -560,7 +560,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	var transferFrom common.Address
 
 	// show "from" if its not a listing
-	if !ttx.IsListing() {
+	if !ttx.IsMint() && !ttx.IsListing() {
 		var fmtFrom string
 
 		if tfFrom := ttx.GetNonZeroNFTSenders(); len(tfFrom) > 0 {

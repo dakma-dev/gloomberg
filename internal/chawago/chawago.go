@@ -43,13 +43,21 @@ func (t *TxWithLogs) Sender() *common.Address {
 
 // GetTransactionsForLogs utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
-func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLogs, providerPool *provider.Pool) {
+func GetTransactionsForLogs(qRawLogs chan types.Log, providerPool *provider.Pool) chan *TxWithLogs {
+	return GetTransactionsForLogsWithChannel(qRawLogs, make(chan *TxWithLogs, 10240), providerPool)
+}
+
+func GetTransactionsForLogsWithChannel(qRawLogs chan types.Log, qTxsWithLogs chan *TxWithLogs, providerPool *provider.Pool) chan *TxWithLogs {
 	knownTransactions := make(map[common.Hash]bool, 0)
 	knownTransactionsMu := &sync.RWMutex{}
 
+	if qTxsWithLogs == nil {
+		qTxsWithLogs = make(chan *TxWithLogs, 10240)
+	}
+
 	// handle received logs
 	for workerID := 1; workerID <= numWorkersRawLogs; workerID++ {
-		log.Printf("starting rawLogs worker %d", workerID)
+		log.Debugf("starting rawLogs worker %d", workerID)
 
 		go func() {
 			for rawLog := range qRawLogs {
@@ -69,6 +77,8 @@ func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLog
 				knownTransactions[rawLog.TxHash] = true
 				knownTransactionsMu.Unlock()
 
+				log.Debugf("🪵 %#v", rawLog)
+
 				// fetch the full transaction this log belongs to
 				tx, err := providerPool.TransactionByHash(context.Background(), rawLog.TxHash)
 				if err != nil {
@@ -80,6 +90,8 @@ func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLog
 
 					continue
 				}
+
+				log.Debugf("📝 %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().String(), "transaction"))
 
 				// fetch the receipt to get all logs for this transaction
 				receipt, err := providerPool.TransactionReceipt(context.Background(), tx.Hash())
@@ -97,7 +109,7 @@ func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLog
 				log.Debugf("qLogs: %d  |  qTxsWithLogs: %d", len(qRawLogs), len(qTxsWithLogs))
 
 				// output TxWithLogs
-				qTxsWithLogs <- TxWithLogs{
+				qTxsWithLogs <- &TxWithLogs{
 					Transaction: tx,
 					Receipt:     receipt,
 				}
@@ -107,11 +119,13 @@ func GetTransactionsForLogs(qRawLogs chan types.Log, qTxsWithLogs chan TxWithLog
 			}
 		}()
 	}
+
+	return qTxsWithLogs
 }
 
 // GetPendingTransactions utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
-func GetPendingTransactions(qPendingTx chan *types.Transaction, qTxsWithLogs chan TxWithLogs, providerPool *provider.Pool) {
+func GetPendingTransactions(qPendingTx chan *types.Transaction, qTxsWithLogs chan *TxWithLogs, providerPool *provider.Pool) {
 	knownTransactions := make(map[common.Hash]bool, 0)
 	knownTransactionsMu := &sync.RWMutex{}
 
@@ -141,7 +155,7 @@ func GetPendingTransactions(qPendingTx chan *types.Transaction, qTxsWithLogs cha
 				log.Debugf("qPendingTx: %d  |  qTxsWithLogs: %d", len(qPendingTx), len(qTxsWithLogs))
 
 				// output TxWithLogs
-				qTxsWithLogs <- TxWithLogs{
+				qTxsWithLogs <- &TxWithLogs{
 					Transaction: pendingTx,
 					Pending:     true,
 				}

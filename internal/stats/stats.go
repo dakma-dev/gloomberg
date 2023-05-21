@@ -235,7 +235,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 			firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", label, value)), listItem("")}...)
 		}
-	} else if viper.IsSet("api_keys.etherscan") && viper.GetBool("stats.gas") {
+	} else if viper.IsSet("api_keys.etherscan") {
 		label := style.DarkGrayStyle.Render("  gas")
 		value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", external.GetEstimatedGasPrice()))
 
