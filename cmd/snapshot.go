@@ -15,7 +15,6 @@ import (
 )
 
 var (
-	apikey          string
 	snapshotAddress string
 )
 
@@ -25,7 +24,6 @@ var snapshotCmd = &cobra.Command{
 	Short: "Generate snapshot of wallets",
 	Long:  `Generate snapshot of wallets using third API provider.`,
 	Run: func(_ *cobra.Command, args []string) {
-		// check if argument is given
 		if len(args) < 1 && snapshotAddress == "" {
 			fmt.Println("❌ missing argument: contract address")
 
@@ -53,16 +51,18 @@ var snapshotCmd = &cobra.Command{
 
 		fmt.Printf("🔍 getOwnersForCollection from alchemy · contract: %s\n", contract)
 
+		apikey := viper.GetString("api_keys.alchemy")
+
 		// check if apikey is set
 		if apikey == "" {
-			fmt.Printf("❌ missing argument: apikey\n")
+			fmt.Printf("❌ missing alchemy apikey, check .yaml config\n")
 
 			return
 		}
 
-		// https://eth-mainnet.g.alchemy.com/nft/v2/{apiKey}/getOwnersForCollection
 		url := "https://eth-mainnet.g.alchemy.com/nft/v2/" + apikey + "/getOwnersForCollection?contractAddress=" + contract
 		response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
+
 		if err != nil {
 			if os.IsTimeout(err) {
 				fmt.Printf("⌛️ getContractMetadata from alchemy · timeout while fetching: %+v\n", err.Error())
@@ -115,9 +115,9 @@ func init() {
 
 	// intentionally called the flag "snapshot.alchemy.key" to make the difference between the flag and the viper key clear
 	// (usually the flag and the viper key have the same name to avoid confusion)
-	snapshotCmd.Flags().StringVar(&apikey, "alchemy.key", "", "alchemy api key")
+	//snapshotCmd.Flags().StringVar(&apikey, "alchemy.key", "", "alchemy api key")
 	// bind the cobra/pflags flag "alchemy.key" to the viper key "alchemy.apiKey
-	_ = viper.BindPFlag("alchemy.apiKey", snapshotCmd.Flags().Lookup("alchemy.key"))
+	//_ = viper.BindPFlag("alchemy.apiKey", snapshotCmd.Flags().Lookup("alchemy.key"))
 
 	// we do not need to bind the address flag to a viper key because we do not need it anywhere else
 	snapshotCmd.Flags().StringVar(&snapshotAddress, "address", "", "contract address to snapshot")
