@@ -31,24 +31,12 @@ func init() {
 func runSeawatcher(_ *cobra.Command, _ []string) {
 	log.Infof("⚓️ starting seawatcher %s…", internal.GloombergVersion)
 
-	// //
-	// // init metrics
-	// if viper.GetBool("metrics.enabled") {
-	// 	go func() {
-	// 		listenHost := net.ParseIP(viper.GetString("metrics.host"))
-	// 		listenPort := viper.GetUint("metrics.port")
-	// 		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
+	startOpenseaSubscription()
 
-	// 		http.Handle("/metrics", promhttp.Handler())
+	select {}
+}
 
-	// 		log.Infof("⚓️ 📐 metrics: http://%s", listenAddress)
-
-	// 		if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
-	// 			log.Errorf("⚓️ 📐 ❌ error starting metrics server: %s", err)
-	// 		}
-	// 	}()
-	// }
-
+func startOpenseaSubscription() *seawa.SeaWatcher {
 	// start sea watcher & loop forever
 	seaWatcher := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), GetRedisClient())
 
@@ -57,5 +45,5 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 	// publish a "SendSlugs" event to the management channel to request the slugs/events to subscribe to from the clients
 	seaWatcher.PublishSendSlugs()
 
-	select {}
+	return seaWatcher
 }

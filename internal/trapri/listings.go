@@ -59,6 +59,8 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 		receivedAt = time.Now()
 	}
 
+	itemName := strings.Split(event.Payload.Item.Metadata.Name, " #")[0]
+
 	// highlight "rare" lawless listings
 	if contractAddress == common.HexToAddress("0xb119ec7ee48928a94789ed0842309faf34f0c790") {
 		tokenName := event.Payload.Item.Metadata.Name
@@ -76,7 +78,6 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 
 		gb.TerminalPrinterQueue <- highlightMessage.String()
 	}
-
 	//
 	// create a TokenTransaction
 	ttxListing := &totra.TokenTransaction{
@@ -97,6 +98,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 				Token: &token.Token{
 					Address: contractAddress,
 					ID:      big.NewInt(tokenID),
+					Name:    itemName,
 				},
 			},
 		},

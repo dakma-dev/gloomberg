@@ -13,18 +13,51 @@ const (
 	ItemListed        EventType = "item_listed"
 	ItemSold          EventType = "item_sold"
 	ItemReceivedOffer EventType = "item_received_offer"
+	CollectionOffer   EventType = "collection_offer"
 
 	// ItemMetadataUpdated EventType = "item_metadata_updated"
 	// ItemCancelled       EventType = "item_cancelled"
-	// ItemReceivedBid     EventType = "item_received_bid"
+	ItemReceivedBid EventType = "item_received_bid"
 	// ItemTransferred     EventType = "item_transferred".
 
 	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
 
+type CollectionOfferEvent struct {
+	EventType string                 `json:"event_type"`
+	SentAt    string                 `json:"sent_at" mapstructure:"sent_at"`
+	Payload   CollectionOfferPayload `json:"payload" mapstructure:"payload"`
+}
+
+type CollectionOfferPayload struct {
+	AssetContractCriteria struct {
+		Address string `json:"address"`
+	} `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
+	BasePrice  string `json:"base_price" mapstructure:"base_price"`
+	Collection struct {
+		Slug string `json:"slug"`
+	} `json:"collection"`
+	CollectionCriteria struct {
+		Slug string `json:"slug"`
+	} `json:"collection_criteria"`
+	CreatedDate    time.Time `json:"created_date"`
+	EventTimestamp time.Time `json:"event_timestamp"`
+	ExpirationDate time.Time `json:"expiration_date"`
+	Maker          struct {
+		Address string `json:"address"`
+	} `json:"maker"`
+	OrderHash    string              `json:"order_hash"`
+	PaymentToken PaymentToken        `json:"payment_token" mapstructure:"payment_token"`
+	ProtocolData SeaportProtocolData `json:"protocol_data" mapstructure:"protocol_data"`
+	Quantity     int                 `json:"quantity"`
+	Taker        any                 `json:"taker"`
+}
+
 var TxType = map[EventType]totra.TxType{
-	ItemListed: totra.Listing,
-	ItemSold:   totra.Sale,
+	ItemListed:      totra.Listing,
+	ItemSold:        totra.Sale,
+	CollectionOffer: totra.CollectionOffer,
+	ItemReceivedBid: totra.ItemBid,
 }
 
 type BaseStreamMessage struct {
@@ -129,6 +162,9 @@ type ItemReceivedBidEventPayload struct {
 	BasePrice          string       `mapstructure:"base_price"`
 	PaymentToken       PaymentToken `mapstructure:"payment_token"`
 	EventTimestamp     string       `mapstructure:"event_timestamp"`
+	Collection         struct {
+		Slug string `json:"slug"`
+	} `json:"collection"`
 }
 
 // sale
@@ -277,6 +313,12 @@ type OpenSeaListingsResponse struct {
 	Orders   []SeaportOrder `json:"orders"`
 }
 
+type OpenSeaAssetsResponse struct {
+	Assets   []SeaportAsset `json:"assets"`
+	Next     string         `json:"next"`
+	Previous string         `json:"previous"`
+}
+
 type SeaportUser struct {
 	Username string `json:"username"`
 }
@@ -318,18 +360,18 @@ type SeaportOffer struct {
 }
 
 type SeaportParameters struct {
-	Offerer                         common.Address             `json:"offerer"`
-	Offer                           []SeaportOffer             `json:"offer"`
-	Consideration                   []SeaportConsiderationItem `json:"consideration"`
-	StartTime                       string                     `json:"startTime"`
-	EndTime                         string                     `json:"endTime"`
-	OrderType                       int                        `json:"orderType"`
-	Zone                            common.Address             `json:"zone"`
-	ZoneHash                        common.Hash                `json:"zoneHash"`
-	Salt                            string                     `json:"salt"`
-	ConduitKey                      common.Hash                `json:"conduitKey"`
-	TotalOriginalConsiderationItems int                        `json:"totalOriginalConsiderationItems"`
-	Counter                         int                        `json:"counter"`
+	Offerer       common.Address             `json:"offerer"`
+	Offer         []SeaportOffer             `json:"offer"`
+	Consideration []SeaportConsiderationItem `json:"consideration"`
+	StartTime     string                     `json:"startTime"`
+	EndTime       string                     `json:"endTime"`
+	OrderType     int                        `json:"orderType"`
+	//Zone                            common.Address             `json:"zone"`
+	//ZoneHash common.Hash `json:"zoneHash"`
+	Salt string `json:"salt"`
+	//ConduitKey                      common.Hash                `json:"conduitKey"`
+	TotalOriginalConsiderationItems int `json:"totalOriginalConsiderationItems"`
+	Counter                         int `json:"counter"`
 }
 
 type SeaportDisplayData struct {
@@ -442,6 +484,12 @@ type SeaportAsset struct {
 	TokenID              string               `json:"token_id"`
 }
 
+type OpenSeaAsset struct {
+	Owner          string   `json:"owner"`
+	TokenIDs       []string `json:"token_ids"`
+	CollectionSlug string   `json:"collection_slug"`
+}
+
 type SeaportOrder struct {
 	CreatedDate      string              `json:"created_date"`
 	ClosingDate      string              `json:"closing_date"`
@@ -506,6 +554,10 @@ type AssetCollection struct {
 	InstagramUsername           any         `json:"instagram_username"`
 	WikiURL                     any         `json:"wiki_url"`
 	OwnedAssetCount             int         `json:"owned_asset_count"`
+}
+
+type CollectionStatsResponse struct {
+	Stats *CollectionStats `json:"stats"`
 }
 
 type CollectionStats struct {
