@@ -58,12 +58,6 @@ type TokenTransaction struct {
 // 	{0x32, 0x38, 0x9b, 0x71}: "bulkTransfer(((uint8,address,uint256,uint256)[],address,bool)[],bytes32)",
 // }
 
-var LoanContracts = map[common.Address]string{
-	common.HexToAddress("0x5660E206496808F7b5cDB8C56A696a96AE5E9b23"): "NFTfi",
-	common.HexToAddress("0x0E258c84Df0f8728ae4A6426EA5FD163Eb6b9D1B"): "NFT Loan Ticket V2",
-	common.HexToAddress("0xbD85BF4C970b91984e6A2b8Ba9C577A58A8C20f9"): "Borrower Note Ticket",
-}
-
 func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, providerPool *provider.Pool) *TokenTransaction {
 	tfLogsByStandard := make(map[standard.Standard][]*types.Log, 0)
 
@@ -453,7 +447,7 @@ func (ttx *TokenTransaction) IsLoan() bool {
 	}
 
 	for tokenAddress := range ttx.GetTransfersByContract() {
-		if LoanContracts[tokenAddress] != "" {
+		if internal.LoanContracts[tokenAddress] != "" {
 			return true
 		}
 	}

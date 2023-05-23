@@ -174,7 +174,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			continue
 
 		// NFTfi and so on...
-		case totra.LoanContracts[contractAddress] != "":
+		case internal.LoanContracts[contractAddress] != "":
 			continue
 
 		// Uniswap V3: Positions NFT
