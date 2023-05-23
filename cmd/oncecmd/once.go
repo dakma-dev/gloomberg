@@ -121,7 +121,7 @@ func readDataFromFile(filePath string, data interface{}) error {
 }
 
 func zstdCompress(in io.Reader, out io.Writer) error {
-	enc, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedDefault))
+	enc, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedFastest))
 	if err != nil {
 		return err
 	}
@@ -136,7 +136,7 @@ func zstdCompress(in io.Reader, out io.Writer) error {
 }
 
 func zstdDecompress(in io.Reader, out interface{}) error {
-	dec, err := zstd.NewReader(in)
+	dec, err := zstd.NewReader(in, zstd.WithDecoderConcurrency(0))
 	if err != nil {
 		return err
 	}
