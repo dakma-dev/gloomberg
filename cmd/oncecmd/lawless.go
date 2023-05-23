@@ -2,7 +2,6 @@ package oncecmd
 
 import (
 	"encoding/base64"
-	"encoding/gob"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -134,12 +133,8 @@ func analyzeLawlessTokenNames(client *ethclient.Client) {
 func getLawlessMetadata(client *ethclient.Client) []lawlessMetadata {
 	allMetadata := make([]lawlessMetadata, 0)
 
-	if file, err := os.Open(lawlessMetadataFile); err == nil {
-		err := gob.NewDecoder(file).Decode(&allMetadata)
-		if err != nil {
-			log.Errorf("failed to decode gob: %s", err)
-		}
-
+	if err := readDataFromFile(lawlessMetadataFile, allMetadata); err == nil {
+		log.Printf("allMetadata: %v", allMetadata)
 		return allMetadata
 	} else if os.IsNotExist(err) {
 		log.Info("metadata file does not exist, fetching from blockchain")

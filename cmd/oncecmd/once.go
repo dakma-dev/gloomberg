@@ -97,8 +97,31 @@ func writeDataToFile(data interface{}, filePath string) {
 	zstdCompress(&buf, file)
 }
 
+//
+// zstd compression
+
+func readDataFromFile(filePath string, data interface{}) error {
+	file, err := os.Open(filePath)
+	if err != nil {
+		log.Errorf("failed to open file: %s", err)
+
+		return err
+	}
+	defer file.Close()
+
+	var buf bytes.Buffer
+	err = gob.NewDecoder(file).Decode(&buf)
+	if err != nil {
+		return err
+	}
+
+	zstdDecompress(bytes.NewReader(buf.Bytes()), data)
+
+	return nil
+}
+
 func zstdCompress(in io.Reader, out io.Writer) error {
-	enc, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedBetterCompression))
+	enc, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedDefault))
 	if err != nil {
 		return err
 	}
@@ -110,4 +133,18 @@ func zstdCompress(in io.Reader, out io.Writer) error {
 	}
 
 	return enc.Close()
+}
+
+func zstdDecompress(in io.Reader, out interface{}) error {
+	dec, err := zstd.NewReader(in)
+	if err != nil {
+		return err
+	}
+
+	err = gob.NewDecoder(dec).Decode(out)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
