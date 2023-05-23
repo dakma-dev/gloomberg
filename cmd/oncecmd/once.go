@@ -8,6 +8,7 @@ import (
 	"encoding/gob"
 	"io"
 	"os"
+	"sort"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -56,6 +57,28 @@ func run(cmd *cobra.Command, args []string) {
 
 	// lawless metadata: get the lawless on-chain metadata and save it to a json file
 	analyzeLawlessTokenNames(client)
+}
+
+//
+// helper & utility functions
+//
+
+func sortMapByValue(m map[string]uint64, reverse bool) []string {
+	sorted := make([]string, 0)
+
+	for k := range m {
+		sorted = append(sorted, k)
+	}
+
+	sort.Slice(sorted, func(i, j int) bool {
+		if reverse {
+			return m[sorted[i]] < m[sorted[j]]
+		}
+
+		return m[sorted[i]] > m[sorted[j]]
+	})
+
+	return sorted
 }
 
 func writeDataToFile(data interface{}, filePath string) {
