@@ -28,13 +28,9 @@ var (
 )
 
 type BlueChipStats struct {
-	BlueChipEvents     []*totra.TokenTransaction
-	WalletMap          map[common.Address]*Wallet
-	CollectionStats    map[common.Address]*Counters
-	NotifcationEnabled bool
-
-	WhaleEvents  []*totra.TokenTransaction
-	WhaleWallets map[common.Address]*Wallet
+	BlueChipEvents  []*totra.TokenTransaction
+	WalletMap       map[common.Address]*Wallet
+	CollectionStats map[common.Address]*Counters
 
 	gb *gloomberg.Gloomberg
 
@@ -42,17 +38,17 @@ type BlueChipStats struct {
 }
 
 type Counters struct {
-	Sales        uint64
-	SalesTXs     uint64
-	SalesVolume  *big.Int
-	Mints        uint64
-	MintsTXs     uint64
-	MintsVolume  *big.Int
-	Transfers    uint64
-	gbCollection *collections.Collection
-	Wallets      []*Wallet
-	Ranking      []*BlueChipRanking
-	RankingMap   map[HolderTypes]uint64
+	Sales          uint64
+	SalesTXs       uint64
+	SalesVolume    *big.Int
+	Mints          uint64
+	MintsTXs       uint64
+	MintsVolume    *big.Int
+	Transfers      uint64
+	gbCollection   *collections.Collection
+	Wallets        []*Wallet
+	RankingMap     map[HolderTypes]uint64
+	BlueChipEvents []*totra.TokenTransaction
 }
 
 type BlueChipRanking struct {
@@ -80,7 +76,7 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 
 				openseaURL := fmt.Sprintf("https://opensea.io/assets/ethereum/%s", counters.gbCollection.ContractAddress)
 
-				telegramMessage.WriteString(fmt.Sprintf("%s: %d txs", "["+counters.gbCollection.Name+"]("+openseaURL+")", counters.Sales))
+				telegramMessage.WriteString(fmt.Sprintf("%s: %d txs\n", "["+counters.gbCollection.Name+"]("+openseaURL+")", len(counters.BlueChipEvents)))
 
 				rankingMap := counters.RankingMap
 				// sort rankingMap by value
@@ -95,21 +91,95 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 				})
 
 				for _, key := range keys {
-					telegramMessage.WriteString(GetEmojiMapping(key))
+					telegramMessage.WriteString(fmt.Sprintf("• %d %s •", rankingMap[key], GetEmojiMapping(key)))
 				}
 
+				//telegramMessage.WriteString(fmt.Sprintf("\n  %d tokens", counters.Sales))
+
 				telegramMessage.WriteString("\n")
+
+				groupByContracts := make(map[common.Address]string)
+
+				groupByWallets := make(map[common.Address]string)
+
+				groupByType := make(map[HolderTypes]int64)
+
+				totalTokensTransferreToBlueChips := big.NewInt(0)
+
+				for _, ttx := range counters.BlueChipEvents {
+					firstNFTTransaction := s.getNFTInfo(ttx)
+
+					// TODO check all involved wallets (blur bid dump case)
+					recipientAddress := firstNFTTransaction.To
+
+					groupByWallets[recipientAddress] = recipientAddress.String()
+
+					transfers := ttx.GetNFTReceivers()[recipientAddress]
+
+					amountTokens := s.getTransferredTokensCount(transfers)
+
+					totalTokensTransferreToBlueChips = totalTokensTransferreToBlueChips.Add(totalTokensTransferreToBlueChips, amountTokens)
+
+					etherscanURL := fmt.Sprintf("https://etherscan.io/tx/%s", ttx.Tx.Hash().String())
+
+					telegramMessage.WriteString(fmt.Sprintf("  %s bought %d nfts (%s) \n", recipientAddress.String(), amountTokens, "[tx]("+etherscanURL+")"))
+
+					wallet := s.WalletMap[recipientAddress]
+					// print holdertypes
+					for _, holderType := range wallet.Types {
+						telegramMessage.WriteString(fmt.Sprintf("•%s•", GetEmojiMapping(holderType)))
+						groupByType[holderType] = groupByType[holderType] + amountTokens.Int64()
+					}
+
+					telegramMessage.WriteString("\n")
+
+					groupByContracts[*ttx.Tx.To()] = ttx.Tx.To().String()
+				}
+
+				for holderType, amount := range groupByType {
+					telegramMessage.WriteString(fmt.Sprintf("• %s : %d •", GetEmojiMapping(holderType), amount))
+				}
+
+				telegramMessage.WriteString(fmt.Sprintf("\n Total:  %d tokens", totalTokensTransferreToBlueChips))
+
+				telegramMessage.WriteString(fmt.Sprintf("\n Unique wallets:  %d ", len(groupByWallets)))
+
+				//for contractAddress, contractNames := range groupByContracts {
+				//telegramMessage.WriteString(fmt.Sprintf("  %s: %s\n", contractAddress.String(), contractNames))
+				//}
 
 				if telegramMessage.Len() > 0 {
 					if viper.GetString("notifications.manifold.dakma") != "" {
 						notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.bluechip.telegram_chat_id"), "", viper.GetInt("notifications.bluechip.telegram_reply_to_message_id"), nil)
 
-						counters.Sales = 0
+						s.resetCounters(counters)
 					}
 				}
 			}
 		}
 	}
+}
+
+func (s *BlueChipStats) getTransferredTokensCount(transfers []*totra.TokenTransfer) *big.Int {
+	amountTokens := big.NewInt(0)
+
+	for _, transfer := range transfers {
+		amountTokens = amountTokens.Add(amountTokens, transfer.AmountTokens)
+	}
+
+	return amountTokens
+}
+
+func (s *BlueChipStats) resetCounters(counters *Counters) {
+	counters.Sales = 0
+	counters.BlueChipEvents = make([]*totra.TokenTransaction, 0)
+	counters.MintsTXs = 0
+	counters.Mints = 0
+	counters.MintsVolume = big.NewInt(0)
+	counters.SalesTXs = 0
+	counters.SalesVolume = big.NewInt(0)
+	counters.Transfers = 0
+	counters.RankingMap = make(map[HolderTypes]uint64, 0)
 }
 
 func GetEmojiMapping(holderType HolderTypes) string {
@@ -139,6 +209,7 @@ func GetEmojiMapping(holderType HolderTypes) string {
 	case CloneX:
 		return "👟"
 	}
+
 	return ""
 }
 
@@ -181,6 +252,7 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 	} else {
 		_ = miwSpinner.StopFail()
 	}
+
 	_ = miwSpinner.Stop()
 
 	return BlueChips
@@ -199,13 +271,13 @@ func readBlueChipWalltesFromJSON(file string, bluechipType HolderTypes) {
 		if BlueChips.WalletMap[hexAddress] == nil {
 			BlueChips.WalletMap[hexAddress] = &Wallet{
 				Address: hexAddress,
-				Holder:  make([]HolderTypes, 0),
+				Types:   make([]HolderTypes, 0),
 			}
 		}
-		//	if BlueChips.WalletMap[hexAddress].Holder == nil {
-		//		BlueChips.WalletMap[hexAddress].Holder = make([]HolderTypes, 0)
+		//	if BlueChips.WalletMap[hexAddress].Types == nil {
+		//		BlueChips.WalletMap[hexAddress].Types = make([]HolderTypes, 0)
 		//	}
-		BlueChips.WalletMap[hexAddress].Holder = append(BlueChips.WalletMap[hexAddress].Holder, bluechipType)
+		BlueChips.WalletMap[hexAddress].Types = append(BlueChips.WalletMap[hexAddress].Types, bluechipType)
 	}
 }
 
@@ -219,11 +291,19 @@ func allowedAction(action totra.TxType) bool {
 }
 
 func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransaction) {
-	if len(eventTx.Transfers) < 1 || !s.ContainsWallet(eventTx.Transfers[0].To) {
+	if len(eventTx.Transfers) < 1 {
 		return
 	}
 
 	if !(allowedAction(eventTx.Action)) {
+		return
+	}
+
+	if ignoreContract(eventTx) {
+		return
+	}
+
+	if !s.isTransactionABluechipTX(eventTx) {
 		return
 	}
 
@@ -244,12 +324,17 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 		return
 	}
 
-	var contractAddress common.Address
+	firstNFTTransaction := s.getNFTInfo(eventTx)
 
-	for _, transfer := range eventTx.Transfers {
-		if transfer.Standard.IsERC721orERC1155() {
-			contractAddress = transfer.Token.Address
-		}
+	if firstNFTTransaction == nil {
+		return
+	}
+
+	contractAddress := firstNFTTransaction.Token.Address
+
+	// check if contractAddress is allowed
+	if s.isContractIgnored(contractAddress) {
+		return
 	}
 
 	s.Lock()
@@ -257,42 +342,72 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 
 	if s.CollectionStats[contractAddress] == nil {
 		s.CollectionStats[contractAddress] = &Counters{
-			Sales:       0,
-			Mints:       0,
-			Transfers:   0,
-			SalesVolume: big.NewInt(0),
-			Wallets:     make([]*Wallet, 0),
-			Ranking:     make([]*BlueChipRanking, 0),
-			RankingMap:  make(map[HolderTypes]uint64, 0),
+			Sales:          0,
+			Mints:          0,
+			Transfers:      0,
+			SalesVolume:    big.NewInt(0),
+			Wallets:        make([]*Wallet, 0),
+			RankingMap:     make(map[HolderTypes]uint64, 0),
+			BlueChipEvents: make([]*totra.TokenTransaction, 0),
 		}
 
-		currentCollection := tokencollections.GetCollection(s.gb, eventTx.Transfers[0].Token.Address, eventTx.Transfers[0].Token.ID.Int64())
+		currentCollection := tokencollections.GetCollection(s.gb, firstNFTTransaction.Token.Address, firstNFTTransaction.Token.ID.Int64())
 		s.CollectionStats[contractAddress].gbCollection = currentCollection
 	}
 
 	// better check all ttx transfers
-	recipientAddress := eventTx.Transfers[0].To
+	recipientAddress := firstNFTTransaction.To
 	s.CollectionStats[contractAddress].Wallets = append(s.CollectionStats[contractAddress].Wallets, s.WalletMap[recipientAddress])
 
 	wallet := s.WalletMap[recipientAddress]
-	for _, holderType := range wallet.Holder {
+	for _, holderType := range wallet.Types {
 		s.CollectionStats[contractAddress].RankingMap[holderType]++
 	}
 
+	// TODO get correct number of tokens
 	numCollectionTokens := uint64(0)
 
 	for _, transfer := range eventTx.Transfers {
 		numCollectionTokens += transfer.AmountTokens.Uint64()
 	}
 
+	if eventTx.TotalTokens == 0 {
+		eventTx.TotalTokens = 1
+	}
+
+	s.CollectionStats[contractAddress].BlueChipEvents = append(s.CollectionStats[contractAddress].BlueChipEvents, eventTx)
+
 	switch eventTx.Action {
 	case totra.Sale:
 		s.CollectionStats[contractAddress].SalesTXs++
-		s.CollectionStats[contractAddress].Sales++
+		s.CollectionStats[contractAddress].Sales += uint64(eventTx.TotalTokens)
 	case totra.Mint:
-		s.CollectionStats[contractAddress].Sales++
-		s.CollectionStats[contractAddress].Mints++
+		s.CollectionStats[contractAddress].Sales += uint64(eventTx.TotalTokens)
+		s.CollectionStats[contractAddress].Mints += uint64(eventTx.TotalTokens)
 	}
+}
+
+func (s *BlueChipStats) getNFTInfo(eventTx *totra.TokenTransaction) *totra.TokenTransfer {
+	for _, transfer := range eventTx.Transfers {
+		if transfer.Standard.IsERC721orERC1155() && s.ContainsWallet(transfer.To) && !s.isContractIgnored(transfer.Token.Address) {
+			return transfer
+		}
+	}
+
+	return nil
+}
+
+func (s *BlueChipStats) isTransactionABluechipTX(eventTx *totra.TokenTransaction) bool {
+	// check if any transfers involves a blue chip wallet
+	blueChipInvolved := false
+
+	for _, transfer := range eventTx.Transfers {
+		if transfer.Standard.IsERC721orERC1155() {
+			blueChipInvolved = blueChipInvolved || s.ContainsWallet(transfer.To)
+		}
+	}
+
+	return blueChipInvolved
 }
 
 func (s *BlueChipStats) ContainsWallet(address common.Address) bool {
@@ -328,4 +443,43 @@ func (s *BlueChipStats) GetStats(address common.Address) *Counters {
 	}
 
 	return s.CollectionStats[address]
+}
+
+func (s *BlueChipStats) isContractIgnored(address common.Address) bool {
+	if address == common.HexToAddress("0xc36442b4a4522e871399cd717abdd847ab11fe88") {
+		return true
+	}
+	// Emblem Vault V4
+	if address == common.HexToAddress("0x82C7a8f707110f5FBb16184A5933E9F78a34c6ab") {
+		return true
+	}
+
+	// Blend
+	if address == common.HexToAddress("0x29469395eAf6f95920E59F858042f0e28D98a20B") {
+		return true
+	}
+
+	return false
+}
+
+func ignoreContract(ttx *totra.TokenTransaction) bool {
+	if ttx.Tx == nil || ttx.Tx.To() == nil {
+		return true
+	}
+
+	// Uniswap V3: Positions NFT
+	if *ttx.Tx.To() == common.HexToAddress("0xc36442b4a4522e871399cd717abdd847ab11fe88") {
+		return true
+	}
+	// Emblem Vault V4
+	if *ttx.Tx.To() == common.HexToAddress("0x82C7a8f707110f5FBb16184A5933E9F78a34c6ab") {
+		return true
+	}
+
+	// Blend
+	if *ttx.Tx.To() == common.HexToAddress("0x29469395eAf6f95920E59F858042f0e28D98a20B") {
+		return true
+	}
+
+	return false
 }

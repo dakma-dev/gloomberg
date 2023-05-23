@@ -687,7 +687,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 				out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
 			}
 
-			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Holder {
+			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Types {
 				if i == 0 {
 					out.WriteString("·")
 				}
