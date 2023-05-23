@@ -370,8 +370,8 @@ type SeaportParameters struct {
 	//ZoneHash common.Hash `json:"zoneHash"`
 	Salt string `json:"salt"`
 	//ConduitKey                      common.Hash                `json:"conduitKey"`
-	TotalOriginalConsiderationItems int `json:"totalOriginalConsiderationItems"`
-	Counter                         int `json:"counter"`
+	TotalOriginalConsiderationItems int         `json:"totalOriginalConsiderationItems"`
+	Counter                         interface{} `json:"counter"`
 }
 
 type SeaportDisplayData struct {
