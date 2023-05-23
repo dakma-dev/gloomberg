@@ -535,8 +535,8 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
-	viper.SetDefault("ticker.statsbox", time.Second*93)
-	viper.SetDefault("ticker.gasline", time.Second*39)
+	viper.SetDefault("ticker.statsbox", internal.BlockTime*8)
+	viper.SetDefault("ticker.gasline", internal.BlockTime*2)
 
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)
