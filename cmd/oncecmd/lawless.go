@@ -135,6 +135,7 @@ func getLawlessMetadata(client *ethclient.Client) []lawlessMetadata {
 
 	if err := readDataFromFile(lawlessMetadataFile, allMetadata); err == nil {
 		log.Printf("allMetadata: %v", allMetadata)
+
 		return allMetadata
 	} else if os.IsNotExist(err) {
 		log.Info("metadata file does not exist, fetching from blockchain")

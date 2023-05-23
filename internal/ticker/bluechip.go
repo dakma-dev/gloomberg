@@ -94,7 +94,7 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 					telegramMessage.WriteString(fmt.Sprintf("• %d %s •", rankingMap[key], GetEmojiMapping(key)))
 				}
 
-				//telegramMessage.WriteString(fmt.Sprintf("\n  %d tokens", counters.Sales))
+				// telegramMessage.WriteString(fmt.Sprintf("\n  %d tokens", counters.Sales))
 
 				telegramMessage.WriteString("\n")
 
@@ -128,7 +128,7 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 					// print holdertypes
 					for _, holderType := range wallet.Types {
 						telegramMessage.WriteString(fmt.Sprintf("•%s•", GetEmojiMapping(holderType)))
-						groupByType[holderType] = groupByType[holderType] + amountTokens.Int64()
+						groupByType[holderType] += amountTokens.Int64()
 					}
 
 					telegramMessage.WriteString("\n")
@@ -143,10 +143,6 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 				telegramMessage.WriteString(fmt.Sprintf("\n Total:  %d tokens", totalTokensTransferreToBlueChips))
 
 				telegramMessage.WriteString(fmt.Sprintf("\n Unique wallets:  %d ", len(groupByWallets)))
-
-				//for contractAddress, contractNames := range groupByContracts {
-				//telegramMessage.WriteString(fmt.Sprintf("  %s: %s\n", contractAddress.String(), contractNames))
-				//}
 
 				if telegramMessage.Len() > 0 {
 					if viper.GetString("notifications.manifold.dakma") != "" {
