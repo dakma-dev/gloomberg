@@ -1,0 +1,3 @@
+[submodule "degendata"]
+	path = degendata
+	url = git@github.com:dakma-dev/degendata.git
