@@ -73,13 +73,11 @@ func getManifoldAddressesFromConfig() {
 }
 
 func (s *ManifoldStats) IsManifoldContractAddress(address common.Address) bool {
-
 	if _, ok := manifoldContractAddresses[address]; ok {
 		return true
 	}
 
 	return false
-	//return address == ManifoldContractAddressOld || address == ManifoldContractAddressNew || address == ManifoldContractAddress || address == ManifoldContractMultiBurn || address == ManifoldContract1 || address == ManifoldContract2 || address == ManifoldContract3 || address == ManifoldContract4 || address == ManifoldContract5 || address == ManifoldContract6 || address == ManiFoldContract7
 }
 
 func (s *ManifoldStats) AppendManifoldEvent(event *totra.TokenTransaction) {
@@ -116,6 +114,9 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 		aggregrateEvents := make(map[common.Address]bool, 0)
 
 		telegramMessage := strings.Builder{}
+
+		var imageURI string
+
 		for _, event := range s.ManifoldEvents {
 			collection := s.getCollection(event)
 			if aggregrateEvents[collection.ContractAddress] {
@@ -138,9 +139,12 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 			priceEtherPerItem, _ := utils.WeiToEther(pricePerItem).Float64()
 			manifoldLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
 			telegramMessage.WriteString(fmt.Sprintf("%6.3f", priceEtherPerItem))
+
 			collectionStyle := lipgloss.NewStyle().Foreground(collection.Colors.Primary)
+
 			manifoldLine.WriteString(collectionStyle.Faint(true).Render("Ξ"))
 			telegramMessage.WriteString("Ξ")
+
 			var tokenInfo string
 
 			if event.TotalTokens > 1 {
@@ -157,6 +161,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(fmt.Sprint(collection.Counters.Mints)))
 			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
+
 			if collection.Counters.Mints > 200 {
 				telegramMessage.WriteString(" " + "🚀")
 			}
@@ -178,18 +183,23 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			*queueOutput <- manifoldLine.String()
 			maxTickerStatsLines--
+
+			if imageURI == "" {
+				imageURI, _ = s.gb.ProviderPool.GetTokenImageURI(context.TODO(), collection.ContractAddress, event.Transfers[0].Token.ID)
+
+			}
 		}
 
 		// send telegram message
-		if telegramMessage.Len() > 0 && viper.GetBool("notifications.manifold.enabled") {
-			// manifold ticker channel id -1001725324468
-			// no styling information for telegram
-			notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), "", viper.GetInt("notifications.manifold.telegram_reply_to_message_id"), nil)
+		if telegramMessage.Len() > 0 && viper.GetBool("notifications.manifold.enabled") { // no styling information for telegram
+			notify.SendMessageViaTelegram(telegramMessage.String(), viper.GetInt64("notifications.manifold.manifold_ticker_channel"), imageURI, viper.GetInt("notifications.manifold.telegram_reply_to_message_id"), nil)
 		}
+
 	}
 }
 
 func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
+
 	for range manifoldTicker.C {
 		maxTickerStatsLines := 5
 
@@ -259,6 +269,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 			maxTickerStatsLines--
 
 			// TODO own counter | yepp, own counter! will drive us crazy otherwise :D
+
 			collection.Counters.Mints = 0
 			collection.Counters.SalesVolume = big.NewInt(0)
 		}
