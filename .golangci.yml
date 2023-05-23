@@ -1,30 +1,48 @@
 run:
   timeout: 3m
+  allow-parallel-runners: true
+  skip-dirs:
+    # used for testing/experiments
+    - "cmd/oncecmd"
+    # testing
+    - "internal/ddb"
 
-  # never fail
-  issues-exit-code: 0
+linters-settings:
+  ireturn:
+    allow:
+      - anon
+      - error
+      - empty
+      - stdlib
+
+      - go-ethereum.Subscription
+      - mapstructure.DecodeHookFunc
+      - rueidis.Client
+      - w3types.Caller
 
 linters:
   enable-all: true
   disable:
-    - gochecknoglobals
-    - gomnd
-    - lll
-    - funlen
+    - cyclop
+    - exhaustive
     - exhaustivestruct
     - exhaustruct
-    - tagliatelle
     - forbidigo
+    - funlen
+    - gochecknoglobals
+    - gochecknoinits
+    - gocognit
+    - gocyclo
+    - godox
+    - goerr113
+    - golint
+    - gomnd
+    - interfacer
+    - lll
+    - maintidx
+    - maligned
+    - nestif
+    - tagliatelle
     - varnamelen
     - wrapcheck
-    - nestif
-    - gocognit
-    - cyclop
-    - gocyclo
-    - ireturn
-    - gochecknoinits
-    - goerr113
-    - maligned
-    - exhaustive
-    - interfacer
-    - nilnil
+    - wsl

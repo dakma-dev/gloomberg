@@ -1,17 +1,16 @@
 name: golangci-lint
 
-on:
-  pull_request:
-  push: { branches: [master, main], tags: [v*] }
-  workflow_dispatch:
+#  push:  # { branches: [master, main], tags: [v*] }
+on: [push, pull_request, workflow_dispatch]
 
 # Optional: allow read access to pull request. Use with `only-new-issues` option.
-permissions: { contents: read }  # pull-requests: read
+permissions: { contents: read } # pull-requests: read
 
 jobs:
   golangci:
     name: lint
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v3
 

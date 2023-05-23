@@ -5,6 +5,9 @@ dist/
 .gloomberg.yaml
 .github/ttyd.Dockerfile
 
+# data
+wallets/*.json
+
 # misc
 internal/assets
 metadata/
