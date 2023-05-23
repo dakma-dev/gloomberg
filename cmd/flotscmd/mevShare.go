@@ -34,7 +34,7 @@ var (
 	}
 )
 
-// mevShareCmd represents the mevShare command
+// mevShareCmd represents the mevShare command.
 var mevShareCmd = &cobra.Command{
 	Use:     "mev-share",
 	Aliases: []string{"ms", "mevShare", "mevshare"},

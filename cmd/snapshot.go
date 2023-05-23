@@ -14,9 +14,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	snapshotAddress string
-)
+var snapshotAddress string
 
 // generateCmd represents the generate command.
 var snapshotCmd = &cobra.Command{
@@ -62,7 +60,6 @@ var snapshotCmd = &cobra.Command{
 
 		url := "https://eth-mainnet.g.alchemy.com/nft/v2/" + apikey + "/getOwnersForCollection?contractAddress=" + contract
 		response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
-
 		if err != nil {
 			if os.IsTimeout(err) {
 				fmt.Printf("⌛️ getContractMetadata from alchemy · timeout while fetching: %+v\n", err.Error())
@@ -115,9 +112,9 @@ func init() {
 
 	// intentionally called the flag "snapshot.alchemy.key" to make the difference between the flag and the viper key clear
 	// (usually the flag and the viper key have the same name to avoid confusion)
-	//snapshotCmd.Flags().StringVar(&apikey, "alchemy.key", "", "alchemy api key")
+	// snapshotCmd.Flags().StringVar(&apikey, "alchemy.key", "", "alchemy api key")
 	// bind the cobra/pflags flag "alchemy.key" to the viper key "alchemy.apiKey
-	//_ = viper.BindPFlag("alchemy.apiKey", snapshotCmd.Flags().Lookup("alchemy.key"))
+	// _ = viper.BindPFlag("alchemy.apiKey", snapshotCmd.Flags().Lookup("alchemy.key"))
 
 	// we do not need to bind the address flag to a viper key because we do not need it anywhere else
 	snapshotCmd.Flags().StringVar(&snapshotAddress, "address", "", "contract address to snapshot")
