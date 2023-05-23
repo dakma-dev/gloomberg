@@ -5,8 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/token"
 	"io"
 	"math/big"
 	"net/http"
@@ -16,8 +14,10 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/ethereum/go-ethereum/common"
@@ -60,13 +60,15 @@ func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token
 
 		if try <= viper.GetInt("ens.resolve_max_retries") {
 			return GetTokensFor(walletAddress, try+1, cursor)
-		} else {
-			gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s, giving up after %d retries...", walletAddress.Hex(), try-1)
 		}
+
+		gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s, giving up after %d retries...", walletAddress.Hex(), try-1)
 
 		return receivedNFTs
 	} else if err != nil {
-		//return receivedCollections
+		gbl.Log.Errorf("⌛️ error while fetching wallet collections for %s: %s", walletAddress.Hex(), err)
+
+		return receivedNFTs
 	}
 	defer response.Body.Close()
 
@@ -80,15 +82,12 @@ func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token
 		return receivedNFTs
 	}
 
-	//fmt.Println(string(responseBody))
-
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionResponse); err != nil {
 		gbl.Log.Errorf("⌛️ error while decoding wallet collections for %s: %s", walletAddress.Hex(), err)
 	}
 
 	assets := collectionResponse.Assets
 	for _, asset := range assets {
-		//fmt.Printf("Asset: %s tokenIDs %s\n", asset.Collection.Slug, asset.TokenID)
 		tokenID, ok := new(big.Int).SetString(asset.TokenID, 10)
 		if !ok {
 			fmt.Println("SetString: error")
@@ -101,12 +100,11 @@ func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token
 		})
 	}
 
-	//fmt.Printf("Length: %d\n", len(assets))
-
 	if collectionResponse.Next != "" {
 		fmt.Printf("next page: %s", collectionResponse.Next)
 		receivedNFTs = append(receivedNFTs, GetTokensFor(walletAddress, 0, collectionResponse.Next)...)
 	}
+
 	return receivedNFTs
 }
 
@@ -287,6 +285,7 @@ func GetCollectionStats(collectionSlug string) *osmodels.CollectionStats {
 		} else {
 			gbl.Log.Warn("ooopsss an error occurred while fetching asset events, please try again:", err)
 		}
+
 		return nil
 	}
 
@@ -308,7 +307,7 @@ func GetCollectionStats(collectionSlug string) *osmodels.CollectionStats {
 		return nil
 	}
 
-	//fmt.Println(string(responseBody))
+	// fmt.Println(string(responseBody))
 
 	// decode the data
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionStats); err != nil {
@@ -322,5 +321,4 @@ func GetCollectionStats(collectionSlug string) *osmodels.CollectionStats {
 	}
 
 	return collectionStats.Stats
-
 }

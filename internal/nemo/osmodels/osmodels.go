@@ -16,7 +16,7 @@ const (
 	CollectionOffer   EventType = "collection_offer"
 
 	// ItemMetadataUpdated EventType = "item_metadata_updated"
-	// ItemCancelled       EventType = "item_cancelled"
+	// ItemCancelled       EventType = "item_cancelled".
 	ItemReceivedBid EventType = "item_received_bid"
 	// ItemTransferred     EventType = "item_transferred".
 
@@ -366,10 +366,10 @@ type SeaportParameters struct {
 	StartTime     string                     `json:"startTime"`
 	EndTime       string                     `json:"endTime"`
 	OrderType     int                        `json:"orderType"`
-	//Zone                            common.Address             `json:"zone"`
-	//ZoneHash common.Hash `json:"zoneHash"`
+	// Zone                            common.Address             `json:"zone"`
+	// ZoneHash common.Hash `json:"zoneHash"`
 	Salt string `json:"salt"`
-	//ConduitKey                      common.Hash                `json:"conduitKey"`
+	// ConduitKey                      common.Hash                `json:"conduitKey"`
 	TotalOriginalConsiderationItems int `json:"totalOriginalConsiderationItems"`
 	Counter                         int `json:"counter"`
 }

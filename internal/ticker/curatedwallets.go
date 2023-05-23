@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"math/big"
 	"os"
 	"strings"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -63,7 +63,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 			transactions := len(collection.Transactions) + len(collection.ArchivedTransactions)
 
 			collectionName := gb.CollectionDB.Collections[collectionAddress].Name
-			//message.WriteString(fmt.Sprintf("*%d curated transactions \n\n*", transactions))
+			// message.WriteString(fmt.Sprintf("*%d curated transactions \n\n*", transactions))
 			averageScore := int(collection.Score / int32(transactions))
 			message.WriteString(fmt.Sprintf("*%s* Score : Ø: *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
 			message.WriteString("_ 🔥 Latest Transactions per Wallets:_\n")
@@ -140,6 +140,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 					notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(context.TODO(), txHash, time.Hour*1)
 					if !notificationLock || err != nil {
 						gbl.Log.Debugf("notification lock for %s already exists", style.BoldStyle.Render(txHash.String()))
+
 						continue
 					}
 
@@ -235,10 +236,12 @@ func (s *AlphaScore) ignoreContract(contractAddress common.Address) bool {
 	if contractAddress == common.HexToAddress("0xc36442b4a4522e871399cd717abdd847ab11fe88") {
 		return true
 	}
+
 	// Emblem Vault V4
 	if contractAddress == common.HexToAddress("0x82C7a8f707110f5FBb16184A5933E9F78a34c6ab") {
 		return true
 	}
+
 	return false
 }
 
@@ -284,8 +287,6 @@ func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAd
 	if !allowedAction(eventTx.Action) {
 		return
 	}
-
-	//fmt.Println("Updating score for collection: ", collection.Name, recipientAddress.String(), eventTx.TxReceipt.TxHash.String())
 
 	s.RWMu.Lock()
 	if s.CollectionData[collection.ContractAddress] == nil {

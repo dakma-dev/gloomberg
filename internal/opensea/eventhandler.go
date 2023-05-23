@@ -2,6 +2,9 @@ package opensea
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -12,8 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	"math/big"
-	"strings"
 )
 
 func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]interface{}, seaWatcher *seawa.SeaWatcher) {
@@ -79,7 +80,6 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
 
 				itemReceivedBidEvent, err := seaWatcher.DecodeItemReceivedBidEvent(itemEvent)
-
 				if err != nil {
 					break
 				}
@@ -121,7 +121,6 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
 			case osmodels.CollectionOffer:
 				collectionOfferEvent, err := seaWatcher.DecodeCollectionOfferEvent(itemEvent)
-
 				if err != nil {
 					break
 				}

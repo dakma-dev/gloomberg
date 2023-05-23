@@ -6,8 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"io"
 	"math/big"
 	"net/http"
@@ -21,6 +19,8 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
@@ -84,7 +84,6 @@ type SeaWatcher struct {
 }
 
 var (
-	//AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.CollectionOffer, osmodels.ItemReceivedBid}
 	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
@@ -213,24 +212,24 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		// print collectionOfferEvent
 		log.Debugf("⚓️ received %s: %+v", itemEventType, collectionOfferEvent)
 
-		//priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-		//if err != nil {
+		// priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
+		// if err != nil {
 		//	log.Infof("⚓️❌ error parsing price: %s", err.Error())
 	//		return
 	//		}
-	//priceWei, _ := priceWeiRaw.Int(nil)
+	// priceWei, _ := priceWeiRaw.Int(nil)
 
-	//eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
+	// eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
 
-	//collectionSlug := collectionOfferEvent.Payload.Collection.Slug
+	// collectionSlug := collectionOfferEvent.Payload.Collection.Slug
 
-	//paymentTokenSymbol := collectionOfferEvent.Payload.PaymentToken.Symbol
+	// paymentTokenSymbol := collectionOfferEvent.Payload.PaymentToken.Symbol
 
-	//quantity := collectionOfferEvent.Payload.Quantity
+	// quantity := collectionOfferEvent.Payload.Quantity
 
-	//pricePerToken := priceWei.Div(priceWei, big.NewInt(int64(quantity)))
+	// pricePerToken := priceWei.Div(priceWei, big.NewInt(int64(quantity)))
 
-	//log.Infof("⚓️ 🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(pricePerToken).Ether())), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
+	// log.Infof("⚓️ 🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(pricePerToken).Ether())), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
 
 	case osmodels.ItemReceivedOffer:
 		log.Infof("⚓️ offer received %s: %+v", itemEventType, itemEvent)
@@ -279,8 +278,10 @@ func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{
 	err := decoder.Decode(itemEvent)
 	if err != nil {
 		log.Info("⚓️❌ decoding incoming opensea stream api ItemReceivedBidEvent failed:", err)
+
 		return osmodels.ItemReceivedBidEvent{}, err
 	}
+
 	return collectionOfferEvent, err
 }
 
@@ -299,15 +300,17 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	err := decoder.Decode(itemEvent)
 	if err != nil {
 		log.Info("⚓️❌ decoding incoming opensea stream api collection offer event failed:", err)
+
 		return osmodels.CollectionOfferEvent{}, err
 	}
+
 	return collectionOfferEvent, err
 }
 
 func GetFloorPriceFromAlchemy(contract string) *GetFloorPriceAlchemyResponse {
-
 	if contract == "" {
 		fmt.Printf("❌ getContractMetadata from alchemy · error: contract address is empty\n")
+
 		return nil
 	}
 
@@ -346,14 +349,15 @@ func GetFloorPriceFromAlchemy(contract string) *GetFloorPriceAlchemyResponse {
 
 		return nil
 	}
-	//jsonStr, _ := json.Marshal(responseBody)
-	//fmt.Println(string(responseBody))
+
+	// fmt.Println(string(responseBody))
 	var decoded *GetFloorPriceAlchemyResponse
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&decoded); err != nil {
 		fmt.Printf("❌  decode error: %s\n", err.Error())
 
 		return nil
 	}
+
 	return decoded
 }
 
@@ -365,7 +369,7 @@ type GetFloorPriceAlchemyResponse struct {
 type FloorPriceAlchemyData struct {
 	FloorPrice    float64 `json:"floorPrice"`
 	PriceCurrency string  `json:"priceCurrency"`
-	CollectionUrl string  `json:"collectionUrl"`
+	CollectionURL string  `json:"collectionUrl"`
 	RetrievedAt   string  `json:"retrievedAt"`
 	Error         string  `json:"error"`
 }
@@ -382,6 +386,7 @@ func (sw *SeaWatcher) publishItemListed(itemListedEvent osmodels.ItemListedEvent
 	nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
 	if len(nftID) != 3 {
 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemListedEvent.Payload.Item.NftID)
+
 		return
 	}
 
@@ -439,6 +444,7 @@ func printItemListed(itemListedEvent osmodels.ItemListedEvent) {
 	priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 	if err != nil {
 		log.Infof("⚓️❌ error parsing price: %s", err.Error())
+
 		return
 	}
 	priceWei, _ := priceWeiRaw.Int(nil)

@@ -65,6 +65,8 @@ type Token string
 
 const apiBaseURL = "https://api.etherscan.io/api"
 
+var ErrInvalidJSON = errors.New("invalid json")
+
 func GetEstimatedGasPrice() *big.Int {
 	var estimatedGasPrice *big.Int
 
@@ -323,7 +325,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	if !json.Valid(responseBody) {
 		gbl.Log.Warnf("token balance · invalid json")
 
-		return nil, errors.New("invalid json")
+		return nil, ErrInvalidJSON
 	}
 
 	// decode the data

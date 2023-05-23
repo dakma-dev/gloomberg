@@ -259,8 +259,11 @@ func (uc *Collection) CalculateSaLiRa(address common.Address, rueidica *rueidica
 	currentSaLiRa := uc.SaLiRa.Value()
 
 	if address != internal.ZeroAddress {
-		// go cache.StoreSalira(context.TODO(), address, currentSaLiRa)
-		go rueidica.StoreSalira(context.Background(), address, currentSaLiRa)
+		go func() {
+			if err := rueidica.StoreSalira(context.Background(), address, currentSaLiRa); err != nil {
+				gbl.Log.Errorf("error storing salira for %s | %s", style.ShortenAddress(&address), err)
+			}
+		}()
 	}
 
 	return previousSaLiRa, currentSaLiRa

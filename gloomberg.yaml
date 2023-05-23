@@ -240,6 +240,3 @@ watch:
 #      - name: ozark.eth
 #        wallets:
 #          - address: 0xf1EC35fD93753a9E56df611234933B0A5b3c6aB0
-
-
-

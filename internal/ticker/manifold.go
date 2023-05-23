@@ -3,10 +3,6 @@ package ticker
 import (
 	"context"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo/wallet"
-	"github.com/benleb/gloomberg/internal/utils/hooks"
-	"github.com/mitchellh/mapstructure"
 	"math/big"
 	"sort"
 	"strings"
@@ -14,14 +10,18 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
 )
 
@@ -45,8 +45,8 @@ func getManifoldAddressesFromConfig() {
 
 		return
 	}
-	for _, walletConfig := range rawWatchConfig {
 
+	for _, walletConfig := range rawWatchConfig {
 		var contract *wallet.Wallet
 
 		decodeHooks := mapstructure.ComposeDecodeHookFunc(
@@ -68,18 +68,17 @@ func getManifoldAddressesFromConfig() {
 
 		// print the wallet address
 		gbl.Log.Infof("watching manifold contract: %s", contract.Address.String())
+
 		manifoldContractAddresses[contract.Address] = true
 	}
 }
 
 func (s *ManifoldStats) IsManifoldContractAddress(address common.Address) bool {
-
 	if _, ok := manifoldContractAddresses[address]; ok {
 		return true
 	}
 
 	return false
-	//return address == ManifoldContractAddressOld || address == ManifoldContractAddressNew || address == ManifoldContractAddress || address == ManifoldContractMultiBurn || address == ManifoldContract1 || address == ManifoldContract2 || address == ManifoldContract3 || address == ManifoldContract4 || address == ManifoldContract5 || address == ManifoldContract6 || address == ManiFoldContract7
 }
 
 func (s *ManifoldStats) AppendManifoldEvent(event *totra.TokenTransaction) {
@@ -90,7 +89,6 @@ func (s *ManifoldStats) AppendManifoldEvent(event *totra.TokenTransaction) {
 		alreadyPrintedMu.Unlock()
 		if known && ok {
 			// we already know this transaction
-
 			return
 		}
 
@@ -116,6 +114,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 		aggregrateEvents := make(map[common.Address]bool, 0)
 
 		telegramMessage := strings.Builder{}
+
 		for _, event := range s.ManifoldEvents {
 			collection := s.getCollection(event)
 			if aggregrateEvents[collection.ContractAddress] {
@@ -136,11 +135,15 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			pricePerItem := big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TotalTokens))
 			priceEtherPerItem, _ := utils.WeiToEther(pricePerItem).Float64()
+
 			manifoldLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", priceEtherPerItem)))
 			telegramMessage.WriteString(fmt.Sprintf("%6.3f", priceEtherPerItem))
+
 			collectionStyle := lipgloss.NewStyle().Foreground(collection.Colors.Primary)
+
 			manifoldLine.WriteString(collectionStyle.Faint(true).Render("Ξ"))
 			telegramMessage.WriteString("Ξ")
+
 			var tokenInfo string
 
 			if event.TotalTokens > 1 {
@@ -156,7 +159,9 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 
 			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(fmt.Sprint(collection.Counters.Mints)))
+
 			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
+
 			if collection.Counters.Mints > 200 {
 				telegramMessage.WriteString(" " + "🚀")
 			}

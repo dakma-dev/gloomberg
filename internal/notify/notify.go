@@ -8,11 +8,13 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"math/big" //nolint:gci
+	"strings"
+
+	// image/* is imported for its initialization side-effect.
 	_ "image/gif"
 	_ "image/jpeg"
-	_ "image/png"
-	"math/big"
-	"strings"
+	_ "image/png" //nolint:gci
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -132,7 +134,6 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 				SendMessageViaTelegram(msgTelegram.String(), additionalChatID.ChatID, "", 0, nil)
 			}
 		}
-
 	}
 }
 
