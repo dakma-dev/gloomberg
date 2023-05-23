@@ -46,6 +46,12 @@ func GetWalletCollections(gb *gloomberg.Gloomberg) []*collections.Collection {
 }
 
 func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token.Token {
+	if !viper.IsSet("api_keys.opensea") {
+		gbl.Log.Warn("⚠️ not possible to fetch token holdings - OpenSea API key required but not set")
+
+		return make([]*token.Token, 0)
+	}
+
 	receivedNFTs := make([]*token.Token, 0)
 	limit := 70
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/assets?owner=%s&limit=%d&cursor=%s", walletAddress, limit, cursor)
