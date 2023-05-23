@@ -50,10 +50,9 @@ var OpenSea = MarketPlace{
 	Color: lipgloss.Color("#2C7BE5"),
 	ContractAddresses: map[common.Address]bool{
 		common.HexToAddress("0x00000000000001ad428e4906ae43d8f9852d0dd6"): true,
-		common.HexToAddress("0x00000000006c3852cbef3e08e8df289169ede581"): true,
-		common.HexToAddress("0xc34349fbEDd527215aAE19B2E4626254ec29A13d"): true,
-		// common.HexToAddress("0x0000000000c2d145a2526bd8c716263bfebe1a72"): true, // TransferHelper
-		common.HexToAddress("0x00005ea00ac477b1030ce78506496e8c2de24bf5"): true,
+		common.HexToAddress("0x00000000006c3852cbef3e08e8df289169ede581"): true, // Seaport 1.1
+		common.HexToAddress("0x00005ea00ac477b1030ce78506496e8c2de24bf5"): true, // SeaDrop
+		common.HexToAddress("0x00000000000000adc04c56bf30ac9d3c0aaf14dc"): true, // Seaport 1.5
 	},
 	Tag: "|",
 }

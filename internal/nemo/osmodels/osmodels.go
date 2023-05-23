@@ -16,7 +16,7 @@ const (
 	CollectionOffer   EventType = "collection_offer"
 
 	// ItemMetadataUpdated EventType = "item_metadata_updated"
-	// ItemCancelled       EventType = "item_cancelled"
+	// ItemCancelled       EventType = "item_cancelled".
 	ItemReceivedBid EventType = "item_received_bid"
 	// ItemTransferred     EventType = "item_transferred".
 
@@ -284,27 +284,27 @@ type OSCollection struct {
 	DisplayData             struct {
 		CardDisplayStyle string `json:"card_display_style"`
 	} `json:"display_data"`
-	ExternalURL                 string `json:"external_url"`
-	Featured                    bool   `json:"featured"`
-	FeaturedImageURL            any    `json:"featured_image_url"`
-	Hidden                      bool   `json:"hidden"`
-	SafelistRequestStatus       string `json:"safelist_request_status"`
-	ImageURL                    string `json:"image_url"`
-	IsSubjectToWhitelist        bool   `json:"is_subject_to_whitelist"`
-	LargeImageURL               any    `json:"large_image_url"`
-	MediumUsername              any    `json:"medium_username"`
-	Name                        string `json:"name"`
-	OnlyProxiedTransfers        bool   `json:"only_proxied_transfers"`
-	OpenseaBuyerFeeBasisPoints  string `json:"opensea_buyer_fee_basis_points"`
-	OpenseaSellerFeeBasisPoints string `json:"opensea_seller_fee_basis_points"`
-	PayoutAddress               string `json:"payout_address"`
-	RequireEmail                bool   `json:"require_email"`
-	ShortDescription            any    `json:"short_description"`
-	Slug                        string `json:"slug"`
-	TelegramURL                 any    `json:"telegram_url"`
-	TwitterUsername             any    `json:"twitter_username"`
-	InstagramUsername           any    `json:"instagram_username"`
-	WikiURL                     any    `json:"wiki_url"`
+	ExternalURL                 string      `json:"external_url"`
+	Featured                    bool        `json:"featured"`
+	FeaturedImageURL            any         `json:"featured_image_url"`
+	Hidden                      bool        `json:"hidden"`
+	SafelistRequestStatus       string      `json:"safelist_request_status"`
+	ImageURL                    string      `json:"image_url"`
+	IsSubjectToWhitelist        bool        `json:"is_subject_to_whitelist"`
+	LargeImageURL               any         `json:"large_image_url"`
+	MediumUsername              any         `json:"medium_username"`
+	Name                        string      `json:"name"`
+	OnlyProxiedTransfers        bool        `json:"only_proxied_transfers"`
+	OpenseaBuyerFeeBasisPoints  interface{} `json:"opensea_buyer_fee_basis_points"`
+	OpenseaSellerFeeBasisPoints interface{} `json:"opensea_seller_fee_basis_points"`
+	PayoutAddress               string      `json:"payout_address"`
+	RequireEmail                bool        `json:"require_email"`
+	ShortDescription            any         `json:"short_description"`
+	Slug                        string      `json:"slug"`
+	TelegramURL                 any         `json:"telegram_url"`
+	TwitterUsername             any         `json:"twitter_username"`
+	InstagramUsername           any         `json:"instagram_username"`
+	WikiURL                     any         `json:"wiki_url"`
 }
 
 type OpenSeaListingsResponse struct {
@@ -366,8 +366,8 @@ type SeaportParameters struct {
 	StartTime     string                     `json:"startTime"`
 	EndTime       string                     `json:"endTime"`
 	OrderType     int                        `json:"orderType"`
-	//Zone                            common.Address             `json:"zone"`
-	//ZoneHash common.Hash `json:"zoneHash"`
+	// Zone                            common.Address             `json:"zone"`
+	// ZoneHash common.Hash `json:"zoneHash"`
 	Salt string `json:"salt"`
 	//ConduitKey                      common.Hash                `json:"conduitKey"`
 	TotalOriginalConsiderationItems int         `json:"totalOriginalConsiderationItems"`
@@ -406,8 +406,8 @@ type SeaportAssetContract struct {
 	DevBuyerFeeBasisPoints      int         `json:"dev_buyer_fee_basis_points"`
 	DevSellerFeeBasisPoints     int         `json:"dev_seller_fee_basis_points"`
 	OnlyProxiedTransfers        bool        `json:"only_proxied_transfers"`
-	OpenseaBuyerFeeBasisPoints  int         `json:"opensea_buyer_fee_basis_points"`
-	OpenseaSellerFeeBasisPoints int         `json:"opensea_seller_fee_basis_points"`
+	OpenseaBuyerFeeBasisPoints  interface{} `json:"opensea_buyer_fee_basis_points"`
+	OpenseaSellerFeeBasisPoints interface{} `json:"opensea_seller_fee_basis_points"`
 	BuyerFeeBasisPoints         int         `json:"buyer_fee_basis_points"`
 	SellerFeeBasisPoints        int         `json:"seller_fee_basis_points"`
 	PayoutAddress               interface{} `json:"payout_address"`
@@ -434,8 +434,8 @@ type SeaportCollection struct {
 	MediumUsername              interface{}        `json:"medium_username"`
 	Name                        string             `json:"name"`
 	OnlyProxiedTransfers        bool               `json:"only_proxied_transfers"`
-	OpenseaBuyerFeeBasisPoints  string             `json:"opensea_buyer_fee_basis_points"`
-	OpenseaSellerFeeBasisPoints string             `json:"opensea_seller_fee_basis_points"`
+	OpenseaBuyerFeeBasisPoints  interface{}        `json:"opensea_buyer_fee_basis_points"`
+	OpenseaSellerFeeBasisPoints interface{}        `json:"opensea_seller_fee_basis_points"`
 	PayoutAddress               string             `json:"payout_address"`
 	RequireEmail                bool               `json:"require_email"`
 	ShortDescription            interface{}        `json:"short_description"`

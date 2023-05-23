@@ -82,5 +82,5 @@ func parseENSMetadataResponse(response *http.Response) (*ENSMetadata, error) {
 		return &metadata, nil
 	}
 
-	return nil, nil
+	return nil, err
 }

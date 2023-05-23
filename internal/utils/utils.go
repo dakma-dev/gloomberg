@@ -123,6 +123,7 @@ func WeiToEther(wei *big.Int) *big.Float {
 	if wei == nil {
 		return new(big.Float)
 	}
+
 	f := new(big.Float)
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
 	f.SetMode(big.ToNearestEven)

@@ -40,11 +40,13 @@ type ERC1155Metadata struct {
 	ImageURL     string                      `json:"image_url"`
 }
 
+var ErrMetadataURLNotFound = errors.New("metadata url not found")
+
 func GetERC1155MetadataForURI(ctx context.Context, url string, tokenID *big.Int) (*ERC1155Metadata, error) {
 	if url == "" {
 		gbl.Log.Debugf("erc1155 metadata url is empty\n")
 
-		return nil, errors.New("erc1155 metadata url is empty")
+		return nil, ErrMetadataURLNotFound
 	}
 
 	url = utils.PrepareURL(url)
@@ -53,7 +55,7 @@ func GetERC1155MetadataForURI(ctx context.Context, url string, tokenID *big.Int)
 	if url == "" || !strings.Contains(url, "://") {
 		gbl.Log.Debug("erc1155 metadata url is empty")
 
-		return nil, errors.New("erc1155 metadata url is empty")
+		return nil, ErrMetadataURLNotFound
 	}
 
 	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
@@ -98,5 +100,5 @@ func parseERC1155MetadataResponse(response *http.Response) (*ERC1155Metadata, er
 		return &metadata, nil
 	}
 
-	return nil, nil
+	return nil, err
 }

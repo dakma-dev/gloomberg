@@ -1,9 +1,9 @@
 package wallet
 
 import (
-	"github.com/benleb/gloomberg/internal/nemo/token"
 	"math/big"
 
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/wealdtech/go-ens/v3"

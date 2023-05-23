@@ -1,30 +1,242 @@
 
 log:
-  logfile: "/tm/gloomberg.log"
+  log_file: "/home/lugges/gloomberg.log"
+  debug: false
+  verbose: true
+
+
+ui:
+  web:
+    enabled: false
+    host: 127.0.0.1
+    port: 8080
 
 # own wallets (for gathering collections and other stuff)
-wallets: [benleb.eth, osf.eth, pranksy.eth]
+wallets:
+  - address: 0x0DB54CC56....
+
 
 endpoints:
-  - "wss://mainnet.infura.io/ws/v3/7f6fb81...."
-  - "wss://eth-mainnet.alchemyapi.io/v2/74OYH....."
+  - "wss://mainnet.infura.io/ws/v3/2fa016664...."
+  - "wss://eth-mainnet.g.alchemy.com/v2/-k_X1Zl0...."
+
+
+nodes:
+  #- { name: "infura", endpoint: "wss://mainnet.infura.io/ws/v3/2fa016664...",  local: true }
+  - { name: "nuc", endpoint: "ws://192.168.178.51:8546/",  local: true }
+  #- { name: "nuc", endpoint: "http://192.168.178.51:8545",  local: true }
+  #- { name: "alchemy", endpoint: "wss://eth-mainnet.g.alchemy.com/v2/-k_X1Zl0q..." }
+
 
 # keys/token to access the APIs of the external services
 api_keys:
   # for listings
-  opensea: 30de1d94....
+  opensea: 41a7816141....
   # for gas estimation
-  etherscan: BA84FQH6M2P9...
+  etherscan: 9QMZRYHZJ....
+  # for snapshots, floor prices
+  alchemy: -k_X1Zl0qhn...
+
+# for listings distribution through redis channels (server client architecture)
+pubsub:
+  listings:
+    subscribe: false
+
+
+listings:
+  enabled: true
+
+alchemy:
+  url: https://eth-mainnet.g.alchemy.com/nft/v2/-k_X1Zl....
+
 
 # redis cache
 redis:
   # use redis as name & sale cache
   enabled: true
   # redis host
-  host: 10.0.0.2
+  host: 192.168.178.51
+  port: 6379
 
+
+show:
+  mints: true
+  sales: true
+  burns: true
 
 # extra collections to show in the stream with the given settings
 collections:
-  0x80336ad7a747236ef41f47ed2c7641828a480baa:
   0x8297d8e55c27aa6ce2d8a65b1fa3debb02410efc: { name: "OSF's 7 Deadly Sins", mark: "#FF0099", show: { listings: true, sales: true, mints: true } }
+  0xE42caD6fC883877A76A26A16ed92444ab177E306: { name: "TheMerge", ignore: true }
+
+
+contracts:
+  manifold:
+    - address: 0x44e94034afce2dd3cd5eb62528f239686fc8f162
+    - address: 0xE7d3982E214F9DFD53d23a7f72851a7044072250
+    - address: 0x7581871e1c11f85ec7f02382632b8574fad11b22
+    - address: 0xde659726CfD166aCa4867994d396EFeF386EAD68
+    - address: 0xd391032fec8877953C51399C7c77fBcc93eE3E2A
+    - address: 0x20847f61e494e72d55d32a542c519e27d229aedb
+    - address: 0xde659726cfd166aca4867994d396efef386ead68
+    - address: 0xdb707af289d5a63bd72e6761f0e91b414485d42a
+    - address: 0xdb8d79c775452a3929b86ac5deab3e9d38e1c006
+    - address: 0x3b8c2feb0f4953870f825df64322ec967aa26b8c
+    - address: 0x60b6c13d62be7cb135dd626273f4cc09f4c95bba
+
+notifications:
+  telegram:
+    enabled: true
+    token: 196744....
+    chat_id: -563...
+    api_endpoint:
+  manifold:
+    enabled: true
+    manifold_ticker_channel: -1001...
+    telegram_reply_to_message_id: 4
+    dakma: -18...
+  bluechip:
+    enabled: true
+    telegram_chat_id: -1001...
+    telegram_reply_to_message_id: 6
+    threshold: 50
+  smart_wallets:
+    enabled: true
+    telegram_chat_id: -1001...
+    telegram_reply_to_message_id: 11
+
+watch:
+  - group: degen
+    telegram_chat_id: -1001....
+    telegram_reply_to_message_id: 2
+    users:
+      - name: boldleonidas.eth
+        wallets:
+          - address: 0x3b2a887Ca2d31795F664Cf34db66B6e5F80144ba
+      - name: Giancarlo
+        wallets:
+          - address: 0x2bC0846cDFc4f0Aab336216fE1b6a94a0babFf92
+          - address: 0x5F3a7dc1a6aD03776339517157F31b0fa48E624D
+          - address: 0xfbd34E0DBAD3b875B67F2690D0ba26d7f12f9D87
+      - name: Guillermo
+        wallets:
+          - address: 0x83f61D3c25f0596bA217426EdFFA6a446169148c
+          - address: 0xc0A7CdE792F662EA6010EcdDB4bB4a505b836F1E
+          - address: 0xd73476B1fE431088a005B99FA0D8354d60D86357
+      - name: whalechart.eth
+        wallets:
+          - address: 0x353088a4f4f54bE24567aB36Bd894954E5d4e40c
+      - name: rektpay.eth
+        wallets:
+          - address: 0x26a58b849DaA8147Fa625fa29a0be702957d084f
+      - name: hydraze
+        wallets:
+          - address: 0x2a93E999816c9826aDe0B51AAa2d83240d8F4596
+      - name: krybharat
+        wallets:
+          - address: 0x2Debdf4427CcBcfDbC7f29D63964499a0ec184F6
+      - name: memeland.eth
+        wallets:
+          - address: 0x1c593c369136264Abfb908b4B20e74c9a5949417
+      - name: 0xbagman
+        wallets:
+          - address: 0x9727e451546E8D2103D432967796904164477D9a
+      - name: ryancarson
+        wallets:
+          - address: 0x5a2880870f5bFCDD082a62D611E6aa5241dA70F9
+          - address: 0x9baA87db0F15f5b8a4f28F46986B93368e1c052e
+          - address: 0xee96ade9fe6f16e84427e17b7dbd37ac565eb434
+      - name: 121G
+        wallets:
+          - address: 0xd898B03004085a4D46534734461981954117302C
+          - address: 0x8308F9De3Ff174e359271310d49F4Eb780F8142d
+          - address: 0x70781DEFC8cE59103394d4F965A01eA632584104
+          - address: 0x95C79559F0c0c9627FB62d24EC0b1628aF2Ad9C7
+          - address: 0x93a09F57aa5c3c64494871fb2bF4488A5B67a2a3
+      - name: Flur
+        wallets:
+          - address: 0x4aEFd0E16502AD41C85780c235768e944e6a7Fc8
+      - name: Mooncat2878
+        wallets:
+          - address: 0x8764287b47e3681771b70c79686cFdCa400326e4
+          - address: 0x0793886aBCc2E243D890df1E76E1B84220f25615
+      - name: OGmferjones.eth
+        wallets:
+          - address: 0x9a7dc5307940fa170f9093ca548bda0edb602767
+      - name: Mando
+        wallets:
+          - address: 0xc3f4728f673181e20862d21d028cfeaacfb6d409
+      - name: pranksy.eth
+        wallets:
+          - address: 0xd387a6e4e84a6c86bd90c158c6028a58cc8ac459
+      #      - name: franklinisbored.eth
+      #        wallets:
+      #          - address: 0xed2ab4948bA6A909a7751DEc4F34f303eB8c7236
+      - name: flipdrago.eth
+        wallets:
+          - address: 0x575740f581038f792425670fa6bfebcc8e4dcdff
+      - name: Zeneca
+        wallets:
+          - address: 0x886478d3cf9581b624cb35b5446693fc8a58b787
+          - address: 0xe553fe5B71a236A8D6B03cBDDDe8bE48c5fC5402
+          - address: 0xBeb6D135c54A3d0598D7b3A5e5AD0EAA8F1e593d
+          - address: 0x7Bb3fAD216678a47cAeed210123fc9e9E263030e
+          - address: 0x5dA302617822144A51f2107Be45182Dc6F0f5821
+          - address: 0x7BB09046C5835B3e7eE83c3Fddb51b0aC51BAE7C
+      - name: Alex Becker
+        wallets:
+          - address: 0xae4d837caa0c53579f8a156633355df5058b02f3
+      - name: Cozomo
+        wallets:
+          - address: 0xce90a7949bb78892f159f428d0dc23a8e3584d75
+      - name: JRNY
+        wallets:
+          - address: 0xdfd143ae8592e8e3c13aa3e401f72e1ca7deaed0
+      - name: ryandcrypto.eth
+        wallets:
+          - address: 0x12b115751e0f608da1281d594351a8a28816ce79
+      - name: osf.eth
+        wallets:
+          - address: 0xdcae87821fa6caea05dbc2811126f4bc7ff73bd1
+      - name: gotrilla.eth
+        wallets:
+          - address: 0x3546bd99767246c358ff1497f1580c8365b25ac8
+      - name: boopable.eth
+        wallets:
+          - address: 0x341eae3eb086a09e8570a472b7333584f9fb3fea
+      - name: goblinologist.eth
+        wallets:
+          - address: 0x61937e0b1814c0d259247fdded8068cc15e7ac6b
+      - name: alienqueennft.eth
+        wallets:
+          - address: 0xd81ce8e89dd987c8ab630858c8f1e9df14788c35
+      - name: metapsy
+        wallets:
+          - address: 0x62d4377141e0a4a6eaab3167e0ffa4bc037db3a5
+      - name: dingaling.eth
+        wallets:
+          - address: 0x54be3a794282c030b15e43ae2bb182e14c409c5e
+      - name: I_am_more_degen_than_you
+        wallets:
+          - address: 0xf2439241881964006369c0e2377d45f3740f48a0
+      - name: bitmancrypto.eth
+        wallets:
+          - address: 0xB893AE8A1824604F6df4Dfde52E2754921ba1A73
+      - name: JakNFT
+        wallets:
+          - address: 0xD722a299D14a19b56CDdaEaE0E1d5a5786424570
+      - name: emanueleferrari.eth
+        wallets:
+          - address: 0x132dF84e9EA2f4CcA42976B4ce1A8E814E5CB809
+      - name: dystopia777.eth
+        wallets:
+          - address: 0x989c8DE75AC4e3E72044436b018090c97635A7fa
+      - name: vitalik.eth
+        wallets:
+          - address: 0xd8da6bf26964af9d7eed9e03e53415d37aa96045
+      - name: sartoshi-rip.eth
+        wallets:
+          - address: 0xF95752fD023fD8802Abdd9cbe8e9965F623F8A84
+#      - name: ozark.eth
+#        wallets:
+#          - address: 0xf1EC35fD93753a9E56df611234933B0A5b3c6aB0

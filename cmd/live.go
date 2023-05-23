@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/benleb/gloomberg/internal/nemo/token"
 	"net"
 	"net/http"
 	"strconv"
@@ -17,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
@@ -33,6 +33,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/rueidis"
@@ -64,12 +65,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// global defaults
 	viper.Set("http.timeout", 27*time.Second)
 
-	// show listings for own collections if an opensea api key is set
-	// if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
-	if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
-		viper.Set("listings.enabled", true)
-		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
-	}
+	// // show listings for own collections if an opensea api key is set
+	// // if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
+	// if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
+	// 	viper.Set("listings.enabled", true)
+	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
+	// }
 
 	rdb := GetRedisClient()
 
@@ -334,8 +335,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// subscribe to OpenSea API
 	if viper.GetBool("listings.enabled") {
-		//go runSeawatcher(nil, nil)
-
 		seaWatcher := startOpenseaSubscription()
 
 		opensea.StartEventHandler(gb, seaWatcher.EventChannel(), seaWatcher)
@@ -536,8 +535,8 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
-	viper.SetDefault("ticker.statsbox", time.Second*93)
-	viper.SetDefault("ticker.gasline", time.Second*39)
+	viper.SetDefault("ticker.statsbox", internal.BlockTime*8)
+	viper.SetDefault("ticker.gasline", internal.BlockTime*2)
 
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)
@@ -551,18 +550,26 @@ func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
 		tokensForWallet := opensea.GetTokensFor(w.Address, 2, "")
 		gbTokens = append(gbTokens, tokensForWallet...)
 
+		log.Debugf("Wallet %s has %d tokens: %+v", w.Address.String(), len(tokensForWallet), tokensForWallet)
+
 		tokenMapForWallet := make(map[common.Address]map[string]*token.Token)
 		for _, t := range tokensForWallet {
 			if _, ok := tokenMapForWallet[t.Address]; !ok {
 				tokenMapForWallet[t.Address] = make(map[string]*token.Token)
 			}
+
 			tokenMapForWallet[t.Address][t.ID.String()] = t
 		}
+
 		w.Tokens = tokenMapForWallet
+
+		// honor the rate limit
+		time.Sleep(time.Millisecond * 337)
 	}
+
 	fmt.Println("", len(gbTokens), "tokens loaded")
 
-	//create map
+	// create map
 	gbTokensMap := make(map[common.Address]*token.Token)
 	for _, t := range gbTokens {
 		gbTokensMap[t.Address] = t

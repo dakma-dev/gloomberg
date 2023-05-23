@@ -10,13 +10,13 @@ require (
 	github.com/go-redsync/redsync/v4 v4.8.2-0.20230215144735-e1e5da6654c8
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.2.1
+	github.com/klauspost/compress v1.16.3
 	github.com/lmittmann/flashbots v0.6.2
 	github.com/lmittmann/w3 v0.11.2
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.1
 	github.com/nshafer/phx v0.2.0
-	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.15.1
 	github.com/quic-go/quic-go v0.34.0
 	github.com/quic-go/webtransport-go v0.5.3
@@ -77,7 +77,6 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/klauspost/compress v1.16.3 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
@@ -100,6 +99,7 @@ require (
 	github.com/onsi/ginkgo v1.16.5 // indirect
 	github.com/onsi/ginkgo/v2 v2.9.2 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
 	github.com/prometheus/procfs v0.9.0 // indirect

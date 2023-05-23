@@ -12,6 +12,8 @@ import (
 	"github.com/mitchellh/mapstructure"
 )
 
+var ErrInvalidAddress = errors.New("invalid address")
+
 // StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
 func StringToAddressHookFunc() mapstructure.DecodeHookFunc {
 	return func(
@@ -28,7 +30,7 @@ func StringToAddressHookFunc() mapstructure.DecodeHookFunc {
 		}
 
 		if !common.IsHexAddress(data.(string)) {
-			return data, errors.New("invalid address")
+			return data, ErrInvalidAddress
 		}
 
 		// Convert it by parsing

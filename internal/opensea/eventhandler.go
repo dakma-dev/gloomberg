@@ -2,6 +2,9 @@ package opensea
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -12,24 +15,22 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/viper"
-	"math/big"
-	"strings"
 )
 
 func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]interface{}, seaWatcher *seawa.SeaWatcher) {
 	go func() {
 		for itemEvent := range eventChannel {
-
 			itemEventType, ok := itemEvent["event_type"].(string)
 			if !ok {
 				log.Warnf("⚓️ 🤷‍♀️ unknown event type: %s", itemEvent["event_type"])
 
 				return
 			}
-			//fmt.Println(itemEventType)
+
 			switch osmodels.EventType(itemEventType) {
 			case osmodels.ItemListed:
 				log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
+
 				var itemListedEvent osmodels.ItemListedEvent
 
 				err := mapstructure.Decode(itemEvent, &itemListedEvent)
@@ -51,14 +52,15 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
+
 					return
 				}
+
 				priceWei, _ := priceWeiRaw.Int(nil)
 				pricePerTokenGwei := priceWei.Div(priceWei, big.NewInt(int64(itemListedEvent.Payload.Quantity)))
 				offerPricePerTokenEther := price.NewPrice(pricePerTokenGwei).Ether()
 
 				if nftID[1] == "0xb119ec7ee48928a94789ed0842309faf34f0c790" {
-					//collectionAddress := common.HexToAddress(nftID[1])
 					name := itemListedEvent.Payload.Item.Metadata.Name
 					log.Infof("lawless listing: %s", name)
 					// if name contains "-qf"
@@ -67,9 +69,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 						openseaURL := fmt.Sprintf("https://opensea.io/assets/ethereum/%s/%s", nftID[1], nftID[2])
 						// send telegram message
 						notify.SendMessageViaTelegram(fmt.Sprintf("lawless listing: %s \n price: %s  url: %s", name, fmt.Sprintf("%5.3f", offerPricePerTokenEther), openseaURL), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
-
 					}
-
 				}
 
 			case osmodels.ItemReceivedOffer:
@@ -78,6 +78,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 			case osmodels.ItemReceivedBid:
 				log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
 				eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
+
 				itemReceivedBidEvent, err := seaWatcher.DecodeItemReceivedBidEvent(itemEvent)
 				if err != nil {
 					break
@@ -86,8 +87,10 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				priceWeiRaw, _, err := big.ParseFloat(itemReceivedBidEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
+
 					return
 				}
+
 				priceWei, _ := priceWeiRaw.Int(nil)
 				pricePerTokenGwei := priceWei.Div(priceWei, big.NewInt(int64(itemReceivedBidEvent.Payload.Quantity)))
 				offerPricePerTokenEther := price.NewPrice(pricePerTokenGwei).Ether()
@@ -98,15 +101,19 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				nftID := strings.Split(itemReceivedBidEvent.Payload.Item.NftID, "/")
 				if len(nftID) != 3 {
 					log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemReceivedBidEvent.Payload.Item.NftID)
+
 					return
 				}
 
 				// check bid against own nfts
 				tokenID := nftID[2]
+
 				contractAddress := common.HexToAddress(nftID[1])
+
 				if gb.OwnWallets.ContainsToken(contractAddress, tokenID) {
 					log.Infof("⚓️🔸 %s |  %s %s for %s #%s", eventType.Icon(), style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", offerPricePerTokenEther)), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug), nftID[2])
 					log.Infof("⚓️ 🤑 own token received bid: %s", itemReceivedBidEvent.Payload.Item.NftID)
+
 					return
 				}
 
@@ -117,6 +124,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if err != nil {
 					break
 				}
+
 				collectionSlug := collectionOfferEvent.Payload.Collection.Slug
 
 				collectionAddress := common.HexToAddress(collectionOfferEvent.Payload.AssetContractCriteria.Address)
@@ -125,9 +133,12 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
+
 					return
 				}
+
 				priceWei, _ := priceWeiRaw.Int(nil)
+
 				quantity := collectionOfferEvent.Payload.Quantity
 				pricePerTokenGwei := priceWei.Div(priceWei, big.NewInt(int64(quantity)))
 
@@ -143,37 +154,45 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if collection.PreviousFloorPrice != 0 {
 					if offerPricePerTokenEther > collection.PreviousFloorPrice {
 						log.Infof("⚓️‼ ❗❗❗❗ OFFER: price per token %f is higher than floor price %d", offerPricePerTokenEther, big.NewInt(int64(collection.PreviousFloorPrice)))
+
 						break
 					}
+
 					break
 				}
 
 				log.Infof("Requesting floor price...")
+
 				floorPriceAlchemyData := seawa.GetFloorPriceFromAlchemy(collectionOfferEvent.Payload.AssetContractCriteria.Address)
+
 				if floorPriceAlchemyData == nil {
 					log.Infof("⚓️❌ error fetching floor price from alchemy for %s", collectionSlug)
+
 					break
 				}
-				//log.Infof("%s Floor Price: %f (alchemy)", collectionSlug, floorPriceAlchemyData.Opensea.FloorPrice)
+				// log.Infof("%s Floor Price: %f (alchemy)", collectionSlug, floorPriceAlchemyData.Opensea.FloorPrice)
 
 				collectionStats := GetCollectionStats(collectionSlug)
+
 				if collectionStats == nil {
 					log.Infof("⚓️❌ error fetching collection stats for %s", collectionSlug)
+
 					break
 				}
+
 				if floorPriceAlchemyData.Opensea.FloorPrice != floorPriceAlchemyData.Opensea.FloorPrice {
 					log.Infof("⚓️❌ floor price mismatch for %s", collectionSlug)
 				}
+
 				log.Infof("%s Floor Price (OS): %f", collectionSlug, collectionStats.FloorPrice)
 				collection.PreviousFloorPrice = floorPriceAlchemyData.Opensea.FloorPrice
 
 				if offerPricePerTokenEther > collection.PreviousFloorPrice {
 					log.Infof("⚓️‼ ❗❗❗❗ OFFER: price per token %f is higher than floor price %d", offerPricePerTokenEther, big.NewInt(int64(collection.PreviousFloorPrice)))
+
 					break
 				}
-
 			}
-
 		}
 	}()
 }

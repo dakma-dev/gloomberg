@@ -33,6 +33,8 @@ type BlurSlugResponse struct {
 
 func SlugWorker(slugTicker *time.Ticker, slugQueue *chan common.Address, rueidica *rueidica.Rueidica) {
 	for address := range *slugQueue {
+		address := address
+
 		gbl.Log.Infof("fetching opensea slug for: %s", address.Hex())
 
 		if osslug := opensea.GetCollectionSlug(address); osslug != "" {

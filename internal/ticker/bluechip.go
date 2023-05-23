@@ -1,6 +1,7 @@
 package ticker
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -17,7 +18,6 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/gbl"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"github.com/spf13/viper"
 )
 
