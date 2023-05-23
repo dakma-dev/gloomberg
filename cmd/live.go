@@ -65,12 +65,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// global defaults
 	viper.Set("http.timeout", 27*time.Second)
 
-	// show listings for own collections if an opensea api key is set
-	// if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
-	if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
-		viper.Set("listings.enabled", true)
-		gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
-	}
+	// // show listings for own collections if an opensea api key is set
+	// // if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
+	// if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
+	// 	viper.Set("listings.enabled", true)
+	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
+	// }
 
 	rdb := GetRedisClient()
 

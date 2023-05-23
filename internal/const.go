@@ -36,6 +36,7 @@ var (
 	BorrowerNoteTicket             = common.HexToAddress("0xbD85BF4C970b91984e6A2b8Ba9C577A58A8C20f9")
 
 	LoanContracts = map[common.Address]string{
+		BlurBlendContractAddress:       "Blur Blend",
 		NFTfiContractAddress:           "NFTfi",
 		NFTLoanTicketV2ContractAddress: "NFT Loan Ticket V2",
 		BorrowerNoteTicket:             "Borrower Note Ticket",
