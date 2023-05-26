@@ -9,8 +9,8 @@ package web
 
 import (
 	"crypto/tls"
-	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"time"
 
@@ -18,48 +18,23 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/charmbracelet/log"
-	"github.com/quic-go/quic-go/http3"
-	"github.com/quic-go/webtransport-go"
+	"github.com/spf13/viper"
 )
 
 func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 	// Create a Manager instance used to handle WebSocket Connections
 	hub := NewHub(queueWsOutTokenTransactions)
 
-	listenOn := ":8080"
-	certPath := "./home.benleb.de.crt"
-	keyPath := "./home.benleb.de.key"
+	listenOn := &net.TCPAddr{IP: net.ParseIP(viper.GetString("web.host")), Port: viper.GetInt("web.port")}
+	certPath := viper.GetString("web.tls.certificate")
+	keyPath := viper.GetString("web.tls.key")
 
 	// load index template
-	// tmpl := template.Must(template.ParseFiles("www/index.html"))
-
 	tmplFiles := []string{"www/index.html", "www/style.html", "www/javascript.html"}
-
 	tmpl, err := template.ParseFiles(tmplFiles...)
 	if err != nil {
 		gbl.Log.Error(err)
 	}
-
-	go func() {
-		// create a new webtransport.Server, listening on (UDP) port 443 (8080)
-		s := webtransport.Server{H3: http3.Server{Addr: listenOn}}
-
-		// Create a new HTTP endpoint /webtransport.
-		http.HandleFunc("/webtransport", func(w http.ResponseWriter, r *http.Request) {
-			conn, err := s.Upgrade(w, r)
-			if err != nil {
-				log.Printf("upgrading failed: %s", err)
-				w.WriteHeader(http.StatusInternalServerError)
-
-				return
-			}
-
-			// Handle the connection. Here goes the application logic.
-			log.Print(fmt.Sprintf("new connection from %s | %+v", conn.RemoteAddr(), conn))
-		})
-
-		log.Fatal(s.ListenAndServeTLS(certPath, keyPath))
-	}()
 
 	// index page
 	http.HandleFunc("/", func(w http.ResponseWriter, _ *http.Request) {
@@ -86,7 +61,7 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 
 	// create http server
 	server := &http.Server{
-		Addr:              listenOn,
+		Addr:              listenOn.AddrPort().String(),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           nil,
 		TLSConfig: &tls.Config{
@@ -97,5 +72,6 @@ func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
 	}
 
 	// start http server
-	log.Fatal(server.ListenAndServe())
+	log.Debugf("starting web ui on %s | %+v", listenOn, server)
+	log.Fatal(server.ListenAndServeTLS("", ""))
 }
