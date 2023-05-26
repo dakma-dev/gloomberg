@@ -44,8 +44,8 @@ var (
 	BoldStyle            = lipgloss.NewStyle().Bold(true)
 	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
 	GrayBoldStyle        = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
-	Sharrow              = BoldStyle.Copy().SetString("→")
-	DividerArrowRight    = LightGrayStyle.Copy().Bold(true).SetString("→")
+	Sharrow              = lipgloss.NewStyle().SetString("→")
+	DividerArrowRight    = LightGrayStyle.Copy().SetString("→")
 	DividerArrowLeft     = GrayBoldStyle.SetString("←")
 
 	// darkestGray          = lipgloss.Color("#111")
@@ -109,22 +109,22 @@ func GetHeader(version string) string {
 
 	header := strings.Builder{}
 
-	headerStyle := lipgloss.NewStyle().Foreground(headerColor).Padding(2, 0, 1, 0)
+	headerBaseStyle := lipgloss.NewStyle().Foreground(headerColor)
+	headerStyle := headerBaseStyle.Copy().Padding(2, 0, 1, 0)
+	headerSeparatorStyle := headerBaseStyle // .Copy().Bold(true)
 	subHeaderStyle := DarkGrayStyle.Copy()
 
 	header.WriteString(headerStyle.Render(headerLogo) + "\n")
 
 	subHeader := strings.Builder{}
-	subHeader.WriteString(lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("·"))
+	subHeader.WriteString(headerBaseStyle.Copy().Bold(true).Render("·"))
 	subHeader.WriteString(" " + DarkGrayStyle.Render("gloomberg"))
 	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render(version))
-	// subHeader.WriteString(" " + GrayStyle.Render(version))
-	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("|"))
+	subHeader.WriteString(" " + headerSeparatorStyle.Render("|"))
 	subHeader.WriteString(" " + DarkGrayStyle.Render("github.com/benleb/gloomberg"))
-	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(headerColor).Bold(true).Render("·"))
+	subHeader.WriteString(" " + headerSeparatorStyle.Render("·"))
 
 	header.WriteString(subHeaderStyle.Render(subHeader.String()))
-	// header.WriteString("\n" + "💰 ❌ 💤")
 
 	width, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {

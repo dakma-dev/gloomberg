@@ -10,24 +10,18 @@ import (
 type EventType string
 
 const (
-	ItemListed        EventType = "item_listed"
-	ItemSold          EventType = "item_sold"
-	ItemReceivedOffer EventType = "item_received_offer"
-	CollectionOffer   EventType = "collection_offer"
+	ItemListed          EventType = "item_listed"
+	ItemSold            EventType = "item_sold"
+	ItemReceivedBid     EventType = "item_received_bid"
+	ItemReceivedOffer   EventType = "item_received_offer"
+	CollectionOffer     EventType = "collection_offer"
+	ItemMetadataUpdated EventType = "item_metadata_updated"
 
-	// ItemMetadataUpdated EventType = "item_metadata_updated"
 	// ItemCancelled       EventType = "item_cancelled".
-	ItemReceivedBid EventType = "item_received_bid"
 	// ItemTransferred     EventType = "item_transferred".
 
 	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
-
-type CollectionOfferEvent struct {
-	EventType string                 `json:"event_type"`
-	SentAt    string                 `json:"sent_at" mapstructure:"sent_at"`
-	Payload   CollectionOfferPayload `json:"payload" mapstructure:"payload"`
-}
 
 type CollectionOfferPayload struct {
 	AssetContractCriteria struct {
@@ -93,6 +87,15 @@ type Chain struct {
 	Name string `json:"name" mapstructure:"name"`
 }
 
+type ItemEvent struct {
+	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
+	Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
+}
+
+type ItemEventPayload struct {
+	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
+}
+
 type ItemListedEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
 	Payload           ItemListedEventPayload `json:"payload" mapstructure:"payload"`
@@ -129,6 +132,10 @@ type ItemReceivedOfferEventPayload struct {
 	EventTimestamp     string       `json:"event_timestamp" mapstructure:"event_timestamp"`
 }
 
+type CollectionOfferEvent struct {
+	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
+	Payload           CollectionOfferPayload `json:"payload" mapstructure:"payload"`
+}
 type Account struct {
 	Address string `json:"address" mapstructure:"address"`
 	User    string `json:"user" mapstructure:"user"`
@@ -370,8 +377,8 @@ type SeaportParameters struct {
 	// ZoneHash common.Hash `json:"zoneHash"`
 	Salt string `json:"salt"`
 	// ConduitKey                      common.Hash                `json:"conduitKey"`
-	TotalOriginalConsiderationItems int `json:"totalOriginalConsiderationItems"`
-	Counter                         int `json:"counter"`
+	TotalOriginalConsiderationItems int         `json:"totalOriginalConsiderationItems"`
+	Counter                         interface{} `json:"counter"`
 }
 
 type SeaportDisplayData struct {

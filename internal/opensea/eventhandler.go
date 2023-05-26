@@ -73,10 +73,10 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				}
 
 			case osmodels.ItemReceivedOffer:
-				log.Infof("⚓️ received %s: %+v", itemEventType, itemEvent)
+				log.Infof("⚓️ received OFFER %s: %+v", itemEventType, itemEvent)
 
 			case osmodels.ItemReceivedBid:
-				log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
+				log.Infof("⚓️ received BID %s: %+v", itemEventType, itemEvent)
 				eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
 
 				itemReceivedBidEvent, err := seaWatcher.DecodeItemReceivedBidEvent(itemEvent)
