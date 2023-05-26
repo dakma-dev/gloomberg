@@ -10,6 +10,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendata"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
@@ -25,6 +26,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -207,6 +209,30 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 				gbl.Log.Debugf("♾️ amountTokens > 9999 for token %s", transfer.Token.ShortID())
 
 				continue
+			}
+
+			// add rank if available
+			if degendata.Metadatas[transfer.Token.Address] != nil {
+				if _, ok := degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()]; ok {
+					rank := degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()].Score.Rank
+					topX := float64(rank) / float64(collection.Metadata.TotalSupply)
+
+					var rankSymbol string
+
+					switch {
+					case topX <= 0.01:
+						rankSymbol = "🥇"
+					case topX <= 0.1:
+						rankSymbol = "🥈"
+					case topX <= 0.25:
+						rankSymbol = "🥉"
+					default:
+						rankSymbol = "|"
+					}
+
+					fmtTokenID.WriteString(style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf(" ・%d %s・ ", rank, rankSymbol)))
+					log.Debug(degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()])
+				}
 			}
 
 			// add number of tokens transferred

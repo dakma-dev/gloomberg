@@ -13,6 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
+	"github.com/benleb/gloomberg/internal/degendata"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
@@ -29,7 +30,6 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/trapri"
-	"github.com/benleb/gloomberg/internal/utils/slugs"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
@@ -288,8 +288,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}
 	}()
 
-	slugTicker := time.NewTicker(7 * time.Second)
-	go slugs.SlugWorker(slugTicker, &gb.QueueSlugs, gb.Rueidi)
+	// slugTicker := time.NewTicker(7 * time.Second)
+	// go slugs.SlugWorker(slugTicker, &gb.QueueSlugs, gb.Rueidi)
 
 	//
 	// gasline ticker
@@ -329,7 +329,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	gb.Stats = stats.New(gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
 
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
-		gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
+		go gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
 	}
 
 	//
@@ -411,32 +411,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		_ = webSpinner.Stop()
 	}
 
-	// //
-	// // web ui
-	// if viper.GetBool("web.enabled") {
-	// 	webSpinner := style.GetSpinner("setting up web ui...")
-	// 	_ = webSpinner.Start()
-
-	// 	queueWeb := make(chan *totra.TokenTransaction, 1024)
-	// 	// gb.OutputQueues["web"] = queueWeb
-
-	// 	listenHost := net.ParseIP(viper.GetString("web.host"))
-	// 	listenPort := viper.GetUint("web.port")
-	// 	listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
-
-	// 	// webJLive := web.New(&queueWeb, listenAddress, gb.Nodes, nil)
-	// 	// go webJLive.Start()
-	// 	gloomWeb := web.NewGloomWeb(listenAddress, &queueWeb)
-	// 	go func() { log.Fatal(gloomWeb.Run()) }()
-
-	// 	uiURL := fmt.Sprintf("https://%s", listenAddress)
-	// 	uiLink := style.TerminalLink(uiURL, style.BoldStyle.Render(uiURL))
-
-	// 	webSpinner.StopMessage(fmt.Sprintf("web ui running: %s", uiLink))
-
-	// 	// stop spinner
-	// 	_ = webSpinner.Stop()
-	// }
+	if err := degendata.LoadMetadatas(); err != nil {
+		log.Error(err)
+	}
 
 	// prometheus metrics
 	if viper.GetBool("metrics.enabled") {
@@ -535,8 +512,8 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
-	viper.SetDefault("ticker.statsbox", internal.BlockTime*8)
-	viper.SetDefault("ticker.gasline", internal.BlockTime*2)
+	viper.SetDefault("ticker.statsbox", internal.BlockTime*9)
+	viper.SetDefault("ticker.gasline", internal.BlockTime*3)
 
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)

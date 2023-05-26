@@ -84,7 +84,7 @@ type SeaWatcher struct {
 }
 
 var (
-	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid} // ItemMetadataUpdated, ItemCancelled
+	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.CollectionOffer, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
@@ -200,9 +200,18 @@ func (sw *SeaWatcher) eventHandler(response any) {
 
 	switch osmodels.EventType(itemEventType) {
 	case osmodels.ItemSold:
-		log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received SOLD %s: %+v", itemEventType, itemEvent)
+
+	case osmodels.ItemReceivedBid:
+		log.Debugf("⚓️ received BID %s: %+v", itemEventType, itemEvent)
+		// sw.publishEvent(itemEvent)
+
+	case osmodels.ItemMetadataUpdated:
+		log.Debugf("⚓️ received METADATA %s: %+v", itemEventType, itemEvent)
+		// sw.publishEvent(itemEvent)
+
 	case osmodels.CollectionOffer:
-		log.Debugf("⚓️ received %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, itemEvent)
 
 		collectionOfferEvent, err := sw.DecodeCollectionOfferEvent(itemEvent)
 		if err != nil {
@@ -210,7 +219,9 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		}
 
 		// print collectionOfferEvent
-		log.Debugf("⚓️ received %s: %+v", itemEventType, collectionOfferEvent)
+		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, collectionOfferEvent)
+
+		sw.publishEvent(collectionOfferEvent)
 
 		// priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 		// if err != nil {
@@ -232,7 +243,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 	// log.Infof("⚓️ 🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(pricePerToken).Ether())), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
 
 	case osmodels.ItemReceivedOffer:
-		log.Infof("⚓️ offer received %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ offer received %s: %+v", itemEventType, itemEvent)
 
 		var itemReceivedOfferEvent osmodels.ItemReceivedOfferEvent
 
@@ -243,9 +254,11 @@ func (sw *SeaWatcher) eventHandler(response any) {
 			return
 		}
 
+		sw.publishEvent(itemReceivedOfferEvent)
+
 		// print itemReceivedOfferEvent
 		log.Debugf("⚓️ received %s: %+v", itemEventType, itemReceivedOfferEvent)
-		printItemListedEvent(itemReceivedOfferEvent)
+		printItemReceivedOfferEvent(itemReceivedOfferEvent)
 
 	case osmodels.ItemListed:
 		var itemListedEvent osmodels.ItemListedEvent
@@ -258,6 +271,8 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		}
 
 		sw.publishItemListed(itemListedEvent)
+
+		sw.publishEvent(itemListedEvent)
 	}
 
 	sw.receivedEvents <- itemEvent
@@ -374,6 +389,131 @@ type FloorPriceAlchemyData struct {
 	Error         string  `json:"error"`
 }
 
+func (sw *SeaWatcher) publishEvent(event any) {
+	// just publish the event to redis if we have a valid api key (= may have it acquired via opensea api)
+	if viper.GetString("api_keys.opensea") == "" {
+		log.Debugf("⚓️ 🤷‍♀️ no opensea api key set, skipping event: %s", event)
+
+		return
+	}
+
+	log.SetReportCaller(true)
+
+	// var payload osmodels.ItemEventPayload
+
+	var itemEvent osmodels.ItemEvent
+
+	log.Print("")
+	log.Print("---- new ----")
+	switch eType := event.(type) {
+	case osmodels.CollectionOfferEvent:
+		itemEvent, ok := event.(osmodels.CollectionOfferEvent)
+		if !ok {
+			log.Printf("❌ error casting event to CollectionOfferEvent: %+v", eType)
+		}
+
+		log.Printf("📦 collection offer event: %p", &itemEvent)
+
+	case osmodels.ItemListedEvent:
+		itemEvent, ok := event.(osmodels.ItemListedEvent)
+		if !ok {
+			log.Printf("❌ error casting event to ItemListedEvent: %+v", eType)
+		}
+
+		log.Printf("📦 item listed event: %p", &itemEvent)
+
+	case osmodels.ItemReceivedBidEvent:
+		itemEvent, ok := event.(osmodels.ItemReceivedBidEvent)
+		if !ok {
+			log.Printf("❌ error casting event to ItemReceivedBidEvent: %+v", eType)
+		}
+		log.Printf("📦 item received bid event: %p", &itemEvent)
+
+	default:
+		log.Printf("❔ unknown event type: %+v", eType)
+	}
+
+	log.Print("---- done ----")
+	log.Print("")
+
+	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
+	nftID := strings.Split(itemEvent.Payload.Item.NftID, "/")
+	if len(nftID) != 3 {
+		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemEvent.Payload.Item.NftID)
+
+		return
+	}
+
+	// marshal event to json
+	jsonEvent, err := json.Marshal(itemEvent)
+	if err != nil {
+		log.Info("⚓️❌ json.Marshal failed for incoming stream api event", err)
+
+		return
+	}
+
+	// generate the redis pubsub channel name
+	channel := internal.TopicSeaWatcher + "/" + common.HexToAddress(nftID[1]).String() + "/" + string(itemEvent.StreamEvent)
+
+	// publish event to redis
+	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(channel).Message(string(jsonEvent)).Build()).Error() != nil {
+		log.Warnf("⚓️❕ error publishing event to redis: %s", err.Error())
+	}
+
+	// itemEvent := event.(map[string]interface{})
+	// log.Printf("itemEvent: %+v", itemEvent)
+
+	// pppayload := itemEvent["payload"].(map[string]interface{})
+	// log.Printf("pppayload: %+v", pppayload)
+
+	//
+
+	// if itemEvent["payload"] == nil {
+	// 	log.Infof("⚓️ 🤷‍♀️ no payload found in event: %s", itemEvent)
+	// }
+
+	// for k, v := range itemEvent {
+	// 	fmt.Println("Key:", k, "Value:", v)
+	// }
+
+	// switch itemEvent["payload"].(type) {
+	// case osmodels.ItemEventPayload:
+	// 	payload = itemEvent["payload"].(osmodels.ItemEventPayload)
+	// }
+
+	// log.Printf("nft_id:  %#v", itemEvent["payload"].(map[string]interface{})["Item"])
+
+	// payload := itemEvent["payload"].(osmodels.ItemEventPayload)
+
+	// // nftID is a identification string in the format <chain>/<contract>/<tokenID>
+	// nftID := strings.Split(payload.Item.NftID, "/")
+	// if len(nftID) != 3 {
+	// 	log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", payload.Item.NftID)
+
+	// 	return
+	// }
+
+	// // marshal event to json
+	// jsonEvent, err := json.Marshal(itemEvent)
+	// if err != nil {
+	// 	log.Info("⚓️❌ json.Marshal failed for incoming stream api event", err)
+
+	// 	return
+	// }
+
+	// // generate the redis pubsub channel name
+	// channel := internal.TopicSeaWatcher + "/" + common.HexToAddress(nftID[1]).String() + "/" + string(itemEvent.StreamEvent)
+
+	// // publish event to redis
+	// if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(channel).Message(string(jsonEvent)).Build()).Error() != nil {
+	// 	log.Warnf("⚓️❕ error publishing event to redis: %s", err.Error())
+	// }
+
+	// itemListedEvent := event.(osmodels.ItemListedEvent)
+
+	// printItemListed(itemListedEvent)
+}
+
 func (sw *SeaWatcher) publishItemListed(itemListedEvent osmodels.ItemListedEvent) {
 	// just publish the event to redis if we have a valid api key (= may have it acquired via opensea api)
 	if viper.GetString("api_keys.opensea") == "" {
@@ -409,7 +549,7 @@ func (sw *SeaWatcher) publishItemListed(itemListedEvent osmodels.ItemListedEvent
 	printItemListed(itemListedEvent)
 }
 
-func printItemListedEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
+func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
 	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 	if err != nil {
 		log.Infof("⚓️❌ error parsing price: %s", err.Error())
@@ -727,10 +867,17 @@ func (sw *SeaWatcher) Run() {
 				action = sw.UnubscribeForSlug
 			}
 
+			// transform to string
+			var events []string
+			for _, event := range AvailableEventTypes {
+				events = append(events, string(event))
+			}
+
 			// subscribe to which events?
 			if len(mgmtEvent.Events) == 0 {
 				// subscribe to all available events if none are specified
-				log.Infof("⚓️ ␚ no events specified, subscribing to all available events for %s", style.BoldStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))))
+				log.Infof("⚓️ ␚ no events specified, subscribing to all available events (%+v)", strings.Join(events, ", "))
+				// style.BoldStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs)))
 				mgmtEvent.Events = AvailableEventTypes
 			}
 
