@@ -63,7 +63,7 @@ func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *t
 	}
 
 	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
-		gbl.Log.Infof("🚇 received msg on channel %s: %s", msg.Channel, msg.Message)
+		gbl.Log.Debugf("🚇 received msg on channel %s: %s", msg.Channel, msg.Message)
 
 		var itemListedEvent osmodels.ItemListedEvent
 

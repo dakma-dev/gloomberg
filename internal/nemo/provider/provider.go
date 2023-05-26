@@ -318,7 +318,14 @@ func (p *Provider) connect() error {
 }
 
 func (p *Provider) subscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
-	return p.subscribeTo(queueLogs, [][]common.Hash{{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle))}, {}, {}, {}}, nil)
+	subscribeTopics := [][]common.Hash{
+		{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle))},
+		{},
+		{},
+		{},
+	}
+
+	return p.subscribeTo(queueLogs, subscribeTopics, nil)
 }
 
 func (p *Provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash, contractAddresses []common.Address) (ethereum.Subscription, error) {

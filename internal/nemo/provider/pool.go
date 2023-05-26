@@ -131,13 +131,19 @@ func FromConfig(config interface{}) (*Pool, error) {
 	// handle reconnects
 	go func() {
 		// reconnect if no logs received for a while
-		maxDelay := internal.BlockTime * 3
+		waitForBlocks := 4
+		maxDelay := internal.BlockTime * time.Duration(waitForBlocks)
 		reconnectTicker := time.NewTicker(maxDelay)
 
 		for range reconnectTicker.C {
 			// if last log is older than maxDelay, we reconnect
 			if !providerPool.LastLogReceivedAt.IsZero() && providerPool.LastLogReceivedAt.Add(maxDelay).Before(time.Now()) {
-				infoMsg := fmt.Sprintf(" ❗️ no logs received for %s, reconnecting...", style.Bold(fmt.Sprintf("%.0fsec", maxDelay.Seconds())))
+				infoMsg := fmt.Sprintf(
+					" ❗️ no logs received since %s blocks / %s 🤔 trying to reconnect...",
+					style.Bold(fmt.Sprint(waitForBlocks)),
+					style.Bold(fmt.Sprintf("%.0fsec", maxDelay.Seconds())),
+				)
+
 				gbl.Log.Info(infoMsg)
 				fmt.Print("\n" + infoMsg + "\n")
 
