@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -161,7 +162,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 					break
 				}
 
-				log.Infof("Requesting floor price...")
+				gbl.Log.Info("Requesting floor price...")
 
 				floorPriceAlchemyData := seawa.GetFloorPriceFromAlchemy(collectionOfferEvent.Payload.AssetContractCriteria.Address)
 
@@ -184,7 +185,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 					log.Infof("⚓️❌ floor price mismatch for %s", collectionSlug)
 				}
 
-				log.Infof("%s Floor Price (OS): %f", collectionSlug, collectionStats.FloorPrice)
+				gbl.Log.Infof("%s Floor Price (OS): %f", collectionSlug, collectionStats.FloorPrice)
 				collection.PreviousFloorPrice = floorPriceAlchemyData.Opensea.FloorPrice
 
 				if offerPricePerTokenEther > collection.PreviousFloorPrice {
