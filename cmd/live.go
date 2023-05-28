@@ -365,7 +365,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				if collection, ok := gb.CollectionDB.Collections[itemListedEvent.ContractAddress()]; ok && collection.IgnorePrinting {
 					gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
 
-					return
+					continue
 				}
 
 				// print
