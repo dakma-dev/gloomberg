@@ -24,8 +24,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nepa"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/pusu"
-	"github.com/benleb/gloomberg/internal/rueidica"
-	"github.com/benleb/gloomberg/internal/seawa"
+	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
@@ -72,21 +71,15 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	// }
 
-	rdb := GetRedisClient()
+	log.Infof("🐙 gloomberg start: %p", gb)
 
-	gb := &gloomberg.Gloomberg{
-		CollectionDB: collections.New(),
-		OwnWallets:   &wallet.Wallets{},
-		Watcher:      &watch.Watcher{},
-
-		QueueSlugs: make(chan common.Address, 1024),
-
-		Rdb:    rdb,
-		Rueidi: rueidica.NewRueidica(rdb),
-	}
+	// gb := gloomberg.New()
+	gb.CollectionDB = collections.New()
+	gb.OwnWallets = &wallet.Wallets{}
+	gb.Watcher = &watch.Watcher{}
 
 	// cleanup for redis db/cache
-	defer gb.Rdb.Close()
+	// defer gb.Rdb.Close()
 
 	// compatibility with old config key
 	var providerConfig interface{}
@@ -276,8 +269,24 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	go func() {
 		gbl.Log.Debug("starting terminal printer...")
 
-		for eventLine := range terminalPrinterQueue {
+		for eventLine := range gb.SubscribePrintToTerminal() {
 			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+
+			if viper.GetBool("log.debug") {
+				debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
+				eventLine = fmt.Sprint(debugPrefix, eventLine)
+			}
+
+			fmt.Println(eventLine)
+		}
+	}()
+
+	// old printer active until fully migrated
+	go func() {
+		gbl.Log.Debug("starting OLD terminal printer...")
+
+		for eventLine := range terminalPrinterQueue {
+			gbl.Log.Debugf("OLD terminal printer eventLine: %s", eventLine)
 
 			if viper.GetBool("log.debug") {
 				debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
@@ -345,6 +354,24 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		time.Sleep(1 * time.Second)
 		gb.SendSlugsToServer()
+
+		go func() {
+			for itemListedEvent := range gb.SubscribeItemListed() {
+				itemListedEvent := itemListedEvent
+				gbl.Log.Debugf("🚇 received item_listed event: %s", itemListedEvent)
+
+				//
+				// discard listings for ignored collections
+				if collection, ok := gb.CollectionDB.Collections[itemListedEvent.ContractAddress()]; ok && collection.IgnorePrinting {
+					gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
+
+					return
+				}
+
+				// print
+				trapri.FormatListing(gb, itemListedEvent, queueTokenTransactions)
+			}
+		}()
 	}
 
 	//
@@ -360,13 +387,13 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
 				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Message))
 
-				var mgmtEvent *seawa.MgmtEvent
+				var mgmtEvent *seawaModels.MgmtEvent
 
 				if err := json.Unmarshal([]byte(msg.Message), &mgmtEvent); err != nil {
 					gbl.Log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
 				}
 
-				if mgmtEvent.Action == seawa.SendSlugs {
+				if mgmtEvent.Action == seawaModels.SendSlugs {
 					gbl.Log.Info(fmt.Sprintf("🚇 SendSlugs received on channel %s", msg.Channel))
 					gb.SendSlugsToServer()
 				}

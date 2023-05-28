@@ -780,7 +780,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	//
 	// 🌈 finally print the sale/listing/whatever 🌈
 	if !viper.GetBool("ui.headless") {
-		terminalPrinterQueue <- out.String()
+		// terminalPrinterQueue <- out.String()
+		gb.In.PrintToTerminal <- out.String()
 	}
 
 	// add to history

@@ -1,6 +1,7 @@
 package osmodels
 
 import (
+	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -14,8 +15,9 @@ const (
 	ItemSold            EventType = "item_sold"
 	ItemReceivedBid     EventType = "item_received_bid"
 	ItemReceivedOffer   EventType = "item_received_offer"
-	CollectionOffer     EventType = "collection_offer"
 	ItemMetadataUpdated EventType = "item_metadata_updated"
+
+	CollectionOffer EventType = "collection_offer"
 
 	// ItemCancelled       EventType = "item_cancelled".
 	// ItemTransferred     EventType = "item_transferred".
@@ -23,35 +25,17 @@ const (
 	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
 
-type CollectionOfferPayload struct {
-	AssetContractCriteria struct {
-		Address string `json:"address"`
-	} `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
-	BasePrice  string `json:"base_price" mapstructure:"base_price"`
-	Collection struct {
-		Slug string `json:"slug"`
-	} `json:"collection"`
-	CollectionCriteria struct {
-		Slug string `json:"slug"`
-	} `json:"collection_criteria"`
-	CreatedDate    time.Time `json:"created_date"`
-	EventTimestamp time.Time `json:"event_timestamp"`
-	ExpirationDate time.Time `json:"expiration_date"`
-	Maker          struct {
-		Address string `json:"address"`
-	} `json:"maker"`
-	OrderHash    string              `json:"order_hash"`
-	PaymentToken PaymentToken        `json:"payment_token" mapstructure:"payment_token"`
-	ProtocolData SeaportProtocolData `json:"protocol_data" mapstructure:"protocol_data"`
-	Quantity     int                 `json:"quantity"`
-	Taker        any                 `json:"taker"`
-}
-
 var TxType = map[EventType]totra.TxType{
 	ItemListed:      totra.Listing,
 	ItemSold:        totra.Sale,
 	CollectionOffer: totra.CollectionOffer,
 	ItemReceivedBid: totra.ItemBid,
+}
+
+type Event interface {
+	// GetSlug() string
+	GetNftID() []string
+	ContractAddress() common.Address
 }
 
 type BaseStreamMessage struct {
@@ -92,13 +76,30 @@ type ItemEvent struct {
 	Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
 }
 
+func (e ItemEvent) GetNftID() []string {
+	return strings.Split(e.Payload.Item.NftID, "/")
+}
+
+func (e ItemEvent) ContractAddress() common.Address {
+	return common.HexToAddress(e.GetNftID()[1])
+}
+
 type ItemEventPayload struct {
 	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
 }
 
 type ItemListedEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
-	Payload           ItemListedEventPayload `json:"payload" mapstructure:"payload"`
+	// Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
+	Payload ItemListedEventPayload `json:"payload" mapstructure:"payload"`
+}
+
+func (e ItemListedEvent) GetNftID() []string {
+	return strings.Split(e.Payload.Item.NftID, "/")
+}
+
+func (e ItemListedEvent) ContractAddress() common.Address {
+	return common.HexToAddress(e.GetNftID()[1])
 }
 
 type ItemListedEventPayload struct {
@@ -136,6 +137,37 @@ type CollectionOfferEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
 	Payload           CollectionOfferPayload `json:"payload" mapstructure:"payload"`
 }
+
+func (co CollectionOfferEvent) NftID() []string {
+	return nil
+}
+
+func (co CollectionOfferEvent) ContractAddress() common.Address {
+	return common.HexToAddress(co.Payload.AssetContractCriteria.Address)
+}
+
+type CollectionOfferPayload struct {
+	AssetContractCriteria struct {
+		Address string `json:"address"`
+	} `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
+	BasePrice  string `json:"base_price" mapstructure:"base_price"`
+	Collection struct {
+		Slug string `json:"slug"`
+	} `json:"collection"`
+	CollectionCriteria struct {
+		Slug string `json:"slug"`
+	} `json:"collection_criteria"`
+	CreatedDate    string              `json:"created_date"`
+	EventTimestamp time.Time           `json:"event_timestamp"`
+	ExpirationDate string              `json:"expiration_date"`
+	Maker          Account             `json:"maker"`
+	OrderHash      string              `json:"order_hash"`
+	PaymentToken   PaymentToken        `json:"payment_token" mapstructure:"payment_token"`
+	ProtocolData   SeaportProtocolData `json:"protocol_data" mapstructure:"protocol_data"`
+	Quantity       int                 `json:"quantity"`
+	Taker          any                 `json:"taker"`
+}
+
 type Account struct {
 	Address string `json:"address" mapstructure:"address"`
 	User    string `json:"user" mapstructure:"user"`

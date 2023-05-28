@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -12,12 +13,13 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/rueidica"
-	"github.com/benleb/gloomberg/internal/seawa"
+	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
+	"github.com/spf13/viper"
 )
 
 type Gloomberg struct {
@@ -33,6 +35,26 @@ type Gloomberg struct {
 	Rueidi *rueidica.Rueidica
 
 	QueueSlugs chan common.Address
+
+	*eventHub
+}
+
+func New() *Gloomberg {
+	// redis
+	rdb := getRedisClient()
+
+	gb := &Gloomberg{
+		Rdb:    rdb,
+		Rueidi: rueidica.NewRueidica(rdb),
+
+		QueueSlugs: make(chan common.Address, 1024),
+
+		eventHub: newEventHub(),
+	}
+
+	log.Infof("🐙 gloomberg: %p", gb)
+
+	return gb
 }
 
 func (gb *Gloomberg) SendSlugsToServer() {
@@ -50,7 +72,7 @@ func (gb *Gloomberg) SendSlugsToServer() {
 
 	log.Debugf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
 
-	mgmtEvent := &seawa.MgmtEvent{Action: seawa.Subscribe, Slugs: slugs}
+	mgmtEvent := &models.MgmtEvent{Action: models.Subscribe, Slugs: slugs}
 
 	jsonMgmtEvent, err := json.Marshal(mgmtEvent)
 	if err != nil {
@@ -64,4 +86,31 @@ func (gb *Gloomberg) SendSlugsToServer() {
 	} else {
 		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
 	}
+}
+
+func getRedisClient() rueidis.Client {
+	// use hostname as client name
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
+
+		hostname = "unknown"
+	}
+
+	// rueidis / new redis library
+	var connectAddr string
+
+	if viper.IsSet("redis.address") {
+		connectAddr = viper.GetString("redis.address")
+	} else {
+		// fallback to old config
+		connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
+	}
+
+	rdb, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: []string{connectAddr}, ClientName: hostname})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	return rdb
 }

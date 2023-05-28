@@ -9,6 +9,8 @@ import (
 	"github.com/benleb/gloomberg/cmd/flotscmd"
 	"github.com/benleb/gloomberg/cmd/oncecmd"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,6 +18,8 @@ import (
 var (
 	cfgFile    string
 	ownWallets []string
+
+	gb *gloomberg.Gloomberg
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -164,4 +168,8 @@ func initConfig() {
 	}
 
 	gbl.GetSugaredLogger()
+
+	gb = gloomberg.New()
+
+	log.Debugf("🐙 gloomberg root: %p", gb)
 }
