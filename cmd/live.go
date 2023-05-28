@@ -344,23 +344,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// subscribe to OpenSea API
 	if viper.GetBool("listings.enabled") {
-		seaWatcher := startOpenseaSubscription()
-
-		opensea.StartEventHandler(gb, seaWatcher.EventChannel(), seaWatcher)
-		// listen on chan
-
-		// subscribe to redis pubsub channel - standalone
-		go pusu.SubscribeToListings(gb, queueTokenTransactions)
-
-		time.Sleep(1 * time.Second)
-		gb.SendSlugsToServer()
-
 		go func() {
 			for itemListedEvent := range gb.SubscribeItemListed() {
-				itemListedEvent := itemListedEvent
 				gbl.Log.Debugf("🚇 received item_listed event: %s", itemListedEvent)
 
-				//
 				// discard listings for ignored collections
 				if collection, ok := gb.CollectionDB.Collections[itemListedEvent.ContractAddress()]; ok && collection.IgnorePrinting {
 					gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
@@ -372,16 +359,22 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				trapri.FormatListing(gb, itemListedEvent, queueTokenTransactions)
 			}
 		}()
+
+		seaWatcher := startOpenseaSubscription()
+
+		opensea.StartEventHandler(gb, seaWatcher.EventChannel(), seaWatcher)
+
+		go gb.SendSlugsToServer()
 	}
 
 	//
 	// subscribe to redis pubsub channel to receive events from gloomberg central
 	if viper.GetBool("pubsub.listings.subscribe") {
 		// subscribe to redis pubsub channel
-		go pusu.SubscribeToListings(gb, queueTokenTransactions)
+		go pusu.SubscribeToListingsViaRedis(gb, queueTokenTransactions)
 
 		// initially send all our slugs & events to subscribe to
-		gb.SendSlugsToServer()
+		go gb.SendSlugsToServer()
 
 		go func() {
 			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {

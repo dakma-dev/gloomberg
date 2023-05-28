@@ -73,10 +73,10 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				}
 
 			case osmodels.ItemReceivedOffer:
-				log.Infof("⚓️ received OFFER %s: %+v", itemEventType, itemEvent)
+				log.Debugf("⚓️ received OFFER %s: %+v", itemEventType, itemEvent)
 
 			case osmodels.ItemReceivedBid:
-				log.Infof("⚓️ received BID %s: %+v", itemEventType, itemEvent)
+				log.Debugf("⚓️ received BID %s: %+v", itemEventType, itemEvent)
 				eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
 
 				itemReceivedBidEvent, err := seaWatcher.DecodeItemReceivedBidEvent(itemEvent)
@@ -148,7 +148,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 
 				if offerPricePerTokenEther > collection.HighestCollectionOffer {
 					collection.HighestCollectionOffer = offerPricePerTokenEther
-					log.Infof("⚓️🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", offerPricePerTokenEther)), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
+					log.Debugf("⚓️🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", offerPricePerTokenEther)), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
 				}
 
 				if collection.PreviousFloorPrice != 0 {
