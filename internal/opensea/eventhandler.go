@@ -1,6 +1,7 @@
 package opensea
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"strings"
@@ -189,6 +190,17 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 
 				if floorPriceAlchemyData.Opensea.FloorPrice != floorPriceAlchemyData.Opensea.FloorPrice {
 					log.Infof("⚓️❌ floor price mismatch for %s", collectionSlug)
+				}
+
+				if floorPriceAlchemyData.Opensea.FloorPrice <= 0.0 {
+					log.Infof("⚓️❌ floor price is zero for %s", collectionSlug)
+
+					continue
+				}
+
+				err = gb.Rueidi.StoreOSFloor(context.TODO(), collectionOfferEvent.ContractAddress(), floorPriceAlchemyData.Opensea.FloorPrice)
+				if err != nil {
+					log.Infof("⚓️❌ error storing floor price for %s: %s", collectionSlug, err.Error())
 				}
 
 				gbl.Log.Infof("%s Floor Price (OS): %f", collectionSlug, collectionStats.FloorPrice)
