@@ -25,7 +25,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 			if !ok {
 				log.Warnf("⚓️ 🤷‍♀️ unknown event type: %s", itemEvent["event_type"])
 
-				return
+				continue
 			}
 
 			switch osmodels.EventType(itemEventType) {
@@ -38,7 +38,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if err != nil {
 					log.Info("⚓️❌ decoding incoming opensea stream api event failed:", err)
 
-					return
+					continue
 				}
 
 				// lawless sniper
@@ -47,14 +47,14 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if len(nftID) != 3 {
 					log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemListedEvent.Payload.Item.NftID)
 
-					return
+					continue
 				}
 
 				priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
 
-					return
+					continue
 				}
 
 				priceWei, _ := priceWeiRaw.Int(nil)
@@ -89,7 +89,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
 
-					return
+					continue
 				}
 
 				priceWei, _ := priceWeiRaw.Int(nil)
@@ -103,7 +103,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				if len(nftID) != 3 {
 					log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemReceivedBidEvent.Payload.Item.NftID)
 
-					return
+					continue
 				}
 
 				// check bid against own nfts
@@ -115,7 +115,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 					log.Infof("⚓️🔸 %s |  %s %s for %s #%s", eventType.Icon(), style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", offerPricePerTokenEther)), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug), nftID[2])
 					log.Infof("⚓️ 🤑 own token received bid: %s", itemReceivedBidEvent.Payload.Item.NftID)
 
-					return
+					continue
 				}
 
 			case osmodels.ItemSold:
@@ -129,13 +129,18 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 				collectionSlug := collectionOfferEvent.Payload.Collection.Slug
 
 				collectionAddress := common.HexToAddress(collectionOfferEvent.Payload.AssetContractCriteria.Address)
-				collection := gb.CollectionDB.Collections[collectionAddress]
+				collection, ok := gb.CollectionDB.Collections[collectionAddress]
+				if !ok {
+					log.Debugf("⚓️ 🤷‍♀️ collection not found: %s", collectionAddress.String())
+
+					continue
+				}
 
 				priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 				if err != nil {
 					log.Infof("⚓️❌ error parsing price: %s", err.Error())
 
-					return
+					continue
 				}
 
 				priceWei, _ := priceWeiRaw.Int(nil)
