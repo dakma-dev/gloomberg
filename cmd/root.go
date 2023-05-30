@@ -122,8 +122,8 @@ func init() {
 	// ens/wallet names
 	viper.SetDefault("cache.ens_ttl", 48*time.Hour)
 
-	// floor_ttl of 15min is only suitable for caching purposes, not for buying decisions!
-	viper.SetDefault("cache.floor_ttl", 15*time.Minute)
+	// floor_ttl is only intended & suitable for caching purposes, not for buying decisions!
+	viper.SetDefault("cache.floor_ttl", 180*time.Second)
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
 	viper.SetDefault("cache.notifications_lock_ttl", 1*time.Minute)

@@ -2,6 +2,7 @@ package opensea
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -169,49 +170,45 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 					break
 				}
 
-				gbl.Log.Info("Requesting floor price...")
+				var collectionFloor float64
 
-				floorPriceAlchemyData := external.GetFloorPriceFromAlchemy(collectionOfferEvent.Payload.AssetContractCriteria.Address)
+				if floor, err := gb.Rueidi.GetCachedOSFloor(context.TODO(), collectionOfferEvent.ContractAddress()); err == nil {
+					collectionFloor = floor
+				} else if floor, err := fetchFloorPrice(collectionOfferEvent.ContractAddress(), collectionSlug); err == nil {
+					collectionFloor = floor
 
-				if floorPriceAlchemyData == nil {
-					log.Infof("⚓️❌ error fetching floor price from alchemy for %s", collectionSlug)
-
-					break
-				}
-				// log.Infof("%s Floor Price: %f (alchemy)", collectionSlug, floorPriceAlchemyData.Opensea.FloorPrice)
-
-				collectionStats := GetCollectionStats(collectionSlug)
-
-				if collectionStats == nil {
-					log.Infof("⚓️❌ error fetching collection stats for %s", collectionSlug)
-
-					break
-				}
-
-				if floorPriceAlchemyData.Opensea.FloorPrice != floorPriceAlchemyData.Opensea.FloorPrice {
-					log.Infof("⚓️❌ floor price mismatch for %s", collectionSlug)
-				}
-
-				if floorPriceAlchemyData.Opensea.FloorPrice <= 0.0 {
-					log.Infof("⚓️❌ floor price is zero for %s", collectionSlug)
+					err = gb.Rueidi.StoreOSFloor(context.TODO(), collectionOfferEvent.ContractAddress(), collectionFloor)
+					if err != nil {
+						gbl.Log.Warnf("❌ error storing floor price for %s: %s", collectionSlug, err.Error())
+					}
+				} else {
+					gbl.Log.Warnf("⚓️❌ error fetching floor price for %s", collectionSlug)
 
 					continue
 				}
 
-				err = gb.Rueidi.StoreOSFloor(context.TODO(), collectionOfferEvent.ContractAddress(), floorPriceAlchemyData.Opensea.FloorPrice)
-				if err != nil {
-					log.Infof("⚓️❌ error storing floor price for %s: %s", collectionSlug, err.Error())
-				}
+				gbl.Log.Infof("%s | collectionFloor: %f", collectionSlug, collectionFloor)
 
-				gbl.Log.Infof("%s Floor Price (OS): %f", collectionSlug, collectionStats.FloorPrice)
-				collection.PreviousFloorPrice = floorPriceAlchemyData.Opensea.FloorPrice
+				collection.PreviousFloorPrice = collectionFloor
 
-				if offerPricePerTokenEther > collection.PreviousFloorPrice {
-					log.Infof("⚓️‼ ❗❗❗❗ OFFER: price per token %f is higher than floor price %d", offerPricePerTokenEther, big.NewInt(int64(collection.PreviousFloorPrice)))
-
-					break
+				if offerPricePerTokenEther > collectionFloor {
+					log.Printf("‼ ❗❗❗❗ OFFER: price per token %f is higher than floor price %d", offerPricePerTokenEther, big.NewInt(int64(collection.PreviousFloorPrice)))
 				}
 			}
 		}
 	}()
+}
+
+func fetchFloorPrice(address common.Address, collectionSlug string) (float64, error) {
+	gbl.Log.Debugf("requesting floor from OpenSea...")
+	if osCollectionStats := GetCollectionStats(collectionSlug); osCollectionStats != nil && osCollectionStats.FloorPrice > 0.0 {
+		return osCollectionStats.FloorPrice, nil
+	}
+
+	gbl.Log.Debugf("requesting floor from Alchemy...")
+	if alchemyCollectionStats := external.GetFloorPriceFromAlchemy(address.Hex()); alchemyCollectionStats != nil && alchemyCollectionStats.Opensea.FloorPrice > 0.0 {
+		return alchemyCollectionStats.Opensea.FloorPrice, nil
+	}
+
+	return 0.0, errors.New("no floor price found")
 }
