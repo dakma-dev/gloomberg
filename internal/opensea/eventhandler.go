@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
@@ -169,7 +170,7 @@ func StartEventHandler(gb *gloomberg.Gloomberg, eventChannel chan map[string]int
 
 				gbl.Log.Info("Requesting floor price...")
 
-				floorPriceAlchemyData := seawa.GetFloorPriceFromAlchemy(collectionOfferEvent.Payload.AssetContractCriteria.Address)
+				floorPriceAlchemyData := external.GetFloorPriceFromAlchemy(collectionOfferEvent.Payload.AssetContractCriteria.Address)
 
 				if floorPriceAlchemyData == nil {
 					log.Infof("⚓️❌ error fetching floor price from alchemy for %s", collectionSlug)

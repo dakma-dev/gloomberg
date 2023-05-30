@@ -1,16 +1,12 @@
 package seawa
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
-	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -21,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -296,95 +291,6 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-func GetFloorPriceFromAlchemy(contract string) *GetFloorPriceAlchemyResponse {
-	if contract == "" {
-		fmt.Printf("❌ getContractMetadata from alchemy · error: contract address is empty\n")
-
-		return nil
-	}
-
-	// https://eth-mainnet.g.alchemy.com/nft/v3/{apiKey}/getFloorPrice
-	apikey := viper.GetString("api_keys.alchemy")
-	url := "https://eth-mainnet.g.alchemy.com/nft/v3/" + apikey + "/getFloorPrice?contractAddress=" + contract
-	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
-	if err != nil {
-		if os.IsTimeout(err) {
-			fmt.Printf("⌛️ getContractMetadata from alchemy · timeout while fetching: %+v\n", err.Error())
-		} else {
-			fmt.Printf("❌ getContractMetadata from alchemy · error: %+v\n", err.Error())
-		}
-
-		return nil
-	}
-	defer response.Body.Close()
-
-	if response.StatusCode != http.StatusOK {
-		fmt.Printf("❌ getContractMetadata from alchemy · error: %+v\n", response.Status)
-
-		return nil
-	}
-
-	// read the response body
-	responseBody, err := io.ReadAll(response.Body)
-	if err != nil {
-		fmt.Printf("❌ getContractMetadata from alchemy · response read error: %+v\n", err.Error())
-
-		return nil
-	}
-
-	// decode the data
-	if err != nil || !json.Valid(responseBody) {
-		log.Warnf("getContractMetadata invalid json: %s", err)
-
-		return nil
-	}
-
-	// fmt.Println(string(responseBody))
-	var decoded *GetFloorPriceAlchemyResponse
-	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&decoded); err != nil {
-		fmt.Printf("❌  decode error: %s\n", err.Error())
-
-		return nil
-	}
-
-	return decoded
-}
-
-type GetFloorPriceAlchemyResponse struct {
-	Opensea   FloorPriceAlchemyData `json:"openSea"`
-	Looksrare FloorPriceAlchemyData `json:"looksRare"`
-}
-
-type FloorPriceAlchemyData struct {
-	FloorPrice    float64 `json:"floorPrice"`
-	PriceCurrency string  `json:"priceCurrency"`
-	CollectionURL string  `json:"collectionUrl"`
-	RetrievedAt   string  `json:"retrievedAt"`
-	Error         string  `json:"error"`
-}
-
-// func (sw *SeaWatcher) publishItemListedToRedis(itemListedEvent osmodels.ItemListedEvent) {
-// 	// marshal event to json
-// 	jsonEvent, err := json.Marshal(itemListedEvent)
-// 	if err != nil {
-// 		log.Info("⚓️❌ json.Marshal failed for incoming stream api event", err)
-
-// 		return
-// 	}
-
-// 	// generate the redis pubsub channel name
-// 	channel := internal.TopicSeaWatcher + "/" + itemListedEvent.ContractAddress().String() + "/" + string(itemListedEvent.StreamEvent)
-
-// 	// publish event to redis
-// 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(channel).Message(string(jsonEvent)).Build()).Error() != nil {
-// 		log.Warnf("⚓️❕ error publishing event to redis: %s", err.Error())
-// 	}
-
-// 	// this is used to log the event to stdout in "headless" mode,
-// 	// not to print to the terminal in "live" mode
-// 	printItemListed(itemListedEvent)
-// }
-
 func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
 	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 	if err != nil {
@@ -414,55 +320,6 @@ func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent)
 	fmt.Println(itemOfferEvent.StreamEvent)
 	log.Infof("⚓️ %s | %sΞ  %s ", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemOfferEvent.Payload.Item.Permalink, fmtToken))
 }
-
-// func printItemListed(itemListedEvent osmodels.ItemListedEvent) {
-// 	// parse price
-// 	priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-// 	if err != nil {
-// 		log.Infof("⚓️❌ error parsing price: %s", err.Error())
-
-// 		return
-// 	}
-// 	priceWei, _ := priceWeiRaw.Int(nil)
-
-// 	var listedBy string
-
-// 	listedByAddress := common.HexToAddress(itemListedEvent.Payload.Maker.Address)
-// 	listedByStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(listedByAddress.Big().Int64()))
-
-// 	if itemListedEvent.Payload.Maker.User != "" {
-// 		listedBy = listedByStyle.Render(itemListedEvent.Payload.Maker.User) + " (" + style.ShortenAddressStyled(&listedByAddress, listedByStyle) + ")"
-// 	} else {
-// 		listedBy = style.ShortenAddressStyled(&listedByAddress, listedByStyle)
-// 	}
-
-// 	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
-// 	nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
-// 	if len(nftID) != 3 {
-// 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemListedEvent.Payload.Item.NftID)
-
-// 		return
-// 	}
-
-// 	// collection styles
-// 	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
-// 	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
-
-// 	// strip tokenID from collection name
-// 	collectionName := strings.Split(itemListedEvent.Payload.Item.Metadata.Name, " #")[0]
-
-// 	// get tokenID
-// 	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
-// 	tokenID, _ := tID.Int(nil)
-
-// 	// format tokenID
-// 	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
-// 	eventType := osmodels.TxType[itemListedEvent.StreamEvent]
-
-// 	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
-
-// 	log.Infof("⚓️ %s | %sΞ  %s  | %s", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemListedEvent.Payload.Item.Permalink, fmtToken), listedBy)
-// }
 
 func (sw *SeaWatcher) SubscribeForSlug(eventType osmodels.EventType, slug string) bool {
 	sw.mu.Lock()
@@ -685,3 +542,74 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 		log.Infof("⚓️ 📣 published %s event to %s", style.Bold(sendSlugsEvent.Action.String()), style.Bold(internal.TopicSeaWatcherMgmt))
 	}
 }
+
+// func printItemListed(itemListedEvent osmodels.ItemListedEvent) {
+// 	// parse price
+// 	priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
+// 	if err != nil {
+// 		log.Infof("⚓️❌ error parsing price: %s", err.Error())
+
+// 		return
+// 	}
+// 	priceWei, _ := priceWeiRaw.Int(nil)
+
+// 	var listedBy string
+
+// 	listedByAddress := common.HexToAddress(itemListedEvent.Payload.Maker.Address)
+// 	listedByStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(listedByAddress.Big().Int64()))
+
+// 	if itemListedEvent.Payload.Maker.User != "" {
+// 		listedBy = listedByStyle.Render(itemListedEvent.Payload.Maker.User) + " (" + style.ShortenAddressStyled(&listedByAddress, listedByStyle) + ")"
+// 	} else {
+// 		listedBy = style.ShortenAddressStyled(&listedByAddress, listedByStyle)
+// 	}
+
+// 	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
+// 	nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
+// 	if len(nftID) != 3 {
+// 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemListedEvent.Payload.Item.NftID)
+
+// 		return
+// 	}
+
+// 	// collection styles
+// 	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
+// 	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
+
+// 	// strip tokenID from collection name
+// 	collectionName := strings.Split(itemListedEvent.Payload.Item.Metadata.Name, " #")[0]
+
+// 	// get tokenID
+// 	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
+// 	tokenID, _ := tID.Int(nil)
+
+// 	// format tokenID
+// 	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
+// 	eventType := osmodels.TxType[itemListedEvent.StreamEvent]
+
+// 	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
+
+// 	log.Infof("⚓️ %s | %sΞ  %s  | %s", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemListedEvent.Payload.Item.Permalink, fmtToken), listedBy)
+// }
+
+// func (sw *SeaWatcher) publishItemListedToRedis(itemListedEvent osmodels.ItemListedEvent) {
+// 	// marshal event to json
+// 	jsonEvent, err := json.Marshal(itemListedEvent)
+// 	if err != nil {
+// 		log.Info("⚓️❌ json.Marshal failed for incoming stream api event", err)
+
+// 		return
+// 	}
+
+// 	// generate the redis pubsub channel name
+// 	channel := internal.TopicSeaWatcher + "/" + itemListedEvent.ContractAddress().String() + "/" + string(itemListedEvent.StreamEvent)
+
+// 	// publish event to redis
+// 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(channel).Message(string(jsonEvent)).Build()).Error() != nil {
+// 		log.Warnf("⚓️❕ error publishing event to redis: %s", err.Error())
+// 	}
+
+// 	// this is used to log the event to stdout in "headless" mode,
+// 	// not to print to the terminal in "live" mode
+// 	printItemListed(itemListedEvent)
+// }
