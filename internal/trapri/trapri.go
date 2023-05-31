@@ -227,10 +227,10 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 					case topX <= 0.25:
 						rankSymbol = "🥉"
 					default:
-						rankSymbol = "|"
+						rankSymbol = ""
 					}
 
-					fmtTokenID.WriteString(style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf(" ・%d %s・ ", rank, rankSymbol)))
+					fmtTokenID.WriteString(style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol)))
 					log.Debug(degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()])
 				}
 			}
