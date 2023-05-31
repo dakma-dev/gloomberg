@@ -19,7 +19,7 @@ type Metadata struct {
 	Image           string              `json:"image"`
 	TokenID         int64               `json:"token_id"`
 	ContractAddress common.Address      `json:"-"`
-	Score           Score               `json:"score"`
+	Score           Score               `json:"score,omitempty"`
 }
 
 type MetadataAttribute struct {

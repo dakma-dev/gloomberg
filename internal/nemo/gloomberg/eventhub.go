@@ -12,11 +12,15 @@ type eventHub struct {
 		ItemListedEvents chan *osmodels.ItemListedEvent
 		TxWithLogs       chan *chawagoModels.TxWithLogs
 		PrintToTerminal  chan string
+
+		ItemEvents chan *osmodels.ItemEvent
 	}
 	out struct {
 		ItemListedEvents []chan *osmodels.ItemListedEvent
 		TxWithLogs       []chan *chawagoModels.TxWithLogs
 		PrintToTerminal  []chan string
+
+		ItemEvents []chan *osmodels.ItemEvent
 	}
 }
 
@@ -26,19 +30,27 @@ func newEventHub() *eventHub {
 			ItemListedEvents chan *osmodels.ItemListedEvent
 			TxWithLogs       chan *chawagoModels.TxWithLogs
 			PrintToTerminal  chan string
+
+			ItemEvents chan *osmodels.ItemEvent
 		}{
 			ItemListedEvents: make(chan *osmodels.ItemListedEvent, 1024),
 			TxWithLogs:       make(chan *chawagoModels.TxWithLogs, 1024),
 			PrintToTerminal:  make(chan string, 1024),
+
+			ItemEvents: make(chan *osmodels.ItemEvent, 1024),
 		},
 		out: struct {
 			ItemListedEvents []chan *osmodels.ItemListedEvent
 			TxWithLogs       []chan *chawagoModels.TxWithLogs
 			PrintToTerminal  []chan string
+
+			ItemEvents []chan *osmodels.ItemEvent
 		}{
 			ItemListedEvents: make([]chan *osmodels.ItemListedEvent, 0),
 			TxWithLogs:       make([]chan *chawagoModels.TxWithLogs, 0),
 			PrintToTerminal:  make([]chan string, 0),
+
+			ItemEvents: make([]chan *osmodels.ItemEvent, 0),
 		},
 	}
 
@@ -47,6 +59,13 @@ func newEventHub() *eventHub {
 	go eh.worker()
 
 	return &eh
+}
+
+func (eh *eventHub) SubscribeItemEvents() chan *osmodels.ItemEvent {
+	outChannel := make(chan *osmodels.ItemEvent, 1024)
+	eh.out.ItemEvents = append(eh.out.ItemEvents, outChannel)
+
+	return outChannel
 }
 
 func (eh *eventHub) SubscribeItemListed() chan *osmodels.ItemListedEvent {
