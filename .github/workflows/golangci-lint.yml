@@ -1,7 +1,9 @@
 name: golangci-lint
 
-#  push:  # { branches: [master, main], tags: [v*] }
-on: [push, pull_request, workflow_dispatch]
+on:
+  push: { branches: [master, main] }
+  pull_request:
+  workflow_dispatch:
 
 # Optional: allow read access to pull request. Use with `only-new-issues` option.
 permissions: { contents: read } # pull-requests: read
