@@ -23,6 +23,7 @@ import (
 const (
 	keywordContractName string = "contractName"
 	keywordENS          string = "ensDomain"
+	keywordFloorOS      string = "floorOS"
 	keywordOSSlug       string = "osslug"
 	keywordBlurSlug     string = "blurslug"
 	keywordSalira       string = "salira"
@@ -64,6 +65,19 @@ func (r *Rueidica) StoreENSName(ctx context.Context, address common.Address, nam
 	log.Debugf("rueidica.StoreENSName | %+v -> %+v", address.Hex(), name)
 
 	return r.cacheName(ctx, address, name, keyENS, viper.GetDuration("cache.ens_ttl"))
+}
+
+// Floors.
+func (r *Rueidica) GetCachedOSFloor(ctx context.Context, address common.Address) (float64, error) {
+	log.Debugf("rueidica.GetCachedOSFloor | %+v", address)
+
+	return r.getCachedNumber(ctx, address, keyFloorOS)
+}
+
+func (r *Rueidica) StoreOSFloor(ctx context.Context, address common.Address, value float64) error {
+	log.Debugf("rueidica.StoreOSFloor | %+v -> %+v", address.Hex(), value)
+
+	return r.cacheName(ctx, address, fmt.Sprint(value), keyFloorOS, viper.GetDuration("cache.floor_ttl"))
 }
 
 // Salira.
@@ -223,6 +237,10 @@ func keyContract(address common.Address) string {
 
 func keyENS(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordENS)
+}
+
+func keyFloorOS(address common.Address) string {
+	return fmt.Sprint(address.Hex(), keyDelimiter, keywordFloorOS)
 }
 
 func keyOSSlug(address common.Address) string {

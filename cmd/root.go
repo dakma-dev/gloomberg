@@ -9,6 +9,8 @@ import (
 	"github.com/benleb/gloomberg/cmd/flotscmd"
 	"github.com/benleb/gloomberg/cmd/oncecmd"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -16,6 +18,8 @@ import (
 var (
 	cfgFile    string
 	ownWallets []string
+
+	gb *gloomberg.Gloomberg
 )
 
 // rootCmd represents the base command when called without any subcommands.
@@ -118,7 +122,8 @@ func init() {
 	// ens/wallet names
 	viper.SetDefault("cache.ens_ttl", 48*time.Hour)
 
-	viper.SetDefault("cache.floor_ttl", 2*time.Hour)
+	// floor_ttl is only intended & suitable for caching purposes, not for buying decisions!
+	viper.SetDefault("cache.floor_ttl", 10*time.Minute)
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
 	viper.SetDefault("cache.notifications_lock_ttl", 1*time.Minute)
@@ -154,14 +159,15 @@ func initConfig() {
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err != nil {
 		//nolint:errorlint
-		if _, ok := err.(viper.ConfigFileNotFoundError); ok {
-			// Config file not found; ignore error if desired
-			// fmt.Printf("config file not found: %s\n", viper.ConfigFileUsed())
-		} else {
+		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
 			// Config file was found but another error was produced
 			fmt.Printf("config file error: %s - %s\n", viper.ConfigFileUsed(), err.Error())
 		}
 	}
 
 	gbl.GetSugaredLogger()
+
+	gb = gloomberg.New()
+
+	log.Debugf("🐙 gloomberg root: %p", gb)
 }
