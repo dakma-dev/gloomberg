@@ -182,7 +182,7 @@ func (c *Client) MevSendBundle(rawTxs [][]byte) common.Hash {
 		},
 	}
 
-	log.Debugf("sendBundleRequest: %+v\n", mevSendBundleRequest)
+	log.Debugf("sendBundleRequest: %+v | %+v", mevSendBundleRequest, rawTxs)
 
 	//
 	// call bundle
