@@ -19,7 +19,7 @@ func init() {
 	_ = viper.BindPFlag("fresh", OnceCmd.Flags().Lookup("fresh"))
 }
 
-// OnceCmd represents the once command
+// OnceCmd represents the once command.
 var OnceCmd = &cobra.Command{
 	Use:   "once",
 	Short: "This command is intended to quickly implement a one-time task or similar",

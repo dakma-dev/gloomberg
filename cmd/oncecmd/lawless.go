@@ -125,7 +125,7 @@ func analyzeLawlessTokenNames(client *ethclient.Client) {
 // getLawlessMetadata gets all metadata from the lawless contract
 // use following command on the resulting json to get the number of items per type
 //
-// $ cat lawless_metadata.json| jq -r '.[] | .name' | sed 's/.*-//g' | sort -k3 | uniq -c | sort -n -r
+// $ cat lawless_metadata.json| jq -r '.[] | .name' | sed 's/.*-//g' | sort -k3 | uniq -c | sort -n -r.
 func getLawlessMetadata(client *ethclient.Client) []degendata.Metadata {
 	allMetadata := make([]degendata.Metadata, 0)
 
@@ -221,7 +221,7 @@ func getLawlessMetadata(client *ethclient.Client) []degendata.Metadata {
 		metadataJSON.TokenID = tokenID
 		metadataJSON.ContractAddress = lawlessContractAddress
 
-		// artifical metadata until we have the real one
+		// artificial metadata until we have the real one
 		metadataJSON.Attributes = append(metadataJSON.Attributes,
 			degendata.MetadataAttribute{
 				Name:  "model",
