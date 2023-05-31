@@ -1,7 +1,6 @@
 package degendata
 
 import (
-	"encoding/gob"
 	"errors"
 	"fmt"
 	"os"
@@ -19,7 +18,7 @@ type Metadata struct {
 	Image           string              `json:"image"`
 	TokenID         int64               `json:"token_id"`
 	ContractAddress common.Address      `json:"-"`
-	Score           Score               `json:"score"`
+	Score           Score               `json:"score,omitempty"`
 }
 
 type MetadataAttribute struct {
@@ -92,28 +91,28 @@ func LoadMetadatas() error {
 	return nil
 }
 
-func getMetadatForCollection[T interface{}](contractAddress common.Address, metadata T) error {
-	metadataFile := findMetadataFile(contractAddress)
-	if metadataFile == "" {
-		return ErrNoMetadataFile
-	}
+// func getMetadatForCollection[T interface{}](contractAddress common.Address, metadata T) error {
+// 	metadataFile := findMetadataFile(contractAddress)
+// 	if metadataFile == "" {
+// 		return ErrNoMetadataFile
+// 	}
 
-	file, err := os.Open(metadataFile)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
+// 	file, err := os.Open(metadataFile)
+// 	if err != nil {
+// 		return err
+// 	}
+// 	defer file.Close()
 
-	metadataDecoder := gob.NewDecoder(file)
-	err = metadataDecoder.Decode(&metadata)
-	if err != nil {
-		return err
-	}
+// 	metadataDecoder := gob.NewDecoder(file)
+// 	err = metadataDecoder.Decode(&metadata)
+// 	if err != nil {
+// 		return err
+// 	}
 
-	LoadedMetadata[contractAddress] = metadata
+// 	LoadedMetadata[contractAddress] = metadata
 
-	return nil
-}
+// 	return nil
+// }
 
 // func getMetadatFromFile(contractAddress common.Address, metadata interface{}) error {
 // 	metadataFile := findMetadataFile(contractAddress)
@@ -138,22 +137,22 @@ func getMetadatForCollection[T interface{}](contractAddress common.Address, meta
 // 	return nil
 // }
 
-func findMetadataFile(contractAddress common.Address) string {
-	var metadataFile string
+// func findMetadataFile(contractAddress common.Address) string {
+// 	var metadataFile string
 
-	files, err := os.ReadDir(metadataDir)
-	if err != nil {
-		log.Errorf("error reading metadata directory %s: %s", metadataDir, err)
+// 	files, err := os.ReadDir(metadataDir)
+// 	if err != nil {
+// 		log.Errorf("error reading metadata directory %s: %s", metadataDir, err)
 
-		return metadataFile
-	}
+// 		return metadataFile
+// 	}
 
-	for _, file := range files {
-		if strings.HasPrefix(file.Name(), contractAddress.Hex()) && strings.HasSuffix(file.Name(), ".gob") {
-			metadataFile = path.Join(metadataDir, file.Name())
-			log.Debugf("found file: %s", metadataFile)
-		}
-	}
+// 	for _, file := range files {
+// 		if strings.HasPrefix(file.Name(), contractAddress.Hex()) && strings.HasSuffix(file.Name(), ".gob") {
+// 			metadataFile = path.Join(metadataDir, file.Name())
+// 			log.Debugf("found file: %s", metadataFile)
+// 		}
+// 	}
 
-	return metadataFile
-}
+// 	return metadataFile
+// }

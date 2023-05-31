@@ -6,6 +6,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/chawago"
+	chawagoModels "github.com/benleb/gloomberg/internal/chawago/models"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -24,7 +25,7 @@ type (
 		// channels to receive new blocks or logs from the chain/subscriptions
 		newHeads        chan *types.Header
 		newLogs         chan types.Log
-		newTransactions chan *chawago.TxWithLogs
+		newTransactions chan *chawagoModels.TxWithLogs
 		// workQueue chan any
 
 		Transactions           chan *types.Transaction
@@ -46,7 +47,7 @@ func NewNePa(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTr
 	np := &NePa{
 		newHeads:        make(chan *types.Header, 10240),
 		newLogs:         make(chan types.Log, 10240),
-		newTransactions: make(chan *chawago.TxWithLogs, 10240),
+		newTransactions: make(chan *chawagoModels.TxWithLogs, 10240),
 
 		Transactions:           make(chan *types.Transaction, 10240),
 		QueueTokenTransactions: queueTokenTransactions,
@@ -72,11 +73,12 @@ func (np *NePa) Run() {
 		return
 	}
 
-	np.newTransactions = chawago.GetTransactionsForLogs(newLogs, np.gb.ProviderPool)
+	np.newTransactions = chawago.GetTransactionsForLogs(np.gb, newLogs)
 
 	// handle received transactions
+	qTxsWithLogs := np.gb.SubscribeTxWithLogs()
 	for workerID := 1; workerID <= viper.GetInt("server.workers.newLogHandler"); workerID++ {
-		go np.newLogHandler()
+		go np.newLogHandler(qTxsWithLogs)
 	}
 
 	gbl.Log.Debugf("✍️ subscribed to logs via %d nodes", subscribedTo)
@@ -95,10 +97,11 @@ func (np *NePa) Run() {
 }
 
 // newLogHandler handles new logs from an ethNode and fetches the complete tx for it.
-func (np *NePa) newLogHandler() {
+func (np *NePa) newLogHandler(qTxsWithLogs chan *chawagoModels.TxWithLogs) {
 	gbl.Log.Debugf("🧱 starting newLogHandler")
 
-	for tx := range np.newTransactions {
+	// for tx := range np.newTransactions {
+	for tx := range qTxsWithLogs {
 		log.Debugf("📝 %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().String(), tx.Hash().String()))
 
 		//

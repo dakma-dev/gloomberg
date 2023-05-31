@@ -37,8 +37,13 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 }
 
 func startOpenseaSubscription() *seawa.SeaWatcher {
+	// gloomberg
+	// gb := gloomberg.New()
+
+	log.Debugf("🐙 gloomberg seacmd: %p", gb)
+
 	// start sea watcher & loop forever
-	seaWatcher := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), GetRedisClient())
+	seaWatcher := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), gb)
 
 	go seaWatcher.Run()
 

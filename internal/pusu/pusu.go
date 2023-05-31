@@ -3,7 +3,6 @@ package pusu
 import (
 	"context"
 	"encoding/json"
-	"strings"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -11,6 +10,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/trapri"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 )
@@ -44,8 +44,8 @@ func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransac
 	}
 }
 
-// SubscribeToListings subscribes to all collections for which we have a slug.
-func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction) {
+// SubscribeToListingsViaRedis subscribes to all collections for which we have a slug.
+func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction) {
 	slugAddresses := gb.CollectionDB.OpenseaSlugAddresses()
 	if len(slugAddresses) == 0 {
 		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
@@ -82,12 +82,10 @@ func SubscribeToListings(gb *gloomberg.Gloomberg, queueTokenTransactions chan *t
 		}
 
 		// nftID is a string in the format <chain>/<contract>/<tokenID>
-		nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
-		if len(nftID) != 3 {
-			gbl.Log.Warnf("🤷‍♀️ error parsing nftID: %s | %+v", itemListedEvent.Payload.Item.NftID, nftID)
+		nftID := itemListedEvent.GetNftID()
 
-			return
-		}
+		log.Printf("itemListedEvent: %+v", itemListedEvent)
+		log.Printf("nftID: %+v", nftID)
 
 		//
 		// discard listings for ignored collections
