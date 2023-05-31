@@ -31,13 +31,13 @@ import (
 	"github.com/spf13/viper"
 )
 
-func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction, terminalPrinterQueue chan string) {
+func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {
 	gbl.Log.Debugf("🧱 starting ttx formatter worker")
 
 	if viper.GetBool("websockets.client.enabled") {
 		go func() {
 			for ttx := range queueWsInTokenTransactions {
-				go formatTokenTransaction(gb, ttx, terminalPrinterQueue)
+				go formatTokenTransaction(gb, ttx)
 			}
 		}()
 	}
@@ -47,7 +47,7 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 	// blocking/delaying here will block/delay the whole stream
 	// when adding additional calls here, prefer goroutines with conditional select
 	for ttx := range queueTokenTransactions {
-		go formatTokenTransaction(gb, ttx, terminalPrinterQueue)
+		go formatTokenTransaction(gb, ttx)
 
 		// send to ws if webserver enabled & the queue is not congested
 		if viper.GetBool("web.enabled") {
@@ -69,7 +69,7 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 	}
 }
 
-func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction, terminalPrinterQueue chan string) {
+func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 	// // check if we already know the transaction the log belongs to
 	// output.AlreadyPrintedMu.Lock()
 	// known, ok := output.AlreadyPrinted[txHash]
