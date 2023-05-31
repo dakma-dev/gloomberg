@@ -174,11 +174,7 @@ func (wh *WsHub) routeEvent(event Message, wc *WsClient) error {
 	// Check if Handler is present in Map
 	if handler, ok := wh.handlers[event.Type]; ok {
 		// Execute the handler and return any err
-		if err := handler(event, wc); err != nil {
-			return err
-		}
-
-		return nil
+		return handler(event, wc)
 	}
 
 	return ErrEventNotSupported

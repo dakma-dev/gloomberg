@@ -32,15 +32,17 @@ var TxType = map[EventType]totra.TxType{
 	ItemReceivedBid: totra.ItemBid,
 }
 
-type Event interface {
-	// GetSlug() string
-	GetNftID() []string
-	ContractAddress() common.Address
+type ItemEvent interface {
+	StreamEventType() EventType
 }
 
 type BaseStreamMessage struct {
 	StreamEvent EventType `json:"event_type" mapstructure:"event_type"`
 	SentAt      string    `json:"sent_at" mapstructure:"sent_at"`
+}
+
+func (m *BaseStreamMessage) StreamEventType() EventType {
+	return m.StreamEvent
 }
 
 type BaseItemMetadataType struct {
@@ -71,18 +73,18 @@ type Chain struct {
 	Name string `json:"name" mapstructure:"name"`
 }
 
-type ItemEvent struct {
-	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
-	Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
-}
+// type ItemEvent struct {
+// 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
+// 	Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
+// }
 
-func (e ItemEvent) GetNftID() []string {
-	return strings.Split(e.Payload.Item.NftID, "/")
-}
+// func (e ItemEvent) GetNftID() []string {
+// 	return strings.Split(e.Payload.Item.NftID, "/")
+// }
 
-func (e ItemEvent) ContractAddress() common.Address {
-	return common.HexToAddress(e.GetNftID()[1])
-}
+// func (e ItemEvent) ContractAddress() common.Address {
+// 	return common.HexToAddress(e.GetNftID()[1])
+// }
 
 type ItemEventPayload struct {
 	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
@@ -94,11 +96,11 @@ type ItemListedEvent struct {
 	Payload ItemListedEventPayload `json:"payload" mapstructure:"payload"`
 }
 
-func (e ItemListedEvent) GetNftID() []string {
+func (e *ItemListedEvent) GetNftID() []string {
 	return strings.Split(e.Payload.Item.NftID, "/")
 }
 
-func (e ItemListedEvent) ContractAddress() common.Address {
+func (e *ItemListedEvent) ContractAddress() common.Address {
 	return common.HexToAddress(e.GetNftID()[1])
 }
 

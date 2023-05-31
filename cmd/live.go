@@ -115,7 +115,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// trapri | ttx printer to process and format the token transactions
 	for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
-		go trapri.TokenTransactionFormatter(gb, queueTokenTransactions, queueWsOutTokenTransactions, queueWsInTokenTransactions, terminalPrinterQueue)
+		go trapri.TokenTransactionFormatter(gb, queueTokenTransactions, queueWsOutTokenTransactions, queueWsInTokenTransactions)
 	}
 
 	// start subscribing
