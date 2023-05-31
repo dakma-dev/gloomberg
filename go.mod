@@ -6,13 +6,13 @@ require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/charmbracelet/lipgloss v0.7.1
 	github.com/charmbracelet/log v0.2.2
-	github.com/ethereum/go-ethereum v1.11.6
+	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-redsync/redsync/v4 v4.8.2-0.20230215144735-e1e5da6654c8
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.2.1
 	github.com/klauspost/compress v1.16.5
 	github.com/lmittmann/flashbots v0.6.2
-	github.com/lmittmann/w3 v0.11.2
+	github.com/lmittmann/w3 v0.12.0
 	github.com/miguelmota/go-ethereum-hdwallet v0.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/muesli/termenv v0.15.1
@@ -46,7 +46,6 @@ require (
 	github.com/deckarep/golang-set/v2 v2.3.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.1.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
-	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/fatih/color v1.15.0 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/getsentry/sentry-go v0.19.0 // indirect
