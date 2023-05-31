@@ -19,7 +19,7 @@ require (
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.15.1
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/go-redis/v9 v9.0.4
+	github.com/redis/go-redis/v9 v9.0.5
 	github.com/redis/rueidis v1.0.6
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.15.0
