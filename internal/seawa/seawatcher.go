@@ -152,38 +152,40 @@ func (sw *SeaWatcher) connect() error {
 func (sw *SeaWatcher) eventHandler(response any) {
 	eventsReceivedTotal.Inc()
 
-	itemEvent, ok := response.(map[string]interface{})
+	rawEvent, ok := response.(map[string]interface{})
 	if !ok {
 		log.Errorf("⚓️❌ error in type assertion of received event: %+v", response)
 
 		return
 	}
 
-	log.Debugf("⚓️ received event: %+v", itemEvent)
+	log.Debugf("⚓️ received event: %+v", rawEvent)
 
-	itemEventType, ok := itemEvent["event_type"].(string)
+	itemEventType, ok := rawEvent["event_type"].(string)
 	if !ok {
-		log.Warnf("⚓️ 🤷‍♀️ unknown event type: %s", itemEvent["event_type"])
+		log.Warnf("⚓️ 🤷‍♀️ unknown event type: %s", rawEvent["event_type"])
 
 		return
 	}
 
+	var itemEvent osmodels.ItemEvent
+
 	switch osmodels.EventType(itemEventType) {
 	case osmodels.ItemSold:
-		log.Debugf("⚓️ received SOLD %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received SOLD %s: %+v", itemEventType, rawEvent)
 
 	case osmodels.ItemReceivedBid:
-		log.Debugf("⚓️ received BID %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received BID %s: %+v", itemEventType, rawEvent)
 		// sw.publishEvent(itemEvent)
 
 	case osmodels.ItemMetadataUpdated:
-		log.Debugf("⚓️ received METADATA %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received METADATA %s: %+v", itemEventType, rawEvent)
 		// sw.publishEvent(itemEvent)
 
 	case osmodels.CollectionOffer:
-		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, rawEvent)
 
-		collectionOfferEvent, err := sw.DecodeCollectionOfferEvent(itemEvent)
+		collectionOfferEvent, err := sw.DecodeCollectionOfferEvent(rawEvent)
 		if err != nil {
 			return
 		}
@@ -191,33 +193,15 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		// print collectionOfferEvent
 		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, collectionOfferEvent)
 
-		// sw.publishEvent(collectionOfferEvent)
-
-		// priceWeiRaw, _, err := big.ParseFloat(collectionOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-		// if err != nil {
-		//	log.Infof("⚓️❌ error parsing price: %s", err.Error())
-	//		return
-	//		}
-	// priceWei, _ := priceWeiRaw.Int(nil)
-
-	// eventType := osmodels.TxType[osmodels.EventType(itemEventType)]
-
-	// collectionSlug := collectionOfferEvent.Payload.Collection.Slug
-
-	// paymentTokenSymbol := collectionOfferEvent.Payload.PaymentToken.Symbol
-
-	// quantity := collectionOfferEvent.Payload.Quantity
-
-	// pricePerToken := priceWei.Div(priceWei, big.NewInt(int64(quantity)))
-
-	// log.Infof("⚓️ 🔸 %s | %dx %s %s for %s", eventType.Icon(), quantity, style.TrendRedStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(pricePerToken).Ether())), paymentTokenSymbol, style.BoldStyle.Render(collectionSlug))
+		itemEvent = &collectionOfferEvent
+		sw.gb.In.ItemEvents <- &itemEvent
 
 	case osmodels.ItemReceivedOffer:
-		log.Debugf("⚓️ offer received %s: %+v", itemEventType, itemEvent)
+		log.Debugf("⚓️ offer received %s: %+v", itemEventType, rawEvent)
 
 		var itemReceivedOfferEvent osmodels.ItemReceivedOfferEvent
 
-		err := mapstructure.Decode(itemEvent, &itemReceivedOfferEvent)
+		err := mapstructure.Decode(rawEvent, &itemReceivedOfferEvent)
 		if err != nil {
 			log.Info("⚓️❌ decoding incoming opensea stream api ItemReceivedOffer event failed:", err)
 
@@ -230,21 +214,26 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		log.Debugf("⚓️ received %s: %+v", itemEventType, itemReceivedOfferEvent)
 		printItemReceivedOfferEvent(itemReceivedOfferEvent)
 
+		itemEvent = &itemReceivedOfferEvent
+		sw.gb.In.ItemEvents <- &itemEvent
+
 	case osmodels.ItemListed:
 		var itemListedEvent osmodels.ItemListedEvent
 
-		err := mapstructure.Decode(itemEvent, &itemListedEvent)
+		err := mapstructure.Decode(rawEvent, &itemListedEvent)
 		if err != nil {
 			log.Info("⚓️❌ decoding incoming opensea stream api ItemListed event failed:", err)
 
 			return
 		}
 
-		// sw.publishItemListedToRedis(itemListedEvent)
 		sw.gb.In.ItemListedEvents <- &itemListedEvent
+
+		itemEvent = &itemListedEvent
+		sw.gb.In.ItemEvents <- &itemEvent
 	}
 
-	sw.receivedEvents <- itemEvent
+	sw.receivedEvents <- rawEvent
 }
 
 func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{}) (osmodels.ItemReceivedBidEvent, error) {
