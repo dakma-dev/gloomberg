@@ -84,7 +84,7 @@ func LoFi(filePath string) *log.Logger {
 	w := bufio.NewWriter(f)
 
 	loFi := log.NewWithOptions(w, log.Options{
-		TimeFormat:      time.DateTime,
+		TimeFormat:      time.RFC3339,
 		ReportCaller:    true,
 		ReportTimestamp: true,
 	})

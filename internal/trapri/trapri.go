@@ -86,7 +86,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 
 	// fake a txHash for listings
 	txHash := common.Hash{}
-	if ttx.Action != totra.Listing || ttx.Tx != nil {
+	if ttx.Tx != nil && ttx.Tx.Hash() != (common.Hash{}) {
 		txHash = ttx.Tx.Hash()
 	}
 
@@ -446,7 +446,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		fixWidthPrice = beforeSepStyle.Render(before) + sepStyle.Render(".") + priceStyle.Render(after)
 	}
 
-	if len(fmtTokensTransferred) == 0 {
+	if len(fmtTokensTransferred) == 0 && ttx.Tx != nil {
 		gbl.Log.Debugf("🧐 no tokens transferred: %s | %+v", style.TerminalLink(utils.GetEtherscanTxURL(txHash.String()), txHash.String()), ttx.Transfers)
 
 		for _, transfer := range ttx.Transfers {
@@ -770,11 +770,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			return
 		}
 
-		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
-			gbl.Log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.unknown"), ttx)
+		// if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+		// 	gbl.Log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.unknown"), ttx)
 
-			return
-		}
+		// 	return
+		// }
 	}
 
 	//

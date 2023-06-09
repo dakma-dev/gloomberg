@@ -10,7 +10,6 @@ import (
 	"github.com/benleb/gloomberg/cmd/oncecmd"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -110,7 +109,7 @@ func init() {
 	viper.SetDefault("ipfs.gateway", "https://cloudflare-ipfs.com/")
 
 	// opensea settings
-	viper.SetDefault("opensea.auto_list_min_sales", 50000)
+	viper.SetDefault("opensea.auto_subscribe_after_sales", 10)
 
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
@@ -167,7 +166,10 @@ func initConfig() {
 
 	gbl.GetSugaredLogger()
 
-	gb = gloomberg.New()
+	// // if command is not generate
+	if rootCmd.CalledAs() != "generate" {
+		gb = gloomberg.New()
+	}
 
-	log.Debugf("🐙 gloomberg root: %p", gb)
+	fmt.Print(rootCmd.CalledAs())
 }

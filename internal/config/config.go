@@ -162,8 +162,8 @@ func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *ruei
 
 			decodeHooks := mapstructure.ComposeDecodeHookFunc(
 				hooks.StringToAddressHookFunc(),
-				hooks.StringToDurationHookFunc(),
 				hooks.StringToLipglossColorHookFunc(),
+				mapstructure.StringToTimeDurationHookFunc(),
 			)
 
 			decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
