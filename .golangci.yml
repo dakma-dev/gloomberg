@@ -6,6 +6,8 @@ run:
     - "cmd/oncecmd"
     # testing
     - "internal/ddb"
+    - ".*degendata.*"
+    - "ignored"
 
 linters-settings:
   ireturn:
@@ -24,6 +26,7 @@ linters:
   enable-all: true
   disable:
     - cyclop
+    - depguard
     - exhaustive
     - exhaustivestruct
     - exhaustruct
