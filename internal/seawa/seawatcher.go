@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"math/big"
 	"net/url"
 	"strings"
 	"sync"
@@ -14,13 +13,10 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
-	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
 	"github.com/prometheus/client_golang/prometheus"
@@ -274,35 +270,35 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
-	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-	if err != nil {
-		log.Infof("⚓️❌ werror parsing price: %+v | %s", itemOfferEvent.Payload.BasePrice, err.Error())
+// func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
+// 	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
+// 	if err != nil {
+// 		log.Infof("⚓️❌ werror parsing price: %+v | %s", itemOfferEvent.Payload.BasePrice, err.Error())
 
-		return
-	}
-	priceWei, _ := priceWeiRaw.Int(nil)
+// 		return
+// 	}
+// 	priceWei, _ := priceWeiRaw.Int(nil)
 
-	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
-	nftID := strings.Split(itemOfferEvent.Payload.Item.NftID, "/")
-	if len(nftID) != 3 {
-		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemOfferEvent.Payload.Item.NftID)
+// 	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
+// 	nftID := strings.Split(itemOfferEvent.Payload.Item.NftID, "/")
+// 	if len(nftID) != 3 {
+// 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemOfferEvent.Payload.Item.NftID)
 
-		return
-	}
-	eventType := osmodels.TxType[itemOfferEvent.StreamEvent]
-	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
-	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
-	// get tokenID
-	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
-	tokenID, _ := tID.Int(nil)
-	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
-	// for erc1155 tokens itemOfferEvent.Payload.Item.Metadata.Name is the item name
-	collectionName := strings.Split(itemOfferEvent.Payload.Item.Metadata.Name, " #")[0]
-	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
-	fmt.Println(itemOfferEvent.StreamEvent)
-	log.Infof("⚓️ %s | %sΞ  %s ", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemOfferEvent.Payload.Item.Permalink, fmtToken))
-}
+// 		return
+// 	}
+// 	eventType := osmodels.TxType[itemOfferEvent.StreamEvent]
+// 	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
+// 	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
+// 	// get tokenID
+// 	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
+// 	tokenID, _ := tID.Int(nil)
+// 	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
+// 	// for erc1155 tokens itemOfferEvent.Payload.Item.Metadata.Name is the item name
+// 	collectionName := strings.Split(itemOfferEvent.Payload.Item.Metadata.Name, " #")[0]
+// 	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
+// 	fmt.Println(itemOfferEvent.StreamEvent)
+// 	log.Infof("⚓️ %s | %sΞ  %s ", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemOfferEvent.Payload.Item.Permalink, fmtToken))
+// }
 
 func (sw *SeaWatcher) SubscribeForSlug(eventType osmodels.EventType, slug string) bool {
 	sw.mu.Lock()
