@@ -31,8 +31,8 @@ import (
 
 // Provider represents a rpc-endpoint Provider configuration.
 type Provider struct {
-	Name      string `json:"name" mapstructure:"name"`
-	Endpoint  string `json:"endpoint" mapstructure:"endpoint"`
+	Name      string `json:"name"      mapstructure:"name"`
+	Endpoint  string `json:"endpoint"  mapstructure:"endpoint"`
 	Preferred bool   `json:"preferred" mapstructure:"preferred"`
 
 	Color lipgloss.Color `json:"color" mapstructure:"color"`
@@ -319,7 +319,7 @@ func (p *Provider) connect() error {
 
 func (p *Provider) subscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	subscribeTopics := [][]common.Hash{
-		{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle))},
+		{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle)), common.HexToHash(string(topic.BuyPriceSet))},
 		{},
 		{},
 		{},

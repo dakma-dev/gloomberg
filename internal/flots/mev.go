@@ -7,14 +7,14 @@ import (
 )
 
 type MevBundleTx struct {
-	Hash      common.Hash `json:"hash" mapstructure:"hash"`
-	Tx        string      `json:"tx" mapstructure:"tx"`
+	Hash      common.Hash `json:"hash"      mapstructure:"hash"`
+	Tx        string      `json:"tx"        mapstructure:"tx"`
 	CanRevert bool        `json:"canRevert" mapstructure:"canRevert"`
 	// Bundle    MevSendBundleRequest `json:"bundle" mapstructure:"bundle"`
 }
 
 type MevParamInclusion struct {
-	Block    string `json:"block,omitempty" mapstructure:"block"`       // hex-encoded number
+	Block    string `json:"block,omitempty"    mapstructure:"block"`    // hex-encoded number
 	MaxBlock string `json:"maxBlock,omitempty" mapstructure:"maxBlock"` // hex-encoded number
 }
 
@@ -34,11 +34,11 @@ type MevParamPrivacy struct {
 }
 
 type MevSendBundleRequest struct {
-	Version   string             `json:"version,omitempty" mapstructure:"version"`
+	Version   string             `json:"version,omitempty"   mapstructure:"version"`
 	Inclusion MevParamInclusion  `json:"inclusion,omitempty" mapstructure:"inclusion"`
-	Body      []MevBundleTx      `json:"body" mapstructure:"body"`
+	Body      []MevBundleTx      `json:"body"                mapstructure:"body"`
 	Privacy   MevParamPrivacy    `json:"privacy,omitempty"`
-	Validity  []MevParamValidity `json:"validity,omitempty" mapstructure:"validity"`
+	Validity  []MevParamValidity `json:"validity,omitempty"  mapstructure:"validity"`
 }
 
 type mevSendBundleResponse struct {
