@@ -3,6 +3,7 @@ package trapri
 import (
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -15,7 +16,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-var tokenTopBids = map[string]*models.ItemReceivedBid{}
+var (
+	tokenTopBids      = map[string]*models.ItemReceivedBid{}
+	tokenTopBidsMutex = &sync.Mutex{}
+)
 
 func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBid) {
 	nftID := event.Payload.Item.NftID
@@ -34,9 +38,11 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 	highlightBid := false
 
 	// check if we already have a top bid for this token and if not, add it
+	tokenTopBidsMutex.Lock()
 	if topBid, ok := tokenTopBids[nftID.TID()]; !ok || topBid == nil {
 		tokenTopBids[nftID.TID()] = event
 	}
+	tokenTopBidsMutex.Unlock()
 
 	// get the current top bid for this token
 	topBid := tokenTopBids[nftID.TID()]
