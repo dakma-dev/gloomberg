@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
-	"log"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/accounts"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
 	"github.com/spf13/cobra"
@@ -14,13 +15,20 @@ import (
 
 var (
 	addrPrefix     string
+	addrPrefixes   []string
 	addrSuffix     string
+	addrSuffixes   []string
+	notContains    string
 	pkPrefix       string
 	pkSuffix       string
 	derivationPath string
 
 	path     accounts.DerivationPath
 	parallel int
+	zeroes   int
+	fs       int
+
+	startTime = time.Now()
 )
 
 // generateCmd represents the generate command.
@@ -34,10 +42,23 @@ var generateCmd = &cobra.Command{
 
 		path = hdwallet.MustParseDerivationPath(derivationPath)
 
-		// add the 0x prefix if not already there
-		if !strings.HasPrefix(addrPrefix, "0x") {
-			addrPrefix = "0x" + addrPrefix
+		// prepare address prefixes/suffixes
+		if addrPrefix != "" {
+			addrPrefixes = append(addrPrefixes, addrPrefix)
 		}
+
+		for i, prefix := range addrPrefixes {
+			if !strings.HasPrefix(prefix, "0x") {
+				addrPrefixes[i] = "0x" + prefix
+			}
+		}
+
+		if addrSuffix != "" {
+			addrSuffixes = append(addrSuffixes, addrSuffix)
+		}
+
+		log.Printf("addrPrefixes: %+v", addrPrefixes)
+		log.Printf("addrSuffixes: %+v", addrSuffixes)
 
 		fmt.Println("--")
 		fmt.Printf("prefix:\t\t%s\n", addrPrefix)
@@ -63,8 +84,8 @@ func generateMnemonicWallets(workerID int) {
 	fmt.Printf("worker %d started\n", workerID)
 
 	for i := 1; ; i++ {
-		if i%100000 == 0 {
-			fmt.Printf("worker %d: %d\n", workerID, i)
+		if i%10_000 == 0 {
+			fmt.Printf("worker %d: %d | running: %+v\n", workerID, i, time.Since(startTime).String())
 		}
 
 		mnemonic, _ := hdwallet.NewMnemonic(256)
@@ -96,10 +117,68 @@ func generateMnemonicWallets(workerID int) {
 			log.Fatal(err)
 		}
 
-		if addrPrefix != "" && !strings.HasPrefix(account.Address.String(), addrPrefix) {
+		// check address prefix
+		foundPrefix := false
+		for _, prefix := range addrPrefixes {
+			if strings.HasPrefix(strings.ToLower(account.Address.String()), strings.ToLower(prefix)) {
+				foundPrefix = true
+
+				log.Printf("found prefix: %s | %s", prefix, account.Address.String())
+
+				break
+			}
+		}
+
+		if len(addrPrefixes) > 0 && !foundPrefix {
 			continue
-		} else if addrSuffix != "" && !strings.HasSuffix(account.Address.String(), addrSuffix) {
+		}
+
+		// check address suffix
+		foundSuffix := false
+		for _, suffix := range addrSuffixes {
+			if strings.HasSuffix(strings.ToLower(account.Address.String()), strings.ToLower(suffix)) {
+				foundSuffix = true
+
+				log.Printf("found suffix: %s | %s", suffix, account.Address.String())
+
+				break
+			}
+		}
+
+		if len(addrSuffixes) > 0 && !foundSuffix {
 			continue
+		}
+
+		// check address notContains
+		if notContains != "" && strings.Contains(strings.ToLower(account.Address.String()), strings.ToLower(notContains)) {
+			continue
+		}
+
+		// check zeroes and fs
+		if zeroes > 0 {
+			counter := 0
+			for _, c := range account.Address.String() {
+				if c == '0' {
+					counter++
+				}
+			}
+
+			if counter < zeroes {
+				continue
+			}
+		}
+
+		if fs > 0 {
+			counter := 0
+			for _, c := range account.Address.String() {
+				if c == 'f' {
+					counter++
+				}
+			}
+
+			if counter < fs {
+				continue
+			}
 		}
 
 		fmt.Println("")
@@ -128,9 +207,14 @@ func init() {
 	viper.SetDefault("path", "m/44'/60'/0'/0/0")
 
 	generateCmd.Flags().StringVar(&addrPrefix, "prefix", "", "prefix the address must have")
+	generateCmd.Flags().StringSliceVar(&addrPrefixes, "prefixes", []string{}, "prefixes of which the address must have one")
 	generateCmd.Flags().StringVar(&addrSuffix, "suffix", "", "suffix the address must have")
+	generateCmd.Flags().StringSliceVar(&addrSuffixes, "suffixes", []string{}, "suffixes of which the address must have one")
+	generateCmd.Flags().StringVar(&notContains, "not-contains", "", "character the address must not contain")
 	generateCmd.Flags().StringVar(&pkPrefix, "pk-prefix", "", "prefix the privatekey must have")
 	generateCmd.Flags().StringVar(&pkSuffix, "pk-suffix", "", "suffix the privatekey must have")
 	generateCmd.Flags().StringVar(&derivationPath, "path", "m/44'/60'/0'/0/0", "address derivation path")
 	generateCmd.Flags().IntVar(&parallel, "parallel", 4, "number of generators running in parallel")
+	generateCmd.Flags().IntVar(&zeroes, "zeroes", 0, "number of zeroes the address must have")
+	generateCmd.Flags().IntVar(&fs, "fs", 0, "number of Fs the address must have")
 }
