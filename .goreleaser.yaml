@@ -42,7 +42,7 @@ dockers:
     use: buildx
     dockerfile: .github/run.Dockerfile
     build_flag_templates: ["--platform=linux/amd64"]
-  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
+  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
     use: buildx
     goarch: arm64
     dockerfile: .github/run.Dockerfile
@@ -50,9 +50,9 @@ dockers:
 
 docker_manifests:
   - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
-    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64v8"]
+    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64"]
   - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
-    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64v8"]
+    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
 
 kos:
   - repository: "ghcr.io/benleb/gloomberg"
