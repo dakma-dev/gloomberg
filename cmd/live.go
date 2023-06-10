@@ -406,6 +406,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		// }()
 	}
 
+	// log.Print("")
+	// degendata.ReadOSRawDataFiles(gb, "degendata/raw/opensea/")
+	// log.Print("")
+
 	//
 	// web ui
 	if viper.GetBool("web.enabled") {

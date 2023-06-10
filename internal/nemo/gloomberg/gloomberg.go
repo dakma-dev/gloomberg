@@ -8,6 +8,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
@@ -37,6 +38,7 @@ type Gloomberg struct {
 	QueueSlugs chan common.Address
 
 	*eventHub
+	*degendb.DegenDB
 }
 
 func New() *Gloomberg {
@@ -50,6 +52,7 @@ func New() *Gloomberg {
 		QueueSlugs: make(chan common.Address, 1024),
 
 		eventHub: newEventHub(),
+		// DegenDB:  degendb.NewDegenDB(),
 	}
 
 	return gb
