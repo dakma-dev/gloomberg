@@ -11,17 +11,16 @@ wallets/*.json
 # misc
 internal/assets
 metadata/
-dev.md
 *.sqlite
 .idea
 
+# bazel
 bazel-*
 *.bazel
 .bazelrc
-
-# testing
-cmd/rawtx.go
-internal/ddb
+MODULE.bazel
+WORKSPACE
+WORKSPACE.bazel
 
 # not ready for prime time
 deployment/
