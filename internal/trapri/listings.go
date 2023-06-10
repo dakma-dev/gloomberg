@@ -15,12 +15,14 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/viper"
 )
 
-func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, queueTokenTransactions chan *totra.TokenTransaction) {
+func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 	// nftID is a string in the format <chain>/<contract>/<tokenID>
 	nftID := strings.Split(event.Payload.Item.NftID, "/")
 	if len(nftID) != 3 {
@@ -91,7 +93,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 	gbl.Log.Debugf("%s: %+v | %+v", event.StreamEvent, ttxListing, event)
 
 	// format and print
-	queueTokenTransactions <- ttxListing
+	gb.In.TokenTransactions <- ttxListing
 
 	// highlight "rare" lawless listings
 	if contractAddress == common.HexToAddress("0xb119ec7ee48928a94789ed0842309faf34f0c790") {
@@ -115,14 +117,15 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent, que
 			return
 		}
 
+		osLink := style.TerminalLink(event.Payload.Item.Permalink, event.Payload.Item.Permalink)
+
+		go notify.SendMessageViaTelegram(fmt.Sprintf("lawless listing: %s \n price: %s  url: %s", tokenName, fmt.Sprintf("%5.3f", price.Ether()), osLink), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
+
 		highlightMessage := strings.Builder{}
 		highlightMessage.WriteString("\n")
-		highlightMessage.WriteString(
-			fmt.Sprintf("  lawless %s | %5.3fΞ | %s\n", tokenName, price.Ether(), style.TerminalLink(event.Payload.Item.Permalink, event.Payload.Item.Permalink)),
-		)
+		highlightMessage.WriteString(fmt.Sprintf("  lawless %s | %5.3fΞ | %s\n", tokenName, price.Ether(), osLink))
 		highlightMessage.WriteString("\n")
 
-		// gb.TerminalPrinterQueue <- highlightMessage.String()
 		fmt.Println(highlightMessage.String()) //nolint:forbidigo
 	}
 }

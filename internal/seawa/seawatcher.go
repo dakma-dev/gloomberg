@@ -51,20 +51,14 @@ type SeaWatcher struct {
 }
 
 var (
-	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+	// topX = map[string]*models.Bid{}.
+
+	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.ItemMetadataUpdated} // , osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
 		Help: "The total number of received events from the opensea api/stream",
 	})
-	// eventsProcessedTotal = promauto.NewCounter(prometheus.CounterOpts{
-	// 	Name: "gloomberg_oswatcher_events_processed_total",
-	// 	Help: "The total number of processed events from the opensea api/stream",
-	// })
-	// eventsIgnoredTotal = promauto.NewCounter(prometheus.CounterOpts{
-	// 	Name: "gloomberg_oswatcher_events_ignored_total",
-	// 	Help: "The total number of ignored events from the opensea api/stream",
-	// }).
 )
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
@@ -159,8 +153,6 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		return
 	}
 
-	log.Debugf("⚓️ received event: %+v", rawEvent)
-
 	itemEventType, ok := rawEvent["event_type"].(string)
 	if !ok {
 		log.Warnf("⚓️ 🤷‍♀️ unknown event type: %s", rawEvent["event_type"])
@@ -168,72 +160,74 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		return
 	}
 
-	var itemEvent osmodels.ItemEvent
+	// decode event
+	var metadata *mapstructure.Metadata
 
-	switch osmodels.EventType(itemEventType) {
-	case osmodels.ItemSold:
-		log.Debugf("⚓️ received SOLD %s: %+v", itemEventType, rawEvent)
-
-	case osmodels.ItemReceivedBid:
-		log.Debugf("⚓️ received BID %s: %+v", itemEventType, rawEvent)
-		// sw.publishEvent(itemEvent)
-
-	case osmodels.ItemMetadataUpdated:
-		log.Debugf("⚓️ received METADATA %s: %+v", itemEventType, rawEvent)
-		// sw.publishEvent(itemEvent)
-
-	case osmodels.CollectionOffer:
-		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, rawEvent)
-
-		collectionOfferEvent, err := sw.DecodeCollectionOfferEvent(rawEvent)
-		if err != nil {
-			return
-		}
-
-		// print collectionOfferEvent
-		log.Debugf("⚓️ received COLLECTIONOFFER %s: %+v", itemEventType, collectionOfferEvent)
-
-		itemEvent = &collectionOfferEvent
-		sw.gb.In.ItemEvents <- &itemEvent
-
-	case osmodels.ItemReceivedOffer:
-		log.Debugf("⚓️ offer received %s: %+v", itemEventType, rawEvent)
-
-		var itemReceivedOfferEvent osmodels.ItemReceivedOfferEvent
-
-		err := mapstructure.Decode(rawEvent, &itemReceivedOfferEvent)
-		if err != nil {
-			log.Info("⚓️❌ decoding incoming opensea stream api ItemReceivedOffer event failed:", err)
-
-			return
-		}
-
-		// sw.publishEvent(itemReceivedOfferEvent)
-
-		// print itemReceivedOfferEvent
-		log.Debugf("⚓️ received %s: %+v", itemEventType, itemReceivedOfferEvent)
-		printItemReceivedOfferEvent(itemReceivedOfferEvent)
-
-		itemEvent = &itemReceivedOfferEvent
-		sw.gb.In.ItemEvents <- &itemEvent
-
-	case osmodels.ItemListed:
-		var itemListedEvent osmodels.ItemListedEvent
-
-		err := mapstructure.Decode(rawEvent, &itemListedEvent)
-		if err != nil {
-			log.Info("⚓️❌ decoding incoming opensea stream api ItemListed event failed:", err)
-
-			return
-		}
-
-		sw.gb.In.ItemListedEvents <- &itemListedEvent
-
-		itemEvent = &itemListedEvent
-		sw.gb.In.ItemEvents <- &itemEvent
+	// decoder config
+	decoderConfig := &mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToHashHookFunc(),
+			hooks.StringToBigIntHookFunc(),
+			models.StringToNftIDHookFunc(),
+			mapstructure.OrComposeDecodeHookFunc(
+				hooks.StringToUnixTimeHookFunc(),
+				mapstructure.StringToTimeHookFunc(time.RFC3339),
+			),
+		),
+		Metadata: metadata,
 	}
 
-	sw.receivedEvents <- rawEvent
+	switch osmodels.EventType(itemEventType) {
+	// item listed
+	case osmodels.ItemListed:
+		var event *models.ItemListed
+
+		decoderConfig.Result = &event
+		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Info("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+
+			return
+		}
+
+		// push to eventHub for further processing
+		sw.gb.In.ItemListed <- event
+
+	case osmodels.ItemReceivedBid:
+		var event *models.ItemReceivedBid
+
+		decoderConfig.Result = &event
+		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Info("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+
+			return
+		}
+
+		// push to eventHub for further processing
+		sw.gb.In.ItemReceivedBid <- event
+
+	case osmodels.CollectionOffer:
+		var event *models.CollectionOffer
+
+		decoderConfig.Result = &event
+		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Info("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+
+			return
+		}
+
+		// push to eventHub for further processing
+		sw.gb.In.CollectionOffer <- event
+	}
 }
 
 func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{}) (osmodels.ItemReceivedBidEvent, error) {
@@ -283,7 +277,7 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
 	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
 	if err != nil {
-		log.Infof("⚓️❌ error parsing price: %s", err.Error())
+		log.Infof("⚓️❌ werror parsing price: %+v | %s", itemOfferEvent.Payload.BasePrice, err.Error())
 
 		return
 	}
@@ -462,7 +456,7 @@ func (sw *SeaWatcher) Run() {
 			if len(mgmtEvent.Events) == 0 {
 				// subscribe to all available events if none are specified
 				log.Infof("⚓️ ␚ no events specified, subscribing to all available events (%+v)", strings.Join(events, ", "))
-				// style.BoldStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs)))
+
 				mgmtEvent.Events = AvailableEventTypes
 			}
 
@@ -486,7 +480,7 @@ func (sw *SeaWatcher) Run() {
 
 						newSubscriptions[slug] = append(newSubscriptions[slug], event)
 
-						time.Sleep(137 * time.Millisecond)
+						time.Sleep(257 * time.Millisecond)
 					}
 				}
 			}
@@ -531,74 +525,3 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 		log.Infof("⚓️ 📣 published %s event to %s", style.Bold(sendSlugsEvent.Action.String()), style.Bold(internal.TopicSeaWatcherMgmt))
 	}
 }
-
-// func printItemListed(itemListedEvent osmodels.ItemListedEvent) {
-// 	// parse price
-// 	priceWeiRaw, _, err := big.ParseFloat(itemListedEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-// 	if err != nil {
-// 		log.Infof("⚓️❌ error parsing price: %s", err.Error())
-
-// 		return
-// 	}
-// 	priceWei, _ := priceWeiRaw.Int(nil)
-
-// 	var listedBy string
-
-// 	listedByAddress := common.HexToAddress(itemListedEvent.Payload.Maker.Address)
-// 	listedByStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(listedByAddress.Big().Int64()))
-
-// 	if itemListedEvent.Payload.Maker.User != "" {
-// 		listedBy = listedByStyle.Render(itemListedEvent.Payload.Maker.User) + " (" + style.ShortenAddressStyled(&listedByAddress, listedByStyle) + ")"
-// 	} else {
-// 		listedBy = style.ShortenAddressStyled(&listedByAddress, listedByStyle)
-// 	}
-
-// 	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
-// 	nftID := strings.Split(itemListedEvent.Payload.Item.NftID, "/")
-// 	if len(nftID) != 3 {
-// 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemListedEvent.Payload.Item.NftID)
-
-// 		return
-// 	}
-
-// 	// collection styles
-// 	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
-// 	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
-
-// 	// strip tokenID from collection name
-// 	collectionName := strings.Split(itemListedEvent.Payload.Item.Metadata.Name, " #")[0]
-
-// 	// get tokenID
-// 	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
-// 	tokenID, _ := tID.Int(nil)
-
-// 	// format tokenID
-// 	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
-// 	eventType := osmodels.TxType[itemListedEvent.StreamEvent]
-
-// 	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
-
-// 	log.Infof("⚓️ %s | %sΞ  %s  | %s", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemListedEvent.Payload.Item.Permalink, fmtToken), listedBy)
-// }
-
-// func (sw *SeaWatcher) publishItemListedToRedis(itemListedEvent osmodels.ItemListedEvent) {
-// 	// marshal event to json
-// 	jsonEvent, err := json.Marshal(itemListedEvent)
-// 	if err != nil {
-// 		log.Info("⚓️❌ json.Marshal failed for incoming stream api event", err)
-
-// 		return
-// 	}
-
-// 	// generate the redis pubsub channel name
-// 	channel := internal.TopicSeaWatcher + "/" + itemListedEvent.ContractAddress().String() + "/" + string(itemListedEvent.StreamEvent)
-
-// 	// publish event to redis
-// 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(channel).Message(string(jsonEvent)).Build()).Error() != nil {
-// 		log.Warnf("⚓️❕ error publishing event to redis: %s", err.Error())
-// 	}
-
-// 	// this is used to log the event to stdout in "headless" mode,
-// 	// not to print to the terminal in "live" mode
-// 	printItemListed(itemListedEvent)
-// }

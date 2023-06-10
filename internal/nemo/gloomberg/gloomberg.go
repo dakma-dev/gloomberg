@@ -52,8 +52,6 @@ func New() *Gloomberg {
 		eventHub: newEventHub(),
 	}
 
-	log.Infof("🐙 gloomberg: %p", gb)
-
 	return gb
 }
 

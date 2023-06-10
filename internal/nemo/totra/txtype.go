@@ -44,9 +44,9 @@ func (et TxType) Icon() string {
 	case Loan:
 		return "💸"
 	case CollectionOffer:
-		return "📜"
+		return "👋"
 	case ItemBid:
-		return "🏷"
+		return "🖐️"
 	case Unknown:
 		return "🔬"
 	default:

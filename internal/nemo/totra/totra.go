@@ -48,6 +48,7 @@ type TokenTransaction struct {
 	sentToken map[common.Address][]*token.Token
 
 	DoNotPrint bool `json:"do_not_print"`
+	Highlight  bool `json:"highlight"`
 }
 
 // var methodSignaturesTransfers = map[[4]byte]string{
@@ -136,6 +137,10 @@ func (ttx *TokenTransaction) GetTransfersByContract() map[common.Address][]*Toke
 }
 
 func (ttx *TokenTransaction) GetPrice() *price.Price {
+	if ttx.AmountPaid == nil || ttx.AmountPaid.Cmp(big.NewInt(0)) == 0 {
+		return price.NewPrice(big.NewInt(0))
+	}
+
 	return price.NewPrice(ttx.AmountPaid)
 }
 

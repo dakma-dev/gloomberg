@@ -1,6 +1,8 @@
 package models
 
-import "github.com/benleb/gloomberg/internal/nemo/osmodels"
+import (
+	"github.com/benleb/gloomberg/internal/nemo/osmodels"
+)
 
 type MgmtAction int64
 

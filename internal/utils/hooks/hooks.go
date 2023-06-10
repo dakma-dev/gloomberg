@@ -3,11 +3,13 @@ package hooks
 
 import (
 	"errors"
+	"math/big"
 	"reflect"
 	"strconv"
 	"time"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 )
@@ -38,8 +40,8 @@ func StringToAddressHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
-// StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
-func StringToDurationHookFunc() mapstructure.DecodeHookFunc {
+// StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
+func StringToHashHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
 		t reflect.Type,
@@ -49,17 +51,37 @@ func StringToDurationHookFunc() mapstructure.DecodeHookFunc {
 			return data, nil
 		}
 
-		if t != reflect.TypeOf(time.Duration(0)) {
+		if t != reflect.TypeOf(common.Hash{}) {
 			return data, nil
 		}
 
 		// Convert it by parsing
-		return time.ParseDuration(data.(string))
+		return common.HexToHash(data.(string)), nil
 	}
 }
 
+// // StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
+// func StringToDurationHookFunc() mapstructure.DecodeHookFunc {
+// 	return func(
+// 		f reflect.Type,
+// 		t reflect.Type,
+// 		data any,
+// 	) (any, error) {
+// 		if f.Kind() != reflect.String {
+// 			return data, nil
+// 		}
+
+// 		if t != reflect.TypeOf(time.Duration(0)) {
+// 			return data, nil
+// 		}
+
+// 		// Convert it by parsing
+// 		return time.ParseDuration(data.(string))
+// 	}
+// }
+
 // StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
-func StringToTimeHookFunc() mapstructure.DecodeHookFunc {
+func StringToUnixTimeHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
 		t reflect.Type,
@@ -74,7 +96,12 @@ func StringToTimeHookFunc() mapstructure.DecodeHookFunc {
 		}
 
 		// Convert it by parsing
-		return time.Parse(time.RFC3339, data.(string))
+		timestamp, err := strconv.ParseInt(data.(string), 10, 64)
+		if err != nil {
+			return nil, err
+		}
+
+		return time.Unix(timestamp, 0), nil
 	}
 }
 
@@ -118,26 +145,35 @@ func StringToLipglossColorHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
-//// StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
-// func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
-//	return func(
-//		f reflect.Type,
-//		t reflect.Type,
-//		data any,
-//	) (any, error) {
-//		if f.Kind() != reflect.String {
-//			return data, nil
-//		}
-//
-//		if t != reflect.TypeOf(*big.NewInt(0)) {
-//			return data, nil
-//		}
-//
-//		// convert it by parsing
-//		if balance, err := strconv.ParseInt(data.(string), 10, 64); err == nil {
-//			return big.NewInt(balance), nil
-//		} else {
-//			return data, err
-//		}
-//	}
-//}
+// StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
+func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data any,
+	) (any, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+
+		if t != reflect.TypeOf(*big.NewInt(0)) {
+			return data, nil
+		}
+
+		// convert data string to big.Int
+		value, ok := big.NewInt(0).SetString(data.(string), 10)
+		if !ok {
+			log.Errorf("invalid big.Int string: %+v", data)
+
+			return nil, errors.New("invalid big.Int string")
+		}
+
+		return value, nil
+
+		// if balance, err := strconv.ParseInt(data.(string), 10, 64); err == nil {
+		// 	return big.NewInt(balance), nil
+		// } else {
+		// 	return data, err
+		// }
+	}
+}

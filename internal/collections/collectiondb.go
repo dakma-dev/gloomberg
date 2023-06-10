@@ -46,6 +46,20 @@ func (cs *CollectionDB) OpenseaSlugsAndAddresses() map[string]common.Address {
 }
 
 // OpenseaSlugs returns a slice of slugs for collections with enabled listings.
+func (cs *CollectionDB) OpenseaAddressToSlug() map[common.Address]string {
+	// slugs := make([]string, 0)
+	slugAddresses := make(map[common.Address]string, 0)
+
+	for _, c := range cs.Collections {
+		if slug := c.OpenseaSlug; slug != "" { // && c.Show.Listings {
+			slugAddresses[c.ContractAddress] = slug
+		}
+	}
+
+	return slugAddresses
+}
+
+// OpenseaSlugs returns a slice of slugs for collections with enabled listings.
 func (cs *CollectionDB) OpenseaSlugs() []string {
 	slugs := make([]string, 0)
 

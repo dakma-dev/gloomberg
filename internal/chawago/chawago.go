@@ -61,6 +61,11 @@ func GetTransactionsForLogsWithChannel(gb *gloomberg.Gloomberg, qRawLogs chan ty
 
 				log.Debugf("🪵 %#v", rawLog)
 
+				if rawLog.BlockNumber > gb.CurrentBlock {
+					gb.CurrentBlock = rawLog.BlockNumber
+					gb.In.NewBlock <- gb.CurrentBlock
+				}
+
 				// fetch the full transaction this log belongs to
 				tx, err := gb.ProviderPool.TransactionByHash(context.Background(), rawLog.TxHash)
 				if err != nil {

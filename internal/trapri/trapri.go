@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
@@ -21,6 +22,8 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
+	"github.com/benleb/gloomberg/internal/opensea"
+	seawatcher "github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -31,13 +34,18 @@ import (
 	"github.com/spf13/viper"
 )
 
-func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {
+var (
+	alreadyPrinted   = make(map[common.Hash]bool)
+	alreadyPrintedMu = sync.RWMutex{}
+)
+
+func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {
 	gbl.Log.Debugf("🧱 starting ttx formatter worker")
 
 	if viper.GetBool("websockets.client.enabled") {
 		go func() {
 			for ttx := range queueWsInTokenTransactions {
-				go formatTokenTransaction(gb, ttx)
+				go formatTokenTransaction(gb, seawa, ttx)
 			}
 		}()
 	}
@@ -46,8 +54,9 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 	// this is the main loop of the formatter
 	// blocking/delaying here will block/delay the whole stream
 	// when adding additional calls here, prefer goroutines with conditional select
-	for ttx := range queueTokenTransactions {
-		go formatTokenTransaction(gb, ttx)
+	// for ttx := range queueTokenTransactions {
+	for ttx := range gb.SubscribeTokenTransactions() {
+		go formatTokenTransaction(gb, seawa, ttx)
 
 		// send to ws if webserver enabled & the queue is not congested
 		if viper.GetBool("web.enabled") {
@@ -69,26 +78,34 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, queueTokenTransactions c
 	}
 }
 
-func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
-	// // check if we already know the transaction the log belongs to
-	// output.AlreadyPrintedMu.Lock()
-	// known, ok := output.AlreadyPrinted[txHash]
-	// output.AlreadyPrintedMu.Unlock()
-
-	// if known && ok {
-	// 	// we already know this transaction
-	// 	gbl.Log.Infof("already printed tx: %s", style.Bold(txHash.String()))
-
-	// 	return
-	// }
-
+func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, ttx *totra.TokenTransaction) {
 	ctx := context.Background()
 
 	// fake a txHash for listings
 	txHash := common.Hash{}
 	if ttx.Tx != nil && ttx.Tx.Hash() != (common.Hash{}) {
 		txHash = ttx.Tx.Hash()
+	} else {
+		// generate random Hash
+		txHash = common.BytesToHash(ttx.From.Bytes()) //  *ttx.Tx.To().Bytes())
 	}
+
+	// check if we already know the transaction the log belongs to
+	alreadyPrintedMu.Lock()
+	known, ok := alreadyPrinted[txHash]
+	alreadyPrintedMu.Unlock()
+
+	if known && ok {
+		// we already know this transaction
+		gbl.Log.Debugf("already printed tx: %s", style.Bold(txHash.String()))
+
+		return
+	}
+
+	// add to alreadyPrinted map
+	alreadyPrintedMu.Lock()
+	alreadyPrinted[txHash] = true
+	alreadyPrintedMu.Unlock()
 
 	// is a collections from configured collections + own wallets
 	isOwnCollection := false
@@ -120,7 +137,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	priceStyle := style.DarkWhiteStyle
 	priceArrowColor := style.DarkGray
 
-	if ttx.GetPrice().Ether() >= 0.01 {
+	if ttx.GetPrice() != nil && ttx.GetPrice().Ether() >= 0.01 {
 		priceArrowColor = style.GetPriceShadeColor(ttx.GetPrice().Ether())
 	}
 
@@ -414,7 +431,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 	out.WriteString(" " + divider)
 
 	var fixWidthPrice string
-	if ttx.GetPrice().Ether() < 100.0 {
+	if ttx.GetPrice() != nil && ttx.GetPrice().Ether() < 100.0 {
 		fixWidthPrice = fmt.Sprintf("%6.3f", ttx.GetPrice().Ether())
 	} else {
 		fixWidthPrice = fmt.Sprintf("%6.2f", ttx.GetPrice().Ether())
@@ -560,6 +577,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 		)}
 	}
 
+	if len(fmtTokensTransferred) == 0 {
+		log.Warnf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL))
+
+		return
+	}
 	// show the first collection/token on the same line
 	// and further collections/tokens on the next lines
 	out.WriteString("  " + fmtTokensTransferred[0] + " ")
@@ -668,6 +690,30 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			)
 		} else {
 			salesAndListings = fmt.Sprint(style.TrendLightGreenStyle.Render(fmt.Sprint(currentCollection.Counters.Sales)))
+
+			//
+			// auto-subscribe to opensea events after X sales
+			if autoSubscribeAfterSales := viper.GetUint64("opensea.auto_subscribe_after_sales"); currentCollection.Counters.Sales == autoSubscribeAfterSales {
+				if currentCollection.OpenseaSlug == "" {
+					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
+				}
+
+				subscribedTo := make([]string, 0)
+				for _, eventType := range seawatcher.AvailableEventTypes {
+					if seawa.SubscribeForSlug(eventType, currentCollection.OpenseaSlug) {
+						subscribedTo = append(subscribedTo, string(eventType))
+					} else {
+						log.Printf("❌ auto-subscribe to %s for %s failed!", eventType, currentCollection.OpenseaSlug)
+
+						break
+					}
+				}
+
+				if len(subscribedTo) > 0 {
+					currentCollection.ResetStats()
+					log.Printf("🔔 auto-subscribed to %s for %s (after %d sales) | previous stats resetted", strings.Join(subscribedTo, ","), currentCollection.OpenseaSlug, autoSubscribeAfterSales)
+				}
+			}
 		}
 
 		out.WriteString(" | " + salesAndListings)
@@ -770,60 +816,37 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction
 			return
 		}
 
-		// if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
-		// 	gbl.Log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.unknown"), ttx)
+		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+			gbl.Log.Infof("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.Bold(txHash.String())), viper.GetBool("show.unknown"), ttx)
 
-		// 	return
-		// }
+			return
+		}
 	}
 
 	//
 	// 🌈 finally print the sale/listing/whatever 🌈
 	if !viper.GetBool("ui.headless") {
 		// terminalPrinterQueue <- out.String()
-		gb.In.PrintToTerminal <- out.String()
+		if ttx.IsListing() && !isOwnCollection {
+			return
+		}
+
+		// highlight special events with newlines above and below
+		printLine := out.String()
+		if ttx.Highlight {
+			printLine = "\n" + printLine + "\n"
+		}
+
+		// print to terminal
+		gb.In.PrintToTerminal <- printLine
 	}
 
 	// add to history
-	if isOwn && !ttx.IsLoan() {
+	if isOwn && !ttx.IsLoan() { // && ttx.Action != totra.ItemBid && ttx.Action != totra.CollectionOffer {
 		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && gb.Stats != nil {
 			gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
 		}
 	}
-
-	// outputLine := OutputLine{
-	// 	PlatformSymbol: ttx.Marketplace.Tag,
-	// 	DateTime:       currentTime,
-	// 	PriceSymbol:    "→",
-	// 	ActionSymhol:   ttx.Action.Icon(),
-	// 	FromToSymbol:   "⇄",
-	// 	Price:          ttx.GetPrice().Ether(),
-	// 	PricePerItem:   averagePrice.Ether(),
-	// 	CollectionName: currentCollection.Name,
-	// 	TokenIDs:       []int64{0, 2, 4}, // TODO: ttx.TokenIDsByContract()
-	// 	TxHash:         txHash.String(),
-	// 	Buyer:          osmodels.Account{Address: buyer.String(), User: ""},
-	// 	Seller:         osmodels.Account{Address: transferFrom.String(), User: ""},
-	// 	NumSales:       int(currentCollection.Counters.Sales),
-	// 	NumListings:    int(currentCollection.Counters.Listings),
-	// 	SaLiRa:         currentCollection.SaLiRa.Value(),
-
-	// 	Colors: OutputColors{
-	// 		Platform:            ttx.Marketplace.Color,
-	// 		DateTime:            style.DarkGray,
-	// 		PriceSymbol:         priceArrowColor,
-	// 		FromToSymbol:        style.DarkGray,
-	// 		Collection:          currentCollection.Colors.Primary,
-	// 		CollectionSecondary: currentCollection.Colors.Secondary,
-	// 		Buyer:               style.GenerateColorWithSeed(buyer.Hash().Big().Int64()),
-	// 		Seller:              style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()),
-	// 		SaLiRa:              style.DarkGray,
-	// 	},
-	// }
-
-	// // terminalPrinterQueue <- fmt.Sprint(outputLine)
-
-	// gbl.Log.Debugf("outputLine: %+v", outputLine)
 }
 
 func getNumberStyles(numEvents int) (lipgloss.Style, lipgloss.Style) {

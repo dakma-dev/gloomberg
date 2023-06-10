@@ -8,7 +8,7 @@ import (
 
 // Price represents the value/amount of (w)eth transferred in a transaction.
 type Price struct {
-	value *big.Int
+	valueWei *big.Int
 }
 
 func NewPrice(price *big.Int) *Price {
@@ -17,32 +17,32 @@ func NewPrice(price *big.Int) *Price {
 	}
 
 	return &Price{
-		value: price,
+		valueWei: price,
 	}
 }
 
 func (p *Price) Add(itemPrice *Price) *Price {
 	return &Price{
-		value: big.NewInt(0).Add(p.value, itemPrice.value),
+		valueWei: big.NewInt(0).Add(p.valueWei, itemPrice.valueWei),
 	}
 }
 
 func (p *Price) Wei() *big.Int {
-	if p == nil {
-		return nil
+	if p.valueWei == nil {
+		return big.NewInt(0)
 	}
 
-	return p.value
+	return p.valueWei
 }
 
 func (p *Price) Gwei() float64 {
-	gwei, _ := utils.WeiToGwei(p.value).Float64()
+	gwei, _ := utils.WeiToGwei(p.Wei()).Float64()
 
 	return gwei
 }
 
 func (p *Price) Ether() float64 {
-	ether, _ := utils.WeiToEther(p.value).Float64()
+	ether, _ := utils.WeiToEther(p.Wei()).Float64()
 
 	return ether
 }

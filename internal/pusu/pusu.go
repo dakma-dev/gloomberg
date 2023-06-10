@@ -45,7 +45,7 @@ func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransac
 }
 
 // SubscribeToListingsViaRedis subscribes to all collections for which we have a slug.
-func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction) {
+func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 	slugAddresses := gb.CollectionDB.OpenseaSlugAddresses()
 	if len(slugAddresses) == 0 {
 		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
@@ -96,7 +96,7 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg, queueTokenTransactions
 		}
 
 		// print
-		trapri.FormatListing(gb, &itemListedEvent, queueTokenTransactions)
+		trapri.FormatListing(gb, &itemListedEvent)
 	})
 	if err != nil {
 		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())

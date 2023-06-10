@@ -136,6 +136,8 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 
 		return receivedCollections
 	} else if err != nil {
+		gbl.Log.Errorf("⌛️ error while fetching wallet collections for %s: %s", walletAddress.Hex(), err)
+
 		return receivedCollections
 	}
 	defer response.Body.Close()

@@ -38,19 +38,16 @@ type (
 	}
 )
 
-func NewNePa(gb *gloomberg.Gloomberg, queueTokenTransactions chan *totra.TokenTransaction) *NePa {
-	if queueTokenTransactions == nil {
-		queueTokenTransactions = make(chan *totra.TokenTransaction, 10240)
-	}
-
+func NewNePa(gb *gloomberg.Gloomberg) *NePa {
 	// create new np
 	np := &NePa{
 		newHeads:        make(chan *types.Header, 10240),
 		newLogs:         make(chan types.Log, 10240),
 		newTransactions: make(chan *chawagoModels.TxWithLogs, 10240),
 
-		Transactions:           make(chan *types.Transaction, 10240),
-		QueueTokenTransactions: queueTokenTransactions,
+		Transactions: make(chan *types.Transaction, 10240),
+		// QueueTokenTransactions: queueTokenTransactions,
+		QueueTokenTransactions: gb.In.TokenTransactions,
 
 		knownTransactions:   make(map[common.Hash]bool, 0),
 		knownTransactionsMu: &sync.RWMutex{},

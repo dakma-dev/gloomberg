@@ -1,10 +1,13 @@
 package osmodels
 
 import (
+	"math/big"
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -38,7 +41,7 @@ type ItemEvent interface {
 
 type BaseStreamMessage struct {
 	StreamEvent EventType `json:"event_type" mapstructure:"event_type"`
-	SentAt      string    `json:"sent_at" mapstructure:"sent_at"`
+	SentAt      string    `json:"sent_at"    mapstructure:"sent_at"`
 }
 
 func (m *BaseStreamMessage) StreamEventType() EventType {
@@ -46,21 +49,21 @@ func (m *BaseStreamMessage) StreamEventType() EventType {
 }
 
 type BaseItemMetadataType struct {
-	Name         string `json:"name" mapstructure:"name"`
-	ImageURL     string `json:"image_url" mapstructure:"image_url"`
+	Name         string `json:"name"          mapstructure:"name"`
+	ImageURL     string `json:"image_url"     mapstructure:"image_url"`
 	AnimationURL string `json:"animation_url" mapstructure:"animation_url"`
-	MetadataURL  string `json:"metadata_url" mapstructure:"metadata_url"`
+	MetadataURL  string `json:"metadata_url"  mapstructure:"metadata_url"`
 }
 
 type BaseItemType struct {
-	NftID     string               `json:"nft_id" mapstructure:"nft_id"`
+	NftID     string               `json:"nft_id"    mapstructure:"nft_id"`
 	Permalink string               `json:"permalink" mapstructure:"permalink"`
-	Metadata  BaseItemMetadataType `json:"metadata" mapstructure:"metadata"`
-	Chain     Chain                `json:"chain" mapstructure:"chain"`
+	Metadata  BaseItemMetadataType `json:"metadata"  mapstructure:"metadata"`
+	Chain     Chain                `json:"chain"     mapstructure:"chain"`
 }
 
 type PayloadItemAndColl struct {
-	Item       BaseItemType   `json:"item" mapstructure:"item"`
+	Item       BaseItemType   `json:"item"       mapstructure:"item"`
 	Collection CollectionSlug `json:"collection" mapstructure:"collection"`
 }
 
@@ -73,22 +76,12 @@ type Chain struct {
 	Name string `json:"name" mapstructure:"name"`
 }
 
-// type ItemEvent struct {
-// 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
-// 	Payload           ItemEventPayload `json:"payload" mapstructure:"payload"`
-// }
-
-// func (e ItemEvent) GetNftID() []string {
-// 	return strings.Split(e.Payload.Item.NftID, "/")
-// }
-
-// func (e ItemEvent) ContractAddress() common.Address {
-// 	return common.HexToAddress(e.GetNftID()[1])
-// }
-
 type ItemEventPayload struct {
-	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
+	Item       BaseItemType   `json:"item"       mapstructure:"item"`
+	Collection CollectionSlug `json:"collection" mapstructure:"collection"`
 }
+
+// listed
 
 type ItemListedEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
@@ -96,48 +89,101 @@ type ItemListedEvent struct {
 	Payload ItemListedEventPayload `json:"payload" mapstructure:"payload"`
 }
 
+func (e *ItemListedEvent) NftID() []string {
+	return strings.Split(e.Payload.Item.NftID, "/")
+}
+
 func (e *ItemListedEvent) GetNftID() []string {
 	return strings.Split(e.Payload.Item.NftID, "/")
 }
 
+func (e *ItemListedEvent) GetPermalink() string {
+	return e.Payload.Item.Permalink
+}
+
 func (e *ItemListedEvent) ContractAddress() common.Address {
-	return common.HexToAddress(e.GetNftID()[1])
+	return common.HexToAddress(e.NftID()[1])
+}
+
+func (e *ItemListedEvent) GetContractAddress() common.Address {
+	return common.HexToAddress(e.NftID()[1])
+}
+
+func (e *ItemListedEvent) GetTokenID() *big.Int {
+	return big.NewInt(0).SetBytes(common.Hex2Bytes(e.NftID()[2]))
+}
+
+func (e *ItemListedEvent) GetPrice() *price.Price {
+	priceWeiRaw, _, err := big.ParseFloat(e.Payload.BasePrice, 10, 64, big.ToNearestEven)
+	if err != nil {
+		log.Infof("⚓️❌ xerror parsing price: %+v | %s", err.Error(), e.Payload.BasePrice)
+
+		return nil
+	}
+	priceWei, _ := priceWeiRaw.Int(nil)
+
+	return price.NewPrice(priceWei)
+}
+
+func (e *ItemListedEvent) GetQuantity() int {
+	return e.Payload.Quantity
+}
+
+func (e *ItemListedEvent) GetTokenName() string {
+	return e.Payload.Item.Metadata.Name
+}
+
+func (e *ItemListedEvent) GetEventTimestamp() time.Time {
+	t, _ := time.Parse(time.RFC3339, e.Payload.EventTimestamp)
+
+	return t
+}
+
+func (e *ItemListedEvent) GetEventType() string {
+	return string(ItemListed)
+}
+
+func (e *ItemListedEvent) GetMakerAddress() common.Address {
+	return common.HexToAddress(e.Payload.Maker.Address)
 }
 
 type ItemListedEventPayload struct {
 	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
-	Quantity           int          `json:"quantity" mapstructure:"quantity"`
-	ListingType        string       `json:"listing_type" mapstructure:"listing_type"`
-	ListingDate        string       `json:"listing_date" mapstructure:"listing_date"`
-	ExpirationDate     string       `json:"expiration_date" mapstructure:"expiration_date"`
-	Maker              Account      `json:"maker" mapstructure:"maker"`
-	Taker              Account      `json:"taker" mapstructure:"taker"`
-	BasePrice          string       `json:"base_price" mapstructure:"base_price"`
-	PaymentToken       PaymentToken `json:"payment_token" mapstructure:"payment_token"`
-	IsPrivate          bool         `json:"is_private" mapstructure:"is_private"`
-	EventTimestamp     string       `json:"event_timestamp" mapstructure:"event_timestamp"`
+	Quantity           int          `json:"quantity"              mapstructure:"quantity"`
+	ListingType        string       `json:"listing_type"          mapstructure:"listing_type"`
+	ListingDate        string       `json:"listing_date"          mapstructure:"listing_date"`
+	ExpirationDate     string       `json:"expiration_date"       mapstructure:"expiration_date"`
+	Maker              Account      `json:"maker"                 mapstructure:"maker"`
+	Taker              Account      `json:"taker"                 mapstructure:"taker"`
+	BasePrice          string       `json:"base_price"            mapstructure:"base_price"`
+	PaymentToken       PaymentToken `json:"payment_token"         mapstructure:"payment_token"`
+	IsPrivate          bool         `json:"is_private"            mapstructure:"is_private"`
+	EventTimestamp     string       `json:"event_timestamp"       mapstructure:"event_timestamp"`
 }
+
+// offer
 
 type ItemReceivedOfferEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
-	Payload           ItemReceivedOfferEventPayload `json:"payload" mapstructure:"payload"`
+	Payload           ItemReceivedOfferEventPayload `json:"payload"             mapstructure:"payload"`
 }
 
 type ItemReceivedOfferEventPayload struct {
-	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
-	Quantity           int          `json:"quantity" mapstructure:"quantity"`
-	CreatedDate        string       `json:"created_date" mapstructure:"created_date"`
-	ExpirationDate     string       `json:"expiration_date" mapstructure:"expiration_date"`
-	Maker              Account      `json:"maker" mapstructure:"maker"`
-	Taker              Account      `json:"taker" mapstructure:"taker"`
-	BasePrice          string       `json:"base_price" mapstructure:"base_price"`
-	PaymentToken       PaymentToken `json:"payment_token" mapstructure:"payment_token"`
-	EventTimestamp     string       `json:"event_timestamp" mapstructure:"event_timestamp"`
+	Item           BaseItemType   `json:"item"            mapstructure:"item"`
+	Collection     CollectionSlug `json:"collection"      mapstructure:"collection"`
+	Quantity       int            `json:"quantity"        mapstructure:"quantity"`
+	CreatedDate    string         `json:"created_date"    mapstructure:"created_date"`
+	ExpirationDate string         `json:"expiration_date" mapstructure:"expiration_date"`
+	Maker          Account        `json:"maker"           mapstructure:"maker"`
+	Taker          Account        `json:"taker"           mapstructure:"taker"`
+	BasePrice      string         `json:"base_price"      mapstructure:"base_price"`
+	PaymentToken   PaymentToken   `json:"payment_token"   mapstructure:"payment_token"`
+	EventTimestamp string         `json:"event_timestamp" mapstructure:"event_timestamp"`
 }
 
 type CollectionOfferEvent struct {
 	BaseStreamMessage `json:"base_stream_message" mapstructure:",squash"`
-	Payload           CollectionOfferPayload `json:"payload" mapstructure:"payload"`
+	Payload           CollectionOfferPayload `json:"payload"             mapstructure:"payload"`
 }
 
 func (co CollectionOfferEvent) NftID() []string {
@@ -152,7 +198,7 @@ type CollectionOfferPayload struct {
 	AssetContractCriteria struct {
 		Address string `json:"address"`
 	} `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
-	BasePrice  string `json:"base_price" mapstructure:"base_price"`
+	BasePrice  string `json:"base_price"              mapstructure:"base_price"`
 	Collection struct {
 		Slug string `json:"slug"`
 	} `json:"collection"`
@@ -164,24 +210,24 @@ type CollectionOfferPayload struct {
 	ExpirationDate string              `json:"expiration_date"`
 	Maker          Account             `json:"maker"`
 	OrderHash      string              `json:"order_hash"`
-	PaymentToken   PaymentToken        `json:"payment_token" mapstructure:"payment_token"`
-	ProtocolData   SeaportProtocolData `json:"protocol_data" mapstructure:"protocol_data"`
+	PaymentToken   PaymentToken        `json:"payment_token"   mapstructure:"payment_token"`
+	ProtocolData   SeaportProtocolData `json:"protocol_data"   mapstructure:"protocol_data"`
 	Quantity       int                 `json:"quantity"`
 	Taker          any                 `json:"taker"`
 }
 
 type Account struct {
 	Address string `json:"address" mapstructure:"address"`
-	User    string `json:"user" mapstructure:"user"`
+	User    string `json:"user"    mapstructure:"user"`
 }
 
 type PaymentToken struct {
-	ID       int    `json:"id" mapstructure:"id"`
-	Symbol   string `json:"symbol" mapstructure:"symbol"`
-	Address  string `json:"address" mapstructure:"address"`
+	ID       int    `json:"id"        mapstructure:"id"`
+	Symbol   string `json:"symbol"    mapstructure:"symbol"`
+	Address  string `json:"address"   mapstructure:"address"`
 	ImageURL string `json:"image_url" mapstructure:"image_url"`
-	Name     string `json:"name" mapstructure:"name"`
-	Decimals int    `json:"decimals" mapstructure:"decimals"`
+	Name     string `json:"name"      mapstructure:"name"`
+	Decimals int    `json:"decimals"  mapstructure:"decimals"`
 	EthPrice string `json:"eth_price" mapstructure:"eth_price"`
 	UsdPrice string `json:"usd_price" mapstructure:"usd_price"`
 }
@@ -194,18 +240,16 @@ type ItemReceivedBidEvent struct {
 }
 
 type ItemReceivedBidEventPayload struct {
-	PayloadItemAndColl `mapstructure:",squash"`
-	Quantity           int          `mapstructure:"quantity"`
-	CreatedDate        string       `mapstructure:"created_date"`
-	ExpirationDate     string       `mapstructure:"expiration_date"`
-	Maker              Account      `mapstructure:"maker"`
-	Taker              Account      `mapstructure:"taker"`
-	BasePrice          string       `mapstructure:"base_price"`
-	PaymentToken       PaymentToken `mapstructure:"payment_token"`
-	EventTimestamp     string       `mapstructure:"event_timestamp"`
-	Collection         struct {
-		Slug string `json:"slug"`
-	} `json:"collection"`
+	Item           BaseItemType   `json:"item"                    mapstructure:"item"`
+	Collection     CollectionSlug `json:"collection"              mapstructure:"collection"`
+	Quantity       int            `mapstructure:"quantity"`
+	CreatedDate    string         `mapstructure:"created_date"`
+	ExpirationDate string         `mapstructure:"expiration_date"`
+	Maker          Account        `mapstructure:"maker"`
+	Taker          Account        `mapstructure:"taker"`
+	BasePrice      string         `mapstructure:"base_price"`
+	PaymentToken   PaymentToken   `mapstructure:"payment_token"`
+	EventTimestamp string         `mapstructure:"event_timestamp"`
 }
 
 // sale
@@ -216,16 +260,17 @@ type ItemSoldEvent struct {
 }
 
 type ItemSoldEventPayload struct {
-	PayloadItemAndColl `mapstructure:",squash"`
-	ListingType        string       `mapstructure:"listing_type"`
-	ClosingDate        string       `mapstructure:"closing_date"`
-	Transaction        Transaction  `mapstructure:"transaction"`
-	Maker              Account      `mapstructure:"maker"`
-	Taker              Account      `mapstructure:"taker"`
-	SalePrice          string       `mapstructure:"sale_price"`
-	PaymentToken       PaymentToken `mapstructure:"payment_token"`
-	IsPrivate          bool         `mapstructure:"is_private"`
-	EventTimestamp     string       `mapstructure:"event_timestamp"`
+	Item           BaseItemType   `json:"item"                    mapstructure:"item"`
+	Collection     CollectionSlug `json:"collection"              mapstructure:"collection"`
+	ListingType    string         `mapstructure:"listing_type"`
+	ClosingDate    string         `mapstructure:"closing_date"`
+	Transaction    Transaction    `mapstructure:"transaction"`
+	Maker          Account        `mapstructure:"maker"`
+	Taker          Account        `mapstructure:"taker"`
+	SalePrice      string         `mapstructure:"sale_price"`
+	PaymentToken   PaymentToken   `mapstructure:"payment_token"`
+	IsPrivate      bool           `mapstructure:"is_private"`
+	EventTimestamp string         `mapstructure:"event_timestamp"`
 }
 
 // transfer
@@ -235,12 +280,13 @@ type ItemTransferredEvent struct {
 	Payload           ItemTransferredEventPayload `mapstructure:"payload"`
 }
 type ItemTransferredEventPayload struct {
-	PayloadItemAndColl `mapstructure:",squash"`
-	FromAccount        Account     `mapstructure:"from_account"`
-	Quantity           int         `mapstructure:"quantity"`
-	ToAccount          Account     `mapstructure:"to_account"`
-	Transaction        Transaction `mapstructure:"transaction"`
-	EventTimestamp     string      `mapstructure:"event_timestamp"`
+	Item           BaseItemType   `json:"item"                    mapstructure:"item"`
+	Collection     CollectionSlug `json:"collection"              mapstructure:"collection"`
+	FromAccount    Account        `mapstructure:"from_account"`
+	Quantity       int            `mapstructure:"quantity"`
+	ToAccount      Account        `mapstructure:"to_account"`
+	Transaction    Transaction    `mapstructure:"transaction"`
+	EventTimestamp string         `mapstructure:"event_timestamp"`
 }
 
 // cancel
@@ -250,12 +296,13 @@ type ItemCancelledEvent struct {
 	Payload           ItemCancelledEventPayload `mapstructure:"payload"`
 }
 type ItemCancelledEventPayload struct {
-	PayloadItemAndColl `mapstructure:",squash"`
-	Quantity           int          `mapstructure:"quantity"`
-	ListingType        string       `mapstructure:"listing_type"`
-	Transaction        Transaction  `mapstructure:"transaction"`
-	PaymentToken       PaymentToken `mapstructure:"payment_token"`
-	EventTimestamp     string       `mapstructure:"event_timestamp"`
+	Item           BaseItemType   `json:"item"                    mapstructure:"item"`
+	Collection     CollectionSlug `json:"collection"              mapstructure:"collection"`
+	Quantity       int            `mapstructure:"quantity"`
+	ListingType    string         `mapstructure:"listing_type"`
+	Transaction    Transaction    `mapstructure:"transaction"`
+	PaymentToken   PaymentToken   `mapstructure:"payment_token"`
+	EventTimestamp string         `mapstructure:"event_timestamp"`
 }
 
 // metadata update
@@ -266,7 +313,8 @@ type ItemMetadataUpdateEvent struct {
 }
 
 type ItemMetadataUpdatePayload struct {
-	PayloadItemAndColl   `mapstructure:",squash"`
+	Item                 BaseItemType   `json:"item"                     mapstructure:"item"`
+	Collection           CollectionSlug `json:"collection"               mapstructure:"collection"`
 	BaseItemMetadataType `mapstructure:",squash"`
 	Description          string  `mapstructure:"description"`
 	BackgroundColor      string  `mapstructure:"background_color"`

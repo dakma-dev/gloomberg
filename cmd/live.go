@@ -24,6 +24,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nepa"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/pusu"
+	seawatcher "github.com/benleb/gloomberg/internal/seawa"
 	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
@@ -71,8 +72,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	// }
 
-	log.Infof("🐙 gloomberg start: %p", gb)
-
 	// gb := gloomberg.New()
 	gb.CollectionDB = collections.New()
 	gb.OwnWallets = &wallet.Wallets{}
@@ -108,14 +107,20 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// nepa
-	queueTokenTransactions := make(chan *totra.TokenTransaction, 256)
+	// queueTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 256)
-	nePa := nepa.NewNePa(gb, queueTokenTransactions)
+	nePa := nepa.NewNePa(gb)
+
+	//
+	var seawa *seawatcher.SeaWatcher
+	if viper.GetBool("listings.enabled") {
+		seawa = startOpenseaSubscription()
+	}
 
 	// trapri | ttx printer to process and format the token transactions
 	for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
-		go trapri.TokenTransactionFormatter(gb, queueTokenTransactions, queueWsOutTokenTransactions, queueWsInTokenTransactions)
+		go trapri.TokenTransactionFormatter(gb, seawa, queueWsOutTokenTransactions, queueWsInTokenTransactions)
 	}
 
 	// start subscribing
@@ -344,25 +349,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// subscribe to OpenSea API
 	if viper.GetBool("listings.enabled") {
-		go func() {
-			for itemListedEvent := range gb.SubscribeItemListed() {
-				gbl.Log.Debugf("🚇 received item_listed event: %s", itemListedEvent)
-
-				// discard listings for ignored collections
-				if collection, ok := gb.CollectionDB.Collections[itemListedEvent.ContractAddress()]; ok && collection.IgnorePrinting {
-					gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
-
-					continue
-				}
-
-				// print
-				trapri.FormatListing(gb, itemListedEvent, queueTokenTransactions)
-			}
-		}()
-
-		seaWatcher := startOpenseaSubscription()
-
-		opensea.StartEventHandler(gb, seaWatcher.EventChannel(), seaWatcher)
+		for i := 0; i < viper.GetInt("trapri.numOpenSeaEventhandlers"); i++ {
+			go trapri.OpenseaEventsHandler(gb)
+		}
 
 		go gb.SendSlugsToServer()
 	}
@@ -371,7 +360,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// subscribe to redis pubsub channel to receive events from gloomberg central
 	if viper.GetBool("pubsub.listings.subscribe") {
 		// subscribe to redis pubsub channel
-		go pusu.SubscribeToListingsViaRedis(gb, queueTokenTransactions)
+		go pusu.SubscribeToListingsViaRedis(gb)
 
 		// initially send all our slugs & events to subscribe to
 		go gb.SendSlugsToServer()
@@ -521,6 +510,10 @@ func init() { //nolint:gochecknoinits
 	_ = viper.BindPFlag("show.unknown", liveCmd.Flags().Lookup("show-unknown"))
 
 	// worker settings
+	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
+	viper.SetDefault("gloomberg.numEventHubHandlers", 3)
+
+	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)
 	viper.SetDefault("server.workers.newLogHandler", 6)
 	viper.SetDefault("server.workers.ttxFormatter", 6)
@@ -528,8 +521,6 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.workers.listings", 2)
 	viper.SetDefault("server.pubsub.listings", 3)
 	viper.SetDefault("server.workers.pubsub.listings", 2)
-
-	viper.SetDefault("opensea.auto_list_min_sales", 50000)
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", internal.BlockTime*9)
