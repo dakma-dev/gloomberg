@@ -119,9 +119,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// trapri | ttx printer to process and format the token transactions
-	for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
-		go trapri.TokenTransactionFormatter(gb, seawa, queueWsOutTokenTransactions, queueWsInTokenTransactions)
-	}
+	go trapri.TokenTransactionFormatter(gb, seawa)
+	// for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
+	// 	go trapri.TokenTransactionFormatter(gb, seawa, queueWsOutTokenTransactions, queueWsInTokenTransactions)
+	// }
 
 	// start subscribing
 	go nePa.Run()
@@ -274,11 +275,13 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	go func() {
 		gbl.Log.Debug("starting terminal printer...")
 
-		for eventLine := range gb.SubscribePrintToTerminal() {
+		printToTerminalChannel := gb.SubscribePrintToTerminal()
+
+		for eventLine := range printToTerminalChannel {
 			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
 
 			if viper.GetBool("log.debug") {
-				debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
+				debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
 				eventLine = fmt.Sprint(debugPrefix, eventLine)
 			}
 

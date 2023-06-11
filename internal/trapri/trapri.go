@@ -6,7 +6,6 @@ import (
 	"math"
 	"math/big"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
@@ -34,47 +33,49 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	alreadyPrinted   = make(map[common.Hash]bool)
-	alreadyPrintedMu = sync.RWMutex{}
-)
-
-func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {
+// func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {.
+func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher) {
 	gbl.Log.Debugf("🧱 starting ttx formatter worker")
 
-	if viper.GetBool("websockets.client.enabled") {
-		go func() {
-			for ttx := range queueWsInTokenTransactions {
-				go formatTokenTransaction(gb, seawa, ttx)
-			}
-		}()
-	}
+	// if viper.GetBool("websockets.client.enabled") {
+	// 	go func() {
+	// 		for ttx := range queueWsInTokenTransactions {
+	// 			go formatTokenTransaction(gb, seawa, ttx)
+	// 		}
+	// 	}()
+	// }
 
 	// ! critical path !
 	// this is the main loop of the formatter
 	// blocking/delaying here will block/delay the whole stream
 	// when adding additional calls here, prefer goroutines with conditional select
-	// for ttx := range queueTokenTransactions {
-	for ttx := range gb.SubscribeTokenTransactions() {
-		go formatTokenTransaction(gb, seawa, ttx)
 
-		// send to ws if webserver enabled & the queue is not congested
-		if viper.GetBool("web.enabled") {
-			if len(queueWsOutTokenTransactions) < cap(queueWsOutTokenTransactions)-10 {
-				queueWsOutTokenTransactions <- ttx
-			} else {
-				gbl.Log.Warnf("🧱 ws out queue is congested")
+	tokenTransactionsChannel := gb.SubscribeTokenTransactions()
+
+	for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
+		go func() {
+			for ttx := range tokenTransactionsChannel {
+				go formatTokenTransaction(gb, seawa, ttx)
+
+				// // send to ws if webserver enabled & the queue is not congested
+				// if viper.GetBool("web.enabled") {
+				// 	if len(queueWsOutTokenTransactions) < cap(queueWsOutTokenTransactions)-10 {
+				// 		queueWsOutTokenTransactions <- ttx
+				// 	} else {
+				// 		gbl.Log.Warnf("🧱 ws out queue is congested")
+				// 	}
+				// }
+
+				// send to bluechip ticker
+				if viper.GetBool("notifications.bluechip.enabled") {
+					ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
+				}
+
+				if viper.GetBool("notifications.smart_wallets.enabled") {
+					ticker.AlphaCaller.AddEvent(ttx)
+				}
 			}
-		}
-
-		// send to bluechip ticker
-		if viper.GetBool("notifications.bluechip.enabled") {
-			ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
-		}
-
-		if viper.GetBool("notifications.smart_wallets.enabled") {
-			ticker.AlphaCaller.AddEvent(ttx)
-		}
+		}()
 	}
 }
 
@@ -89,23 +90,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		// generate random Hash
 		txHash = common.BytesToHash(ttx.From.Bytes()) //  *ttx.Tx.To().Bytes())
 	}
-
-	// check if we already know the transaction the log belongs to
-	alreadyPrintedMu.Lock()
-	known, ok := alreadyPrinted[txHash]
-	alreadyPrintedMu.Unlock()
-
-	if known && ok {
-		// we already know this transaction
-		gbl.Log.Debugf("already printed tx: %s", style.Bold(txHash.String()))
-
-		return
-	}
-
-	// add to alreadyPrinted map
-	alreadyPrintedMu.Lock()
-	alreadyPrinted[txHash] = true
-	alreadyPrintedMu.Unlock()
 
 	// is a collections from configured collections + own wallets
 	isOwnCollection := false
