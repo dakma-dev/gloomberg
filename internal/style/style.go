@@ -23,7 +23,7 @@ var (
 	darkerGray  = lipgloss.Color("#222")
 	darkestGray = lipgloss.Color("#111")
 
-	LightGrayForeground = lipgloss.Color("#AAA")
+	LightGrayForeground = lipgloss.Color("#BBB")
 
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	WebUIColor           = lipgloss.Color("#662288")

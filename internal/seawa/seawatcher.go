@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/seawa/models"
@@ -83,7 +84,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		}
 
 		// error function
-		onError := func(err error) { log.Info(err) }
+		onError := func(err error) { gbl.Log.Error("seawa socket error"); gbl.Log.Error(err) }
 		socket.OnError(onError)
 
 		socket.OnClose(func() {
