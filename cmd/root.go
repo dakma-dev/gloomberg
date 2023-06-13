@@ -8,8 +8,10 @@ import (
 
 	"github.com/benleb/gloomberg/cmd/flotscmd"
 	"github.com/benleb/gloomberg/cmd/oncecmd"
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -25,12 +27,7 @@ var (
 var rootCmd = &cobra.Command{
 	Use:   "gloomberg",
 	Short: "A brief description of your application",
-	Long: `A longer description that spans multiple lines and likely contains
-examples and usage of using your application. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Long:  style.GetSmallHeader(internal.GloombergVersion),
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
