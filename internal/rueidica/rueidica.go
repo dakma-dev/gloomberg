@@ -195,12 +195,12 @@ func (r *Rueidica) NotificationLockWtihDuration(ctx context.Context, txID common
 		splittedAddress := strings.Split(viper.GetString("redis.address"), ":")
 
 		host := net.ParseIP(splittedAddress[0])
-		port, _ := strconv.ParseInt(splittedAddress[1], 10, 64)
+		port, _ := strconv.ParseUint(splittedAddress[1], 10, 16)
 
 		connectAddr = &net.TCPAddr{IP: host, Port: int(port)}
 	} else {
 		// fallback to old config
-		connectAddr = &net.TCPAddr{IP: net.ParseIP(viper.GetString("redis.host")), Port: viper.GetInt("redis.port")}
+		connectAddr = &net.TCPAddr{IP: net.ParseIP(viper.GetString("redis.host")), Port: int(viper.GetUint16("redis.port"))}
 	}
 
 	// Create a pool with go-redis (or redigo) which is the pool redisync will
