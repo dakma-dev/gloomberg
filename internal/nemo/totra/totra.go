@@ -350,6 +350,14 @@ func (ttx *TokenTransaction) IsListing() bool {
 	return ttx.Action == Listing
 }
 
+func (ttx *TokenTransaction) IsItemBid() bool {
+	return ttx.Action == ItemBid
+}
+
+func (ttx *TokenTransaction) IsCollectionOffer() bool {
+	return ttx.Action == CollectionOffer
+}
+
 func (ttx *TokenTransaction) IsMint() bool {
 	// if no nfts are moved, this is not a mint
 	if !ttx.IsMovingNFTs() {

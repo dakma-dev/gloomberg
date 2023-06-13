@@ -18,9 +18,9 @@ func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 	// seller address
 	sellerAddress := event.Payload.Maker.Address
 
+	// token name without id
 	itemName := strings.Split(event.Payload.Item.Metadata.Name, " #")[0]
 
-	//
 	// create a TokenTransaction
 	ttxListing := &totra.TokenTransaction{
 		Tx:          nil,
