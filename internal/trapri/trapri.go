@@ -562,7 +562,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	if len(fmtTokensTransferred) == 0 {
-		log.Warnf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL))
+		gb.PrWarn(fmt.Sprintf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL)))
 
 		return
 	}
@@ -592,7 +592,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	var transferFrom common.Address
 
 	// show "from" if its not a listing
-	if !ttx.IsMint() && !ttx.IsListing() {
+	if !ttx.IsMint() && !ttx.IsListing() && !ttx.IsItemBid() && !ttx.IsCollectionOffer() {
 		var fmtFrom string
 
 		if tfFrom := ttx.GetNonZeroNFTSenders(); len(tfFrom) > 0 {
@@ -686,16 +686,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				for _, eventType := range seawatcher.AvailableEventTypes {
 					if seawa.SubscribeForSlug(eventType, currentCollection.OpenseaSlug) {
 						subscribedTo = append(subscribedTo, string(eventType))
-					} else {
-						log.Printf("❌ auto-subscribe to %s for %s failed!", eventType, currentCollection.OpenseaSlug)
-
-						break
 					}
 				}
 
 				if len(subscribedTo) > 0 {
 					currentCollection.ResetStats()
-					log.Printf("🔔 auto-subscribed to %s for %s (after %d sales) | previous stats resetted", strings.Join(subscribedTo, ","), currentCollection.OpenseaSlug, autoSubscribeAfterSales)
+					gb.Pr(fmt.Sprintf("🔔 auto-subscribed to opensea events for %s (after %d sales) | stats resetted", currentCollection.OpenseaSlug, autoSubscribeAfterSales))
 				}
 			}
 		}
@@ -802,6 +798,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
 			gbl.Log.Infof("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.Bold(txHash.String())), viper.GetBool("show.unknown"), ttx)
+			// gb.PrWarn(fmt.Sprintf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.Bold(txHash.String())), viper.GetBool("show.unknown"), ttx))
 
 			return
 		}
@@ -826,7 +823,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// add to history
-	if isOwn && !ttx.IsLoan() { // && ttx.Action != totra.ItemBid && ttx.Action != totra.CollectionOffer {
+	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid()) { // && ttx.Action != totra.ItemBid && ttx.Action != totra.CollectionOffer {
 		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && gb.Stats != nil {
 			gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
 		}

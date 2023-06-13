@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -79,9 +78,9 @@ func FromConfig(config interface{}) (*Pool, error) {
 		providers: make([]*Provider, 0),
 	}
 
-	// spinner
-	providerSpinner := style.GetSpinner("setting up the provider connections...")
-	_ = providerSpinner.Start()
+	// // spinner
+	// providerSpinner := style.GetSpinner("setting up the provider connections...")
+	// _ = providerSpinner.Start()
 
 	config, ok := config.([]interface{})
 	if !ok {
@@ -154,18 +153,17 @@ func FromConfig(config interface{}) (*Pool, error) {
 		}
 	}()
 
-	// get all node names to be shown as a list of connected nodes
-	nodeNames := make([]string, 0)
-	for _, n := range providerPool.providers {
-		nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
-	}
+	// // get all node names to be shown as a list of connected nodes
+	// nodeNames := make([]string, 0)
+	// for _, n := range providerPool.providers {
+	// 	nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
+	// }
 
-	// spinner
-	providerSpinner.StopMessage(
-		fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(providerPool.providers))), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
-	)
-
-	_ = providerSpinner.Stop()
+	// // spinner
+	// providerSpinner.StopMessage(
+	// 	fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(providerPool.providers))), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
+	// )
+	// _ = providerSpinner.Stop()
 
 	return providerPool, nil
 }

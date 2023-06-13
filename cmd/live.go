@@ -77,6 +77,25 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	gb.OwnWallets = &wallet.Wallets{}
 	gb.Watcher = &watch.Watcher{}
 
+	//
+	// start central terminal printer
+	go func() {
+		gbl.Log.Debug("starting terminal printer...")
+
+		printToTerminalChannel := gb.SubscribePrintToTerminal()
+
+		for eventLine := range printToTerminalChannel {
+			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+
+			if viper.GetBool("log.debug") {
+				debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
+				eventLine = fmt.Sprint(debugPrefix, eventLine)
+			}
+
+			fmt.Println(eventLine)
+		}
+	}()
+
 	// cleanup for redis db/cache
 	// defer gb.Rdb.Close()
 
@@ -95,6 +114,15 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	} else if pool != nil {
 		gb.ProviderPool = pool
 		gb.ProviderPool.Rueidi = gb.Rueidi
+
+		// get all node names to be shown as a list of connected nodes
+		providers := gb.ProviderPool.GetProviders()
+		nodeNames := make([]string, 0)
+		for _, n := range providers {
+			nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
+		}
+
+		gb.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
 	}
 
 	//
@@ -151,11 +179,11 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// get collections from config file
-	collectionsSpinner := style.GetSpinner("setting up collections...")
-	_ = collectionsSpinner.Start()
+	// collectionsSpinner := style.GetSpinner("setting up collections...")
+	// _ = collectionsSpinner.Start()
 
 	// collection from config file
-	collectionsSpinner.Message("setting up config collections...")
+	// collectionsSpinner.Message("setting up config collections...")
 
 	for _, collection := range config.GetCollectionsFromConfiguration(gb.ProviderPool, gb.Rueidi) {
 		gb.CollectionDB.RWMu.Lock()
@@ -178,29 +206,37 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// }
 
 	// print collections from config & wallet holdings
-	if len(gb.CollectionDB.Collections) > 0 {
-		collectionNames := gb.CollectionDB.SortedAndColoredNames()
-		collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
-	}
+	// if len(gb.CollectionDB.Collections) > 0 {
+	// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
+	// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
+	// }
 
-	// stop spinner
-	_ = collectionsSpinner.Stop()
+	gb.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+
+	// // stop spinner
+	// _ = collectionsSpinner.Stop()
 
 	//
 	// get own wallets from config file
 	if viper.GetBool("sales.enabled") {
 		gb.OwnWallets = config.GetOwnWalletsFromConfig(gb.ProviderPool)
+
+		if len(*gb.OwnWallets) > 0 {
+			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
+			// _ = miwSpinner.Stop()
+			gb.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
+		}
 	}
 
 	//
 	// initialize collections database
 	if viper.GetBool("sales.enabled") {
-		collectionsSpinner := style.GetSpinner("setting up collections...")
-		_ = collectionsSpinner.Start()
+		// collectionsSpinner := style.GetSpinner("setting up collections...")
+		// _ = collectionsSpinner.Start()
 
 		if len(*gb.OwnWallets) > 0 {
 			// collections from wallet holdings
-			collectionsSpinner.Message("setting up wallet collections...")
+			// collectionsSpinner.Message("setting up wallet collections...")
 
 			// read collections hold in wallets from opensea and store in currentCollections
 			gbl.Log.Debugf("gb.OwnWallets: %v | gb.CollectionDB: %+v | gb.ProviderPool: %+v", gb.OwnWallets, gb.CollectionDB, gb.ProviderPool)
@@ -218,13 +254,15 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			GetWalletTokens(gb)
 		}
 
-		// print collections from config & wallet holdings
-		if len(gb.CollectionDB.Collections) > 0 {
-			collectionNames := gb.CollectionDB.SortedAndColoredNames()
-			collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
-		}
+		// // print collections from config & wallet holdings
+		// if len(gb.CollectionDB.Collections) > 0 {
+		// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
+		// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
+		// }
 
-		_ = collectionsSpinner.Stop()
+		gb.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+
+		// _ = collectionsSpinner.Stop()
 	}
 
 	// for _, buyRule := range gb.BuyRules.Rules {
@@ -252,42 +290,25 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// wallet watcher (todo) & MIWs
 	if viper.GetBool("sales.enabled") {
-		watcher := config.GetWatchRulesFromConfig()
+		watcher := config.GetWatchRulesFromConfig(gb)
 		gb.Watcher = watcher
 
 		//
 		// MIWs
-		miwSpinner := style.GetSpinner("setting up MIWs...")
-		_ = miwSpinner.Start()
+		// miwSpinner := style.GetSpinner("setting up MIWs...")
+		// _ = miwSpinner.Start()
 
 		wwatcher.LoadMIWs()
 
 		if len(wwatcher.MIWC.WeightedMIWs) > 0 {
-			miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
-			_ = miwSpinner.Stop()
-		} else {
-			_ = miwSpinner.StopFail()
+			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
+			// _ = miwSpinner.Stop()
+			gb.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs)))))
 		}
+		//  else {
+		// 	_ = miwSpinner.StopFail()
+		// }
 	}
-
-	//
-	// start central terminal printer
-	go func() {
-		gbl.Log.Debug("starting terminal printer...")
-
-		printToTerminalChannel := gb.SubscribePrintToTerminal()
-
-		for eventLine := range printToTerminalChannel {
-			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
-
-			if viper.GetBool("log.debug") {
-				debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
-				eventLine = fmt.Sprint(debugPrefix, eventLine)
-			}
-
-			fmt.Println(eventLine)
-		}
-	}()
 
 	// old printer active until fully migrated
 	go func() {
@@ -352,9 +373,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// subscribe to OpenSea API
 	if viper.GetBool("listings.enabled") {
-		for i := 0; i < viper.GetInt("trapri.numOpenSeaEventhandlers"); i++ {
-			go trapri.OpenseaEventsHandler(gb)
-		}
+		go trapri.OpenseaEventsHandler(gb)
 
 		go gb.SendSlugsToServer()
 	}
@@ -416,15 +435,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// web ui
 	if viper.GetBool("web.enabled") {
-		webSpinner := style.GetSpinner("setting up web ui...")
-		_ = webSpinner.Start()
-
 		go web.StartWebUI(queueWsOutTokenTransactions)
 
-		webSpinner.StopMessage(fmt.Sprintf("web ui running %s", "👍"))
-
-		// stop spinner
-		_ = webSpinner.Stop()
+		gb.PrMod("web", "web-ui started")
 	}
 
 	if err := degendata.LoadMetadatas(); err != nil {
@@ -562,7 +575,7 @@ func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
 		time.Sleep(time.Millisecond * 337)
 	}
 
-	fmt.Println("", len(gbTokens), "tokens loaded")
+	gb.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gbTokens))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets)))))
 
 	// create map
 	gbTokensMap := make(map[common.Address]*token.Token)

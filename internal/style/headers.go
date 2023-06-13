@@ -1,6 +1,9 @@
 package style
 
-var headers = []string{headerMoney, headerCrazy, headerTHIS, headerImpossible}
+var (
+	headers      = []string{headerMoney, headerCrazy, headerTHIS, headerImpossible}
+	smallHeaders = []string{smallStraightHeader}
+)
 
 const headerMoney = `
           $$\                                   $$\
@@ -45,3 +48,11 @@ const headerImpossible = `
  / / /_____/ / // /_/_/ ___/\ / / /___/ / // / /___/ / // / /    / / // / /____\_\ \  / / /______  / / /\ \ \  / / /_____/ / /
 / / /______\/ //_______/\__\// / /____\/ // / /____\/ / \/_/    / / // / /__________\/ / /_______\/ / /  \ \ \/ / /______\/ /
 \/___________/ \_______\/    \/_________/ \/_________/          \/_/ \/_____________/\/__________/\/_/    \_\/\/___________/`
+
+const smallStraightHeader = `
+     _               _
+ ___| |___ ___ _____| |_ ___ ___ ___
+| . | | . | . |     | . | -_|  _| . |
+|_  |_|___|___|_|_|_|___|___|_| |_  |
+|___|                           |___|
+`

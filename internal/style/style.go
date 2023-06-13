@@ -23,7 +23,10 @@ var (
 	darkerGray  = lipgloss.Color("#222")
 	darkestGray = lipgloss.Color("#111")
 
+	LightGrayForeground = lipgloss.Color("#AAA")
+
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
+	WebUIColor           = lipgloss.Color("#662288")
 	BlurOrange           = lipgloss.Color("#FF8700")
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#77A077"))
@@ -32,7 +35,8 @@ var (
 	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeeee"))
 	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
 	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
-	LightGrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#999999"))
+	LightGray            = lipgloss.Color("#999999")
+	LightGrayStyle       = lipgloss.NewStyle().Foreground(LightGray)
 	Gray4Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#444"))
 	Gray5Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
 	Gray7Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#777"))
@@ -132,6 +136,43 @@ func GetHeader(version string) string {
 	}
 
 	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
+}
+
+func GetSmallHeader(version string) string {
+	randColorID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(PaletteRLD))))
+	randHeaderID, _ := crand.Int(crand.Reader, big.NewInt(int64(len(smallHeaders))))
+
+	headerLogo := smallHeaders[randHeaderID.Int64()]
+	headerColor := PaletteRLD[randColorID.Int64()]
+
+	header := strings.Builder{}
+
+	stupidStaticPaddingLeft := 11
+
+	headerBaseStyle := lipgloss.NewStyle().Foreground(headerColor)
+	headerStyle := headerBaseStyle.Copy().Padding(2, 0, 1, stupidStaticPaddingLeft)
+	headerSeparatorStyle := headerBaseStyle // .Copy().Bold(true)
+	subHeaderStyle := DarkGrayStyle.Copy().Padding(0, 0, 0, stupidStaticPaddingLeft-5)
+
+	header.WriteString(headerStyle.Render(headerLogo) + "\n")
+
+	subHeader := strings.Builder{}
+	subHeader.WriteString(headerBaseStyle.Copy().Bold(true).Render("·"))
+	subHeader.WriteString(" " + DarkGrayStyle.Render("gloomberg"))
+	subHeader.WriteString(" " + lipgloss.NewStyle().Foreground(lipgloss.Color("#444444")).Render(version))
+	subHeader.WriteString(" " + headerSeparatorStyle.Render("|"))
+	subHeader.WriteString(" " + DarkGrayStyle.Render("github.com/benleb/gloomberg"))
+	subHeader.WriteString(" " + headerSeparatorStyle.Render("·"))
+
+	header.WriteString(subHeaderStyle.Render(subHeader.String()))
+
+	width, _, err := term.GetSize(int(os.Stdin.Fd()))
+	if err != nil {
+		gbl.Log.Error(err)
+	}
+
+	// return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
+	return lipgloss.NewStyle().Width(width - 4).Render(header.String())
 }
 
 func GetBuyDiffShadeColor(priceDiff float64) lipgloss.Color {

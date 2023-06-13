@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
+	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -17,6 +19,7 @@ import (
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
@@ -39,6 +42,25 @@ type Gloomberg struct {
 
 	*eventHub
 	*degendb.DegenDB
+}
+
+type printConfig struct {
+	Icon    string
+	Keyword string
+	Color   lipgloss.Color
+}
+
+var prConigs = map[string]printConfig{
+	"web": {
+		Icon:    "🖥️",
+		Keyword: "web",
+		Color:   lipgloss.Color("#662288"),
+	},
+	"wawa": {
+		Icon:    "💳",
+		Keyword: "wawa",
+		Color:   lipgloss.Color("#550933"),
+	},
 }
 
 func New() *Gloomberg {
@@ -87,6 +109,54 @@ func (gb *Gloomberg) SendSlugsToServer() {
 	} else {
 		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
 	}
+}
+
+// Pr prints messages from gloomberg to the terminal.
+func (gb *Gloomberg) Pr(message string) {
+	gb.printToTerminal("🧃", style.Gray5Style.Render("gb"), message) // style.PinkBoldStyle.Render("・"))
+}
+
+func (gb *Gloomberg) PrWarn(message string) {
+	gb.printToTerminal("⚠️", "", message)
+}
+
+func (gb *Gloomberg) PrWithKeywordAndIcon(icon string, keyword string, message string) {
+	gb.printToTerminal(icon, keyword, message)
+}
+
+func (gb *Gloomberg) PrMod(mod string, message string) {
+	var icon, keyword string
+
+	if prConfig, ok := prConigs[mod]; ok {
+		icon = prConfig.Icon
+
+		if prConfig.Color != "" {
+			keyword = lipgloss.NewStyle().Foreground(prConfig.Color).Render(prConfig.Keyword)
+		} else {
+			keyword = prConfig.Keyword
+		}
+	}
+
+	gb.printToTerminal(icon, keyword, message)
+}
+
+func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string) {
+	if message == "" {
+		return
+	}
+
+	// WEN...??
+	now := time.Now()
+	currentTime := now.Format("15:04:05")
+
+	out := strings.Builder{}
+	out.WriteString(style.DarkGrayStyle.Render("|"))
+	out.WriteString(style.Gray4Style.Render(currentTime))
+	out.WriteString(" " + lipgloss.NewStyle().MaxWidth(4).Render(icon))
+	out.WriteString("  " + lipgloss.NewStyle().Width(7).Align(lipgloss.Center).Render(keyword))
+	out.WriteString(" " + message)
+
+	gb.In.PrintToTerminal <- out.String()
 }
 
 func getRedisClient() rueidis.Client {

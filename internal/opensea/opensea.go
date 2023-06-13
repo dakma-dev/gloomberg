@@ -107,7 +107,6 @@ func GetTokensFor(walletAddress common.Address, try int, cursor string) []*token
 	}
 
 	if collectionResponse.Next != "" {
-		fmt.Printf("next page: %s", collectionResponse.Next)
 		receivedNFTs = append(receivedNFTs, GetTokensFor(walletAddress, 0, collectionResponse.Next)...)
 	}
 

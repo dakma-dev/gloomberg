@@ -10,6 +10,7 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
@@ -28,8 +29,8 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 	ownWallets := make(map[common.Address]*wallet.Wallet, 0)
 	mu := sync.Mutex{}
 
-	nodesSpinner := style.GetSpinner("setting up own wallets...")
-	_ = nodesSpinner.Start()
+	// nodesSpinner := style.GetSpinner("setting up own wallets...")
+	// _ = nodesSpinner.Start()
 
 	var wgWallets sync.WaitGroup
 
@@ -119,16 +120,14 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 	// 	}
 	// }
 
-	// build spinner stop msg with all wallet names
-	nodesSpinner.StopMessage(fmt.Sprint(
-		style.BoldStyle.Render(fmt.Sprint(len(ownWallets))),
-		" wallets: ",
-		strings.Join((*wallet.Wallets)(&ownWallets).FormattedNames(), ", "),
-	) + "\n")
+	// // build spinner stop msg with all wallet names
+	// nodesSpinner.StopMessage(fmt.Sprint(
+	// 	style.BoldStyle.Render(fmt.Sprint(len(ownWallets))),
+	// 	" wallets: ",
+	// 	strings.Join((*wallet.Wallets)(&ownWallets).FormattedNames(), ", "),
+	// ) + "\n")
 
-	_ = nodesSpinner.Stop()
-
-	// gbl.Log.Info(pretty.Sprint(ownWallets))
+	// _ = nodesSpinner.Stop()
 
 	return (*wallet.Wallets)(&ownWallets)
 }
@@ -299,7 +298,7 @@ func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *ruei
 // }
 
 // GetWatchRulesFromConfig reads configured users to be notified from config.
-func GetWatchRulesFromConfig() *watch.Watcher {
+func GetWatchRulesFromConfig(gb *gloomberg.Gloomberg) *watch.Watcher {
 	mu := sync.Mutex{}
 
 	watcher := watch.Watcher{
@@ -309,8 +308,8 @@ func GetWatchRulesFromConfig() *watch.Watcher {
 		WatchUsers:      make(map[common.Address]*watch.WUser, 0),
 	}
 
-	watchSpinner := style.GetSpinner("setting up watch rules...")
-	_ = watchSpinner.Start()
+	// watchSpinner := style.GetSpinner("setting up watch rules...")
+	// _ = watchSpinner.Start()
 
 	rawWatchConfig, ok := viper.Get("watch").([]interface{})
 	if !ok {
@@ -368,14 +367,16 @@ func GetWatchRulesFromConfig() *watch.Watcher {
 		}
 	}
 
-	// build spinner stop msg with all wallet names
-	watchSpinner.StopMessage(fmt.Sprint(
-		style.BoldStyle.Render(fmt.Sprint(len(userNames))),
-		fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(userWallets)))),
-		strings.Join(userNames, ", "),
-	) + "\n")
+	// // build spinner stop msg with all wallet names
+	// watchSpinner.StopMessage(fmt.Sprint(
+	// 	style.BoldStyle.Render(fmt.Sprint(len(userNames))),
+	// 	fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(userWallets)))),
+	// 	strings.Join(userNames, ", "),
+	// ) + "\n")
 
-	_ = watchSpinner.Stop()
+	// _ = watchSpinner.Stop()
+
+	gb.PrMod("wawa", fmt.Sprintf("watching %s users with %s wallets in total: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(userNames))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(userWallets))), strings.Join(userNames, ", ")))
 
 	return &watcher
 }

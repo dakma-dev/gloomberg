@@ -16,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
@@ -124,6 +125,11 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	}
 
 	return client
+}
+
+// pr prints messages from seawatcher to the terminal.
+func (sw *SeaWatcher) pr(message string) {
+	sw.gb.PrWithKeywordAndIcon("⚓️", lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render("seawa"), message)
 }
 
 func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
@@ -401,7 +407,7 @@ func (sw *SeaWatcher) on(eventType osmodels.EventType, collectionSlug string, ev
 // Run starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
 func (sw *SeaWatcher) Run() {
 	// subscribe to mgmt channel
-	log.Infof("⚓️ ␚ subscribing to mgmt channel %s", internal.TopicSeaWatcherMgmt)
+	sw.pr(fmt.Sprintf("subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt)))
 
 	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
 		log.Debugf("⚓️ received msg on channel %s: %s", msg.Channel, msg.Message)
@@ -420,7 +426,7 @@ func (sw *SeaWatcher) Run() {
 			return
 
 		case models.Subscribe, models.Unsubscribe:
-			log.Infof("⚓️ ␚ received %s for %s collections/slugs on %s, subscribing...", style.BoldStyle.Render(mgmtEvent.Action.String()), style.BoldStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))), internal.TopicSeaWatcherMgmt)
+			sw.pr(fmt.Sprintf("received %s for %s collections/slugs on %s, subscribing...", style.AlmostWhiteStyle.Render(mgmtEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))), internal.TopicSeaWatcherMgmt))
 			if len(mgmtEvent.Slugs) == 0 {
 				log.Error("⚓️❌ incoming collection slugs msg is empty")
 
@@ -451,7 +457,7 @@ func (sw *SeaWatcher) Run() {
 			// subscribe to which events?
 			if len(mgmtEvent.Events) == 0 {
 				// subscribe to all available events if none are specified
-				log.Infof("⚓️ ␚ no events specified, subscribing to all available events (%+v)", strings.Join(events, ", "))
+				sw.pr(fmt.Sprintf("no events specified, subscribing to all available events (%+v)", strings.Join(events, ", ")))
 
 				mgmtEvent.Events = AvailableEventTypes
 			}
@@ -481,12 +487,12 @@ func (sw *SeaWatcher) Run() {
 				}
 			}
 
-			log.Infof(
-				"⚓️ ␚ successfully subscribed to %s new collections/slugs (%d events in total) | total subscriptions: %s",
-				style.BoldStyle.Render(fmt.Sprint(len(newSubscriptions))),
+			sw.pr(fmt.Sprintf(
+				"successfully subscribed to %s new collections/slugs (%d events in total) | total subscriptions: %s",
+				style.AlmostWhiteStyle.Render(fmt.Sprint(len(newSubscriptions))),
 				newEventSubscriptions,
-				style.BoldStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()[osmodels.ItemListed]))),
-			)
+				style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()[osmodels.ItemListed]))),
+			))
 
 		default:
 			log.Infof("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
@@ -518,6 +524,6 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 		log.Errorf("⚓️❌ error publishing %s to redis: %s", sendSlugsEvent.Action.String(), err.Error())
 	} else {
-		log.Infof("⚓️ 📣 published %s event to %s", style.Bold(sendSlugsEvent.Action.String()), style.Bold(internal.TopicSeaWatcherMgmt))
+		sw.pr(fmt.Sprintf("📣 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt)))
 	}
 }
