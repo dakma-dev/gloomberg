@@ -68,7 +68,7 @@ func createRequest(ctx context.Context, url string, method string, customHeader 
 	}
 
 	if err != nil {
-		gbl.Log.Errorf("❌ error creating %+v request for %+v with headers %+v and payload %+v: %+v", method, url, customHeader, payload, err)
+		gbl.Log.Errorf("❌ error creating %+v request: %+v", method, err)
 
 		return nil, err
 	}
@@ -76,8 +76,6 @@ func createRequest(ctx context.Context, url string, method string, customHeader 
 	header := &http.Header{}
 	header.Add("Accept", "application/json")
 	header.Add("Cache-Control", "no-cache")
-
-	gbl.Log.Debugf("request: %+v | header: %+v", request, header)
 
 	for h := range customHeader {
 		header.Add(h, customHeader.Get(h))
