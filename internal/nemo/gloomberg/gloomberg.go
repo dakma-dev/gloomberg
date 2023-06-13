@@ -153,8 +153,8 @@ func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string
 	out.WriteString(style.DarkGrayStyle.Render("|"))
 	out.WriteString(style.Gray4Style.Render(currentTime))
 	out.WriteString(" " + lipgloss.NewStyle().MaxWidth(4).Render(icon))
-	out.WriteString("  " + lipgloss.NewStyle().Width(7).Align(lipgloss.Center).Render(keyword))
-	out.WriteString(" " + message)
+	out.WriteString("   " + lipgloss.NewStyle().Width(7).Align(lipgloss.Center).Render(keyword))
+	out.WriteString("  " + message)
 
 	gb.In.PrintToTerminal <- out.String()
 }
