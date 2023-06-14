@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -40,7 +39,8 @@ type SeaWatcher struct {
 	channels map[string]*phx.Channel
 
 	// subscribed slugs/events
-	subscriptions map[osmodels.EventType]map[string]func()
+	// subscriptions map[osmodels.EventType]map[string]func()
+	subscriptions map[string]map[osmodels.EventType]func()
 
 	// redis client
 	rdb rueidis.Client
@@ -51,9 +51,7 @@ type SeaWatcher struct {
 }
 
 var (
-	// topX = map[string]*models.Bid{}.
-
-	AvailableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.ItemMetadataUpdated} // , osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+	availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.ItemMetadataUpdated} // , osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
@@ -80,13 +78,11 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 
 	client := &SeaWatcher{
 		receivedEvents: make(chan map[string]interface{}, 1024),
-		subscriptions:  make(map[osmodels.EventType]map[string]func(), 0),
+		subscriptions:  make(map[string]map[osmodels.EventType]func(), 0),
 
-		// phoenixSocket: socket,
 		channels: make(map[string]*phx.Channel),
 
-		gb: gb,
-		// rdb: rdb,
+		gb:  gb,
 		rdb: gb.Rdb,
 
 		mu: &sync.Mutex{},
@@ -118,11 +114,6 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		}
 	})
 
-	// create subscriptions map/registry
-	for _, event := range AvailableEventTypes {
-		client.subscriptions[event] = make(map[string]func(), 0)
-	}
-
 	if client.phoenixSocket != nil {
 		if err := client.connect(); err != nil {
 			socketError := errors.New("opensea stream socket connection failed: " + err.Error())
@@ -149,7 +140,7 @@ func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
 	return sw.receivedEvents
 }
 
-func (sw *SeaWatcher) ActiveSubscriptions() map[osmodels.EventType]map[string]func() {
+func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[osmodels.EventType]func() {
 	return sw.subscriptions
 }
 
@@ -289,85 +280,65 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-// func printItemReceivedOfferEvent(itemOfferEvent osmodels.ItemReceivedOfferEvent) {
-// 	priceWeiRaw, _, err := big.ParseFloat(itemOfferEvent.Payload.BasePrice, 10, 64, big.ToNearestEven)
-// 	if err != nil {
-// 		log.Infof("⚓️❌ werror parsing price: %+v | %s", itemOfferEvent.Payload.BasePrice, err.Error())
-
-// 		return
-// 	}
-// 	priceWei, _ := priceWeiRaw.Int(nil)
-
-// 	// nftID is a identification string in the format <chain>/<contract>/<tokenID>
-// 	nftID := strings.Split(itemOfferEvent.Payload.Item.NftID, "/")
-// 	if len(nftID) != 3 {
-// 		log.Infof("⚓️ 🤷‍♀️ error parsing nftID: %s", itemOfferEvent.Payload.Item.NftID)
-
-// 		return
-// 	}
-// 	eventType := osmodels.TxType[itemOfferEvent.StreamEvent]
-// 	collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Hash().Big().Int64())).Bold(true)
-// 	collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(common.HexToAddress(nftID[1]).Big().Int64() ^ 2)).Bold(true)
-// 	// get tokenID
-// 	tID, _, _ := big.ParseFloat(nftID[2], 10, 64, big.ToNearestEven)
-// 	tokenID, _ := tID.Int(nil)
-// 	fmtTokenID := style.ShortenedTokenIDStyled(tokenID, collectionPrimaryStyle, collectionSecondaryStyle)
-// 	// for erc1155 tokens itemOfferEvent.Payload.Item.Metadata.Name is the item name
-// 	collectionName := strings.Split(itemOfferEvent.Payload.Item.Metadata.Name, " #")[0]
-// 	fmtToken := style.BoldStyle.Render(fmt.Sprintf("%s %s", collectionPrimaryStyle.Render(collectionName), fmtTokenID))
-// 	fmt.Println(itemOfferEvent.StreamEvent)
-// 	log.Infof("⚓️ %s | %sΞ  %s ", eventType.Icon(), style.BoldStyle.Render(fmt.Sprintf("%5.3f", price.NewPrice(priceWei).Ether())), style.TerminalLink(itemOfferEvent.Payload.Item.Permalink, fmtToken))
-// }
-
-func (sw *SeaWatcher) SubscribeForSlug(eventType osmodels.EventType, slug string) bool {
+func (sw *SeaWatcher) SubscribeForSlug(slug string) bool {
 	sw.mu.Lock()
-	alreadySubscribed := sw.subscriptions[eventType][slug]
+	alreadySubscribed := sw.subscriptions[slug]
 
 	if alreadySubscribed != nil {
 		sw.mu.Unlock()
 
-		log.Debugf("⚓️ ☕️ already subscribed to %s for %s", eventType, slug)
+		log.Debugf("⚓️ ☕️ already subscribed to opensea events for %s", slug)
 
 		return false
 	}
 
-	sw.subscriptions[eventType][slug] = sw.on(eventType, slug, sw.eventHandler)
+	sw.subscriptions[slug] = make(map[osmodels.EventType]func())
+
+	for _, eventType := range availableEventTypes {
+		sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
+	}
 	sw.mu.Unlock()
+
+	if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
+		log.Debugf("⏮️ resetting stats for %s", slug)
+
+		collection.ResetStats()
+	}
 
 	return true
 }
 
-func (sw *SeaWatcher) UnubscribeForSlug(eventType osmodels.EventType, slug string) bool {
+func (sw *SeaWatcher) UnubscribeForSlug(slug string) bool {
 	sw.mu.Lock()
-	unsubscribe := sw.subscriptions[eventType][slug]
+	slugSubscriptions := sw.subscriptions[slug]
 	sw.mu.Unlock()
 
-	if unsubscribe != nil {
+	if slugSubscriptions != nil {
 		// unsubscribe
-		unsubscribe()
+		for _, unsubscribe := range slugSubscriptions {
+			unsubscribe()
+		}
 
 		// remove slug
 		sw.mu.Lock()
-		sw.subscriptions[eventType][slug] = nil
+		sw.subscriptions[slug] = nil
 		sw.mu.Unlock()
 
 		return true
 	}
 
-	log.Debugf("☕️ not subscribed to %s for %s (anymore)", eventType, slug)
+	log.Debugf("unsubscribed %s from opense events", slug)
 
 	return false
 }
 
 func (sw *SeaWatcher) IsSubscribed(slug string) bool {
-	for _, eventType := range AvailableEventTypes {
-		sw.mu.Lock()
-		alreadySubscribed, ok := sw.subscriptions[eventType][slug]
-		sw.mu.Unlock()
+	sw.mu.Lock()
+	alreadySubscribed, ok := sw.subscriptions[slug]
+	sw.mu.Unlock()
 
-		if ok && alreadySubscribed != nil {
-			return true
-		}
+	if ok && alreadySubscribed != nil {
+		return true
 	}
 
 	return false
@@ -466,27 +437,13 @@ func (sw *SeaWatcher) Run() {
 				return
 			}
 
-			var action func(event osmodels.EventType, slug string) bool
+			var action func(slug string) bool
 
 			switch mgmtEvent.Action {
 			case models.Subscribe:
 				action = sw.SubscribeForSlug
 			case models.Unsubscribe:
 				action = sw.UnubscribeForSlug
-			}
-
-			// transform to string
-			var events []string
-			for _, event := range AvailableEventTypes {
-				events = append(events, string(event))
-			}
-
-			// subscribe to which events?
-			if len(mgmtEvent.Events) == 0 {
-				// subscribe to all available events if none are specified
-				sw.Prf("no events specified, subscribing to all available events (%+v)", strings.Join(events, ", "))
-
-				mgmtEvent.Events = AvailableEventTypes
 			}
 
 			newSubscriptions := make(map[string][]osmodels.EventType, 0)
@@ -499,26 +456,18 @@ func (sw *SeaWatcher) Run() {
 					continue
 				}
 
-				for _, event := range mgmtEvent.Events {
-					if action(event, slug) {
-						newEventSubscriptions++
+				if action(slug) {
+					newEventSubscriptions++
 
-						if _, ok := newSubscriptions[slug]; !ok {
-							newSubscriptions[slug] = make([]osmodels.EventType, 0)
-						}
-
-						newSubscriptions[slug] = append(newSubscriptions[slug], event)
-
-						time.Sleep(257 * time.Millisecond)
-					}
+					time.Sleep(337 * time.Millisecond)
 				}
 			}
 
 			sw.Prf(
-				"successfully subscribed to %s new collections/slugs (%d events in total) | total subscriptions: %s",
+				"successfully subscribed to %s new collections/slugs (%d events in total) | total subscribed collections: %s",
 				style.AlmostWhiteStyle.Render(fmt.Sprint(len(newSubscriptions))),
 				newEventSubscriptions,
-				style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()[osmodels.ItemListed]))),
+				style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
 			)
 
 		default:

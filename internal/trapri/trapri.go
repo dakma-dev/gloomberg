@@ -677,22 +677,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 			//
 			// auto-subscribe to opensea events after X sales
-
 			if autoSubscribeAfterSales := viper.GetUint64("opensea.auto_subscribe_after_sales"); currentCollection.Counters.Sales == autoSubscribeAfterSales {
 				if currentCollection.OpenseaSlug == "" {
 					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
 				}
 
 				if !seawa.IsSubscribed(currentCollection.OpenseaSlug) {
-					subscribedTo := make([]string, 0)
-					for _, eventType := range seawatcher.AvailableEventTypes {
-						if seawa.SubscribeForSlug(eventType, currentCollection.OpenseaSlug) {
-							subscribedTo = append(subscribedTo, string(eventType))
-						}
-					}
-
-					if len(subscribedTo) > 0 {
-						currentCollection.ResetStats()
+					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
 						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
 				}
