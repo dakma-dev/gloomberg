@@ -402,9 +402,20 @@ func (sw *SeaWatcher) on(eventType osmodels.EventType, collectionSlug string, ev
 	}
 }
 
-// Run starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
-func (sw *SeaWatcher) Run() {
-	// subscribe to mgmt channel
+func (sw *SeaWatcher) WorkerMgmtChannel() {
+	log.Debugf("subscribing to mgmt channel %s", internal.TopicSeaWatcherMgmt)
+
+	mgmtChannel := sw.gb.SubscribeSeawatcherMgmt()
+
+	for {
+		mgmtEvent := <-mgmtChannel
+
+		sw.handleMgmtEvent(mgmtEvent)
+	}
+}
+
+// SubscribeToPubsubMgmt starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
+func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
 	sw.Prf("subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt))
 
 	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
@@ -418,66 +429,68 @@ func (sw *SeaWatcher) Run() {
 			return
 		}
 
-		switch mgmtEvent.Action {
-		case models.SendSlugs:
-			// SendSlugs can be ignored on server side for now
-			return
-
-		case models.Subscribe, models.Unsubscribe:
-			sw.Prf("received %s for %s collections/slugs on %s, subscribing...", style.AlmostWhiteStyle.Render(mgmtEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))), internal.TopicSeaWatcherMgmt)
-			if len(mgmtEvent.Slugs) == 0 {
-				log.Error("⚓️❌ incoming collection slugs msg is empty")
-
-				return
-			}
-
-			if viper.GetString("api_keys.opensea") == "" {
-				log.Error("⚓️❌ opensea api key is not set, can't subscribe to listings")
-
-				return
-			}
-
-			var action func(slug string) bool
-
-			switch mgmtEvent.Action {
-			case models.Subscribe:
-				action = sw.SubscribeForSlug
-			case models.Unsubscribe:
-				action = sw.UnubscribeForSlug
-			}
-
-			newSubscriptions := make(map[string][]osmodels.EventType, 0)
-			newEventSubscriptions := 0
-
-			for _, slug := range mgmtEvent.Slugs {
-				if slug == "ens" {
-					log.Info("⚓️ ␚ skipping ens for now")
-
-					continue
-				}
-
-				if action(slug) {
-					newEventSubscriptions++
-
-					time.Sleep(337 * time.Millisecond)
-				}
-			}
-
-			sw.Prf(
-				"successfully subscribed to %s new collections/slugs (%d events in total) | total subscribed collections: %s",
-				style.AlmostWhiteStyle.Render(fmt.Sprint(len(newSubscriptions))),
-				newEventSubscriptions,
-				style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
-			)
-
-		default:
-			log.Infof("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
-
-			return
-		}
+		sw.handleMgmtEvent(mgmtEvent)
 	})
 	if err != nil {
 		log.Errorf("❌ error subscribing to redis channels %s: %s", internal.TopicSeaWatcherMgmt, err.Error())
+
+		return
+	}
+}
+
+func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
+	switch mgmtEvent.Action {
+	case models.SendSlugs:
+		// SendSlugs can be ignored on server side for now
+		return
+
+	case models.Subscribe, models.Unsubscribe:
+		sw.Prf("received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(mgmtEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))))
+		if len(mgmtEvent.Slugs) == 0 {
+			log.Error("⚓️❌ incoming collection slugs msg is empty")
+
+			return
+		}
+
+		if viper.GetString("api_keys.opensea") == "" {
+			log.Error("⚓️❌ opensea api key is not set, can't subscribe to listings")
+
+			return
+		}
+
+		var action func(slug string) bool
+
+		switch mgmtEvent.Action {
+		case models.Subscribe:
+			action = sw.SubscribeForSlug
+		case models.Unsubscribe:
+			action = sw.UnubscribeForSlug
+		}
+
+		newEventSubscriptions := 0
+
+		for _, slug := range mgmtEvent.Slugs {
+			if slug == "ens" {
+				log.Info("⚓️ ␚ skipping ens for now")
+
+				continue
+			}
+
+			if action(slug) {
+				newEventSubscriptions++
+
+				time.Sleep(337 * time.Millisecond)
+			}
+		}
+
+		sw.Prf(
+			"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
+			style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
+			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
+		)
+
+	default:
+		log.Infof("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
 
 		return
 	}

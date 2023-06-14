@@ -479,15 +479,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// average price (makes no sense for multi-collections tx)
 	averagePrice := ttx.GetPrice()
-	priceWidth := "%6.3f"
 	if ttx.TotalTokens > 1 {
 		averagePrice = price.NewPrice(big.NewInt(0).Div(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
+	}
 
-		if ttx.GetPrice() != nil && averagePrice.Ether() < 100.0 {
-			priceWidth = "%6.3f"
-		} else {
-			priceWidth = "%6.2f"
-		}
+	priceWidth := "%6.3f"
+	if averagePrice.Ether() >= 100.0 {
+		priceWidth = "%6.2f"
 	}
 
 	formattedAveragePriceEther := fmt.Sprintf(priceWidth, averagePrice.Ether())
@@ -684,7 +682,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 			//
 			// auto-subscribe to opensea events after X sales
-			if autoSubscribeAfterSales := viper.GetUint64("opensea.auto_subscribe_after_sales"); currentCollection.Counters.Sales == autoSubscribeAfterSales {
+			if autoSubscribeAfterSales := viper.GetUint64("seawatcher.auto_subscribe_after_sales"); currentCollection.Counters.Sales == autoSubscribeAfterSales {
 				if currentCollection.OpenseaSlug == "" {
 					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
 				}

@@ -142,8 +142,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	var seawa *seawatcher.SeaWatcher
-	if viper.GetBool("listings.enabled") {
-		seawa = startOpenseaSubscription()
+	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
+		seawa = subscribeToOpenseaStream()
 	}
 
 	// trapri | ttx printer to process and format the token transactions
@@ -372,7 +372,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("listings.enabled") {
+	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
 		go trapri.OpenseaEventsHandler(gb)
 
 		go gb.SendSlugsToServer()
@@ -380,13 +380,14 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to redis pubsub channel to receive events from gloomberg central
-	if viper.GetBool("pubsub.listings.subscribe") {
+	if viper.GetBool("seawatcher.pubsub") || viper.GetBool("pubsub.listings.subscribe") {
 		// subscribe to redis pubsub channel
 		go pusu.SubscribeToListingsViaRedis(gb)
 
 		// initially send all our slugs & events to subscribe to
 		go gb.SendSlugsToServer()
 
+		// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
 		go func() {
 			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
 				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Message))
@@ -408,24 +409,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				return
 			}
 		}()
-
-		// go func() {
-		// 	// loop over incoming events
-		// 	for msg := range ch {
-		// 		gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Payload))
-
-		// 		var mgmtEvent *seawa.MgmtEvent
-
-		// 		if err := json.Unmarshal([]byte(msg.Payload), &mgmtEvent); err != nil {
-		// 			gbl.Log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
-		// 		}
-
-		// 		if mgmtEvent.Action == seawa.SendSlugs {
-		// 			gbl.Log.Info(fmt.Sprintf("🚇 SendSlugs received on channel %s", msg.Channel))
-		// 			gb.SendSlugsToServer()
-		// 		}
-		// 	}
-		// }()
 	}
 
 	// log.Print("")

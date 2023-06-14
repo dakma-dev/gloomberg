@@ -106,7 +106,7 @@ func init() {
 	viper.SetDefault("ipfs.gateway", "https://cloudflare-ipfs.com/")
 
 	// opensea settings
-	viper.SetDefault("opensea.auto_subscribe_after_sales", 10)
+	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 13)
 
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)

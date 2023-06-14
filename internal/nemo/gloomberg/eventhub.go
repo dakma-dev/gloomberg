@@ -26,6 +26,8 @@ type eventChannelsIn struct {
 	TxWithLogs        chan *chawagoModels.TxWithLogs
 	TokenTransactions chan *totra.TokenTransaction
 
+	SeawatcherMgmt chan *models.MgmtEvent
+
 	PrintToTerminal chan string
 	NewBlock        chan uint64
 }
@@ -38,6 +40,8 @@ type eventChannelsOut struct {
 
 	TxWithLogs        []chan *chawagoModels.TxWithLogs
 	TokenTransactions []chan *totra.TokenTransaction
+
+	SeawatcherMgmt []chan *models.MgmtEvent
 
 	PrintToTerminal []chan string
 	NewBlock        []chan uint64
@@ -56,6 +60,8 @@ func newEventHub() *eventHub {
 			TxWithLogs:        make(chan *chawagoModels.TxWithLogs, 1024),
 			TokenTransactions: make(chan *totra.TokenTransaction, 1024),
 
+			SeawatcherMgmt: make(chan *models.MgmtEvent, 1024),
+
 			PrintToTerminal: make(chan string, 1024),
 			NewBlock:        make(chan uint64, 1024),
 		},
@@ -68,6 +74,8 @@ func newEventHub() *eventHub {
 
 			TxWithLogs:        make([]chan *chawagoModels.TxWithLogs, 0),
 			TokenTransactions: make([]chan *totra.TokenTransaction, 0),
+
+			SeawatcherMgmt: make([]chan *models.MgmtEvent, 0),
 
 			PrintToTerminal: make([]chan string, 0),
 			NewBlock:        make([]chan uint64, 0),
@@ -112,6 +120,13 @@ func (eh *eventHub) SubscribeTxWithLogs() chan *chawagoModels.TxWithLogs {
 func (eh *eventHub) SubscribeTokenTransactions() chan *totra.TokenTransaction {
 	outChannel := make(chan *totra.TokenTransaction, 1024)
 	eh.out.TokenTransactions = append(eh.out.TokenTransactions, outChannel)
+
+	return outChannel
+}
+
+func (eh *eventHub) SubscribeSeawatcherMgmt() chan *models.MgmtEvent {
+	outChannel := make(chan *models.MgmtEvent, 1024)
+	eh.out.SeawatcherMgmt = append(eh.out.SeawatcherMgmt, outChannel)
 
 	return outChannel
 }
@@ -161,6 +176,12 @@ func (eh *eventHub) worker() {
 			log.Debugf("CollectionOffer event | pushing to %d receivers", len(eh.out.CollectionOffer))
 
 			for _, ch := range eh.out.CollectionOffer {
+				ch <- event
+			}
+		case event := <-eh.In.SeawatcherMgmt:
+			log.Debugf("SeawatcherMgmt event | pushing to %d receivers", len(eh.out.SeawatcherMgmt))
+
+			for _, ch := range eh.out.SeawatcherMgmt {
 				ch <- event
 			}
 		case event := <-eh.In.PrintToTerminal:

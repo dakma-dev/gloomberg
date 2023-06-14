@@ -97,17 +97,21 @@ func (gb *Gloomberg) SendSlugsToServer() {
 
 	mgmtEvent := &models.MgmtEvent{Action: models.Subscribe, Slugs: slugs}
 
-	jsonMgmtEvent, err := json.Marshal(mgmtEvent)
-	if err != nil {
-		gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
+	gb.In.SeawatcherMgmt <- mgmtEvent
 
-		return
-	}
+	if viper.GetBool("seawatcher.pubsub") {
+		jsonMgmtEvent, err := json.Marshal(mgmtEvent)
+		if err != nil {
+			gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
 
-	if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
-		gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
-	} else {
-		gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
+			return
+		}
+
+		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
+			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
+		} else {
+			gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
+		}
 	}
 }
 
