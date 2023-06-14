@@ -128,9 +128,14 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	return client
 }
 
-// pr prints messages from seawatcher to the terminal.
-func (sw *SeaWatcher) pr(message string) {
+// Pr prints messages from seawatcher to the terminal.
+func (sw *SeaWatcher) Pr(message string) {
 	sw.gb.PrWithKeywordAndIcon("⚓️", lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render("seawa"), message)
+}
+
+// Prf formats and prints messages from seawatcher to the terminal.
+func (sw *SeaWatcher) Prf(format string, a ...interface{}) {
+	sw.Pr(fmt.Sprintf(format, a...))
 }
 
 func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {

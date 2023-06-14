@@ -116,6 +116,11 @@ func (gb *Gloomberg) Pr(message string) {
 	gb.printToTerminal("🧃", style.Gray5Style.Render("gb"), message) // style.PinkBoldStyle.Render("・"))
 }
 
+// Prf formats and prints messages from gloomberg to the terminal.
+func (gb *Gloomberg) Prf(format string, a ...any) {
+	gb.Pr(fmt.Sprintf(format, a...))
+}
+
 func (gb *Gloomberg) PrWarn(message string) {
 	gb.printToTerminal("⚠️", "", message)
 }
