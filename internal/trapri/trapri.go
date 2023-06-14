@@ -479,11 +479,18 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// average price (makes no sense for multi-collections tx)
 	averagePrice := ttx.GetPrice()
+	priceWidth := "%6.3f"
 	if ttx.TotalTokens > 1 {
 		averagePrice = price.NewPrice(big.NewInt(0).Div(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
+
+		if ttx.GetPrice() != nil && averagePrice.Ether() < 100.0 {
+			priceWidth = "%6.3f"
+		} else {
+			priceWidth = "%6.2f"
+		}
 	}
 
-	formattedAveragePriceEther := fmt.Sprintf("%6.3f", averagePrice.Ether())
+	formattedAveragePriceEther := fmt.Sprintf(priceWidth, averagePrice.Ether())
 
 	//
 	// min value
