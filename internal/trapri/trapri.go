@@ -487,13 +487,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	//
 	// min value
-	// belowAvgPriceMultiplier := 3.0
-	totalValueBelowMinValue := ttx.GetPrice().Ether() < viper.GetFloat64("show.min_value")
-	// avgValueBelowMultiMinValue := averagePrice.Ether()*belowAvgPriceMultiplier < viper.GetFloat64("show.min_value")
-	if ttx.GetPrice().Ether() > 0.0 && totalValueBelowMinValue { // && avgValueBelowMultiMinValue {
-		gbl.Log.Debugf("price is below min_value, not showing")
+	if !isOwnCollection || (!ttx.IsListing() && !ttx.IsItemBid() && !ttx.IsCollectionOffer()) {
+		totalValueBelowMinValue := ttx.GetPrice().Ether() < viper.GetFloat64("show.min_value")
+		if ttx.GetPrice().Ether() > 0.0 && totalValueBelowMinValue {
+			gbl.Log.Debugf("price is below min_value, not showing")
 
-		ttx.DoNotPrint = true
+			ttx.DoNotPrint = true
+		}
 	}
 
 	// average price per item
