@@ -1,0 +1,14 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "osmodels",
+    srcs = ["osmodels.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/osmodels",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/nemo/price",
+        "//internal/nemo/totra",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)

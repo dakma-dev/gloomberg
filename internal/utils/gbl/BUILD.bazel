@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "gbl",
+    srcs = ["gbl.go"],
+    importpath = "github.com/benleb/gloomberg/internal/utils/gbl",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@com_github_spf13_viper//:viper",
+        "@org_uber_go_zap//:zap",
+        "@org_uber_go_zap//zapcore",
+    ],
+)

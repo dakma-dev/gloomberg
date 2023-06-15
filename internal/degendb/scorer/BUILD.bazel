@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "scorer",
+    srcs = [
+        "ic_scorer.go",
+        "models.go",
+        "scorer.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/degendb/scorer",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@org_gonum_v1_gonum//floats",
+    ],
+)

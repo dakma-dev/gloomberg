@@ -1,0 +1,15 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "tokencollections",
+    srcs = ["helper.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/tokencollections",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/collectionsource",
+        "//internal/nemo/gloomberg",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)

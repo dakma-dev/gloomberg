@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "oncecmd",
+    srcs = [
+        "lawless.go",
+        "once.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/cmd/oncecmd",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//internal",
+        "//internal/gbl",
+        "//internal/nemo/provider",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

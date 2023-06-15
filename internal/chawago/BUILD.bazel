@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "chawago",
+    srcs = ["chawago.go"],
+    importpath = "github.com/benleb/gloomberg/internal/chawago",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/chawago/models",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/provider",
+        "//internal/style",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
+    ],
+)

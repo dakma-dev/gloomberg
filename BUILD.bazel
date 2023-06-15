@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+load("@bazel_gazelle//:def.bzl", "gazelle")
+
+# gazelle:prefix github.com/benleb/gloomberg
+gazelle(name = "gazelle")
+
+go_library(
+    name = "gloomberg_lib",
+    srcs = ["main.go"],
+    importpath = "github.com/benleb/gloomberg",
+    visibility = ["//visibility:private"],
+    deps = [
+        "//cmd",
+        "//internal",
+        "//internal/style",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//log",
+        "@com_github_muesli_termenv//:termenv",
+    ],
+)
+
+go_binary(
+    name = "gloomberg",
+    embed = [":gloomberg_lib"],
+    visibility = ["//visibility:public"],
+)

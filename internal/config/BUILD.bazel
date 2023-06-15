@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "config",
+    srcs = ["config.go"],
+    importpath = "github.com/benleb/gloomberg/internal/config",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/collectionsource",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/provider",
+        "//internal/nemo/wallet",
+        "//internal/nemo/watch",
+        "//internal/rueidica",
+        "//internal/style",
+        "//internal/utils",
+        "//internal/utils/hooks",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_mitchellh_mapstructure//:mapstructure",
+        "@com_github_spf13_viper//:viper",
+        "@com_github_wealdtech_go_ens_v3//:go-ens",
+    ],
+)

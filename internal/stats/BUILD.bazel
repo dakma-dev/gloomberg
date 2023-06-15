@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "stats",
+    srcs = [
+        "gas.go",
+        "stats.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/stats",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/external",
+        "//internal/gbl",
+        "//internal/nemo/price",
+        "//internal/nemo/provider",
+        "//internal/nemo/totra",
+        "//internal/nemo/wallet",
+        "//internal/style",
+        "//internal/utils",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_redis_rueidis//:rueidis",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

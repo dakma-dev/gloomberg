@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "notify",
+    srcs = [
+        "giftest.go",
+        "notify.go",
+        "telegram.go",
+        "tgbot.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/notify",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/price",
+        "//internal/nemo/standard",
+        "//internal/nemo/tokencollections",
+        "//internal/nemo/totra",
+        "//internal/nemo/watch",
+        "//internal/style",
+        "//internal/utils",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_go_telegram_bot_api_telegram_bot_api_v5//:telegram-bot-api",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

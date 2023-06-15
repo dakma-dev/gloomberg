@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "standard",
+    srcs = ["standard.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/standard",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/gbl",
+        "//internal/nemo/topic",
+        "@com_github_ethereum_go_ethereum//core/types",
+    ],
+)

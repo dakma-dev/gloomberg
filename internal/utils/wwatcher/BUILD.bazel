@@ -1,0 +1,12 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "wwatcher",
+    srcs = ["miws.go"],
+    importpath = "github.com/benleb/gloomberg/internal/utils/wwatcher",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/nemo",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)

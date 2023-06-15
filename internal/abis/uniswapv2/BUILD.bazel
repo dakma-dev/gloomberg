@@ -1,0 +1,20 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "uniswapv2",
+    srcs = [
+        "erc20.go",
+        "factory.go",
+        "pair.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/abis/uniswapv2",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@com_github_ethereum_go_ethereum//:go-ethereum",
+        "@com_github_ethereum_go_ethereum//accounts/abi",
+        "@com_github_ethereum_go_ethereum//accounts/abi/bind",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
+        "@com_github_ethereum_go_ethereum//event",
+    ],
+)

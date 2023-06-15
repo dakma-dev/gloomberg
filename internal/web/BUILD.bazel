@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "web",
+    srcs = [
+        "client.go",
+        "event.go",
+        "hub.go",
+        "web.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/web",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/gbl",
+        "//internal/nemo/totra",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_gobwas_ws//:ws",
+        "@com_github_gobwas_ws//wsutil",
+        "@com_github_spf13_viper//:viper",
+    ],
+)
