@@ -35,13 +35,15 @@ type Gloomberg struct {
 	OwnWallets   *wallet.Wallets
 	Stats        *stats.Stats
 
+	Ranks map[common.Address]map[int64]degendb.TokenRank
+
 	Rdb    rueidis.Client
 	Rueidi *rueidica.Rueidica
 
 	QueueSlugs chan common.Address
 
 	*eventHub
-	*degendb.DegenDB
+	// *degendb.DegenDB
 }
 
 type printConfig struct {
@@ -61,6 +63,11 @@ var prConigs = map[string]printConfig{
 		Keyword: "wawa",
 		Color:   lipgloss.Color("#550933"),
 	},
+	"ddb": {
+		Icon:    "🤺",
+		Keyword: "ddb",
+		Color:   lipgloss.Color("#095533"),
+	},
 }
 
 func New() *Gloomberg {
@@ -70,6 +77,8 @@ func New() *Gloomberg {
 	gb := &Gloomberg{
 		Rdb:    rdb,
 		Rueidi: rueidica.NewRueidica(rdb),
+
+		Ranks: make(map[common.Address]map[int64]degendb.TokenRank, 0),
 
 		QueueSlugs: make(chan common.Address, 1024),
 

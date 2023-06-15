@@ -10,7 +10,6 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
-	"github.com/benleb/gloomberg/internal/degendata"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
@@ -28,7 +27,6 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -213,9 +211,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			}
 
 			// add rank if available
-			if degendata.Metadatas[transfer.Token.Address] != nil {
-				if _, ok := degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()]; ok {
-					rank := degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()].Score.Rank
+			if gb.Ranks[transfer.Token.Address] != nil {
+				if rank := gb.Ranks[transfer.Token.Address][transfer.Token.ID.Int64()].Rank; rank > 0 {
 					topX := float64(rank) / float64(collection.Metadata.TotalSupply)
 
 					var rankSymbol string
@@ -231,8 +228,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 						rankSymbol = ""
 					}
 
-					fmtTokenID.WriteString(style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol)))
-					log.Debug(degendata.Metadatas[transfer.Token.Address][transfer.Token.ID.Int64()])
+					fmtRank := style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
+
+					fmtTokenID.WriteString(fmtRank)
 				}
 			}
 

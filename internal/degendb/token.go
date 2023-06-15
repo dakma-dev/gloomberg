@@ -3,6 +3,7 @@ package degendb
 import (
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -32,7 +33,7 @@ type Token struct {
 	Score float64 `bson:"score,omitempty" json:"score"`
 
 	// Metadata is the metadata of the token
-	Metadata []Attribute `bson:"metadata,omitempty" json:"metadata"`
+	Metadata []MetadataAttribute `bson:"metadata,omitempty" json:"metadata"`
 
 	// CreatedAt is the time this token was created
 	CreatedAt time.Time `bson:"created_at,omitempty" json:"created_at"`
@@ -41,12 +42,16 @@ type Token struct {
 	UpdatedAt time.Time `bson:"updated_at,omitempty" json:"updated_at"`
 }
 
-type Attribute struct {
+type MetadataAttribute struct {
 	// Name is the name of the attribute
 	Name string `json:"name"`
 
 	// Value is the value of the attribute
-	Value interface{} `json:"value"`
+	// Value interface{} `json:"value"`
+	Value string `json:"value"`
+
+	// Data type of the attribute
+	TraitType string `json:"-"`
 }
 
 type Rank struct {
@@ -63,4 +68,24 @@ type Slugs struct {
 
 	// Blur is the Blur slug of the token
 	Blur string `bson:"blur,omitempty" json:"blur"`
+}
+
+type TokenMetadata struct {
+	Attributes      []MetadataAttribute `json:"-"`
+	Name            string              `json:"name"`
+	Description     string              `json:"description"`
+	Image           string              `json:"image"`
+	TokenID         int64               `json:"token_id"`
+	ContractAddress common.Address      `json:"-"`
+	Score           Score               `json:"score,omitempty"`
+}
+
+type Score struct {
+	TokenID       int64   `json:"token_id"`
+	Rank          int64   `json:"rank"`
+	Score         float64 `json:"score"`
+	TokenFeatures struct {
+		UniqueAttributeCount int `json:"unique_attribute_count"`
+	} `json:"token_features"`
+	TokenMetadata map[string]interface{} `json:"token_metadata"`
 }

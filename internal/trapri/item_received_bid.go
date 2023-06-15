@@ -54,22 +54,22 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 
 	// new bid is higher than current top bid
 	case topBid != nil:
-		// we add a small amount of wei to the current top bid before comparing
+		// we add a small amount of ether/wei to the current top bid before comparing
 		// to prevent printing a lot of backrunned (=doubled) bids all the time
-		amountToAdd := big.NewInt(10000000000000001) // 0.01....Ξ
+		amountToAdd := big.NewInt(13370000000000001) // ≈0.01337....Ξ
 		topBidPriceWithBuffer := big.NewInt(0).Add(topBid.Payload.GetPrice().Wei(), amountToAdd)
 
-		if event.Payload.GetPrice().Wei().Cmp(topBidPriceWithBuffer) > 0 {
-			tokenTopBids[nftID.TID()] = event
+		if event.Payload.GetPrice().Wei().Cmp(topBidPriceWithBuffer) < 0 {
+			log.Debugf("🍭 bid lower than current topX:\n%+v\n>\n%+v", topBid, event)
 
-			highlightBid = true
-
-			log.Debugf("🍭 new topX: %+v", tokenTopBids[nftID.TID()])
+			return
 		}
 
-	// new bid is lower than current top bid
-	default:
-		log.Debugf("🍭 bid lower than current topX:\n%+v\n>\n%+v", topBid, event)
+		tokenTopBids[nftID.TID()] = event
+
+		highlightBid = true
+
+		log.Debugf("🍭 new topX: %+v", tokenTopBids[nftID.TID()])
 	}
 
 	// seller address

@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log"
 	"math/big"
 	"net/http"
 	"strings"
@@ -96,6 +97,38 @@ func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.
 		gbl.Log.Errorf("get token image uri error: %+v", err.Error())
 
 		return "", err
+	}
+
+	if strings.HasPrefix(tokenURI, "data:") {
+		tokenURI = strings.TrimPrefix(tokenURI, "data:")
+		mimeType, data, _ := strings.Cut(tokenURI, ",")
+
+		switch mimeType {
+		case "application/json;base64", "data:application/jsonbase64":
+			gbl.Log.Debugf("🧶 base64 json metadata in uri field: %v", data)
+
+			decoded, err := base64.StdEncoding.DecodeString(data)
+			if err != nil {
+				gbl.Log.Warn(err)
+				gbl.Log.Warn("")
+				gbl.Log.Warn(data)
+				gbl.Log.Warn("")
+			}
+
+			data = string(decoded)
+
+			log.Printf("🧶 base64 json metadata: %+v", data)
+
+			var metadata *nemo.MetadataERC721
+			err = json.Unmarshal([]byte(data), &metadata)
+			if err != nil {
+				log.Println(err)
+			}
+
+			log.Printf("🧶 base64 json metadata721: %+v", metadata)
+
+			return metadata.Image, nil
+		}
 	}
 
 	gbl.Log.Debugf("GetTokenImageURI || tokenURI: %+v", tokenURI)
@@ -193,7 +226,7 @@ func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 			mimeType, data, _ := strings.Cut(uri, ",")
 
 			switch mimeType {
-			case "application/json;base64":
+			case "application/json;base64", "data:application/jsonbase64":
 				gbl.Log.Debugf("🧶 base64 json metadata in uri field: %v", data)
 
 				decoded, err := base64.StdEncoding.DecodeString(data)

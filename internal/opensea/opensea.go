@@ -188,6 +188,39 @@ func GetCollectionSlug(collectionAddress common.Address) string {
 	return assetContract.Collection.Slug
 }
 
+// GetCollectionsFor returns the collections a wallet owns at least one item of.
+func GetCollection(slug string) *osmodels.CollectionResponse {
+	url := fmt.Sprintf("https://api.opensea.io/api/v1/collection/%s", slug)
+
+	response, err := utils.HTTP.GetWithHeader(context.Background(), url, openSeaHeader())
+	if os.IsTimeout(err) {
+		gbl.Log.Warnf("⌛️ timeout while fetching wallet collections for %s...", slug)
+
+		return nil
+	} else if err != nil {
+		gbl.Log.Errorf("⌛️ error while fetching wallet collections for %s: %s", slug, err)
+
+		return nil
+	}
+	defer response.Body.Close()
+
+	// create a variable of the same type as our model
+	var collectionResponse *osmodels.CollectionResponse
+
+	responseBody, _ := io.ReadAll(response.Body)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		return nil
+	}
+
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionResponse); err != nil {
+		gbl.Log.Errorf("⌛️ error while decoding wallet collections for %s: %s", slug, err)
+	}
+
+	return collectionResponse
+}
+
 func GetAssetContract(contractAddress common.Address) *osmodels.AssetContract {
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/asset_contract/%s", contractAddress.String())
 
@@ -282,7 +315,7 @@ func GetListings(contractAddress common.Address, tokenID int64) []osmodels.Seapo
 	return listingsResponse.Orders
 }
 
-func GetCollectionStats(collectionSlug string) *osmodels.CollectionStats {
+func GetCollectionStats(collectionSlug string) *osmodels.FullCollectionStats {
 	url := fmt.Sprintf("https://api.opensea.io/api/v1/collection/%s/stats", collectionSlug)
 
 	response, err := utils.HTTP.GetWithHeader(context.Background(), url, openSeaHeader())

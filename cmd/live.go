@@ -13,7 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
-	"github.com/benleb/gloomberg/internal/degendata"
+	"github.com/benleb/gloomberg/internal/degendb/degendata"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
@@ -35,6 +35,7 @@ import (
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/muesli/termenv"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
@@ -57,6 +58,8 @@ var liveCmd = &cobra.Command{
 }
 
 func runGloomberg(_ *cobra.Command, _ []string) {
+	termenv.DefaultOutput().ClearScreen()
+
 	// print header
 	header := style.GetHeader(internal.GloombergVersion)
 	fmt.Println(header)
@@ -126,6 +129,14 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	//
+	// degendata - ranks
+	go func() {
+		if err := degendata.LoadOpenseaRanks(gb); err != nil {
+			gbl.Log.Errorf("error loading opensea ranks: %v", err)
+		}
+	}()
+
+	//
 	// queue for everything to print to the console
 	terminalPrinterQueue := make(chan string, 256)
 
@@ -135,7 +146,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// nepa
-	// queueTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	nePa := nepa.NewNePa(gb)
@@ -148,9 +158,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// trapri | ttx printer to process and format the token transactions
 	go trapri.TokenTransactionFormatter(gb, seawa)
-	// for workerID := 1; workerID <= viper.GetInt("server.workers.ttxFormatter"); workerID++ {
-	// 	go trapri.TokenTransactionFormatter(gb, seawa, queueWsOutTokenTransactions, queueWsInTokenTransactions)
-	// }
 
 	// start subscribing
 	go nePa.Run()
@@ -411,20 +418,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}()
 	}
 
-	// log.Print("")
-	// degendata.ReadOSRawDataFiles(gb, "degendata/raw/opensea/")
-	// log.Print("")
-
 	//
 	// web ui
 	if viper.GetBool("web.enabled") {
 		go web.StartWebUI(queueWsOutTokenTransactions)
 
 		gb.PrMod("web", "web-ui started")
-	}
-
-	if err := degendata.LoadMetadatas(); err != nil {
-		log.Error(err)
 	}
 
 	// prometheus metrics
@@ -511,6 +510,10 @@ func init() { //nolint:gochecknoinits
 	_ = viper.BindPFlag("show.transfers", liveCmd.Flags().Lookup("show-transfers"))
 	liveCmd.Flags().Bool("show-unknown", false, "Show unknown")
 	_ = viper.BindPFlag("show.unknown", liveCmd.Flags().Lookup("show-unknown"))
+
+	// degendb
+	// liveCmd.Flags().StringVar(&ddbPath, "dd-path", "degendata", "path to degendata dir")
+	viper.SetDefault("degendata.path", "degendata")
 
 	// worker settings
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
