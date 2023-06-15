@@ -44,7 +44,5 @@ func main() {
 		os.Exit(0)
 	}()
 
-	termenv.DefaultOutput().ClearScreen()
-
 	cmd.Execute()
 }

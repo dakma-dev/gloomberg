@@ -39,7 +39,7 @@ func run(cmd *cobra.Command, args []string) {
 	}
 
 	// ethclient.Client
-	client := pool.GetProviders()[0].Client
+	_ = pool.GetProviders()[0].Client
 
 	//
 	// if you need other resources besides the ethclient.Client, feel free to initiate them here
@@ -52,7 +52,7 @@ func run(cmd *cobra.Command, args []string) {
 	//
 
 	// lawless metadata: get the lawless on-chain metadata and save it to a json file
-	analyzeLawlessTokenNames(client)
+	// analyzeLawlessTokenNames(client)
 
 	// TestOwnScorer()
 }
