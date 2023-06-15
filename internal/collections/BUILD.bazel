@@ -1,0 +1,24 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "collections",
+    srcs = [
+        "collection.go",
+        "collectiondb.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/collections",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/gbl",
+        "//internal/nemo",
+        "//internal/nemo/collectionsource",
+        "//internal/nemo/provider",
+        "//internal/rueidica",
+        "//internal/style",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_spf13_viper//:viper",
+        "@com_github_vividcortex_ewma//:ewma",
+    ],
+)

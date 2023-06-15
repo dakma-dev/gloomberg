@@ -1,0 +1,26 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "seawa",
+    srcs = ["seawatcher.go"],
+    importpath = "github.com/benleb/gloomberg/internal/seawa",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/gbl",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/osmodels",
+        "//internal/seawa/models",
+        "//internal/style",
+        "//internal/utils/hooks",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_mitchellh_mapstructure//:mapstructure",
+        "@com_github_nshafer_phx//:phx",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
+        "@com_github_redis_rueidis//:rueidis",
+        "@com_github_spf13_viper//:viper",
+        "@org_uber_go_zap//:zap",
+    ],
+)

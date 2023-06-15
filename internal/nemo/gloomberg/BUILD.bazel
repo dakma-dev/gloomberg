@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "gloomberg",
+    srcs = [
+        "eventhub.go",
+        "gloomberg.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/gloomberg",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/chawago/models",
+        "//internal/collections",
+        "//internal/degendb",
+        "//internal/gbl",
+        "//internal/nemo/provider",
+        "//internal/nemo/totra",
+        "//internal/nemo/wallet",
+        "//internal/nemo/watch",
+        "//internal/rueidica",
+        "//internal/seawa/models",
+        "//internal/stats",
+        "//internal/style",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_redis_rueidis//:rueidis",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

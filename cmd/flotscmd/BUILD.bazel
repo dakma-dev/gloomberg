@@ -1,0 +1,28 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "flotscmd",
+    srcs = [
+        "callBundle.go",
+        "flots.go",
+        "mevShare.go",
+        "sendBundle.go",
+        "stats.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/cmd/flotscmd",
+    visibility = ["//visibility:public"],
+    deps = [
+        "//internal",
+        "//internal/external",
+        "//internal/flots",
+        "//internal/style",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//common/hexutil",
+        "@com_github_lmittmann_w3//:w3",
+        "@com_github_r3labs_sse_v2//:sse",
+        "@com_github_spf13_cobra//:cobra",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

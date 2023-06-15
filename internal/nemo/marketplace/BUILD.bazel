@@ -1,0 +1,13 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "marketplace",
+    srcs = ["marketplace.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/marketplace",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+    ],
+)

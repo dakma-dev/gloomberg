@@ -1,0 +1,19 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "rueidica",
+    srcs = ["rueidica.go"],
+    importpath = "github.com/benleb/gloomberg/internal/rueidica",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/gbl",
+        "//internal/style",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_go_redsync_redsync_v4//:redsync",
+        "@com_github_go_redsync_redsync_v4//redis/goredis/v9:goredis",
+        "@com_github_redis_go_redis_v9//:go-redis",
+        "@com_github_redis_rueidis//:rueidis",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

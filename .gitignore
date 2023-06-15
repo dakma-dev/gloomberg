@@ -16,11 +16,6 @@ metadata/
 
 # bazel
 bazel-*
-*.bazel
-.bazelrc
-MODULE.bazel
-WORKSPACE
-WORKSPACE.bazel
 
 # not ready for prime time
 deployment/

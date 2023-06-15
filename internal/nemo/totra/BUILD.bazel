@@ -1,0 +1,25 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "totra",
+    srcs = [
+        "models.go",
+        "totra.go",
+        "txtype.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/totra",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/marketplace",
+        "//internal/nemo/price",
+        "//internal/nemo/provider",
+        "//internal/nemo/standard",
+        "//internal/nemo/token",
+        "//internal/nemo/topic",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
+    ],
+)

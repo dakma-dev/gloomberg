@@ -1,0 +1,9 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "price",
+    srcs = ["price.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/price",
+    visibility = ["//:__subpackages__"],
+    deps = ["//internal/utils"],
+)

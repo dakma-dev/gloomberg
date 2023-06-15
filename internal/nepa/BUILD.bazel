@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "nepa",
+    srcs = ["nepa.go"],
+    importpath = "github.com/benleb/gloomberg/internal/nepa",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/chawago",
+        "//internal/chawago/models",
+        "//internal/gbl",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/totra",
+        "//internal/pusu",
+        "//internal/style",
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//core/types",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

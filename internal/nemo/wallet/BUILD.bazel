@@ -1,0 +1,18 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "wallet",
+    srcs = [
+        "wallet.go",
+        "wallets.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/nemo/wallet",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/nemo/token",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_wealdtech_go_ens_v3//:go-ens",
+    ],
+)

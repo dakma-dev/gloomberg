@@ -1,0 +1,22 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "flots",
+    srcs = [
+        "flots.go",
+        "mev.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/flots",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "@com_github_charmbracelet_log//:log",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_ethereum_go_ethereum//crypto",
+        "@com_github_ethereum_go_ethereum//rpc",
+        "@com_github_lmittmann_flashbots//:flashbots",
+        "@com_github_lmittmann_w3//:w3",
+        "@com_github_lmittmann_w3//module/eth",
+        "@com_github_lmittmann_w3//w3types",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

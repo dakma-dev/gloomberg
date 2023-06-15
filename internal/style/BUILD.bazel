@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "style",
+    srcs = [
+        "format.go",
+        "headers.go",
+        "spinner.go",
+        "style.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/style",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal",
+        "//internal/gbl",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_theckman_yacspin//:yacspin",
+        "@org_golang_x_term//:term",
+    ],
+)

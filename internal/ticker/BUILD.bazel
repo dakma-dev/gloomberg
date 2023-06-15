@@ -1,0 +1,31 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ticker",
+    srcs = [
+        "bluechip.go",
+        "bluechipwallets.go",
+        "curatedwallets.go",
+        "manifold.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/ticker",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/tokencollections",
+        "//internal/nemo/totra",
+        "//internal/nemo/wallet",
+        "//internal/notify",
+        "//internal/style",
+        "//internal/utils",
+        "//internal/utils/gbl",
+        "//internal/utils/hooks",
+        "@com_github_charmbracelet_lipgloss//:lipgloss",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_go_telegram_bot_api_telegram_bot_api_v5//:telegram-bot-api",
+        "@com_github_mitchellh_mapstructure//:mapstructure",
+        "@com_github_spf13_viper//:viper",
+    ],
+)

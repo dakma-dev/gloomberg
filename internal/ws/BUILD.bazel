@@ -1,0 +1,17 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "ws",
+    srcs = [
+        "client.go",
+        "ws.go",
+    ],
+    importpath = "github.com/benleb/gloomberg/internal/ws",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/gbl",
+        "//internal/nemo/totra",
+        "@com_github_gobwas_ws//:ws",
+        "@com_github_gobwas_ws//wsutil",
+    ],
+)

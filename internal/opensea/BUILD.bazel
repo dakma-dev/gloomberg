@@ -1,0 +1,21 @@
+load("@io_bazel_rules_go//go:def.bzl", "go_library")
+
+go_library(
+    name = "opensea",
+    srcs = ["opensea.go"],
+    importpath = "github.com/benleb/gloomberg/internal/opensea",
+    visibility = ["//:__subpackages__"],
+    deps = [
+        "//internal/collections",
+        "//internal/gbl",
+        "//internal/nemo/collectionsource",
+        "//internal/nemo/gloomberg",
+        "//internal/nemo/osmodels",
+        "//internal/nemo/provider",
+        "//internal/nemo/token",
+        "//internal/rueidica",
+        "//internal/utils",
+        "@com_github_ethereum_go_ethereum//common",
+        "@com_github_spf13_viper//:viper",
+    ],
+)
