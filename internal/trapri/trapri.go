@@ -211,6 +211,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			}
 
 			// add rank if available
+			var fmtRank string
 			if gb.Ranks[transfer.Token.Address] != nil {
 				if rank := gb.Ranks[transfer.Token.Address][transfer.Token.ID.Int64()].Rank; rank > 0 {
 					topX := float64(rank) / float64(collection.Metadata.TotalSupply)
@@ -290,7 +291,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			}
 
 			fmtTokenIds[transfer.Token.Address] = append(fmtTokenIds[transfer.Token.Address], style.TerminalLink(openseaURL, fmtTokenID.String())+fmtTotalSupply)
-			fmtHistoryTokenIds[transfer.Token.Address] = append(fmtHistoryTokenIds[transfer.Token.Address], formatTokenID(collection, transfer.Token.ID)+fmtTotalSupply)
+			fmtHistoryTokenIds[transfer.Token.Address] = append(fmtHistoryTokenIds[transfer.Token.Address], fmtRank+formatTokenID(collection, transfer.Token.ID)+fmtTotalSupply)
 
 			if isOwnCollection {
 				currentCollection = collection
