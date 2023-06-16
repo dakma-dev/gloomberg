@@ -25,6 +25,7 @@ const (
 	keywordENS          string = "ensDomain"
 	keywordFloorOS      string = "floorOS"
 	keywordOSSlug       string = "osslug"
+	keywordAddress      string = "address"
 	keywordBlurSlug     string = "blurslug"
 	keywordSalira       string = "salira"
 	keyDelimiter        string = ":"
@@ -94,10 +95,29 @@ func (r *Rueidica) StoreSalira(ctx context.Context, address common.Address, valu
 }
 
 // Slugs.
-func (r *Rueidica) StoreOSSlug(ctx context.Context, address common.Address, slug string) error {
-	log.Debugf("rueidica.StoreOSSlug | %+v -> %+v", address.Hex(), slug)
+func (r *Rueidica) StoreOSSlugForAddress(ctx context.Context, address common.Address, slug string) error {
+	log.Debugf("rueidica.StoreOSSlugForAddress | %+v -> %+v", address.Hex(), slug)
 
-	return r.cacheName(ctx, address, slug, keyOSSlug, viper.GetDuration("cache.slug_ttl"))
+	return r.cacheName(ctx, address, slug, keyAddresToOSSlug, viper.GetDuration("cache.slug_ttl"))
+}
+
+func (r *Rueidica) GetOSSlugForAddress(ctx context.Context, address common.Address) (string, error) {
+	log.Debugf("rueidica.GetCachedENSName | %+v", address)
+
+	return r.getCachedName(ctx, address, keyENS)
+}
+
+func (r *Rueidica) StoreAddressForOSSlug(ctx context.Context, slug string, address common.Address) error {
+	log.Debugf("rueidica.StoreAddressForOSSlug | %+v -> %+v", slug, address.Hex())
+
+	return r.cacheAddressWithKey(ctx, keyOSSlugsToAddress(slug), address, viper.GetDuration("cache.slug_ttl"))
+	// return r.cacheName(ctx, address, slug, keyOSSlugsToAddress, viper.GetDuration("cache.slug_ttl"))
+}
+
+func (r *Rueidica) GetAddressForOSSlug(ctx context.Context, slug string) (string, error) {
+	log.Debugf("rueidica.GetAddressForOSSlug | %+v", slug)
+
+	return r.getCachedStringValueWithKey(ctx, keyOSSlugsToAddress(slug))
 }
 
 func (r *Rueidica) StoreBlurSlug(ctx context.Context, address common.Address, slug string) error {
@@ -125,6 +145,27 @@ func (r *Rueidica) getCachedName(ctx context.Context, address common.Address, ke
 		}
 
 		return cachedName, err
+	}
+
+	return "", errors.New("value not found in cache")
+}
+
+func (r *Rueidica) getCachedStringValueWithKey(ctx context.Context, rKey string) (string, error) {
+	clientCacheTTL := viper.GetDuration("cache.names_client_ttl")
+
+	if r != nil {
+		cachedValue, err := r.DoCache(ctx, r.B().Get().Key(rKey).Cache(), clientCacheTTL).ToString()
+
+		switch {
+		case err != nil && rueidis.IsRedisNil(err):
+			gbl.Log.Debugf("rueidis | no cachedValue in cache for %s", rKey)
+		case err != nil:
+			gbl.Log.Errorf("rueidis | error getting cached name: %s", err)
+		default:
+			gbl.Log.Debugf("rueidis | found name: %s -> %s", rKey, cachedValue)
+		}
+
+		return cachedValue, err
 	}
 
 	return "", errors.New("value not found in cache")
@@ -166,6 +207,17 @@ func (r *Rueidica) cacheName(ctx context.Context, address common.Address, name s
 	err := r.Do(ctx, r.B().Set().Key(keyFunc(address)).Value(name).ExSeconds(int64(duration.Seconds())).Build()).Error()
 	if err != nil {
 		gbl.Log.Errorf("rueidis | error caching name: %s ⇄ %s | %s", address.Hex(), name, err)
+
+		return err
+	}
+
+	return nil
+}
+
+func (r *Rueidica) cacheAddressWithKey(ctx context.Context, rKey string, rValue common.Address, duration time.Duration) error {
+	err := r.Do(ctx, r.B().Set().Key(rKey).Value(rValue.Hex()).ExSeconds(int64(duration.Seconds())).Build()).Error()
+	if err != nil {
+		gbl.Log.Errorf("rueidis | error caching: %s ⇄ %s | %s", rKey, rValue, err)
 
 		return err
 	}
@@ -243,8 +295,12 @@ func keyFloorOS(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordFloorOS)
 }
 
-func keyOSSlug(address common.Address) string {
+func keyAddresToOSSlug(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordOSSlug)
+}
+
+func keyOSSlugsToAddress(slug string) string {
+	return fmt.Sprint(slug, keyDelimiter, keywordAddress)
 }
 
 func keyBlurSlug(address common.Address) string {

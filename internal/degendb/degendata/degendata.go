@@ -1,6 +1,7 @@
 package degendata
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/degendb"
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/style"
@@ -39,18 +41,38 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 
 		address, ok := gb.CollectionDB.OpenseaSlugsAndAddresses()[slug]
 		if !ok {
-			collectionResponse := opensea.GetCollection(slug)
+			if addr, err := gb.Rueidi.GetAddressForOSSlug(context.Background(), slug); err == nil && addr != "" {
+				address = common.HexToAddress(addr)
 
-			if collectionResponse == nil {
+				gb.PrDModf("ddb", "found address %s for slug %s in cache", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
+			} else if collectionResponse := opensea.GetCollection(slug); collectionResponse != nil {
+				// don't fuck opensea
+				time.Sleep(time.Millisecond * 337)
+
+				gb.PrDModf("ddb", "fetched address %s for slug %s from opensea", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
+
+				if len(collectionResponse.Collection.PrimaryAssetContracts) > 0 {
+					address = common.HexToAddress(collectionResponse.Collection.PrimaryAssetContracts[0].Address)
+				} else {
+					log.Warnf("failed to get address for %s from opensea", style.AlmostWhiteStyle.Render(slug))
+
+					continue
+				}
+			} else {
 				log.Warnf("failed to get collection data for %s from opensea", style.AlmostWhiteStyle.Render(slug))
 
 				continue
-			} else if len(collectionResponse.Collection.PrimaryAssetContracts) > 0 {
-				address = common.HexToAddress(collectionResponse.Collection.PrimaryAssetContracts[0].Address)
 			}
+		} else {
+			gb.PrDModf("ddb", fmt.Sprintf("address %s for slug %s from our collectionDB", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug)))
+		}
 
-			// don't fuck opensea
-			time.Sleep(time.Millisecond * 337)
+		// cache
+		if slug != "" && address != (common.Address{}) {
+			gb.Rueidi.StoreAddressForOSSlug(context.Background(), slug, address)
+			gb.Rueidi.StoreOSSlugForAddress(context.Background(), address, slug)
+
+			gb.PrDModf("ddb", "stored address %s for slug %s in cache", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug))
 		}
 
 		ranksOpensea := make(degendb.OpenSeaRanks, 0)
@@ -77,7 +99,24 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 			continue
 		}
 
-		// gb.PrMod("ddb", fmt.Sprintf("added %s ranks for %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug)))
+		// validate
+		for token_id, rank := range ranksOpensea {
+			if rank.Rank <= 0 {
+				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+				gb.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+
+				continue
+			}
+
+			if rank.Score <= 0 {
+				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+				gb.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+
+				continue
+			}
+		}
+
+		gb.PrDModf("ddb", "added %s ranks for %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug))
 
 		gb.Ranks[address] = ranksOpensea
 		totalRanks += len(ranksOpensea)
