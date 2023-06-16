@@ -43,6 +43,7 @@ type Gloomberg struct {
 	QueueSlugs chan common.Address
 
 	*eventHub
+	*marmot
 	// *degendb.DegenDB
 }
 
@@ -86,7 +87,21 @@ func New() *Gloomberg {
 		// DegenDB:  degendb.NewDegenDB(),
 	}
 
+	// initialize marmot the task runner/scheduler
+	gb.newMarmot()
+
 	return gb
+}
+
+func (gb *Gloomberg) newMarmot() *marmot {
+	gb.marmot = &marmot{
+		gb:    gb,
+		Tasks: make([]marmotTask, 0),
+	}
+
+	gb.marmot.run()
+
+	return gb.marmot
 }
 
 func (gb *Gloomberg) SendSlugsToServer() {
