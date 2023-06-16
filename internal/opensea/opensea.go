@@ -153,6 +153,8 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&collectionResponse); err != nil {
 		gbl.Log.Errorf("⌛️ error while decoding wallet collections for %s: %s", walletAddress.Hex(), err)
+		gbl.Log.Errorf("responseBody: %+v", string(responseBody))
+		gbl.Log.Error("")
 	}
 
 	for _, collection := range collectionResponse {
