@@ -11,6 +11,11 @@ jobs:
     runs-on: ubuntu-latest
     if: github.event.repository.fork == false
 
+    # cancel already in-progress jobs or runs for the current workflow
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     env:
       GH_TOKEN: ${{ secrets.GH_TOKEN }}
 

@@ -10,6 +10,11 @@ jobs:
     runs-on: ubuntu-latest
     permissions: { contents: write, packages: write }
 
+    # cancel already in-progress jobs or runs for the current workflow
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
+
     env:
       REGISTRY: ghcr.io
       TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
