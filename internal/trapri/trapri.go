@@ -228,7 +228,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 						rankSymbol = ""
 					}
 
-					fmtRank := style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
+					// fmtRank := style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
+					fmtRank := lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
 
 					fmtTokenID.WriteString(fmtRank)
 				}
