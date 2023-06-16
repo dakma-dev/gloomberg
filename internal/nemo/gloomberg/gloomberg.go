@@ -173,6 +173,39 @@ func (gb *Gloomberg) PrMod(mod string, message string) {
 	gb.printToTerminal(icon, keyword, message)
 }
 
+// PrModf formats and prints messages from gloomberg to the terminal.
+func (gb *Gloomberg) PrModf(mod string, format string, a ...any) {
+	gb.PrMod(mod, fmt.Sprintf(format, a...))
+}
+
+// PrVMod prints messages from gloomberg to the terminal if verbose mode is enabled.
+func (gb *Gloomberg) PrVMod(mod string, message string) {
+	if viper.GetBool("log.verbose") {
+		gb.PrMod(mod, message)
+	}
+}
+
+// PrVModf formats and prints messages from gloomberg to the terminal if verbose mode is enabled.
+func (gb *Gloomberg) PrVModf(mod string, format string, a ...any) {
+	if viper.GetBool("log.verbose") {
+		gb.PrModf(mod, format, a...)
+	}
+}
+
+// PrDMod prints messages from gloomberg to the terminal if debug mode is enabled.
+func (gb *Gloomberg) PrDMod(mod string, message string) {
+	if viper.GetBool("log.debug") {
+		gb.PrMod(mod, message)
+	}
+}
+
+// PrDModf formats and prints messages from gloomberg to the terminal if debug mode is enabled.
+func (gb *Gloomberg) PrDModf(mod string, format string, a ...any) {
+	if viper.GetBool("log.debug") {
+		gb.PrModf(mod, format, a...)
+	}
+}
+
 func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string) {
 	if message == "" {
 		return
