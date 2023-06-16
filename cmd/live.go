@@ -129,14 +129,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	//
-	// degendata - ranks
-	go func() {
-		if err := degendata.LoadOpenseaRanks(gb); err != nil {
-			gbl.Log.Errorf("error loading opensea ranks: %v", err)
-		}
-	}()
-
-	//
 	// queue for everything to print to the console
 	terminalPrinterQueue := make(chan string, 256)
 
@@ -419,6 +411,14 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	//
+	// degendata - ranks
+	go func() {
+		if err := degendata.LoadOpenseaRanks(gb); err != nil {
+			gbl.Log.Errorf("error loading opensea ranks: %v", err)
+		}
+	}()
+
+	//
 	// web ui
 	if viper.GetBool("web.enabled") {
 		go web.StartWebUI(queueWsOutTokenTransactions)
@@ -446,6 +446,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// loop forever
 	select {}
 }
+
+var degendataPath string
 
 func init() { //nolint:gochecknoinits
 	rootCmd.AddCommand(liveCmd)
@@ -512,8 +514,8 @@ func init() { //nolint:gochecknoinits
 	_ = viper.BindPFlag("show.unknown", liveCmd.Flags().Lookup("show-unknown"))
 
 	// degendb
-	// liveCmd.Flags().StringVar(&ddbPath, "dd-path", "degendata", "path to degendata dir")
-	viper.SetDefault("degendata.path", "degendata")
+	liveCmd.Flags().StringVar(&degendataPath, "degendata", "degendata", "path to degendata repo")
+	_ = viper.BindPFlag("degendata.path", liveCmd.Flags().Lookup("degendata"))
 
 	// worker settings
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)

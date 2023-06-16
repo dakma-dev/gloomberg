@@ -20,6 +20,7 @@ import (
 
 func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 	ddPathRanks := path.Join(viper.GetString("degendata.path"), "ranks")
+	log.Debugf("loading opensea ranks from %s", ddPathRanks)
 
 	ranksFiles, err := os.ReadDir(ddPathRanks)
 	if err != nil {
