@@ -412,6 +412,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// degendata - ranks
+	// ❕ placed on the end to have the least interference with the calls
+	//    to opensea that fetch the wallet collections at the beginning
+	// ❗️ probably doesn't matter anymore since we're using the redis cache now
+	//    waiting for more feedback from the community before moving it up
 	go func() {
 		if err := degendata.LoadOpenseaRanks(gb); err != nil {
 			gbl.Log.Errorf("error loading opensea ranks: %v", err)
@@ -442,6 +446,14 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			}
 		}()
 	}
+
+	// marmot tasks
+	// gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
+	// 	log.Printf("testing tasks lol! %+v", len(gb.Ranks))
+	// })
+	// gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
+	// 	log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
+	// })
 
 	// loop forever
 	select {}
