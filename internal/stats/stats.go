@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -20,6 +21,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
@@ -288,20 +290,30 @@ func (s *Stats) getPrimaryStatsLists() []string {
 			}
 
 			// cache hitrate
-			var keyspaceHits, keyspaceMisses int
+			var keyspaceHits, keyspaceMisses int64
 
-			for _, stat := range strings.Split(dbInfo, "\n") {
-				if strings.HasPrefix(stat, "keyspace_hits:") {
-					keyspaceHits, _ = fmt.Sscanf(stat, "keyspace_hits:%d", &keyspaceHits)
+			for _, stat := range strings.Split(dbInfo, "\r\n") {
+				if rawKeyspaceHits := strings.TrimPrefix(stat, "keyspace_hits:"); rawKeyspaceHits != stat {
+					keyspaceHits, err = strconv.ParseInt(rawKeyspaceHits, 10, 64)
+					if err != nil {
+						gbl.Log.Warnf("failed to parse keyspace_hits: %v", err)
+					}
 				}
 
-				if strings.HasPrefix(stat, "keyspace_misses:") {
-					keyspaceMisses, _ = fmt.Sscanf(stat, "keyspace_misses:%d", &keyspaceMisses)
+				if rawKeyspaceMisses := strings.TrimPrefix(stat, "keyspace_misses:"); rawKeyspaceMisses != stat {
+					keyspaceMisses, err = strconv.ParseInt(rawKeyspaceMisses, 10, 64)
+					if err != nil {
+						gbl.Log.Warnf("failed to parse keyspaceMisses: %v", err)
+					}
+
+					// we're done
+					break
 				}
 			}
 
 			// calculate hitrate
 			hitrate := float64(keyspaceHits) / float64(keyspaceHits+keyspaceMisses)
+			log.Debugf("keyspace_hits: %+v | keyspace_misses: %+v | hitrate: %+v", keyspaceHits, keyspaceMisses, hitrate)
 
 			// cache size
 			namesLabel := style.DarkGrayStyle.Render("  cache")
@@ -322,6 +334,18 @@ func (s *Stats) getPrimaryStatsLists() []string {
 			}...)
 		}
 	}
+
+	// running for
+	labelRunningFor := style.DarkGrayStyle.Render("running")
+	valueRunningFor := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(time.Since(internal.RunningSince).Truncate(time.Second).String())
+
+	secondcolumn = append(secondcolumn, []string{listItem(labelRunningFor + " " + valueRunningFor)}...)
+
+	// running since
+	labelRunningSince := style.DarkGrayStyle.Render("  since")
+	valueRunningSince := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(internal.RunningSince.Format("15:04"))
+
+	secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", labelRunningSince, valueRunningSince))}...)
 
 	// combine lists
 	statsOutput := []string{listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
