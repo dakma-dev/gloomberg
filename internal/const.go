@@ -23,6 +23,7 @@ const (
 
 var (
 	GloombergVersion = "dev"
+	RunningSince     = time.Now()
 
 	WETHContractAddress           = common.HexToAddress("0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2")
 	BlurPoolTokenContractAddress  = common.HexToAddress("0x0000000000a39bb272e79075ade125fd351887ac")

@@ -518,12 +518,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// print sales for collection
 	if viper.GetBool("show.sales") {
-		out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Sales) + style.BoldStyle.Render(""))
+		numLastSales, _ := currentCollection.GetSaLiCount()
 
-		if currentCollection.Counters.Sales < 10 {
+		out.WriteString(" | " + fmt.Sprintf("%dx", numLastSales) + style.BoldStyle.Render(""))
+
+		if numLastSales < 10 {
 			out.WriteString(" ")
 		}
-		if currentCollection.Counters.Sales < 100 {
+		if numLastSales < 100 {
 			out.WriteString(" ")
 		}
 		// print bluechip collection sales
@@ -696,21 +698,23 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// sales/listings count & salira | think about how to do this for multi-collection tx?!
-	if currentCollection.Counters.Sales+currentCollection.Counters.Listings > 0 {
+	numLastSales, numLastListings := currentCollection.GetSaLiCount()
+
+	if numLastSales+numLastListings > 0 {
 		var salesAndListings string
 
-		if currentCollection.Counters.Listings > 0 {
+		if numLastListings > 0 {
 			salesAndListings = fmt.Sprint(
-				style.TrendLightGreenStyle.Render(fmt.Sprint(currentCollection.Counters.Sales)),
+				style.TrendLightGreenStyle.Render(fmt.Sprint(numLastSales)),
 				currentCollection.Render("/"),
-				style.TrendLightRedStyle.Render(fmt.Sprint(currentCollection.Counters.Listings)),
+				style.TrendLightRedStyle.Render(fmt.Sprint(numLastListings)),
 			)
 		} else {
-			salesAndListings = fmt.Sprint(style.TrendLightGreenStyle.Render(fmt.Sprint(currentCollection.Counters.Sales)))
+			salesAndListings = fmt.Sprint(style.TrendLightGreenStyle.Render(fmt.Sprint(numLastSales)))
 
 			//
 			// auto-subscribe to opensea events after X sales
-			if autoSubscribeAfterSales := viper.GetUint64("seawatcher.auto_subscribe_after_sales"); currentCollection.Counters.Sales == autoSubscribeAfterSales {
+			if autoSubscribeAfterSales := viper.GetUint64("seawatcher.auto_subscribe_after_sales"); uint64(numLastSales) >= autoSubscribeAfterSales {
 				if currentCollection.OpenseaSlug == "" {
 					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
 				}

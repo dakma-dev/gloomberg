@@ -58,11 +58,12 @@ type Collection struct {
 		Secondary lipgloss.Color `mapstructure:"secondary"`
 	} `mapstructure:"colors"`
 
+	// better "counters"
+	RecentEvents mapset.Set[*degendb.RecentEvent] `mapstructure:"recent_events"`
+
 	Counters struct {
-		Sales       uint64
 		Mints       uint64
 		Transfers   uint64
-		Listings    uint64
 		SalesVolume *big.Int
 		MintVolume  *big.Int
 	} `mapstructure:"counters"`
@@ -125,6 +126,8 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		Metadata:        &nemo.CollectionMetadata{},
 
 		Source: source,
+
+		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
 
 		FloorPrice:             &floorPrice,
 		PreviousFloorPrice:     0,
@@ -228,11 +231,38 @@ func (uc *Collection) Render(text string) string {
 	return uc.Style().Render(text)
 }
 
-func (uc *Collection) AddSale(value *big.Int, numItems uint64) float64 {
-	uc.Counters.SalesVolume.Add(uc.Counters.SalesVolume, value)
-	atomic.AddUint64(&uc.Counters.Sales, numItems)
+func (uc *Collection) GetSaLiCount() (int, int) {
+	return uc.getSaLiCountWithTimeframe(viper.GetDuration("salira.default_timeframe"))
+}
 
-	return float64((uc.Counters.Sales * 60) / uint64(viper.GetDuration("ticker.statsbox").Seconds()))
+func (uc *Collection) getSaLiCountWithTimeframe(timeframe time.Duration) (int, int) {
+	var recentSales, recentListings int
+
+	for _, event := range uc.RecentEvents.ToSlice() {
+		if time.Since(event.Timestamp) < timeframe || timeframe == 0 {
+			switch event.Type {
+			case degendb.Sale:
+				recentSales++
+			case degendb.Listing:
+				recentListings++
+			}
+		}
+	}
+
+	return recentSales, recentListings
+}
+
+func (uc *Collection) AddSales(value *big.Int, numItems uint64) {
+	uc.Counters.SalesVolume.Add(uc.Counters.SalesVolume, value)
+	// atomic.AddUint64(&uc.Counters.Sales, numItems)
+
+	uc.RecentEvents.Add(&degendb.RecentEvent{
+		Timestamp: time.Now(),
+		Type:      degendb.Sale,
+
+		AmountWei:    value,
+		AmountTokens: numItems,
+	})
 }
 
 func (uc *Collection) AddMint() {
@@ -245,28 +275,15 @@ func (uc *Collection) AddMintVolume(value *big.Int, numItems uint64) {
 }
 
 func (uc *Collection) AddListing(numItems uint64) {
-	atomic.AddUint64(&uc.Counters.Listings, numItems)
-}
+	// atomic.AddUint64(&uc.Counters.Listings, numItems)
 
-// CalculateSaLiRa updates the salira moving average of a given collection.
-func (uc *Collection) CalculateSaLiRa(address common.Address, rueidica *rueidica.Rueidica) (float64, float64) {
-	if uc.Counters.Listings <= 0 {
-		return 0.0, 0.0
-	}
+	uc.RecentEvents.Add(&degendb.RecentEvent{
+		Timestamp: time.Now(),
+		Type:      degendb.Listing,
 
-	previousSaLiRa := uc.SaLiRa.Value()
-	uc.SaLiRa.Add(float64(uc.Counters.Sales) / float64(uc.Counters.Listings))
-	currentSaLiRa := uc.SaLiRa.Value()
-
-	if address != internal.ZeroAddress {
-		go func() {
-			if err := rueidica.StoreSalira(context.Background(), address, currentSaLiRa); err != nil {
-				gbl.Log.Errorf("error storing salira for %s | %s", style.ShortenAddress(&address), err)
-			}
-		}()
-	}
-
-	return previousSaLiRa, currentSaLiRa
+		// AmountWei:    value,
+		AmountTokens: numItems,
+	})
 }
 
 // CalculateFloorPrice updates the moving average of a given collection.
@@ -284,10 +301,8 @@ func (uc *Collection) CalculateFloorPrice(tokenPrice float64) (float64, float64)
 func (uc *Collection) ResetStats() {
 	gbl.Log.Debugf("resetting collection statistics...")
 
-	uc.Counters.Sales = 0
 	uc.Counters.Mints = 0
 	uc.Counters.Transfers = 0
-	uc.Counters.Listings = 0
 	uc.Counters.SalesVolume = big.NewInt(0)
 	uc.Counters.MintVolume = big.NewInt(0)
 }
