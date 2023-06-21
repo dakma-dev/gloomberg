@@ -83,7 +83,7 @@ func newEventHub() *eventHub {
 	}
 
 	for i := 0; i < viper.GetInt("gloomberg.numEventHubHandlers"); i++ {
-		go eh.worker()
+		go eh.worker(i)
 	}
 
 	return &eh
@@ -145,53 +145,53 @@ func (eh *eventHub) SubscribNewBlocks() chan uint64 {
 	return outChannel
 }
 
-func (eh *eventHub) worker() {
+func (eh *eventHub) worker(workerID int) {
 	for {
 		select {
 		case event := <-eh.In.TxWithLogs:
-			log.Debugf("TxWithLogs event | pushing to %d receivers", len(eh.out.TxWithLogs))
+			log.Debugf("TxWithLogs event | %d |  pushing to %d receivers", workerID, len(eh.out.TxWithLogs))
 
 			for _, ch := range eh.out.TxWithLogs {
 				ch <- event
 			}
 		case event := <-eh.In.TokenTransactions:
-			log.Debugf("TokenTransactions event | pushing to %d receivers", len(eh.out.TokenTransactions))
+			log.Debugf("TokenTransactions event | %d | pushing to %d receivers", workerID, len(eh.out.TokenTransactions))
 
 			for _, ch := range eh.out.TokenTransactions {
 				ch <- event
 			}
 		case event := <-eh.In.ItemListed:
-			log.Debugf("ItemListedEvents event | pushing to %d receivers", len(eh.out.ItemListed))
+			log.Debugf("ItemListedEvents event | %d | pushing to %d receivers", workerID, len(eh.out.ItemListed))
 
 			for _, ch := range eh.out.ItemListed {
 				ch <- event
 			}
 		case event := <-eh.In.ItemReceivedBid:
-			log.Debugf("ItemReceivedBid event | pushing to %d receivers", len(eh.out.ItemReceivedBid))
+			log.Debugf("ItemReceivedBid event | %d | pushing to %d receivers", workerID, len(eh.out.ItemReceivedBid))
 
 			for _, ch := range eh.out.ItemReceivedBid {
 				ch <- event
 			}
 		case event := <-eh.In.CollectionOffer:
-			log.Debugf("CollectionOffer event | pushing to %d receivers", len(eh.out.CollectionOffer))
+			log.Debugf("CollectionOffer event | %d | pushing to %d receivers", workerID, len(eh.out.CollectionOffer))
 
 			for _, ch := range eh.out.CollectionOffer {
 				ch <- event
 			}
 		case event := <-eh.In.SeawatcherMgmt:
-			log.Debugf("SeawatcherMgmt event | pushing to %d receivers", len(eh.out.SeawatcherMgmt))
+			log.Debugf("SeawatcherMgmt event | %d | pushing to %d receivers", workerID, len(eh.out.SeawatcherMgmt))
 
 			for _, ch := range eh.out.SeawatcherMgmt {
 				ch <- event
 			}
 		case event := <-eh.In.PrintToTerminal:
-			log.Debugf("PrintToTerminal event | pushing to %d receivers", len(eh.out.PrintToTerminal))
+			log.Debugf("PrintToTerminal event | %d | pushing to %d receivers", workerID, len(eh.out.PrintToTerminal))
 
 			for _, ch := range eh.out.PrintToTerminal {
 				ch <- event
 			}
 		case event := <-eh.In.NewBlock:
-			log.Debugf("CurrentBlock event | pushing to %d receivers", len(eh.out.NewBlock))
+			log.Debugf("CurrentBlock event | %d | pushing to %d receivers", workerID, len(eh.out.NewBlock))
 
 			for _, ch := range eh.out.NewBlock {
 				ch <- event

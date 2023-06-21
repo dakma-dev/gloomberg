@@ -105,9 +105,6 @@ func init() {
 	// viper.SetDefault("ipfs.gateway", "https://ipfs.io/ipfs/")
 	viper.SetDefault("ipfs.gateway", "https://cloudflare-ipfs.com/")
 
-	// opensea settings
-	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 13)
-
 	// number of retries to resolve an ens name to an address or vice versa
 	viper.SetDefault("ens.resolve_max_retries", 5)
 
@@ -122,7 +119,7 @@ func init() {
 	viper.SetDefault("cache.floor_ttl", 10*time.Minute)
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
-	viper.SetDefault("cache.notifications_lock_ttl", 1*time.Minute)
+	viper.SetDefault("cache.notifications_lock_ttl", time.Millisecond*1337)
 }
 
 // initConfig reads in config file and ENV variables if set.

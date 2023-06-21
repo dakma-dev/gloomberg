@@ -277,6 +277,31 @@ func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string 
 	)
 }
 
+// ShortenHashsStyled returns a shortened hash styled with colors.
+func ShortenHashStyled(txHash common.Hash) string {
+	style := lipgloss.NewStyle().Foreground(GenerateColorWithSeed(txHash.Big().Int64()))
+
+	// gray out zero txHash
+	if txHash == internal.ZeroHash {
+		gray := DarkGrayStyle.Copy().Faint(false).Render
+		darkGray := DarkGrayStyle.Copy().Faint(true).Render
+
+		return fmt.Sprint(
+			darkGray("0x"),
+			gray(fmt.Sprintf("%0.2x", txHash.Bytes()[0])),
+			darkGray("…"),
+			gray(fmt.Sprintf("%0.2x", txHash.Bytes()[len(txHash.Bytes())-1])),
+		)
+	}
+
+	return fmt.Sprint(
+		style.Faint(true).Render("0x"),
+		style.Faint(false).Render(fmt.Sprintf("%0.2x%0.2x", txHash.Bytes()[0], txHash.Bytes()[1])),
+		style.Faint(true).Render("…"),
+		style.Faint(false).Render(fmt.Sprintf("%0.2x%0.2x", txHash.Bytes()[len(txHash.Bytes())-2], txHash.Bytes()[len(txHash.Bytes())-1])),
+	)
+}
+
 func EnforceMinLength(str string, minLength int) string {
 	if len(str) <= minLength {
 		r := []rune(str)

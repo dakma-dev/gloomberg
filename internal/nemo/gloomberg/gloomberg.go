@@ -73,7 +73,28 @@ var prConigs = map[string]printConfig{
 
 func New() *Gloomberg {
 	// redis
-	rdb := getRedisClient()
+	// rueidis / new redis library
+	var connectAddr string
+
+	if viper.IsSet("redis.address") {
+		connectAddr = viper.GetString("redis.address")
+	} else {
+		// fallback to old config
+		connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
+	}
+
+	// use hostname as client name
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
+
+		hostname = "unknown"
+	}
+
+	clientName := hostname + "_gloomberg_v" + internal.GloombergVersion
+	redisClientOptions := rueidis.ClientOption{InitAddress: []string{connectAddr}, ClientName: clientName}
+
+	rdb := getRedisClient(redisClientOptions)
 
 	gb := &Gloomberg{
 		Rdb:    rdb,
@@ -225,26 +246,26 @@ func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string
 	gb.In.PrintToTerminal <- out.String()
 }
 
-func getRedisClient() rueidis.Client {
-	// use hostname as client name
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
+func getRedisClient(redisClientOptions rueidis.ClientOption) rueidis.Client {
+	// // use hostname as client name
+	// hostname, err := os.Hostname()
+	// if err != nil {
+	// 	log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
 
-		hostname = "unknown"
-	}
+	// 	hostname = "unknown"
+	// }
 
-	// rueidis / new redis library
-	var connectAddr string
+	// // rueidis / new redis library
+	// var connectAddr string
 
-	if viper.IsSet("redis.address") {
-		connectAddr = viper.GetString("redis.address")
-	} else {
-		// fallback to old config
-		connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
-	}
+	// if viper.IsSet("redis.address") {
+	// 	connectAddr = viper.GetString("redis.address")
+	// } else {
+	// 	// fallback to old config
+	// 	connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
+	// }
 
-	rdb, err := rueidis.NewClient(rueidis.ClientOption{InitAddress: []string{connectAddr}, ClientName: hostname})
+	rdb, err := rueidis.NewClient(redisClientOptions)
 	if err != nil {
 		log.Fatal(err)
 	}

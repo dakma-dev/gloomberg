@@ -26,6 +26,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/spf13/viper"
@@ -36,16 +37,26 @@ import (
 // }
 
 func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
+	fmtHash := style.ShortenHashStyled(ttx.Tx.Hash())
+
+	// var notificationLock context.CancelFunc
+
 	// try to acquire the lock
 	if viper.GetBool("redis.enabled") {
-		notificationLock, err := gb.Rueidi.NotificationLock(context.TODO(), ttx.Tx.Hash())
-		if !notificationLock || err != nil {
-			gbl.Log.Infof("🔒 notification lock for %s already exists", style.BoldStyle.Render(ttx.Tx.Hash().String()))
+		notificationLock, err := gb.Rueidi.NotificationLock(ttx.Tx.Hash())
+		// if !notificationLock || err != nil {
+		if notificationLock == nil || err != nil {
+			gbl.Log.Infof("🔒 notification lock for %s already exists", fmtHash)
+			log.Printf("🔒 %s | notification already locked!", style.ShortenHashStyled(ttx.Tx.Hash()))
 
 			return
 		}
 
-		gbl.Log.Infof("🔐 notification lock for %s acquired (for %ssec), trying to send...", style.BoldStyle.Render(ttx.Tx.Hash().String()), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
+		// release the lock
+		defer notificationLock()
+
+		gbl.Log.Infof("🔐 notification lock for %s acquired (%.0fsec)", fmtHash, viper.GetDuration("cache.notifications_lock_ttl").Seconds())
+		log.Printf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.Tx.Hash()), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
 	}
 
 	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder, 0)

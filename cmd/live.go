@@ -542,6 +542,10 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.pubsub.listings", 3)
 	viper.SetDefault("server.workers.pubsub.listings", 2)
 
+	// opensea settings
+	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 13)
+
+
 	// ticker
 	viper.SetDefault("ticker.statsbox", internal.BlockTime*9)
 	viper.SetDefault("ticker.gasline", internal.BlockTime*3)

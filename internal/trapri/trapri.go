@@ -27,6 +27,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -54,15 +55,6 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWat
 		go func() {
 			for ttx := range tokenTransactionsChannel {
 				go formatTokenTransaction(gb, seawa, ttx)
-
-				// // send to ws if webserver enabled & the queue is not congested
-				// if viper.GetBool("web.enabled") {
-				// 	if len(queueWsOutTokenTransactions) < cap(queueWsOutTokenTransactions)-10 {
-				// 		queueWsOutTokenTransactions <- ttx
-				// 	} else {
-				// 		gbl.Log.Warnf("🧱 ws out queue is congested")
-				// 	}
-				// }
 
 				// send to bluechip ticker
 				if viper.GetBool("notifications.bluechip.enabled") {
@@ -165,10 +157,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	burnedTokenTransferIndex := -1
 
 	for contractAddress, transfers := range ttx.GetTransfersByContract() {
-		if transfers[0].Standard == standard.ERC20 {
-			continue
-		}
-
 		switch {
 		// erc20
 		case transfers[0].Standard == standard.ERC20:
@@ -376,13 +364,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			ttx.TotalTokens += numCollectionTokens
 		}
 
-		// collection counting
-		switch ttx.Action {
-		case totra.Sale, totra.Purchase:
-			collection.AddSale(ttx.AmountPaid, uint64(numCollectionTokens))
-		case totra.Mint:
-			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
-		}
+		// // collection counting
+		// switch ttx.Action {
+		// case totra.Sale, totra.Purchase:
+		// 	collection.AddSales(ttx.AmountPaid, uint64(numCollectionTokens))
+		// case totra.Mint:
+		// 	collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
+		// }
 	}
 
 	// total counting
@@ -667,6 +655,46 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		// out.WriteString("   " + style.PinkBoldStyle.Render(level))
 	}
 
+	// dont apply excludes to "own" events
+	if !(isOwnWallet || isWatchUsersWallet) {
+		// DoNotPrint can be set by the "pipeline" the tx is going through (e.g. when a collection has the IgnorePrinting flag set)
+		if ttx.DoNotPrint {
+			log.Debugf("skipping tx %s | doNotPrint flaf: %v | %+v", style.Bold(txHash.String()), ttx.DoNotPrint, ttx)
+
+			return
+		}
+
+		if !currentCollection.Show.Mints && (ttx.Action == totra.Mint || ttx.Action == totra.Airdrop) && !viper.GetBool("show.mints") {
+			log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
+
+			return
+		}
+
+		if (ttx.Action == totra.Burn) && !viper.GetBool("show.burns") {
+			log.Debugf("skipping burn/airdrop %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.burns"), ttx)
+
+			return
+		}
+
+		if (ttx.Action == totra.ReBurn) && !viper.GetBool("show.reburns") {
+			log.Debugf("skipping re-burn %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.reburns"), ttx)
+
+			return
+		}
+
+		if (ttx.Action == totra.Transfer) && !viper.GetBool("show.transfers") {
+			log.Debugf("skipping transfer %s | viper.GetBool(show.transfers): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.transfers"), ttx)
+
+			return
+		}
+
+		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+			log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.ShortenHashStyled(txHash)), viper.GetBool("show.unknown"), ttx)
+
+			return
+		}
+	}
+
 	// sales/listings count & salira | think about how to do this for multi-collection tx?!
 	if currentCollection.Counters.Sales+currentCollection.Counters.Listings > 0 {
 		var salesAndListings string
@@ -762,46 +790,45 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// building output string done
 	//
 
-	// dont apply excludes to "own" events
-	if !(isOwnWallet || isWatchUsersWallet) {
-		// DoNotPrint can be set by the "pipeline" the tx is going through (e.g. when a collection has the IgnorePrinting flag set)
-		if ttx.DoNotPrint {
-			gbl.Log.Debugf("skipping tx %s | doNotPrint flaf: %v | %+v", style.Bold(txHash.String()), ttx.DoNotPrint, ttx)
+	// // dont apply excludes to "own" events
+	// if !(isOwnWallet || isWatchUsersWallet) {
+	// 	// DoNotPrint can be set by the "pipeline" the tx is going through (e.g. when a collection has the IgnorePrinting flag set)
+	// 	if ttx.DoNotPrint {
+	// 		gbl.Log.Debugf("skipping tx %s | doNotPrint flaf: %v | %+v", style.Bold(txHash.String()), ttx.DoNotPrint, ttx)
 
-			return
-		}
+	// 		return
+	// 	}
 
-		if !currentCollection.Show.Mints && (ttx.Action == totra.Mint || ttx.Action == totra.Airdrop) && !viper.GetBool("show.mints") {
-			gbl.Log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
+	// 	if !currentCollection.Show.Mints && (ttx.Action == totra.Mint || ttx.Action == totra.Airdrop) && !viper.GetBool("show.mints") {
+	// 		gbl.Log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
 
-			return
-		}
+	// 		return
+	// 	}
 
-		if (ttx.Action == totra.Burn) && !viper.GetBool("show.burns") {
-			gbl.Log.Debugf("skipping burn/airdrop %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.burns"), ttx)
+	// 	if (ttx.Action == totra.Burn) && !viper.GetBool("show.burns") {
+	// 		gbl.Log.Debugf("skipping burn/airdrop %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.burns"), ttx)
 
-			return
-		}
+	// 		return
+	// 	}
 
-		if (ttx.Action == totra.ReBurn) && !viper.GetBool("show.reburns") {
-			gbl.Log.Debugf("skipping re-burn %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.reburns"), ttx)
+	// 	if (ttx.Action == totra.ReBurn) && !viper.GetBool("show.reburns") {
+	// 		gbl.Log.Debugf("skipping re-burn %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.reburns"), ttx)
 
-			return
-		}
+	// 		return
+	// 	}
 
-		if (ttx.Action == totra.Transfer) && !viper.GetBool("show.transfers") {
-			gbl.Log.Debugf("skipping transfer %s | viper.GetBool(show.transfers): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.transfers"), ttx)
+	// 	if (ttx.Action == totra.Transfer) && !viper.GetBool("show.transfers") {
+	// 		gbl.Log.Debugf("skipping transfer %s | viper.GetBool(show.transfers): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.transfers"), ttx)
 
-			return
-		}
+	// 		return
+	// 	}
 
-		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
-			gbl.Log.Infof("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.Bold(txHash.String())), viper.GetBool("show.unknown"), ttx)
-			// gb.PrWarn(fmt.Sprintf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.Bold(txHash.String())), viper.GetBool("show.unknown"), ttx))
+	// 	if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+	// 		gbl.Log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.ShortenHashStyled(txHash)), viper.GetBool("show.unknown"), ttx)
 
-			return
-		}
-	}
+	// 		return
+	// 	}
+	// }
 
 	//
 	// 🌈 finally print the sale/listing/whatever 🌈
@@ -868,36 +895,4 @@ func formatTokenID(collection *collections.Collection, tokenID *big.Int) string 
 	}
 
 	return prefix + id
-}
-
-type OutputColors struct {
-	Platform            lipgloss.Color
-	DateTime            lipgloss.Color
-	PriceSymbol         lipgloss.Color
-	FromToSymbol        lipgloss.Color
-	Collection          lipgloss.Color
-	CollectionSecondary lipgloss.Color
-	Buyer               lipgloss.Color
-	Seller              lipgloss.Color
-	SaLiRa              lipgloss.Color
-}
-
-type OutputLine struct {
-	PlatformSymbol string
-	DateTime       string
-	PriceSymbol    string
-	ActionSymhol   string
-	FromToSymbol   string
-	Price          float64
-	PricePerItem   float64
-	CollectionName string
-	TokenIDs       []int64
-	TxHash         string
-	Buyer          osmodels.Account
-	Seller         osmodels.Account
-	NumSales       int
-	NumListings    int
-	SaLiRa         float64
-
-	Colors OutputColors
 }

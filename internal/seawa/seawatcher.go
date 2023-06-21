@@ -95,7 +95,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	client.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
 		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(attempt)))
 
-		client.Prf("❕ reconnecting (attempt %d) after %d..", attempt, waitTime)
+		client.Prf("❕ reconnecting (attempt %d) after %dsec..", attempt, int(waitTime.Seconds()))
 
 		return waitTime
 	}
