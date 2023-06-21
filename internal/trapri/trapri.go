@@ -363,13 +363,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			ttx.TotalTokens += numCollectionTokens
 		}
 
-		// // collection counting
-		// switch ttx.Action {
-		// case totra.Sale, totra.Purchase:
-		// 	collection.AddSales(ttx.AmountPaid, uint64(numCollectionTokens))
-		// case totra.Mint:
-		// 	collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
-		// }
+		// collection counting
+		switch ttx.Action {
+		case totra.Sale, totra.Purchase:
+			collection.AddSales(ttx.AmountPaid, uint64(numCollectionTokens))
+		case totra.Mint:
+			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
+		}
 	}
 
 	// total counting
