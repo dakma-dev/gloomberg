@@ -14,7 +14,6 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
