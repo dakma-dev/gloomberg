@@ -137,8 +137,8 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 
 				// try to acquire the lock
 				if viper.GetBool("redis.enabled") {
-					notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(context.TODO(), txHash, time.Hour*1)
-					if !notificationLock || err != nil {
+					notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(txHash, time.Hour*1)
+					if notificationLock == nil || err != nil {
 						gbl.Log.Debugf("notification lock for %s already exists", style.BoldStyle.Render(txHash.String()))
 
 						continue

@@ -1,7 +1,6 @@
 package ticker
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"sort"
@@ -222,8 +221,8 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 			// try to acquire the lock
 			if viper.GetBool("redis.enabled") {
-				notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(context.TODO(), collection.ContractAddress.Hash(), time.Hour*8)
-				if !notificationLock || err != nil {
+				notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(collection.ContractAddress.Hash(), time.Hour*8)
+				if notificationLock == nil || err != nil {
 					gbl.Log.Infof("notification lock for %s already exists", style.BoldStyle.Render(event.TxReceipt.TxHash.String()))
 
 					continue

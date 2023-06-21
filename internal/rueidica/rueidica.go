@@ -4,19 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"net"
+	"os"
 	"strconv"
-	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/go-redsync/redsync/v4"
-	"github.com/go-redsync/redsync/v4/redis/goredis/v9"
-	goredislib "github.com/redis/go-redis/v9"
 	"github.com/redis/rueidis"
+	"github.com/redis/rueidis/rueidislock"
 	"github.com/spf13/viper"
 )
 
@@ -232,52 +230,57 @@ func (r *Rueidica) cacheAddressWithKey(ctx context.Context, rKey string, rValue 
 // Refactored to use the Redlock algorithm as recommended in the [redis SET doc].
 //
 // [redis SET doc]: https://redis.io/commands/set/#patterns
-func (r *Rueidica) NotificationLock(ctx context.Context, txID common.Hash) (bool, error) {
-	return r.NotificationLockWtihDuration(ctx, txID, viper.GetDuration("cache.notifications_lock_ttl"))
+func (r *Rueidica) NotificationLock(txHash common.Hash) (context.CancelFunc, error) {
+	return r.NotificationLockWtihDuration(txHash, viper.GetDuration("cache.notifications_lock_ttl"))
 }
 
-// NotificationLockWtihDuration implements a lock to prevent sending multiple notifications for the same event
-// Refactored to use the Redlock algorithm as recommended in the [redis SET doc].
-//
-// [redis SET doc]: https://redis.io/commands/set/#patterns
-func (r *Rueidica) NotificationLockWtihDuration(ctx context.Context, txID common.Hash, duration time.Duration) (bool, error) {
-	var connectAddr net.Addr
+// NotificationLockWtihDuration implements a lock to prevent sending multiple notifications for the same event.
+func (r *Rueidica) NotificationLockWtihDuration(txHash common.Hash, duration time.Duration) (context.CancelFunc, error) {
+	var connectAddr string
 
 	if viper.IsSet("redis.address") {
-		splittedAddress := strings.Split(viper.GetString("redis.address"), ":")
-
-		host := net.ParseIP(splittedAddress[0])
-		port, _ := strconv.ParseUint(splittedAddress[1], 10, 16)
-
-		connectAddr = &net.TCPAddr{IP: host, Port: int(port)}
+		connectAddr = viper.GetString("redis.address")
 	} else {
 		// fallback to old config
-		connectAddr = &net.TCPAddr{IP: net.ParseIP(viper.GetString("redis.host")), Port: int(viper.GetUint16("redis.port"))}
+		connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
 	}
 
-	// Create a pool with go-redis (or redigo) which is the pool redisync will
-	// use while communicating with Redis. This can also be any pool that
-	// implements the `redis.Pool` interface.
-	client := goredislib.NewClient(&goredislib.Options{Addr: connectAddr.String()})
-	pool := goredis.NewPool(client)
+	// use hostname as client name
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
 
-	// Create an instance of redisync to be used to obtain a mutual exclusion
-	// lock.
-	rs := redsync.New(pool)
-
-	// Obtain a new mutex by using the same name for all instances wanting the
-	// same lock.
-	mutex := rs.NewMutex("txID.Hex()", redsync.WithExpiry(duration))
-
-	// Obtain a lock for our given mutex. After this is successful, no one else
-	// can obtain the same lock (the same mutex name) until we unlock it.
-	if err := mutex.LockContext(ctx); err != nil {
-		gbl.Log.Errorf("rueidis | %s | %s", txID.Hex(), style.Bold("acquire lock failed"))
-
-		return false, err
+		hostname = "unknown"
 	}
 
-	return true, nil
+	clientName := hostname + "_gloomberg_v" + internal.GloombergVersion
+	redisClientOptions := rueidis.ClientOption{InitAddress: []string{connectAddr}, ClientName: clientName}
+
+	locker, err := rueidislock.NewLocker(rueidislock.LockerOption{
+		ClientOption: redisClientOptions,
+		KeyMajority:  2, // please make sure that all your `Locker`s share the same KeyMajority
+	})
+	if err != nil {
+		panic(err)
+	}
+	defer locker.Close()
+
+	// acquire the lock
+	_, cancel, err := locker.WithContext(context.Background(), txHash.Hex())
+	if err != nil {
+		if errors.Is(err, rueidislock.ErrLockerClosed) {
+			panic(err)
+		}
+	}
+	// "my_lock" is acquired. use the ctx as normal.
+	log.Debugf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(txHash), duration.Seconds())
+	// doSomething(ctx)
+
+	// invoke cancel() to release the lock.
+	// cancel()
+	// log.Printf("🔐 lock released")
+
+	return cancel, nil
 }
 
 //
