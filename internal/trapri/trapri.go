@@ -729,29 +729,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		out.WriteString(" | " + salesAndListings)
 
-		if previousMASaLiRa, currentMASaLiRa := currentCollection.CalculateSaLiRa(currentCollection.ContractAddress, gb.Rueidi); currentMASaLiRa > 0 {
-			// coloring moving average salira
-			saLiRaStyle := style.TrendGreenStyle
+		//
+		// SaLiRas
+		out.WriteString(" ~ " + strings.Join(currentCollection.GetPrettySaLiRas(), " | "))
 
-			if previousMASaLiRa > currentMASaLiRa {
-				saLiRaStyle = style.TrendRedStyle
-			}
-
-			salira := fmt.Sprint(
-				style.CreateTrendIndicator(previousMASaLiRa, currentMASaLiRa),
-				saLiRaStyle.Render(fmt.Sprintf("%4.2f", currentMASaLiRa)),
-				// currentCollection.Render("slr"),
-			)
-
-			out.WriteString(style.GrayStyle.Render(" ~ ") + salira)
-		} else if cachedSalira, err := gb.Rueidi.GetCachedSalira(ctx, currentCollection.ContractAddress); cachedSalira > 0 && err == nil {
-			salira := fmt.Sprint(
-				style.GrayStyle.Render(" ~ "),
-				style.GrayStyle.Render(fmt.Sprintf("%4.2f", cachedSalira)),
-				currentCollection.Render("*"),
-			)
-
-			out.WriteString(salira)
+		if saliras := strings.Join(currentCollection.GetPrettySaLiRas(), " ~"); saliras != "" {
+			gbl.Log.Info(saliras)
 		}
 	}
 

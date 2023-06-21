@@ -3,11 +3,15 @@ package collections
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
+	"sort"
 	"sync/atomic"
+	"time"
 
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
@@ -15,6 +19,8 @@ import (
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -60,6 +66,7 @@ type Collection struct {
 
 	// better "counters"
 	RecentEvents mapset.Set[*degendb.RecentEvent] `mapstructure:"recent_events"`
+	degendb.SaLiRas
 
 	Counters struct {
 		Mints       uint64
@@ -68,7 +75,6 @@ type Collection struct {
 		MintVolume  *big.Int
 	} `mapstructure:"counters"`
 
-	SaLiRa                 ewma.MovingAverage  `mapstructure:"salira"`
 	FloorPrice             *ewma.MovingAverage `mapstructure:"floorPrice"`
 	PreviousFloorPrice     float64             `mapstructure:"previousFloorPrice"`
 	HighestCollectionOffer float64
@@ -120,6 +126,11 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 
 	floorPrice := ewma.NewMovingAverage()
 
+	saliraTimeframe, ok := viper.Get("salira.timeframes").([]time.Duration)
+	if !ok {
+		gbl.Log.Errorf("error getting SaLiRa timeframes")
+	}
+
 	collection := Collection{
 		Name:            collectionName,
 		ContractAddress: contractAddress,
@@ -128,10 +139,10 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		Source: source,
 
 		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
+		SaLiRas:      degendb.NewSaLiRas(saliraTimeframe),
 
 		FloorPrice:             &floorPrice,
 		PreviousFloorPrice:     0,
-		SaLiRa:                 ewma.NewMovingAverage(),
 		HighestCollectionOffer: 0,
 	}
 
@@ -206,6 +217,54 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 	collection.ResetStats()
 
 	return &collection
+}
+
+func (uc *Collection) prettyOpenseaSlug() string {
+	if uc.OpenseaSlug == "" {
+		return ""
+	}
+
+	return uc.Render(uc.OpenseaSlug)
+}
+
+// GetPrettySaLiRas returns freshly calculated and beautifully formatted SaLiRas for all configured timeframes.
+func (uc *Collection) GetPrettySaLiRas() []string {
+	fmtSaLiRas := make([]string, 0)
+
+	log.Debugf("%s | saliras: %+v", uc.prettyOpenseaSlug(), uc.SaLiRas)
+
+	// sort by timeframe
+	sort.Slice(uc.SaLiRas, func(i, j int) bool {
+		return uc.SaLiRas[i].Timeframe < uc.SaLiRas[j].Timeframe
+	})
+
+	for _, salira := range uc.SaLiRas {
+		// is gloomberg running long enough to have meaningful numbers for this timeframe?
+		if time.Since(internal.RunningSince) > salira.Timeframe {
+			continue
+		}
+
+		// get sale/listing counts for the current timeframe
+		sales, listings := uc.getSaLiCountWithTimeframe(salira.Timeframe)
+
+		// no numbers, no saLiRa 🤷‍♀️
+		if sales == 0 || listings == 0 {
+			break
+		}
+
+		log.Debugf("%s | salira %+v: %d / %d", uc.prettyOpenseaSlug(), salira.Timeframe, sales, listings)
+
+		// 🧮 calculate the saLiRa
+		salira.Previous = salira.Value()
+		salira.Add(float64(sales) / float64(listings))
+
+		// only add the salira if it is > 0
+		// if current := salira.Value(); current > 0 {
+		fmtSaLiRas = append(fmtSaLiRas, style.DarkGrayStyle.Render(fmt.Sprintf("%.0f", salira.Timeframe.Minutes())+"|"+salira.Pretty()))
+		// }
+	}
+
+	return fmtSaLiRas
 }
 
 func (uc *Collection) Style() lipgloss.Style {

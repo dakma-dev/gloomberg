@@ -545,6 +545,18 @@ func init() { //nolint:gochecknoinits
 	// opensea settings
 	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 13)
 
+	//
+	// timeframes
+
+	// sali.default_timeframe is used for the sales/listings counts shown
+	viper.SetDefault("salira.default_timeframe", time.Minute*137)
+	viper.SetDefault("salira.timeframes", []time.Duration{
+		time.Minute * 3,
+		time.Minute * 7,
+		time.Minute * 13,
+		time.Minute * 37,
+		time.Minute * 137,
+	})
 
 	// ticker
 	viper.SetDefault("ticker.statsbox", internal.BlockTime*9)
