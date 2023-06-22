@@ -6,8 +6,6 @@ require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/charmbracelet/lipgloss v0.7.1
 	github.com/charmbracelet/log v0.2.2
-	github.com/chromedp/cdproto v0.0.0-20230620000757-8605e5981815
-	github.com/chromedp/chromedp v0.9.1
 	github.com/deckarep/golang-set/v2 v2.3.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
@@ -26,7 +24,7 @@ require (
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
 	github.com/wealdtech/go-ens/v3 v3.5.5
-	go.mongodb.org/mongo-driver v1.11.7
+	go.mongodb.org/mongo-driver v1.12.0
 	go.uber.org/zap v1.24.0
 	golang.org/x/net v0.11.0
 	golang.org/x/term v0.9.0
@@ -42,7 +40,6 @@ require (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
 	github.com/btcsuite/btcutil v1.0.3-0.20201208143702-a53e38424cce // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
-	github.com/chromedp/sysutil v1.0.0 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
 	github.com/cockroachdb/pebble v0.0.0-20230314171917-591a2a0c71f1 // indirect
@@ -69,13 +66,11 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
-	github.com/josharian/intern v1.0.0 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
-	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.18 // indirect
 	github.com/mattn/go-runewidth v0.0.14 // indirect
@@ -111,8 +106,8 @@ require (
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
 	github.com/wealdtech/go-multicodec v1.4.0 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
-	github.com/xdg-go/scram v1.1.1 // indirect
-	github.com/xdg-go/stringprep v1.0.3 // indirect
+	github.com/xdg-go/scram v1.1.2 // indirect
+	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20181117223130-1be2e3e5546d // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
 	go.uber.org/atomic v1.11.0 // indirect
