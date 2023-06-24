@@ -543,7 +543,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.workers.pubsub.listings", 2)
 
 	// opensea settings
-	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 13)
+	viper.SetDefault("seawatcher.auto_subscribe_after_sales", 37)
 
 	//
 	// timeframes

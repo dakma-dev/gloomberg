@@ -29,8 +29,10 @@ func NewSaLiRas(timeframes []time.Duration) SaLiRas {
 // single SaLiRa instance.
 type SaLiRa struct {
 	ewma.MovingAverage
-	Timeframe time.Duration
-	Previous  float64
+	Timeframe     time.Duration
+	CountSales    int
+	CountListings int
+	Previous      float64
 }
 
 func (s *SaLiRa) Pretty() string {

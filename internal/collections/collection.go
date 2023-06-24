@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"sync/atomic"
@@ -233,34 +234,68 @@ func (uc *Collection) GetPrettySaLiRas() []string {
 
 	log.Debugf("%s | saliras: %+v", uc.prettyOpenseaSlug(), uc.SaLiRas)
 
-	// sort by timeframe
+	// sort by length of timeframe
 	sort.Slice(uc.SaLiRas, func(i, j int) bool {
 		return uc.SaLiRas[i].Timeframe < uc.SaLiRas[j].Timeframe
 	})
 
-	for _, salira := range uc.SaLiRas {
-		// is gloomberg running long enough to have meaningful numbers for this timeframe?
-		if time.Since(internal.RunningSince) > salira.Timeframe {
-			continue
-		}
-
+	for idx, salira := range uc.SaLiRas {
 		// get sale/listing counts for the current timeframe
 		sales, listings := uc.getSaLiCountWithTimeframe(salira.Timeframe)
+		log.Debugf("%s | salira %+v: %d / %d", uc.prettyOpenseaSlug(), salira.Timeframe, sales, listings)
 
 		// no numbers, no saLiRa 🤷‍♀️
-		if sales == 0 || listings == 0 {
+		if sales*listings == 0 {
+			log.Debugf("%s | sales snd/or listings is 0 for %s", uc.prettyOpenseaSlug(), salira.Timeframe)
+
 			break
 		}
 
-		log.Debugf("%s | salira %+v: %d / %d", uc.prettyOpenseaSlug(), salira.Timeframe, sales, listings)
+		if sales == salira.CountSales && listings == salira.CountListings {
+			log.Debugf("no new sales/listings for %s", uc.prettyOpenseaSlug())
+
+			// continue
+		}
+
+		// store the previous salira value to be able to compare it to the current one
+		salira.Previous = salira.Value()
 
 		// 🧮 calculate the saLiRa
-		salira.Previous = salira.Value()
-		salira.Add(float64(sales) / float64(listings))
+		salira.CountSales = sales
+		salira.CountListings = listings
+
+		salira.Add(float64(salira.CountSales) / float64(salira.CountListings))
+
+		// is the salira of this time frame is the same as from the previous one we can skip it (and all the following ones)
+		if sali := salira.Value(); idx > 0 && sali == uc.SaLiRas[int(math.Max(float64(idx-1), 0))].Value() {
+			log.Debugf("seems theres not yet enough data for %s and a %+v timeframe to calculate a meaningful salira 🤷‍♀️", uc.prettyOpenseaSlug(), salira.Timeframe)
+
+			break
+		}
+
+		var timeframeStyle lipgloss.Style
+
+		switch idx {
+		case 0:
+			timeframeStyle = style.Gray7Style
+		case 1:
+			timeframeStyle = style.Gray6Style
+		case 2:
+			timeframeStyle = style.Gray5Style
+
+		default:
+			timeframeStyle = style.Gray4Style
+		}
+
+		saliraStyle := lipgloss.NewStyle()
+
+		if idx > 0 {
+			saliraStyle = saliraStyle.Faint(true)
+		}
 
 		// only add the salira if it is > 0
 		// if current := salira.Value(); current > 0 {
-		fmtSaLiRas = append(fmtSaLiRas, style.DarkGrayStyle.Render(fmt.Sprintf("%.0f", salira.Timeframe.Minutes())+"|"+salira.Pretty()))
+		fmtSaLiRas = append(fmtSaLiRas, timeframeStyle.Render(fmt.Sprintf("%.0f", salira.Timeframe.Minutes())+"|"+saliraStyle.Render(salira.Pretty())))
 		// }
 	}
 

@@ -730,10 +730,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		//
 		// SaLiRas
-		out.WriteString(" ~ " + strings.Join(currentCollection.GetPrettySaLiRas(), " | "))
-
-		if saliras := strings.Join(currentCollection.GetPrettySaLiRas(), " ~"); saliras != "" {
-			gbl.Log.Info(saliras)
+		if timeframedSaLiRas := currentCollection.GetPrettySaLiRas(); len(timeframedSaLiRas) > 0 {
+			out.WriteString(" ~ " + strings.Join(timeframedSaLiRas, "  "))
 		}
 	}
 
