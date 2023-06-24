@@ -8,10 +8,10 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -22,6 +22,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
@@ -45,29 +46,24 @@ type Stats struct {
 	providerPool *provider.Pool
 	rdb          rueidis.Client
 
-	interval time.Duration
+	interval  time.Duration
+	timeframe time.Duration
+
+	RecentEvents mapset.Set[*degendb.RecentEvent]
 
 	OwnEventsHistory []string
 	EventHistory     []*totra.HistoryTokenTransaction
 
 	gasTicker *time.Ticker
 
-	salesVolume *big.Int
-	sales       uint64
-	mints       uint64
+	// salesVolume *big.Int
+	// sales       uint64
+	// mints       uint64
 
 	NewLogs        uint64
 	NewListings    uint64
 	EventsToFormat uint64
 	OutputLines    uint64
-
-	DiscardedTransactions      uint64
-	DiscardedTransfers         uint64
-	DiscardedLowPrice          uint64
-	DiscardedOtherERC          uint64
-	DiscardedAlreadyKnownTX    uint64
-	DiscardedUnknownCollection uint64
-	DiscardedMints             uint64
 }
 
 func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool, rdb rueidis.Client) *Stats {
@@ -76,31 +72,63 @@ func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider
 		providerPool: providerPool,
 		rdb:          rdb,
 
+		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
+
 		OwnEventsHistory: make([]string, viper.GetInt("stats.lines")),
 		EventHistory:     make([]*totra.HistoryTokenTransaction, 0),
 
 		gasTicker: gasTicker,
 
-		interval: viper.GetDuration("ticker.statsbox"),
+		interval:  viper.GetDuration("ticker.statsbox"),
+		timeframe: viper.GetDuration("stats.timeframe"),
 	}
-
-	stats.Reset()
 
 	return stats
 }
 
-func (s *Stats) salesPerMinute() float64 {
-	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
+func (s *Stats) AddEvent(eventType degendb.EventType, amountTokens int64, value *big.Int) {
+	s.RecentEvents.Add(&degendb.RecentEvent{
+		Timestamp:    time.Now(),
+		Type:         eventType,
+		AmountTokens: uint64(amountTokens),
+		AmountWei:    value,
+	})
 }
 
-func (s *Stats) mintsPerMinute() float64 {
-	return float64((s.mints * 60) / uint64(s.interval.Seconds()))
+func (s *Stats) salesLastTimeframe() uint64 {
+	count := uint64(0)
+
+	for _, event := range s.RecentEvents.ToSlice() {
+		if event.Type == degendb.Sale && time.Since(event.Timestamp) < s.timeframe {
+			count += event.AmountTokens
+		}
+	}
+
+	return count
 }
 
-func (s *Stats) salesVolumePerMinute() float64 {
-	ethVolume, _ := utils.WeiToEther(s.salesVolume).Float64()
+func (s *Stats) mintsLastTimeframe() uint64 {
+	count := uint64(0)
 
-	return (ethVolume * 60) / s.interval.Seconds()
+	for _, event := range s.RecentEvents.ToSlice() {
+		if event.Type == degendb.Mint && time.Since(event.Timestamp) < s.timeframe {
+			count += event.AmountTokens
+		}
+	}
+
+	return count
+}
+
+func (s *Stats) volumeLastTimeframe() *big.Int {
+	volume := big.NewInt(0)
+
+	for _, event := range s.RecentEvents.ToSlice() {
+		if event.Type == degendb.Sale && time.Since(event.Timestamp) < s.timeframe {
+			volume = volume.Add(volume, event.AmountWei)
+		}
+	}
+
+	return volume
 }
 
 func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
@@ -151,17 +179,6 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 	return s.wallets, nil
 }
 
-func (s *Stats) AddSale(amountTokens int64, value *big.Int) float64 {
-	s.salesVolume.Add(s.salesVolume, value)
-	atomic.AddUint64(&s.sales, uint64(amountTokens))
-
-	return float64((s.sales * 60) / uint64(s.interval.Seconds()))
-}
-
-func (s *Stats) AddMint(amountTokens int64) {
-	atomic.AddUint64(&s.mints, uint64(amountTokens))
-}
-
 func (s *Stats) Print(queueOutput chan string) {
 	var (
 		formattedStatsLists string
@@ -201,23 +218,6 @@ func (s *Stats) Print(queueOutput chan string) {
 	}
 
 	queueOutput <- "\n" + formattedStatsLists + "\n"
-	// gbl.Log.Info("\n" + formattedStatsLists + "\n")
-
-	s.Reset()
-}
-
-func (s *Stats) Reset() {
-	gbl.Log.Debug("resetting statistics...")
-
-	s.sales = 0
-	s.mints = 0
-	s.salesVolume = big.NewInt(0)
-	s.DiscardedTransactions = 0
-	s.DiscardedTransfers = 0
-	s.DiscardedOtherERC = 0
-	s.DiscardedAlreadyKnownTX = 0
-	s.DiscardedUnknownCollection = 0
-	s.DiscardedMints = 0
 }
 
 func (s *Stats) getPrimaryStatsLists() []string {
@@ -245,23 +245,48 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	}
 
 	//
-	// per minute stats
-	if volume := s.salesVolumePerMinute(); volume > 0 {
+	// (per minute) stats
+
+	// get volume from recent events
+	volumeWei := s.volumeLastTimeframe()
+
+	// until runtime > timeframe, our data is not yet accurate -> darken the value
+	valueStyle := style.GrayStyle
+	if time.Since(internal.RunningSince) < viper.GetDuration("stats.timeframe") {
+		valueStyle = style.DarkGrayStyle
+	}
+
+	// if volume := s.salesVolumePerMinute(); volume > 0 {
+	if volume, _ := utils.WeiToEther(volumeWei).Float64(); volume > 0 {
 		volumeLabel := style.DarkGrayStyle.Render("Ξ /m")
-		volumeValue := style.GrayStyle.Render(fmt.Sprintf("%6.2f", volume))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
+
+		// volumeValue := valueStyle.Render(fmt.Sprintf("%6.2f", volume))
+		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
+
+		volumePerMin := valueStyle.Render(fmt.Sprintf("%6.2f", volume/viper.GetDuration("stats.timeframe").Minutes()))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumePerMin, volumeLabel))}...)
 	}
 
-	if sales := s.salesPerMinute(); sales > 0 {
+	// if sales := s.salesPerMinute(); sales > 0 {
+	if salesCount := s.salesLastTimeframe(); salesCount > 0 {
 		salesLabel := style.DarkGrayStyle.Render("s/m")
-		salesValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(sales)))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
+
+		// salesValue := valueStyle.Render(fmt.Sprintf("%6d", salesCount))
+		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
+
+		salesPerMin := valueStyle.Render(fmt.Sprintf("%6d", int(float64(salesCount)/viper.GetDuration("stats.timeframe").Minutes())))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesPerMin, salesLabel))}...)
 	}
 
-	if mints := s.mintsPerMinute(); mints > 0 {
+	// if mints := s.mintsPerMinute(); mints > 0 {
+	if mintsCount := s.mintsLastTimeframe(); mintsCount > 0 {
 		mintsLabel := style.DarkGrayStyle.Render("m/m")
-		mintsValue := style.GrayStyle.Render(fmt.Sprintf("%6d", uint(mints)))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)
+
+		// mintsValue := valueStyle.Render(fmt.Sprintf("%6d", mintsCount))
+		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)
+
+		mintsPerMin := valueStyle.Render(fmt.Sprintf("%6d", int(float64(mintsCount)/viper.GetDuration("stats.timeframe").Minutes())))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsPerMin, mintsLabel))}...)
 	}
 
 	//

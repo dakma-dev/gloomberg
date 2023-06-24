@@ -4,7 +4,9 @@ type EventType int
 
 const (
 	Sale EventType = iota
+	Mint
 	Listing
+
 	AcceptedOffer
 	AcceptedCollectionOffer
 )

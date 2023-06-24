@@ -10,6 +10,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
@@ -374,12 +375,17 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// total counting
 	if gb.Stats != nil {
+		var eventType degendb.EventType
 		switch ttx.Action {
 		case totra.Sale, totra.Purchase:
-			gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
+			// gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
+			eventType = degendb.Sale
 		case totra.Mint:
-			gb.Stats.AddMint(ttx.TotalTokens)
+			// gb.Stats.AddMint(ttx.TotalTokens, ttx.AmountPaid)
+			eventType = degendb.Mint
 		}
+
+		gb.Stats.AddEvent(eventType, ttx.TotalTokens, ttx.AmountPaid)
 	}
 
 	if ttx.IsListing() {

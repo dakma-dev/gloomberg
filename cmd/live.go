@@ -568,9 +568,11 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("ticker.statsbox", internal.BlockTime*9)
 	viper.SetDefault("ticker.gasline", internal.BlockTime*3)
 
+	// stats settings
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)
-	viper.SetDefault("stats.lines", 5)
+	viper.SetDefault("stats.timeframe", time.Minute*7)
+	viper.SetDefault("stats.lines", 6)
 }
 
 func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
