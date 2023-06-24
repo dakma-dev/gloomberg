@@ -17,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
@@ -55,14 +54,14 @@ var (
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
-		Help: "The total number of received events from the opensea api/stream",
+		Help: "The total number of received events from the OpenSea api/stream",
 	})
 )
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
 func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	if apiToken == "" {
-		log.Info("no opensea api token provided, skipping opensea stream api")
+		log.Info("no OpenSea api token provided, skipping OpenSea stream api")
 
 		return nil
 	}
@@ -76,7 +75,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		return nil
 	}
 
-	client := &SeaWatcher{
+	sw := &SeaWatcher{
 		receivedEvents: make(chan map[string]interface{}, 1024),
 		subscriptions:  make(map[string]map[osmodels.EventType]func(), 0),
 
@@ -89,45 +88,58 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	}
 
 	// create phoenix socket
-	client.phoenixSocket = phx.NewSocket(endpoint)
-	client.phoenixSocket.Logger = phx.NewCustomLogger(phx.LoggerLevel(phx.LogWarning), zap.NewStdLog(gbl.Log.Desugar()))
+	sw.phoenixSocket = phx.NewSocket(endpoint)
+	sw.phoenixSocket.Logger = phx.NewCustomLogger(phx.LoggerLevel(phx.LogWarning), zap.NewStdLog(gbl.Log.Desugar()))
 
-	client.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
-		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(attempt)))
+	// exponential backoff for reconnects
+	sw.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
+		// max waitTime is 2^7 = 128sec
+		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 7)))))
 
-		client.Prf("❕ reconnecting (attempt %d) after %dsec..", attempt, int(waitTime.Seconds()))
+		sw.Prf("❌ reconnecting to OpenSea failed (#%d) 😩 trying again in %dsec..", attempt, int(waitTime.Seconds()))
 
 		return waitTime
 	}
 
 	// error function
-	onError := func(err error) { gbl.Log.Errorf("❌ seawa socket error: %+v", err) }
-	client.phoenixSocket.OnError(onError)
+	sw.phoenixSocket.OnError(func(err error) { gbl.Log.Errorf("❌ seawa socket error: %+v", err) })
 
-	client.phoenixSocket.OnClose(func() {
-		gbl.Log.Warn("❕ opensea stream socket closed, trying to reconnect...")
+	// called on successful connection to the socket/OpenSea
+	sw.phoenixSocket.OnOpen(func() {
+		sw.Pr("✅ connected to the OpenSea stream")
+	})
 
-		err := client.phoenixSocket.Reconnect()
+	// called on disconnect/connection breaks to the socket/OpenSea
+	sw.phoenixSocket.OnClose(func() {
+		sw.Pr("❕ connection to OpenSea closed, trying to reconnect...")
+
+		err := sw.phoenixSocket.Reconnect()
 		if err != nil {
-			onError(errors.New("reconnecting to opensea stream failed: " + err.Error()))
+			sw.Prf("❌ reconnecting to OpenSea stream failed: %s", err)
 		}
 	})
 
-	if client.phoenixSocket != nil {
-		if err := client.connect(); err != nil {
-			socketError := errors.New("opensea stream socket connection failed: " + err.Error())
-			gbl.Log.Error("❌ " + socketError.Error())
+	// initial connection to the socket/OpenSea
+	if sw.phoenixSocket != nil {
+		sw.Pr("connecting to OpenSea...")
+
+		if err := sw.phoenixSocket.Connect(); err != nil {
+			socketError := errors.New("OpenSea stream socket connection failed: " + err.Error())
+			sw.Prf("❌ socket error: %s", socketError.Error())
 
 			return nil
 		}
 	}
 
-	return client
+	// start worker for managing subscriptions
+	go sw.WorkerMgmtChannel()
+
+	return sw
 }
 
 // Pr prints messages from seawatcher to the terminal.
 func (sw *SeaWatcher) Pr(message string) {
-	sw.gb.PrWithKeywordAndIcon("⚓️", lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render("seawa"), message)
+	sw.gb.PrWithKeywordAndIcon("🌊", style.OpenSea("seawa"), message)
 }
 
 // Prf formats and prints messages from seawatcher to the terminal.
@@ -141,10 +153,6 @@ func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
 
 func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[osmodels.EventType]func() {
 	return sw.subscriptions
-}
-
-func (sw *SeaWatcher) connect() error {
-	return sw.phoenixSocket.Connect()
 }
 
 // eventHandler handles incoming stream api events and forwards them as map.
@@ -225,7 +233,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
-			log.Info("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+			log.Infof("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
 
 			return
 		}
@@ -249,7 +257,7 @@ func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{
 
 	err := decoder.Decode(itemEvent)
 	if err != nil {
-		log.Info("⚓️❌ decoding incoming opensea stream api ItemReceivedBidEvent failed:", err)
+		sw.Prf("⚓️❌ decoding incoming OpenSea stream api ItemReceivedBidEvent failed: %s", err)
 
 		return osmodels.ItemReceivedBidEvent{}, err
 	}
@@ -271,7 +279,7 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 
 	err := decoder.Decode(itemEvent)
 	if err != nil {
-		log.Info("⚓️❌ decoding incoming opensea stream api collection offer event failed:", err)
+		sw.Prf("⚓️❌ decoding incoming OpenSea stream api collection offer event failed: %s", err)
 
 		return osmodels.CollectionOfferEvent{}, err
 	}
@@ -286,7 +294,7 @@ func (sw *SeaWatcher) SubscribeForSlug(slug string) bool {
 	if alreadySubscribed != nil {
 		sw.mu.Unlock()
 
-		log.Debugf("⚓️ ☕️ already subscribed to opensea events for %s", slug)
+		log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 
 		return false
 	}
@@ -348,7 +356,7 @@ func (sw *SeaWatcher) createChannel(topic string) *phx.Channel {
 
 	join, err := channel.Join()
 	if err != nil {
-		log.Info(err)
+		sw.Prf("⚓️❌ failed to join channel: %s", err)
 
 		return nil
 	}
@@ -384,19 +392,23 @@ func (sw *SeaWatcher) on(eventType osmodels.EventType, collectionSlug string, ev
 	log.Debugf("Subscribing to %s events on %s", eventType, topic)
 	channel.On(string(eventType), eventHandler)
 
+	channel.OnClose(func(payload any) {
+		sw.Prf("⚠️ Channel %s closed: %s", topic, payload)
+	})
+
 	log.Debugf("␚ 🔔 subscribed to %s for %s", string(eventType), collectionSlug)
 
 	return func() {
-		log.Infof("Unsubscribing from %s events on %s", eventType, topic)
+		sw.Prf("Unsubscribing from %s events on %s", eventType, topic)
 
 		leave, err := channel.Leave()
 		if err != nil {
-			log.Info("channel.Leave err:", err)
+			sw.Prf("channel.Leave err: %s", err)
 		}
 
 		leave.Receive("ok", func(_ any) {
 			delete(sw.channels, collectionSlug)
-			log.Infof("Successfully left channel %s listening for %s", topic, eventType)
+			sw.Prf("Successfully left channel %s listening for %s", topic, eventType)
 		})
 	}
 }
@@ -452,7 +464,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 		}
 
 		if viper.GetString("api_keys.opensea") == "" {
-			log.Error("⚓️❌ opensea api key is not set, can't subscribe to listings")
+			log.Error("⚓️❌ OpenSea api key is not set, can't subscribe to listings")
 
 			return
 		}
@@ -470,7 +482,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 
 		for _, slug := range mgmtEvent.Slugs {
 			if slug == "ens" {
-				log.Info("⚓️ ␚ skipping ens for now")
+				sw.Pr("⚓️ ␚ skipping ens for now")
 
 				continue
 			}
@@ -489,7 +501,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 		)
 
 	default:
-		log.Infof("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
+		sw.Prf("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
 
 		return
 	}

@@ -145,7 +145,13 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	var seawa *seawatcher.SeaWatcher
 	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
-		seawa = subscribeToOpenseaStream()
+		var oopenseaAPIKey string
+		if key := viper.GetString("api_keys.opensea"); key != "" {
+			oopenseaAPIKey = viper.GetString("api_keys.opensea")
+		} else if key := viper.GetString("seawatcher.api_key"); key != "" {
+			oopenseaAPIKey = viper.GetString("seawatcher.api_key")
+		}
+		seawa = seawatcher.NewSeaWatcher(oopenseaAPIKey, gb)
 	}
 
 	// trapri | ttx printer to process and format the token transactions

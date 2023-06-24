@@ -25,6 +25,9 @@ var (
 
 	LightGrayForeground = lipgloss.Color("#BBB")
 
+	OpenSea = lipgloss.NewStyle().Foreground(OpenseaToneBlue).Render
+	Blur    = lipgloss.NewStyle().Foreground(BlurOrange).Render
+
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	WebUIColor           = lipgloss.Color("#662288")
 	BlurOrange           = lipgloss.Color("#FF8700")
@@ -39,6 +42,7 @@ var (
 	LightGrayStyle       = lipgloss.NewStyle().Foreground(LightGray)
 	Gray4Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#444"))
 	Gray5Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
+	Gray6Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
 	Gray7Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#777"))
 	Gray8Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#888"))
 	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
@@ -66,6 +70,24 @@ var (
 	// topBottomBorderStyle       = baseBorderStyle.Copy().BorderTop(true).BorderBottom(true)
 	// topBottomHiddenBorderStyle = baseBorderStyle.Copy().BorderStyle(lipgloss.HiddenBorder()).BorderTop(true).BorderBottom(true).
 )
+
+// var ShadesOfGray = []lipgloss.Color{
+// 	lipgloss.Color("#111"),
+// 	lipgloss.Color("#222"),
+// 	lipgloss.Color("#333"),
+// 	lipgloss.Color("#444"),
+// 	lipgloss.Color("#555"),
+// 	lipgloss.Color("#666"),
+// 	lipgloss.Color("#777"),
+// 	lipgloss.Color("#888"),
+// 	lipgloss.Color("#999"),
+// 	lipgloss.Color("#aaa"),
+// 	lipgloss.Color("#bbb"),
+// 	lipgloss.Color("#ccc"),
+// 	lipgloss.Color("#ddd"),
+// 	lipgloss.Color("#eee"),
+// 	lipgloss.Color("#fff"),
+// }
 
 var ShadesPink = []lipgloss.Color{
 	"#fff1f6",

@@ -31,23 +31,15 @@ func init() {
 func runSeawatcher(_ *cobra.Command, _ []string) {
 	log.Infof("⚓️ starting seawatcher %s…", internal.GloombergVersion)
 
-	subscribeToOpenseaStream()
-
-	select {}
-}
-
-func subscribeToOpenseaStream() *seawa.SeaWatcher {
 	// start sea watcher & loop forever
-	seaWatcher := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), gb)
-
-	go seaWatcher.WorkerMgmtChannel()
+	sw := seawa.NewSeaWatcher(viper.GetString("api_keys.opensea"), gb)
 
 	if viper.GetBool("seawatcher.pubsub") {
-		go seaWatcher.SubscribeToPubsubMgmt()
+		go sw.SubscribeToPubsubMgmt()
 
 		// publish a "SendSlugs" event to the management channel to request the slugs/events to subscribe to from the clients
-		seaWatcher.PublishSendSlugs()
+		sw.PublishSendSlugs()
 	}
 
-	return seaWatcher
+	select {}
 }
