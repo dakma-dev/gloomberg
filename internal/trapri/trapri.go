@@ -485,12 +485,22 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	//
 	// min value
+	// if the average price is below the min_value and the total price is below
+	// the min_value * min_value_multiplier, don't show the tx in the stream
 	if !isOwnCollection || (!ttx.IsListing() && !ttx.IsItemBid() && !ttx.IsCollectionOffer()) {
-		totalValueBelowMinValue := ttx.GetPrice().Ether() < viper.GetFloat64("show.min_value")
-		if ttx.GetPrice().Ether() > 0.0 && totalValueBelowMinValue {
-			gbl.Log.Debugf("price is below min_value, not showing")
+		if ttx.GetPrice().Ether() > 0.0 && averagePrice.Ether() > 0.0 {
+			minValue := viper.GetFloat64("show.min_value")
 
-			ttx.DoNotPrint = true
+			averageBelowMinValue := averagePrice.Ether() < minValue
+			totalBelowMultiMinValue := ttx.GetPrice().Ether() < minValue*viper.GetFloat64("show.min_value_multiplier")
+
+			gbl.Log.Debugf("total: %f | avg: %f | averageBelowMinValue: %+v | totalBelowMultiMinValue: %+v", ttx.GetPrice().Ether(), averagePrice.Ether(), averageBelowMinValue, totalBelowMultiMinValue)
+
+			if averageBelowMinValue && totalBelowMultiMinValue {
+				gbl.Log.Debugf("price is below min_value, not showing")
+
+				ttx.DoNotPrint = true
+			}
 		}
 	}
 

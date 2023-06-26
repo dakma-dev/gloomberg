@@ -511,9 +511,11 @@ func init() { //nolint:gochecknoinits
 	liveCmd.Flags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
 	_ = viper.BindPFlag("wallets", liveCmd.Flags().Lookup("wallets"))
 
-	// min value for sales to be shown
+	// min value for sales to be shown (single item price)
 	liveCmd.Flags().Float64("min-value", 0.0, "minimum value to show sales")
 	_ = viper.BindPFlag("show.min_value", liveCmd.Flags().Lookup("min-value"))
+	// multiplier for min_value applied to the total price of a tx
+	viper.SetDefault("show.min_value_multiplier", 2.0)
 
 	// what to show
 	liveCmd.Flags().Bool("show-mints", false, "Show mints")
