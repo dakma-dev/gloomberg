@@ -1,4 +1,4 @@
-package stats
+package gloomberg
 
 import (
 	"context"
@@ -42,6 +42,7 @@ var (
 )
 
 type Stats struct {
+	gb           *Gloomberg
 	wallets      *wallet.Wallets
 	providerPool *provider.Pool
 	rdb          rueidis.Client
@@ -66,8 +67,9 @@ type Stats struct {
 	OutputLines    uint64
 }
 
-func New(gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool, rdb rueidis.Client) *Stats {
+func NewStats(gb *Gloomberg, gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool, rdb rueidis.Client) *Stats {
 	stats := &Stats{
+		gb:           gb,
 		wallets:      wallets,
 		providerPool: providerPool,
 		rdb:          rdb,
@@ -95,24 +97,12 @@ func (s *Stats) AddEvent(eventType degendb.EventType, amountTokens int64, value 
 	})
 }
 
-func (s *Stats) salesLastTimeframe() uint64 {
+func (s *Stats) eventslastTimeframe(eventType degendb.EventType) uint64 {
 	count := uint64(0)
 
 	for _, event := range s.RecentEvents.ToSlice() {
-		if event.Type == degendb.Sale && time.Since(event.Timestamp) < s.timeframe {
-			count += event.AmountTokens
-		}
-	}
-
-	return count
-}
-
-func (s *Stats) mintsLastTimeframe() uint64 {
-	count := uint64(0)
-
-	for _, event := range s.RecentEvents.ToSlice() {
-		if event.Type == degendb.Mint && time.Since(event.Timestamp) < s.timeframe {
-			count += event.AmountTokens
+		if event.Type == eventType && time.Since(event.Timestamp) < s.timeframe {
+			count++
 		}
 	}
 
@@ -250,43 +240,87 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	// get volume from recent events
 	volumeWei := s.volumeLastTimeframe()
 
-	// until runtime > timeframe, our data is not yet accurate -> darken the value
+	// time used for normalizing to per minute (stats.timeframe > runtime ? stats.timeframe : runtime)
+	timeframeMinutes := s.getTimeframeMinutes()
+
+	// show a wait indicator if we are not running for the full timeframe yet
+	unitOrWait := "m"
+	if !s.runningForFullTimeframe() {
+		unitOrWait = "⏳"
+	}
+
+	// until runtime > timeframe, our data is not yet accurate -> darken the values
 	valueStyle := style.GrayStyle
-	if time.Since(internal.RunningSince) < viper.GetDuration("stats.timeframe") {
-		valueStyle = style.DarkGrayStyle
-	}
 
-	// if volume := s.salesVolumePerMinute(); volume > 0 {
 	if volume, _ := utils.WeiToEther(volumeWei).Float64(); volume > 0 {
-		volumeLabel := style.DarkGrayStyle.Render("Ξ /m")
+		volumeLabel := style.DarkGrayStyle.Render("Ξ /" + unitOrWait)
 
-		// volumeValue := valueStyle.Render(fmt.Sprintf("%6.2f", volume))
-		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumeValue, volumeLabel))}...)
+		volumePerMin := volume / timeframeMinutes
 
-		volumePerMin := valueStyle.Render(fmt.Sprintf("%6.2f", volume/viper.GetDuration("stats.timeframe").Minutes()))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", volumePerMin, volumeLabel))}...)
+		volumeStyle := valueStyle.Copy()
+
+		switch {
+		case !s.runningForFullTimeframe():
+			volumeStyle = style.DarkGrayStyle
+		case volumePerMin > 50.0:
+			volumeStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
+		case volumePerMin > 20:
+			volumeStyle = style.AlmostWhiteStyle
+		case volumePerMin > 10:
+			volumeStyle = style.LightGrayStyle
+		}
+
+		fmtVolumePerMin := volumeStyle.Render(fmt.Sprintf("%6.2f", volumePerMin))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s%s", fmtVolumePerMin, volumeLabel))}...)
 	}
 
-	// if sales := s.salesPerMinute(); sales > 0 {
-	if salesCount := s.salesLastTimeframe(); salesCount > 0 {
-		salesLabel := style.DarkGrayStyle.Render("s/m")
+	if salesCount := s.eventslastTimeframe(degendb.Sale); salesCount > 0 {
+		salesLabel := style.DarkGrayStyle.Render("s/" + unitOrWait)
 
-		// salesValue := valueStyle.Render(fmt.Sprintf("%6d", salesCount))
-		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesValue, salesLabel))}...)
+		salesPerMin := int(float64(salesCount) / timeframeMinutes)
 
-		salesPerMin := valueStyle.Render(fmt.Sprintf("%6d", int(float64(salesCount)/viper.GetDuration("stats.timeframe").Minutes())))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", salesPerMin, salesLabel))}...)
+		salesStyle := valueStyle.Copy()
+
+		switch {
+		case !s.runningForFullTimeframe():
+			salesStyle = style.DarkGrayStyle
+		case salesPerMin > 300:
+			salesStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
+		case salesPerMin > 200:
+			salesStyle = style.AlmostWhiteStyle
+		case salesPerMin > 100:
+			salesStyle = style.LightGrayStyle
+		}
+
+		fmtSalesPerMin := salesStyle.Render(fmt.Sprintf("%6d", salesPerMin))
+
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", fmtSalesPerMin, salesLabel))}...)
 	}
 
-	// if mints := s.mintsPerMinute(); mints > 0 {
-	if mintsCount := s.mintsLastTimeframe(); mintsCount > 0 {
-		mintsLabel := style.DarkGrayStyle.Render("m/m")
+	if mintsCount := s.eventslastTimeframe(degendb.Mint); mintsCount > 0 {
+		mintsLabel := style.DarkGrayStyle.Render("m/" + unitOrWait)
 
-		// mintsValue := valueStyle.Render(fmt.Sprintf("%6d", mintsCount))
-		// firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsValue, mintsLabel))}...)
+		mintsPerMin := int(float64(mintsCount) / timeframeMinutes)
 
-		mintsPerMin := valueStyle.Render(fmt.Sprintf("%6d", int(float64(mintsCount)/viper.GetDuration("stats.timeframe").Minutes())))
-		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", mintsPerMin, mintsLabel))}...)
+		mintsStyle := valueStyle.Copy()
+
+		switch {
+		case !s.runningForFullTimeframe():
+			mintsStyle = style.DarkGrayStyle
+		case mintsPerMin > viper.GetInt("stats.high_volume.mints.threshold"):
+			go s.highVolumeMint()
+
+			fallthrough
+		case mintsPerMin > 500:
+			mintsStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
+		case mintsPerMin > 300:
+			mintsStyle = style.AlmostWhiteStyle
+		case mintsPerMin > 150:
+			mintsStyle = style.LightGrayStyle
+		}
+
+		fmtMintsPerMin := mintsStyle.Render(fmt.Sprintf("%6d", mintsPerMin))
+		firstColumn = append(firstColumn, []string{listItem(fmt.Sprintf("%s %s", fmtMintsPerMin, mintsLabel))}...)
 	}
 
 	//
@@ -323,6 +357,8 @@ func (s *Stats) getPrimaryStatsLists() []string {
 					if err != nil {
 						gbl.Log.Warnf("failed to parse keyspace_hits: %v", err)
 					}
+
+					log.Debugf("keyspaceHits: %+v", keyspaceHits)
 				}
 
 				if rawKeyspaceMisses := strings.TrimPrefix(stat, "keyspace_misses:"); rawKeyspaceMisses != stat {
@@ -337,15 +373,12 @@ func (s *Stats) getPrimaryStatsLists() []string {
 			}
 
 			// calculate hitrate
-			hitrate := float64(keyspaceHits) / float64(keyspaceHits+keyspaceMisses)
+			hitrate := (float64(keyspaceHits) / float64(keyspaceHits+keyspaceMisses)) * 100
 			log.Debugf("keyspace_hits: %+v | keyspace_misses: %+v | hitrate: %+v", keyspaceHits, keyspaceMisses, hitrate)
 
 			// cache size
 			namesLabel := style.DarkGrayStyle.Render("  cache")
 			namesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", dbSize))
-
-			// salesLabel := style.DarkGrayStyle.Render("s-cache")
-			// salesValue := style.GrayStyle.Render(fmt.Sprintf("%9d", rdb.XLen(context.Background(), "sales").Val()))
 
 			// hitrate
 			hitrateLabel := style.DarkGrayStyle.Render("hitrate")
@@ -507,4 +540,122 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan s
 			s.Print(queueOutput)
 		}
 	}()
+}
+
+func (s *Stats) runningForFullTimeframe() bool {
+	return time.Since(internal.RunningSince) > viper.GetDuration("stats.timeframe")
+}
+
+func (s *Stats) getTimeframeMinutes() float64 {
+	var timeframeMinutes float64
+	if s.runningForFullTimeframe() {
+		timeframeMinutes = viper.GetDuration("stats.timeframe").Minutes()
+	} else {
+		timeframeMinutes = time.Since(internal.RunningSince).Minutes()
+	}
+
+	return timeframeMinutes
+}
+
+func (s *Stats) highVolumeMint() {
+	if viper.GetBool("show.mints") {
+		log.Debug("👀 high volume mint | showing mints already active")
+
+		return
+	}
+
+	checkInterval := viper.GetDuration("stats.high_volume.check_interval")
+	minChecksBelowThreshold := viper.GetInt("stats.high_volume.min_checks_below_threshold")
+	mintsTreshold := viper.GetInt("stats.high_volume.mints.threshold")
+
+	mintsCount := s.eventslastTimeframe(degendb.Mint)
+	mintsPerMin := int(float64(mintsCount) / s.getTimeframeMinutes())
+
+	s.gb.Prf("👀 high volume mint (%d > %d /min| %d) | activating mints | check every: %.0fsec | min. checks below: %d", mintsPerMin, mintsTreshold, mintsCount, checkInterval.Seconds(), minChecksBelowThreshold)
+
+	viper.Set("show.mints", true)
+
+	// check if mintsPerMin is still above the threshold
+	// otherwise deactivate displaying mints again
+	checksBelow := 0
+	for {
+		// wait for next check
+		time.Sleep(checkInterval)
+
+		mintsCount := s.eventslastTimeframe(degendb.Mint)
+		mintsPerMin := int(float64(mintsCount) / s.getTimeframeMinutes())
+
+		log.Debugf("👀 -> high volume | last mints: %d <-> %d | checksBelow: %d <-> %d", mintsPerMin, mintsTreshold, checksBelow, minChecksBelowThreshold)
+
+		if mintsPerMin < mintsTreshold {
+			checksBelow++
+
+			log.Debugf("👀 <- high volume | last mints below threshold %d < %d | checksBelow: %d <-> %d", mintsPerMin, mintsTreshold, checksBelow, minChecksBelowThreshold)
+
+			if checksBelow >= minChecksBelowThreshold {
+				s.gb.Prf("👀 high volume mint over, deactivating mints again")
+
+				viper.Set("show.mints", false)
+
+				return
+			}
+		}
+
+		log.Debugf("👀 <- high volume | last mints: %d <-> %d | checksBelow: %d <-> %d", mintsPerMin, mintsTreshold, checksBelow, minChecksBelowThreshold)
+	}
+}
+
+func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput chan string) {
+	oldGasPrice := 0
+
+	for range gasTicker.C {
+		// gasNode := ethNodes.GetRandomLocalNode()
+		gasLine := strings.Builder{}
+
+		// if viper.GetBool("log.debug") {
+		// 	gasLine.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#1A1A1A")).Render(fmt.Sprint(gasNode.Marker)))
+		// }
+
+		gasLine.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
+		gasLine.WriteString(style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05")))
+		gasLine.WriteString(" " + style.DarkGrayStyle.Render("🧟"))
+
+		gasLine.WriteString("   ")
+
+		if gasInfo, err := providerPool.GetCurrentGasInfo(); err == nil && gasInfo != nil {
+			// gas price
+			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
+				gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
+				gasPrice := int(math.Round(gasPriceGwei))
+
+				if math.Abs(float64(gasPrice-oldGasPrice)) < 2.0 {
+					continue
+				}
+
+				oldGasPrice = gasPrice
+
+				// // tip / priority fee
+				// var gasTip int
+				// if gasInfo.GasTipWei.Cmp(big.NewInt(0)) > 0 {
+				// 	gasTipGwei, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Float64()
+				// 	gasTip = int(math.Round(gasTipGwei))
+				// }
+
+				intro := style.DarkerGrayStyle.Render("~  ") + style.DarkGrayStyle.Render("gas") + style.DarkerGrayStyle.Render("  ~   ")
+				outro := style.DarkerGrayStyle.Render("   ~   ~")
+				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
+
+				formattedGas := style.GrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
+				formattedGasAndTip := formattedGas
+
+				// if gasTip > 0 {
+				// 	formattedGasAndTip = formattedGas + "|" + style.GrayStyle.Render(fmt.Sprintf("%d", gasTip)) + style.DarkGrayStyle.Render("gw")
+				// }
+
+				gasLine.WriteString(intro + formattedGas + divider + formattedGasAndTip + divider + formattedGas + outro)
+			}
+		}
+
+		queueOutput <- gasLine.String()
+	}
 }

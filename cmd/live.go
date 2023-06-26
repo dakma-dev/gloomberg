@@ -26,7 +26,6 @@ import (
 	"github.com/benleb/gloomberg/internal/pusu"
 	seawatcher "github.com/benleb/gloomberg/internal/seawa"
 	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
-	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
 	"github.com/benleb/gloomberg/internal/trapri"
@@ -343,7 +342,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		// start gasline ticker
 		gasTicker = time.NewTicker(tickerInterval)
-		go stats.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
+		go gloomberg.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
 	}
 
 	// manifold ticker
@@ -368,7 +367,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// statsbox
-	gb.Stats = stats.New(gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
+	gb.Stats = gloomberg.NewStats(gb, gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
 
 	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
 		go gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
@@ -570,8 +569,12 @@ func init() { //nolint:gochecknoinits
 	// stats settings
 	viper.SetDefault("stats.enabled", true)
 	viper.SetDefault("stats.balances", true)
-	viper.SetDefault("stats.timeframe", time.Minute*7)
+	viper.SetDefault("stats.timeframe", time.Minute*13) // 13
 	viper.SetDefault("stats.lines", 6)
+	// high volume mints detection
+	viper.SetDefault("stats.high_volume.check_interval", time.Second*17)
+	viper.SetDefault("stats.high_volume.min_checks_below_threshold", 3)
+	viper.SetDefault("stats.high_volume.mints.threshold", 37)
 }
 
 func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {

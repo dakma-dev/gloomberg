@@ -17,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/seawa/models"
-	"github.com/benleb/gloomberg/internal/stats"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -33,7 +32,7 @@ type Gloomberg struct {
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
-	Stats        *stats.Stats
+	Stats        *Stats
 
 	Ranks map[common.Address]map[int64]degendb.TokenRank
 
