@@ -1,6 +1,8 @@
 package gloomberg
 
 import (
+	"time"
+
 	chawagoModels "github.com/benleb/gloomberg/internal/chawago/models"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/seawa/models"
@@ -85,6 +87,38 @@ func newEventHub() *eventHub {
 	for i := 0; i < viper.GetInt("gloomberg.numEventHubHandlers"); i++ {
 		go eh.worker(i)
 	}
+
+	// run goroutine that periodically checks all In channel sizes
+	go func() {
+		for {
+			// sum up all In channel sizes
+			sum := 0
+			sum += len(eh.In.ItemListed)
+			sum += len(eh.In.ItemReceivedBid)
+			sum += len(eh.In.CollectionOffer)
+			sum += len(eh.In.TxWithLogs)
+			sum += len(eh.In.TokenTransactions)
+			sum += len(eh.In.SeawatcherMgmt)
+			sum += len(eh.In.PrintToTerminal)
+			sum += len(eh.In.NewBlock)
+
+			if sum > 0 {
+				log.Printf(
+					"eventHub | IListed: %d, IReceivedBid: %d, COffer: %d, TxWithLogs: %d, TTransactions: %d, SeawatcherMgmt: %d, PrintToTerminal: %d, NewBlock: %d",
+					len(eh.In.ItemListed),
+					len(eh.In.ItemReceivedBid),
+					len(eh.In.CollectionOffer),
+					len(eh.In.TxWithLogs),
+					len(eh.In.TokenTransactions),
+					len(eh.In.SeawatcherMgmt),
+					len(eh.In.PrintToTerminal),
+					len(eh.In.NewBlock),
+				)
+			}
+
+			time.Sleep(13 * time.Second)
+		}
+	}()
 
 	return &eh
 }
