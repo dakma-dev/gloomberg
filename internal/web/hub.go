@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/gobwas/ws"
 )
 
@@ -48,13 +48,12 @@ var (
 // }
 
 type WsHub struct {
+	gb *gloomberg.Gloomberg
 	// websockets
 	clients map[*WsClient]bool
 
 	// handlers are functions that are used to handle Events
 	handlers map[string]MessageHandler
-
-	queueWsOutTokenTransactions *chan *totra.TokenTransaction
 
 	sync.RWMutex
 
@@ -68,7 +67,7 @@ type WsHub struct {
 	// out chan []byte
 }
 
-func NewHub(queueWsOutTokenTransactions chan *totra.TokenTransaction) *WsHub {
+func NewHub(gb *gloomberg.Gloomberg) *WsHub {
 	// s := &WebsocketsServer{
 	// 	mu:                          sync.RWMutex{},
 	// 	queueWsOutTokenTransactions: eventQueue,
@@ -86,10 +85,9 @@ func NewHub(queueWsOutTokenTransactions chan *totra.TokenTransaction) *WsHub {
 	// return s
 
 	hub := &WsHub{
+		gb:       gb,
 		clients:  make(map[*WsClient]bool),
 		handlers: make(map[string]MessageHandler),
-
-		queueWsOutTokenTransactions: &queueWsOutTokenTransactions,
 	}
 
 	hub.setupEventHandlers()
@@ -101,7 +99,7 @@ func NewHub(queueWsOutTokenTransactions chan *totra.TokenTransaction) *WsHub {
 
 // writer writes broadcast messages from chat.out channel.
 func (wh *WsHub) broadcastTTx() {
-	for ttx := range *wh.queueWsOutTokenTransactions {
+	for ttx := range wh.gb.SubscribeTokenTransactions() {
 		if len(wh.clients) == 0 {
 			continue
 		}

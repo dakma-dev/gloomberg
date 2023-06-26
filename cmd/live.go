@@ -138,7 +138,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// nepa
-	queueWsOutTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 256)
 	nePa := nepa.NewNePa(gb)
 
@@ -431,7 +430,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// web ui
 	if viper.GetBool("web.enabled") {
-		go web.StartWebUI(queueWsOutTokenTransactions)
+		go web.StartWebUI(gb)
 
 		gb.PrMod("web", "web-ui started")
 	}

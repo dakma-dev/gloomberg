@@ -16,14 +16,14 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/viper"
 )
 
-func StartWebUI(queueWsOutTokenTransactions chan *totra.TokenTransaction) {
+func StartWebUI(gb *gloomberg.Gloomberg) {
 	// Create a Manager instance used to handle WebSocket Connections
-	hub := NewHub(queueWsOutTokenTransactions)
+	hub := NewHub(gb)
 
 	listenOn := &net.TCPAddr{IP: net.ParseIP(viper.GetString("web.host")), Port: viper.GetInt("web.port")}
 	certPath := viper.GetString("web.tls.certificate")
