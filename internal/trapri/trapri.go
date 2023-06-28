@@ -149,7 +149,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// print collection name and token id
 	fmtTokensTransferred := make([]string, 0)
 	fmtTokensHistory := make([]string, 0)
-	ttxCollections := make(map[common.Address]*collections.Collection, 0)
+	ttxCollections := make(map[common.Address]*collections.Collection)
 
 	// contract addresses of the burned token(s)
 	// used in reburnes for nicer formatting
@@ -170,8 +170,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			return
 		}
 
-		fmtTokenIds := make(map[common.Address][]string, 0)
-		fmtHistoryTokenIds := make(map[common.Address][]string, 0)
+		fmtTokenIds := make(map[common.Address][]string)
+		fmtHistoryTokenIds := make(map[common.Address][]string)
 
 		var name string
 

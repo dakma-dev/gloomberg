@@ -77,7 +77,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 
 	sw := &SeaWatcher{
 		receivedEvents: make(chan map[string]interface{}, 1024),
-		subscriptions:  make(map[string]map[osmodels.EventType]func(), 0),
+		subscriptions:  make(map[string]map[osmodels.EventType]func()),
 
 		channels: make(map[string]*phx.Channel),
 

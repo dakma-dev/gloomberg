@@ -25,7 +25,7 @@ import (
 )
 
 func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
-	ownWallets := make(map[common.Address]*wallet.Wallet, 0)
+	ownWallets := make(map[common.Address]*wallet.Wallet)
 	mu := sync.Mutex{}
 
 	// nodesSpinner := style.GetSpinner("setting up own wallets...")
@@ -301,10 +301,10 @@ func GetWatchRulesFromConfig(gb *gloomberg.Gloomberg) *watch.Watcher {
 	mu := sync.Mutex{}
 
 	watcher := watch.Watcher{
-		UserAddresses:   make(map[common.Address]*watch.WGroup, 0),
-		WalletAddresses: make(map[common.Address]*watch.WGroup, 0),
-		Groups:          make(map[string]*watch.WGroup, 0),
-		WatchUsers:      make(map[common.Address]*watch.WUser, 0),
+		UserAddresses:   make(map[common.Address]*watch.WGroup),
+		WalletAddresses: make(map[common.Address]*watch.WGroup),
+		Groups:          make(map[string]*watch.WGroup),
+		WatchUsers:      make(map[common.Address]*watch.WUser),
 	}
 
 	// watchSpinner := style.GetSpinner("setting up watch rules...")

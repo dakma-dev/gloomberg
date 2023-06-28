@@ -99,7 +99,7 @@ func New() *Gloomberg {
 		Rdb:    rdb,
 		Rueidi: rueidica.NewRueidica(rdb),
 
-		Ranks: make(map[common.Address]map[int64]degendb.TokenRank, 0),
+		Ranks: make(map[common.Address]map[int64]degendb.TokenRank),
 
 		QueueSlugs: make(chan common.Address, 1024),
 

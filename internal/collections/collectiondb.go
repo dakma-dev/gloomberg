@@ -34,7 +34,7 @@ func (cs *CollectionDB) Addresses() []common.Address {
 // OpenseaSlugs returns a slice of slugs for collections with enabled listings.
 func (cs *CollectionDB) OpenseaSlugsAndAddresses() map[string]common.Address {
 	// slugs := make([]string, 0)
-	slugAddresses := make(map[string]common.Address, 0)
+	slugAddresses := make(map[string]common.Address)
 
 	for _, c := range cs.Collections {
 		if slug := c.OpenseaSlug; slug != "" && !c.IgnorePrinting { // && c.Show.Listings {
@@ -59,7 +59,7 @@ func (cs *CollectionDB) GetCollectionForSlug(slug string) *Collection {
 // OpenseaSlugs returns a slice of slugs for collections with enabled listings.
 func (cs *CollectionDB) OpenseaAddressToSlug() map[common.Address]string {
 	// slugs := make([]string, 0)
-	slugAddresses := make(map[common.Address]string, 0)
+	slugAddresses := make(map[common.Address]string)
 
 	for _, c := range cs.Collections {
 		if slug := c.OpenseaSlug; slug != "" { // && c.Show.Listings {
@@ -115,7 +115,7 @@ func (cs *CollectionDB) UserCollectionsAddresses() []common.Address {
 }
 
 func (cs *CollectionDB) userCollectionNames() []string {
-	namesIndex := make(map[string]bool, 0)
+	namesIndex := make(map[string]bool)
 	names := make([]string, 0)
 
 	for _, c := range cs.Collections {
@@ -130,7 +130,7 @@ func (cs *CollectionDB) userCollectionNames() []string {
 }
 
 func (cs *CollectionDB) colorsByName() map[string]lipgloss.Color {
-	colorNames := make(map[string]lipgloss.Color, 0)
+	colorNames := make(map[string]lipgloss.Color)
 	for _, c := range cs.Collections {
 		colorNames[c.Name] = c.Colors.Primary
 	}

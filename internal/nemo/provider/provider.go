@@ -164,7 +164,7 @@ func (p *Provider) getERC721CollectionName(contractAddress common.Address) (stri
 }
 
 func (p *Provider) getERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
-	collectionMetadata := make(map[string]interface{}, 0)
+	collectionMetadata := make(map[string]interface{})
 
 	// get the contractERC721 ABIs
 	contractERC721, err := p.getERC721ABI(contractAddress)

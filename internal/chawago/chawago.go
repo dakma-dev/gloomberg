@@ -30,7 +30,7 @@ func GetTransactionsForLogs(gb *gloomberg.Gloomberg, qRawLogs chan types.Log) ch
 }
 
 func GetTransactionsForLogsWithChannel(gb *gloomberg.Gloomberg, qRawLogs chan types.Log, qTxsWithLogs chan *models.TxWithLogs) chan *models.TxWithLogs {
-	knownTransactions := make(map[common.Hash]bool, 0)
+	knownTransactions := make(map[common.Hash]bool)
 	knownTransactionsMu := &sync.RWMutex{}
 
 	if qTxsWithLogs == nil {
@@ -117,7 +117,7 @@ func GetTransactionsForLogsWithChannel(gb *gloomberg.Gloomberg, qRawLogs chan ty
 // GetPendingTransactions utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
 func GetPendingTransactions(qPendingTx chan *types.Transaction, qTxsWithLogs chan *models.TxWithLogs, providerPool *provider.Pool) {
-	knownTransactions := make(map[common.Hash]bool, 0)
+	knownTransactions := make(map[common.Hash]bool)
 	knownTransactionsMu := &sync.RWMutex{}
 
 	// handle received logs

@@ -75,7 +75,7 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 			gb.PrDModf("ddb", "stored address %s for slug %s in cache", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug))
 		}
 
-		ranksOpensea := make(degendb.OpenSeaRanks, 0)
+		ranksOpensea := make(degendb.OpenSeaRanks)
 		ranksFile, err := os.Open(filePath)
 		if err != nil {
 			log.Errorf("failed to open file: %s", err)

@@ -12,8 +12,8 @@ type MIWCollection struct {
 }
 
 func LoadMIWs() {
-	miwAddresses := make(map[common.Address]bool, 0)
-	miwWeightedAddresses := make(map[common.Address]int, 0)
+	miwAddresses := make(map[common.Address]bool)
+	miwWeightedAddresses := make(map[common.Address]int)
 
 	for _, addresses := range addressCollections {
 		for _, address := range addresses {

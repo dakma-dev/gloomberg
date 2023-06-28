@@ -25,7 +25,7 @@ import (
 
 var (
 	AlphaCaller              *AlphaScore
-	alphaCallerKnownTX       = make(map[common.Hash]bool, 0)
+	alphaCallerKnownTX       = make(map[common.Hash]bool)
 	alphaCallerKnownTXMu     = &sync.RWMutex{}
 	minTXCountForNotifcation = 2
 )
@@ -104,7 +104,7 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 				message.WriteString("\n\n_Archived Transactions per Wallets:_ \n")
 			}
 
-			archivedWalletMap := make(map[common.Address]bool, 0)
+			archivedWalletMap := make(map[common.Address]bool)
 			for _, tx := range collection.ArchivedTransactions {
 				if archivedWalletMap[tx.From] {
 					continue
@@ -173,8 +173,8 @@ func getScoreEmoji(score int32, walletCount int) string {
 
 func NewAlphaScore(gb *gloomberg.Gloomberg) *AlphaScore {
 	AlphaCaller = &AlphaScore{
-		CollectionData: make(map[common.Address]*CollectionStats, 0),
-		WalletMap:      make(map[common.Address]*Wallet, 0),
+		CollectionData: make(map[common.Address]*CollectionStats),
+		WalletMap:      make(map[common.Address]*Wallet),
 		RWMu:           &sync.RWMutex{},
 		gb:             gb,
 	}

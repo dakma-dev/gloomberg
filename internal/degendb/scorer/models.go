@@ -67,7 +67,7 @@ func (collection *Collection) ExtractNullAttributes() map[string]*CollectionAttr
 }
 
 func (collection *Collection) ExtractCollectionAttributes() map[string][]CollectionAttribute {
-	collectionTraits := make(map[string][]CollectionAttribute, 0)
+	collectionTraits := make(map[string][]CollectionAttribute)
 
 	for name, attributeValues := range collection.AttributesFrequencyCounts {
 		for attributeValue, count := range attributeValues {
@@ -118,7 +118,7 @@ func (collection *Collection) ExtractCollectionAttributeEntropy() map[string]flo
 }
 
 func (collection *Collection) DeriveNormalizedAttributesFrequencyCounts() map[string]map[string]int {
-	attrFrequencyCounts := make(map[string]map[string]int, 0)
+	attrFrequencyCounts := make(map[string]map[string]int)
 
 	// for token in self._tokens:
 	//     for (

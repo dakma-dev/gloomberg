@@ -93,7 +93,7 @@ func (scorer *InformationContentScorer) GetICScore(collection *Collection, token
 }
 
 func (scorer *InformationContentScorer) GetTokenAttributesScoresAndWeights(collection *Collection, token *Token, _ bool, collectionNullAttributes map[string]*CollectionAttribute) ([]float64, []float64) {
-	combinedAttributes := make(map[string]*CollectionAttribute, 0)
+	combinedAttributes := make(map[string]*CollectionAttribute)
 
 	if collectionNullAttributes == nil {
 		collectionNullAttributes = collection.ExtractNullAttributes()
@@ -103,7 +103,7 @@ func (scorer *InformationContentScorer) GetTokenAttributesScoresAndWeights(colle
 	log.Printf("collectionNullAttributes: %+v", collectionNullAttributes)
 
 	// collection attributes
-	collectionAttributes := make(map[string]*CollectionAttribute, 0)
+	collectionAttributes := make(map[string]*CollectionAttribute)
 	for _, attribute := range token.Metadata {
 		if attribute.Value == nil {
 			continue

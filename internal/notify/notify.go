@@ -59,8 +59,8 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 		log.Printf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.Tx.Hash()), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
 	}
 
-	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder, 0)
-	imagesPerUserMap := make(map[*watch.WUser]string, 0)
+	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder)
+	imagesPerUserMap := make(map[*watch.WUser]string)
 
 	for contractAddress, transfers := range ttx.GetTransfersByContract() {
 		for _, transfer := range transfers {

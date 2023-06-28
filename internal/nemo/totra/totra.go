@@ -60,7 +60,7 @@ type TokenTransaction struct {
 // }
 
 func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, providerPool *provider.Pool) *TokenTransaction {
-	tfLogsByStandard := make(map[standard.Standard][]*types.Log, 0)
+	tfLogsByStandard := make(map[standard.Standard][]*types.Log)
 
 	for _, txLog := range receipt.Logs {
 		if len(txLog.Topics) == 0 {
@@ -127,7 +127,7 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 }
 
 func (ttx *TokenTransaction) GetTransfersByContract() map[common.Address][]*TokenTransfer {
-	transfersByContract := make(map[common.Address][]*TokenTransfer, 0)
+	transfersByContract := make(map[common.Address][]*TokenTransfer)
 
 	for _, transfer := range ttx.Transfers {
 		transfersByContract[transfer.Token.Address] = append(transfersByContract[transfer.Token.Address], transfer)
@@ -145,7 +145,7 @@ func (ttx *TokenTransaction) GetPrice() *price.Price {
 }
 
 func (ttx *TokenTransaction) GetNFTReceivers() map[common.Address][]*TokenTransfer {
-	nftReceivers := make(map[common.Address][]*TokenTransfer, 0)
+	nftReceivers := make(map[common.Address][]*TokenTransfer)
 
 	for _, transfer := range ttx.Transfers {
 		if transfer.Standard.IsERC721orERC1155() {
@@ -169,7 +169,7 @@ func (ttx *TokenTransaction) GetNFTReceiverAddresses() []common.Address {
 }
 
 func (ttx *TokenTransaction) GetNFTSenders() map[common.Address][]*TokenTransfer {
-	nftSenders := make(map[common.Address][]*TokenTransfer, 0)
+	nftSenders := make(map[common.Address][]*TokenTransfer)
 
 	for _, transfer := range ttx.Transfers {
 		if transfer.Standard.IsERC721orERC1155() {
@@ -183,7 +183,7 @@ func (ttx *TokenTransaction) GetNFTSenders() map[common.Address][]*TokenTransfer
 func (ttx *TokenTransaction) GetNonZeroNFTSenders() map[common.Address][]*TokenTransfer {
 	nftSenders := ttx.GetNFTSenders()
 
-	nonZeroSenders := make(map[common.Address][]*TokenTransfer, 0)
+	nonZeroSenders := make(map[common.Address][]*TokenTransfer)
 
 	for addr, sender := range nftSenders {
 		if addr == internal.ZeroAddress {
@@ -218,7 +218,7 @@ func (ttx *TokenTransaction) GetNFTSenderAndReceiverAddresses() []common.Address
 
 func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Pool) {
 	// assuming every nft is just sold once per tx
-	uniqueTransfers := make(map[string][]*TokenTransfer, 0)
+	uniqueTransfers := make(map[string][]*TokenTransfer)
 
 	for logStandard, txLogs := range ttx.logsByStandard {
 		gbl.Log.Debugf("  🧱 ttx logs to parse: %+v", len(txLogs))

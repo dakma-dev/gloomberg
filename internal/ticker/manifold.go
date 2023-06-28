@@ -26,8 +26,8 @@ import (
 
 var (
 	Manifold                  *ManifoldStats
-	manifoldContractAddresses = make(map[common.Address]bool, 0)
-	alreadyPrinted            = make(map[common.Hash]bool, 0)
+	manifoldContractAddresses = make(map[common.Address]bool)
+	alreadyPrinted            = make(map[common.Hash]bool)
 	alreadyPrintedMu          = &sync.RWMutex{}
 )
 
@@ -110,7 +110,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 		// every new tick -> new prints
 
-		aggregrateEvents := make(map[common.Address]bool, 0)
+		aggregrateEvents := make(map[common.Address]bool)
 
 		telegramMessage := strings.Builder{}
 
@@ -204,7 +204,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 		// every new tick -> new prints
 
-		aggregrateEvents := make(map[common.Address]bool, 0)
+		aggregrateEvents := make(map[common.Address]bool)
 
 		telegramMessage := strings.Builder{}
 

@@ -23,7 +23,7 @@ import (
 
 var (
 	BlueChips *BlueChipStats
-	knownTX   = make(map[common.Hash]bool, 0)
+	knownTX   = make(map[common.Hash]bool)
 	knownTXMu = &sync.RWMutex{}
 )
 
@@ -146,8 +146,8 @@ func GetEmojiMapping(holderType HolderTypes) string {
 func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 	BlueChips = &BlueChipStats{
 		BlueChipEvents:  make([]*totra.TokenTransaction, 0),
-		CollectionStats: make(map[common.Address]*Counters, 0),
-		WalletMap:       make(map[common.Address]*Wallet, 0),
+		CollectionStats: make(map[common.Address]*Counters),
+		WalletMap:       make(map[common.Address]*Wallet),
 		// RWMu:            &sync.RWMutex{},
 		gb: gb,
 	}
@@ -264,7 +264,7 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 			SalesVolume: big.NewInt(0),
 			Wallets:     make([]*Wallet, 0),
 			Ranking:     make([]*BlueChipRanking, 0),
-			RankingMap:  make(map[HolderTypes]uint64, 0),
+			RankingMap:  make(map[HolderTypes]uint64),
 		}
 
 		currentCollection := tokencollections.GetCollection(s.gb, eventTx.Transfers[0].Token.Address, eventTx.Transfers[0].Token.ID.Int64())

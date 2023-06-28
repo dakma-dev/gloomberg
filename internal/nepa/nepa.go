@@ -49,7 +49,7 @@ func NewNePa(gb *gloomberg.Gloomberg) *NePa {
 		// QueueTokenTransactions: queueTokenTransactions,
 		QueueTokenTransactions: gb.In.TokenTransactions,
 
-		knownTransactions:   make(map[common.Hash]bool, 0),
+		knownTransactions:   make(map[common.Hash]bool),
 		knownTransactionsMu: &sync.RWMutex{},
 
 		gb: gb,
