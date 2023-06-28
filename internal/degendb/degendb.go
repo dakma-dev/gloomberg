@@ -24,21 +24,21 @@ type DegenDB struct {
 }
 
 func NewDegenDB() *DegenDB {
-	mongo := connectToMongo()
-	if mongo == nil {
+	mongoClient := connectToMongo()
+	if mongoClient == nil {
 		log.Errorf("❌ could not connect to MongoDB at: %s", viper.GetString("mongodb.uri"))
 
 		return nil
 	}
 
 	// defer func() {
-	// 	if err := mongo.Disconnect(context.TODO()); err != nil {
+	// 	if err := mongoClient.Disconnect(context.TODO()); err != nil {
 	// 		panic(err)
 	// 	}
 	// }()
 
 	ddb := &DegenDB{
-		mongo: mongo,
+		mongo: mongoClient,
 	}
 
 	// cleanup & initialize
