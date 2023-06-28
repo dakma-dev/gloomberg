@@ -13,7 +13,6 @@ import (
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
@@ -170,7 +169,7 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 				continue
 			}
 
-			userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collectionsource.FromWallet, nil)
+			userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collections.FromWallet, nil)
 			userCollection.OpenseaSlug = collection.Slug
 
 			receivedCollections = append(receivedCollections, userCollection)

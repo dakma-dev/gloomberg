@@ -13,7 +13,6 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
@@ -98,7 +97,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		go notify.SendNotification(gb, ttx)
 	}
 
-	// if its a single-collection transaction we set the collection as the currentCollection
+	// if it's a single-collection transaction we set the collection as the currentCollection
 	// from here on already, otherwise we set it to nil and fill it later in the loop
 	// over the collections/transfers
 	var currentCollection *collections.Collection
@@ -257,7 +256,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				}
 			}
 
-			isOwnCollection = collection.Source == collectionsource.FromWallet || collection.Source == collectionsource.FromConfiguration
+			isOwnCollection = collection.Source == collections.FromWallet || collection.Source == collections.FromConfiguration
 
 			// link each token id to opensea
 			_, openseaURL, _ := utils.GetLinks(txHash, transfer.Token.Address, transfer.Token.ID.Int64())
@@ -306,7 +305,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 						// all tokens sold by the same address -> dumped into bids
 						// isBidDump = true
 						if numCollectionTokens > 5 || ttx.GetPrice().Ether() > 3.0 {
-							// if its a significant amount of tokens or ether we use a reddish style
+							// if it's a significant amount of tokens or ether we use a reddish style
 							numberStyle = style.TrendRedStyle
 						} else {
 							// otherwise we use a light red style
@@ -399,7 +398,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
 	}
 
-	// is own wallet or collection
+	// is our own wallet or collection
 	isOwn := isOwnWallet || isOwnCollection
 
 	// time & type
@@ -592,7 +591,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		out.WriteString(" | " + style.GrayStyle.Render(style.TerminalLink(etherscanURL, "ES")))
 	}
 
-	// // for burns the line ends after the etherscan link and we do not need a trailing pipe
+	// // for burns the line ends after the etherscan link, and we do not need a trailing pipe
 	// if !ttx.IsBurn() {
 	// 	out.WriteString(" | ")
 	// }
@@ -601,7 +600,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	var transferFrom common.Address
 
-	// show "from" if its not a listing
+	// show "from" if it's not a listing
 	if !ttx.IsMint() && !ttx.IsListing() && !ttx.IsItemBid() && !ttx.IsCollectionOffer() {
 		var fmtFrom string
 
@@ -672,7 +671,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		// out.WriteString("   " + style.PinkBoldStyle.Render(level))
 	}
 
-	// dont apply excludes to "own" events
+	// don't apply excludes to "own" events
 	if !(isOwnWallet || isWatchUsersWallet) {
 		// DoNotPrint can be set by the "pipeline" the tx is going through (e.g. when a collection has the IgnorePrinting flag set)
 		if ttx.DoNotPrint {
@@ -790,7 +789,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// building output string done
 	//
 
-	// // dont apply excludes to "own" events
+	// // don't apply excludes to "own" events
 	// if !(isOwnWallet || isWatchUsersWallet) {
 	// 	// DoNotPrint can be set by the "pipeline" the tx is going through (e.g. when a collection has the IgnorePrinting flag set)
 	// 	if ttx.DoNotPrint {

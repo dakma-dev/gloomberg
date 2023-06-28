@@ -15,7 +15,6 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
-	"github.com/benleb/gloomberg/internal/nemo/collectionsource"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
@@ -58,7 +57,7 @@ type Collection struct {
 	// calculated/generated fields
 	Metadata *nemo.CollectionMetadata `mapstructure:"metadata"`
 
-	Source collectionsource.CollectionSource `mapstructure:"source"`
+	Source CollectionSource `mapstructure:"source"`
 
 	Colors struct {
 		Primary   lipgloss.Color `mapstructure:"primary"`
@@ -81,7 +80,7 @@ type Collection struct {
 	HighestCollectionOffer float64
 }
 
-func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source collectionsource.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
+func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source CollectionSource, rueidi *rueidica.Rueidica) *Collection {
 	var collectionName string
 
 	ctx := context.Background()
@@ -190,22 +189,22 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		}()
 	}
 
-	if source == collectionsource.FromWallet || source == collectionsource.FromConfiguration {
+	if source == FromWallet || source == FromConfiguration {
 		collection.Show.History = true
 	}
 
-	if source == collectionsource.FromWallet || source == collectionsource.FromStream {
+	if source == FromWallet || source == FromStream {
 		collection.Show.Sales = viper.GetBool("show.sales")
 		collection.Show.Mints = viper.GetBool("show.mints")
 		collection.Show.Transfers = viper.GetBool("show.transfers")
 
-		if source == collectionsource.FromWallet {
+		if source == FromWallet {
 			if viper.IsSet("api_keys.opensea") {
 				collection.Show.Listings = viper.GetBool("listings.enabled")
 			}
 		}
 
-		if source == collectionsource.FromStream {
+		if source == FromStream {
 			collection.Show.Listings = false
 			collection.Show.History = false
 		}
