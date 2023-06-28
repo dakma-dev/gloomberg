@@ -262,11 +262,11 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		switch {
 		case !s.runningForFullTimeframe():
 			volumeStyle = style.DarkGrayStyle
-		case volumePerMin > 50.0:
-			volumeStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
-		case volumePerMin > 20:
+		case volumePerMin > 100.0:
+			volumeStyle = style.PinkBoldStyle
+		case volumePerMin > 42:
 			volumeStyle = style.AlmostWhiteStyle
-		case volumePerMin > 10:
+		case volumePerMin > 13:
 			volumeStyle = style.LightGrayStyle
 		}
 
@@ -285,7 +285,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		case !s.runningForFullTimeframe():
 			salesStyle = style.DarkGrayStyle
 		case salesPerMin > 300:
-			salesStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
+			salesStyle = style.PinkBoldStyle
 		case salesPerMin > 200:
 			salesStyle = style.AlmostWhiteStyle
 		case salesPerMin > 100:
@@ -312,7 +312,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 			fallthrough
 		case mintsPerMin > 500:
-			mintsStyle = style.BoldStyle.Foreground(lipgloss.Color("#ffffff"))
+			mintsStyle = style.PinkBoldStyle
 		case mintsPerMin > 300:
 			mintsStyle = style.AlmostWhiteStyle
 		case mintsPerMin > 150:
