@@ -183,7 +183,7 @@ func (r *Rueidica) getCachedNumber(ctx context.Context, address common.Address, 
 		case err != nil:
 			gbl.Log.Errorf("rueidis | error getting cached number: %s", err)
 		default:
-			gbl.Log.Debugf("rueidis | found number: %s -> %f", keyFunc(address), cachedNumber)
+			gbl.Log.Debugf("rueidis | found number: %s -> %s", keyFunc(address), cachedNumber)
 		}
 
 		num, err := strconv.ParseFloat(cachedNumber, 64)

@@ -14,10 +14,10 @@ import (
 type EventType string
 
 const (
-	ItemListed          EventType = "item_listed"
-	ItemSold            EventType = "item_sold"
-	ItemReceivedBid     EventType = "item_received_bid"
-	ItemReceivedOffer   EventType = "item_received_offer"
+	ItemListed      EventType = "item_listed"
+	ItemSold        EventType = "item_sold"
+	ItemReceivedBid EventType = "item_received_bid"
+	// ItemReceivedOffer   EventType = "item_received_offer".
 	ItemMetadataUpdated EventType = "item_metadata_updated"
 
 	CollectionOffer EventType = "collection_offer"

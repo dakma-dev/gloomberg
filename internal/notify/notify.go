@@ -152,7 +152,7 @@ func SendMessageViaTelegram(message string, chatID int64, imageURI string, reply
 	// send telegram message
 	msg, err := sendTelegramMessageWithMarkup(chatID, message, imageURI, replyToMessageID, replyMarkup)
 	if err != nil {
-		gbl.Log.Warnf("❌ failed to send telegram message: %s | chatID: '%s' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
+		gbl.Log.Warnf("❌ failed to send telegram message: %s | chatID: '%d' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
 
 		return
 	}

@@ -151,7 +151,7 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 			balanceTotalWei = big.NewInt(0).Add(balanceTotalWei, balance.BalanceBlurPool)
 		}
 
-		gbl.Log.Debugf("%s: %6.3fΞ total || %6.3f ETH | %6.3f WETH | %6.3f BlurPool", balanceTotalWei, balance.Account, utils.WeiToEther(balance.BalanceETH), utils.WeiToEther(balance.BalanceWETH), utils.WeiToEther(balance.BalanceBlurPool))
+		gbl.Log.Debugf("%s: %6.3fΞ total || %6.3f ETH | %6.3f WETH | %6.3f BlurPool", balance.Account, balanceTotalWei, utils.WeiToEther(balance.BalanceETH), utils.WeiToEther(balance.BalanceWETH), utils.WeiToEther(balance.BalanceBlurPool))
 
 		(*s.wallets)[walletAddress].BalanceBefore = (*s.wallets)[walletAddress].Balance
 		(*s.wallets)[walletAddress].Balance = balanceTotalWei

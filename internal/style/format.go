@@ -44,11 +44,3 @@ func FormatTokenInfo(tokenID *big.Int, collectionName string, primaryStyle lipgl
 
 	return tokenInfo
 }
-
-func GetNodeColor(eventType int) lipgloss.Color {
-	if eventType == 3 {
-		return "#20293d"
-	}
-
-	return ""
-}

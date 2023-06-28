@@ -37,16 +37,16 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 	// seller address
 	sellerAddress := common.HexToAddress(event.Payload.Maker.Address)
 
-	// parse price
+	// parse amountPaid
 	priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice, 10, 64, big.ToNearestEven)
 	if err != nil {
-		gbl.Log.Errorf("❌ error parsing price: %s", err.Error())
+		gbl.Log.Errorf("❌ error parsing amountPaid: %s", err.Error())
 
 		return
 	}
 
 	priceWei, _ := priceWeiRaw.Int(nil)
-	price := price.NewPrice(priceWei)
+	amountPaid := price.NewPrice(priceWei)
 
 	// collection
 	collection := tokencollections.GetCollection(gb, contractAddress, tokenID)
@@ -70,7 +70,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 		Tx:          nil,
 		TxReceipt:   nil,
 		From:        sellerAddress,
-		AmountPaid:  price.Wei(),
+		AmountPaid:  amountPaid.Wei(),
 		TotalTokens: int64(event.Payload.Quantity),
 		Marketplace: &marketplace.OpenSea,
 		Action:      totra.Listing,
@@ -119,11 +119,11 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 
 		osLink := style.TerminalLink(event.Payload.Item.Permalink, event.Payload.Item.Permalink)
 
-		go notify.SendMessageViaTelegram(fmt.Sprintf("lawless listing: %s \n price: %s  url: %s", tokenName, fmt.Sprintf("%5.3f", price.Ether()), osLink), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
+		go notify.SendMessageViaTelegram(fmt.Sprintf("lawless listing: %s \n amountPaid: %s  url: %s", tokenName, fmt.Sprintf("%5.3f", amountPaid.Ether()), osLink), viper.GetInt64("notifications.manifold.dakma"), "", 0, nil)
 
 		highlightMessage := strings.Builder{}
 		highlightMessage.WriteString("\n")
-		highlightMessage.WriteString(fmt.Sprintf("  lawless %s | %5.3fΞ | %s\n", tokenName, price.Ether(), osLink))
+		highlightMessage.WriteString(fmt.Sprintf("  lawless %s | %5.3fΞ | %s\n", tokenName, amountPaid.Ether(), osLink))
 		highlightMessage.WriteString("\n")
 
 		fmt.Println(highlightMessage.String()) //nolint:forbidigo

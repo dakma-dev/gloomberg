@@ -1,13 +1,11 @@
 package internal
 
 import (
-	"bufio"
 	"os"
 	"time"
 
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/viper"
 )
 
 const (
@@ -30,6 +28,10 @@ var (
 	BlurBlendContractAddress      = common.HexToAddress("0x29469395eAf6f95920E59F858042f0e28D98a20B")
 	ENSContractAddress            = common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85")
 	ENSNameWrapperContractAddress = common.HexToAddress("0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401")
+
+	// manifold.
+	ManifoldERC721CreatorCore  = common.HexToAddress("0x5133522ea5A0494EcB83F26311A095DDD7a9D4b6")
+	ManifoldERC1155CreatorCore = common.HexToAddress("0xE9FF7CA11280553Af56d04Ecb8Be6B8c4468DCB2")
 
 	// loan stuff.
 	NFTfiContractAddress           = common.HexToAddress("0x5660E206496808F7b5cDB8C56A696a96AE5E9b23")
@@ -63,36 +65,6 @@ var (
 		ReportCaller:    false,
 		ReportTimestamp: false,
 	})
-
-	fileLogger = map[string]*log.Logger{}
 )
 
 // LoFi is the logger used to log to the log file with caller and timestamp reporting.
-func LoFi(filePath string) *log.Logger {
-	if filePath == "" {
-		filePath = viper.GetString("log.log_file")
-	}
-
-	if loFi, ok := fileLogger[filePath]; ok {
-		return loFi
-	}
-
-	f, err := os.Create(filePath)
-	if err != nil {
-		BaseLogger.Error(err)
-	}
-
-	w := bufio.NewWriter(f)
-
-	loFi := log.NewWithOptions(w, log.Options{
-		TimeFormat:      time.RFC3339,
-		ReportCaller:    true,
-		ReportTimestamp: true,
-	})
-
-	// defer f.Close()
-
-	fileLogger[filePath] = loFi
-
-	return loFi
-}

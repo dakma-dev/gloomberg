@@ -39,7 +39,7 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 		slug := strings.TrimSuffix(rFile.Name(), "_opensea.json")
 		filePath := path.Join(ddPathRanks, rFile.Name())
 
-		address, ok := gb.CollectionDB.OpenseaSlugsAndAddresses()[slug]
+		address, ok := gb.CollectionDB.OpenSeaSlugsAndAddresses()[slug]
 		if !ok {
 			if addr, err := gb.Rueidi.GetAddressForOSSlug(context.Background(), slug); err == nil && addr != "" {
 				address = common.HexToAddress(addr)
@@ -82,7 +82,6 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 
 			continue
 		}
-		defer ranksFile.Close()
 
 		ranksBytes, err := io.ReadAll(ranksFile)
 		if err != nil {
@@ -90,6 +89,7 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 
 			continue
 		}
+		ranksFile.Close()
 
 		// parse json to structs
 		err = json.Unmarshal(ranksBytes, &ranksOpensea)
@@ -100,17 +100,17 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 		}
 
 		// validate
-		for token_id, rank := range ranksOpensea {
+		for tokenId, rank := range ranksOpensea {
 			if rank.Rank <= 0 {
-				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
-				gb.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gb.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
 
 				continue
 			}
 
 			if rank.Score <= 0 {
-				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
-				gb.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(token_id)))
+				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gb.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
 
 				continue
 			}

@@ -189,12 +189,14 @@ func (pp *Pool) ReconnectProviders() {
 	// store the current queueLogs channel
 	queueLogs := pp.queueLogs
 
-	// reconnect to the providers
-	if pool, err := FromConfig(providerConfig); err != nil {
-		gbl.Log.Fatal("❌ running provider failed, exiting")
-	} else if pool != nil {
-		pp = pool
-	}
+	gbl.Log.Infof("🔌 trying to re-connect: %+v", providerConfig)
+
+	//// reconnect to the providers
+	// if pool, err := FromConfig(providerConfig); err != nil {
+	//	gbl.Log.Fatal("❌ running provider failed, exiting")
+	// } else if pool != nil {
+	//	pp = pool
+	//}
 
 	// restore the queueLogs channel
 	pp.queueLogs = queueLogs
@@ -245,7 +247,7 @@ func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.subscribeToAllTransfers(pp.queueLogs); err != nil {
-			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+			gbl.Log.Warnf("subscribe to topic TransferSingle via node %s failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++
 			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
@@ -278,7 +280,7 @@ func (pp *Pool) SubscribeToEverything(queueLogs chan types.Log) (uint64, error) 
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.subscribeTo(pp.queueLogs, [][]common.Hash{}, []common.Address{}); err != nil {
-			gbl.Log.Warnf("subscribe to everything via node %d failed: %s", provider.Name, err)
+			gbl.Log.Warnf("subscribe to everything via node %s failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++
 			gbl.Log.Infof("✍️ subscribed to everything via node %s", style.Bold(provider.Name))
@@ -344,7 +346,7 @@ func (pp *Pool) SubscribeToTopics(queueLogs chan types.Log, topics [][]common.Ha
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.subscribeTo(pp.queueLogs, topics, nil); err != nil {
-			gbl.Log.Warnf("subscribe to topic TransferSingle via node %d failed: %s", provider.Name, err)
+			gbl.Log.Warnf("subscribe to topic TransferSingle via node %s failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++
 			gbl.Log.Infof("✍️ subscribed to all transfer topics via node %s", style.Bold(provider.Name))
@@ -370,7 +372,7 @@ func (pp *Pool) SubscribeToEverythingPending(queuePendingTx chan *types.Transact
 	for _, provider := range availableProvider {
 		// subscribe to all logs with "Tranfer" or "TransferSingle" as first topic
 		if _, err := provider.GethClient.SubscribeFullPendingTransactions(context.TODO(), queuePendingTx); err != nil {
-			gbl.Log.Warnf("subscribe to pending transactions via node %d failed: %s", provider.Name, err)
+			gbl.Log.Warnf("subscribe to pending transactions via node %s failed: %s", provider.Name, err)
 		} else {
 			subscribedTo++
 			gbl.Log.Infof("✍️ subscribed to pending transactions via node %s", style.Bold(provider.Name))

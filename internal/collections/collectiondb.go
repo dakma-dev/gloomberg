@@ -31,8 +31,8 @@ func (cs *CollectionDB) Addresses() []common.Address {
 	return addresses
 }
 
-// OpenseaSlugs returns a slice of slugs for collections with enabled listings.
-func (cs *CollectionDB) OpenseaSlugsAndAddresses() map[string]common.Address {
+// OpenSeaSlugsAndAddresses returns a slice-to-address map of collections with enabled listings.
+func (cs *CollectionDB) OpenSeaSlugsAndAddresses() map[string]common.Address {
 	// slugs := make([]string, 0)
 	slugAddresses := make(map[string]common.Address)
 
@@ -45,7 +45,7 @@ func (cs *CollectionDB) OpenseaSlugsAndAddresses() map[string]common.Address {
 	return slugAddresses
 }
 
-// OpenseaSlugs returns a slice of slugs for collections with enabled listings.
+// GetCollectionForSlug returns a collections for the given slug.
 func (cs *CollectionDB) GetCollectionForSlug(slug string) *Collection {
 	for _, c := range cs.Collections {
 		if c.OpenseaSlug == slug {
@@ -56,7 +56,7 @@ func (cs *CollectionDB) GetCollectionForSlug(slug string) *Collection {
 	return nil
 }
 
-// OpenseaSlugs returns a slice of slugs for collections with enabled listings.
+// OpenseaAddressToSlug returns a collectionAddressto-slug map of collections with enabled listings.
 func (cs *CollectionDB) OpenseaAddressToSlug() map[common.Address]string {
 	// slugs := make([]string, 0)
 	slugAddresses := make(map[common.Address]string)
@@ -74,7 +74,7 @@ func (cs *CollectionDB) OpenseaAddressToSlug() map[common.Address]string {
 func (cs *CollectionDB) OpenseaSlugs() []string {
 	slugs := make([]string, 0)
 
-	for s := range cs.OpenseaSlugsAndAddresses() {
+	for s := range cs.OpenSeaSlugsAndAddresses() {
 		slugs = append(slugs, s)
 	}
 
@@ -84,7 +84,7 @@ func (cs *CollectionDB) OpenseaSlugs() []string {
 func (cs *CollectionDB) OpenseaSlugAddresses() []common.Address {
 	addresses := make([]common.Address, 0)
 
-	for _, a := range cs.OpenseaSlugsAndAddresses() {
+	for _, a := range cs.OpenSeaSlugsAndAddresses() {
 		addresses = append(addresses, a)
 	}
 

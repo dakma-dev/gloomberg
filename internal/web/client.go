@@ -74,7 +74,7 @@ func (wc *WsClient) readMessages() {
 
 		// Route the Event
 		if err := wc.hub.routeEvent(request, wc); err != nil {
-			gbl.Log.Warnf("Error handeling Message: ", err)
+			gbl.Log.Warn("Error handeling Message: ", err)
 		}
 	}
 }

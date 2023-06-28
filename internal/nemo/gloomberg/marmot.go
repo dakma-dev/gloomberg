@@ -6,19 +6,18 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 )
 
+// marmot is a simple task runner/scheduler.
 //
 // example usage
 //
-// gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
-//     log.Printf("testing tasks lol! %+v", len(gb.Ranks))
-// })
+//	gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
+//	    log.Printf("testing tasks lol! %+v", len(gb.Ranks))
+//	})
 //
-// gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
-//     log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
-// })
-//
+//	gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
+//	    log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
+//	})
 
-// marmot is a simple task runner/scheduler.
 type marmot struct {
 	gb *Gloomberg
 
