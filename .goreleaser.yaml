@@ -14,9 +14,10 @@ builds:
   - binary: gloomberg
     env: ["CGO_ENABLED=0"]
     flags: ["-trimpath"]
-    goos: [linux, darwin]
+    goos: [linux, darwin, windows]
     goarch: [amd64, arm64]
 
+    ignore: [{ goos: windows, goarch: arm64 }]
     # Set the modified timestamp on the output binary, typically
     # you would do this to ensure a build was reproducible. Pass
     # empty string to skip modifying the output.
@@ -38,11 +39,19 @@ universal_binaries:
     replace: true
 
 dockers:
-  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64"]
+  - image_templates:
+      [
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64",
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64",
+      ]
     use: buildx
     dockerfile: .github/run.Dockerfile
     build_flag_templates: ["--platform=linux/amd64"]
-  - image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
+  - image_templates:
+      [
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64",
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64",
+      ]
     use: buildx
     goarch: arm64
     dockerfile: .github/run.Dockerfile
@@ -50,9 +59,17 @@ dockers:
 
 docker_manifests:
   - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}"
-    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64"]
+    image_templates:
+      [
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-amd64",
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:{{ .Version }}-arm64",
+      ]
   - name_template: "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest"
-    image_templates: ["{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64", "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64"]
+    image_templates:
+      [
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-amd64",
+        "{{ .Env.REGISTRY }}/benleb/{{ .ProjectName }}:latest-arm64",
+      ]
 
 kos:
   - repository: "ghcr.io/benleb/gloomberg"
