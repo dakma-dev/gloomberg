@@ -352,6 +352,18 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			fmtHistoryEvent.WriteString(collection.StyleSecondary().Render("…"))
 		}
 
+		// total supply
+		if currentCollection.Metadata.TotalSupply > 0 && currentCollection.Metadata.TotalSupply < 99999 {
+			fmtTotalSupply := fmt.Sprint(currentCollection.Metadata.TotalSupply)
+
+			if currentCollection.Metadata.TotalSupply > 999 {
+				shortTotalSupply := int(currentCollection.Metadata.TotalSupply / 1000)
+				fmtTotalSupply = fmt.Sprint(shortTotalSupply) + "k"
+			}
+
+			fmtEvent.WriteString(style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(fmtTotalSupply))
+		}
+
 		fmtTokensTransferred = append(fmtTokensTransferred, fmtEvent.String())
 
 		if collection.Show.History {
@@ -747,6 +759,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		// SaLiRas
 		if timeframedSaLiRas := currentCollection.GetPrettySaLiRas(); len(timeframedSaLiRas) > 0 {
 			out.WriteString(" ~ " + strings.Join(timeframedSaLiRas, "  "))
+
+			// add collection symbol ad the end for easier matching between salira and collection
+			if currentCollection.Metadata != nil && currentCollection.Metadata.Symbol != "" {
+				out.WriteString(style.DarkGrayStyle.Render(" | ") + currentCollection.Style().Copy().Faint(true).Render(currentCollection.Metadata.Symbol))
+			}
 		}
 	}
 

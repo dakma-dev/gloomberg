@@ -575,7 +575,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("stats.lines", 6)
 	// high volume mints detection
 	viper.SetDefault("stats.high_volume.check_interval", time.Second*17)
-	viper.SetDefault("stats.high_volume.min_checks_below_threshold", 3)
+	viper.SetDefault("stats.high_volume.min_checks_below_threshold", 2)
 	viper.SetDefault("stats.high_volume.mints.threshold", 37)
 }
 

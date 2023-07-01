@@ -1,6 +1,9 @@
 package watch
 
-import "github.com/ethereum/go-ethereum/common"
+import (
+	"github.com/benleb/gloomberg/internal/nemo/wallet"
+	"github.com/ethereum/go-ethereum/common"
+)
 
 type WatcherUsers map[common.Address]*WUser
 
@@ -26,19 +29,14 @@ type Watcher struct {
 	WatchUsers      WatcherUsers
 }
 
-type WWallet struct {
-	Name    string         `mapstructure:"name"`
-	Address common.Address `mapstructure:"address"`
-}
-
 type ChatID struct {
 	ChatID int64 `mapstructure:"chat_id"`
 }
 
 type WUser struct {
-	Name             string     `mapstructure:"name"`
-	TelegramUsername string     `mapstructure:"telegram_username"`
-	Wallets          []*WWallet `mapstructure:"wallets"`
+	Name             string           `mapstructure:"name"`
+	TelegramUsername string           `mapstructure:"telegram_username"`
+	Wallets          []*wallet.Wallet `mapstructure:"wallets"`
 
 	WalletAddresses []common.Address
 
@@ -46,12 +44,12 @@ type WUser struct {
 }
 
 type WGroup struct {
-	Name              string     `mapstructure:"group"`
-	TelegramChatID    int64      `mapstructure:"telegram_chat_id"`
-	ReplyToMessageID  int        `mapstructure:"telegram_reply_to_message_id"`
-	AdditionalChatIDs []*ChatID  `mapstructure:"telegram_chat_ids"`
-	Users             []*WUser   `mapstructure:"users"`
-	Wallets           []*WWallet `mapstructure:"wallets"`
+	Name              string           `mapstructure:"group"`
+	TelegramChatID    int64            `mapstructure:"telegram_chat_id"`
+	ReplyToMessageID  int              `mapstructure:"telegram_reply_to_message_id"`
+	AdditionalChatIDs []*ChatID        `mapstructure:"telegram_chat_ids"`
+	Users             []*WUser         `mapstructure:"users"`
+	Wallets           []*wallet.Wallet `mapstructure:"wallets"`
 
 	// addresses []common.Address
 	// Contracts      []WatchContract `mapstructure:"contracts"`
