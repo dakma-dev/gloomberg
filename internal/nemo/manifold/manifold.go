@@ -38,10 +38,11 @@ type PublicData struct {
 	Erc20        common.Address `json:"erc20"`
 	AudienceID   interface{}    `json:"audienceId"`
 
+	// Manifold contract address (to mint from)
+	ExtensionContractAddress common.Address `json:"extensionAddress"`
+	// Collection/NFT contract address
+	CreatorContractAddress common.Address `json:"creatorContractAddress"`
+
 	// Chain ID
 	Network int `json:"network"`
-	// Manifold contract address
-	ExtensionAddress common.Address `json:"extensionAddress"`
-	// Collection contract address
-	CreatorContractAddress common.Address `json:"creatorContractAddress"`
 }
