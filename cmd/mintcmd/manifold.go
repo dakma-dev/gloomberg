@@ -1,3 +1,6 @@
+// inspired by the manifold-minter of @timfame-codespace, thanks!
+// https://github.com/timfame-codespace/manifold-minter/
+
 package mintcmd
 
 import (
