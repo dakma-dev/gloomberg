@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/cmd/flotscmd"
+	"github.com/benleb/gloomberg/cmd/mintcmd"
 	"github.com/benleb/gloomberg/cmd/oncecmd"
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -47,6 +48,7 @@ func init() {
 
 	// subcommands
 	rootCmd.AddCommand(flotscmd.FlotsCmd)
+	rootCmd.AddCommand(mintcmd.MintCmd)
 	rootCmd.AddCommand(oncecmd.OnceCmd)
 
 	// Here you will define your flags and configuration settings.
