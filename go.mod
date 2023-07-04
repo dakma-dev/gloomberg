@@ -10,7 +10,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.2.1
-	github.com/klauspost/compress v1.16.6
+	github.com/klauspost/compress v1.16.7
 	github.com/lmittmann/flashbots v0.6.3
 	github.com/lmittmann/w3 v0.12.0
 	github.com/mitchellh/mapstructure v1.5.0
