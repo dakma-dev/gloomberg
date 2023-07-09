@@ -1,6 +1,7 @@
 package totra
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
@@ -20,6 +21,9 @@ import (
 type TokenTransaction struct {
 	// the original tx
 	Tx *types.Transaction `json:"tx"`
+
+	// the tx Hash
+	TxHash common.Hash `json:"hash"`
 
 	// the receipt containing the logs
 	TxReceipt *types.Receipt `json:"tx_receipt"`
@@ -79,6 +83,7 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 
 	ttx := &TokenTransaction{
 		Tx:             tx,
+		TxHash:         tx.Hash(),
 		TxReceipt:      receipt,
 		From:           sender,
 		logsByStandard: tfLogsByStandard,
@@ -124,6 +129,10 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 	}
 
 	return ttx
+}
+
+func (ttx *TokenTransaction) GetEtherscanTxURL() string {
+	return fmt.Sprintf("https://etherscan.io/tx/%s", ttx.TxHash)
 }
 
 func (ttx *TokenTransaction) GetTransfersByContract() map[common.Address][]*TokenTransfer {

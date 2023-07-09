@@ -11,17 +11,20 @@
     animation: bgRLD 0.666s infinite;
 
     background-color: #110000;
-    color: #333333;
+    color: #555;
 
     font-family: "JetBrains Mono", monospace;
     font-size: 0.9rem;
-    font-variation-settings: "wght" 200;
+    {{/* font-variation-settings: "wght" 200; */}}
+
+    text-align: left;
+    white-space: normal;
 
     margin: 0;
   }
   body.connected {
     border-top: none;
-    background-color: #030303;
+    background-color: #090909;
     animation: none;
   }
 
@@ -33,7 +36,7 @@
     text-decoration: underline;
     text-decoration-color: #ff009999;
     text-decoration-style: dotted;
-    text-decoration-thickness: 0.25em;
+    text-decoration-thickness: 0.1em;
   }
 
   /* layout */
@@ -161,11 +164,21 @@
     opacity: 40%;
   }
 
+  .message span,
+  .message span a {
+    margin: 0;
+  }
+
   .message span.currency,
   .message span.per-item-currency,
   .message span.floor-price-currency,
   .message span.hashtag {
     margin-left: 0;
+  }
+
+  .message span.rank,
+  .message span.ranksymbol {
+    margin-right: 0;
   }
 
   .message span.hashtag {
@@ -191,22 +204,19 @@
     text-overflow: ellipsis;
   }
 
-  .message a {
-    margin-left: 0;
+  .message span.divider {
+    color: #cccccc;
+    margin: 0 0.337rem;
+  }
+
+  .message a.blur {
+    color: #ff8700;
   }
   .message a.etherscan {
     color: #666666;
   }
   .message a.opensea {
     color: #5f7699;
-  }
-
-  .message span.divider {
-    margin: 0 0.3rem;
-  }
-
-  .message span.divider-light {
-    color: #cccccc;
   }
 
   /* commandline */

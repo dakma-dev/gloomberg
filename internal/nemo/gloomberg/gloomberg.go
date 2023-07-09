@@ -41,6 +41,8 @@ type Gloomberg struct {
 
 	QueueSlugs chan common.Address
 
+	CurrentGasPriceGwei uint64
+
 	*eventHub
 	*marmot
 	// *degendb.DegenDB

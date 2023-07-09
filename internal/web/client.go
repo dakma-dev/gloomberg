@@ -28,7 +28,8 @@ type WsClient struct {
 	hub *WsHub
 
 	// egress is used to avoid concurrent writes on the WebSocket
-	egress chan Message
+	egress chan json.RawMessage
+	// egresszwo chan any
 }
 
 // NewClient is used to initialize a new Client with all required values initialized.
@@ -36,7 +37,8 @@ func NewClient(conn net.Conn, hub *WsHub) *WsClient {
 	return &WsClient{
 		conn:   conn,
 		hub:    hub,
-		egress: make(chan Message),
+		egress: make(chan json.RawMessage),
+		// egresszwo: make(chan any),
 	}
 }
 
@@ -113,14 +115,14 @@ func (wc *WsClient) writeMessages() {
 		// 	return
 		// }
 
-		data, err := json.Marshal(message)
-		if err != nil {
-			gbl.Log.Error("error marshalling message: %+v", message)
+		// data, err := json.Marshal(message)
+		// if err != nil {
+		// 	gbl.Log.Error("error marshalling message: %+v", message)
 
-			continue
-		}
+		// 	continue
+		// }
 
-		if err := wsutil.WriteServerText(wc.conn, data); err != nil {
+		if err := wsutil.WriteServerText(wc.conn, message); err != nil {
 			if errors.Is(err, syscall.EPIPE) {
 				gbl.Log.Errorf("client %s disconnected: %s", wc.conn.LocalAddr().String(), err.Error())
 
@@ -132,7 +134,7 @@ func (wc *WsClient) writeMessages() {
 			}
 		}
 
-		gbl.Log.Infof("sent message: %+v", message)
+		gbl.Log.Debugf("sent message: %+v", string(message))
 
 		// case <-ticker.C:
 		// 	log.Println("ping")

@@ -28,6 +28,29 @@ type TokenRank struct {
 	Score float64 `json:"score"`
 }
 
+func (tr TokenRank) GetRankSymbol(totalSupply uint64) string {
+	if totalSupply == 0 {
+		return ""
+	}
+
+	topX := float64(tr.Rank) / float64(totalSupply)
+
+	var rankSymbol string
+
+	switch {
+	case topX <= 0.01:
+		rankSymbol = "🥇"
+	case topX <= 0.1:
+		rankSymbol = "🥈"
+	case topX <= 0.25:
+		rankSymbol = "🥉"
+	default:
+		rankSymbol = ""
+	}
+
+	return rankSymbol
+}
+
 //
 // helper & utility functions
 //

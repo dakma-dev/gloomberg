@@ -342,7 +342,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		// start gasline ticker
 		gasTicker = time.NewTicker(tickerInterval)
-		go gloomberg.GasTicker(gasTicker, gb.ProviderPool, terminalPrinterQueue)
+		go gloomberg.GasTicker(gb, gasTicker, gb.ProviderPool, terminalPrinterQueue)
 	}
 
 	// manifold ticker

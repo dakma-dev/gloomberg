@@ -10,28 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-// type Token struct {
-// 	// id of the token || erc721: topic[3] | erc1155: tx.To()
-// 	ID *big.Int `json:"id"`
-
-// 	// address of the token contract || erc721: tx.To() | erc1155: topic[1]
-// 	Address common.Address `json:"address"`
-// }
-
-// func (t *Token) String() string {
-// 	return t.NftID()
-// }
-
-// func (t *Token) NftID() string {
-// 	network := "ethereum"
-
-// 	return fmt.Sprintf("%s/%s/%s", network, t.Address.String(), t.ID.String())
-// }
-
-// func (t *Token) ShortID() string {
-// 	return fmt.Sprintf("%s/%s", t.Address.String(), t.ID.String())
-// }
-
 type TokenTransfer struct {
 	// sender of a token || erc721: topic[1] | erc1155: topic[2]
 	From common.Address `json:"from"`
@@ -50,27 +28,6 @@ type TokenTransfer struct {
 
 	Token *token.Token `json:"token"`
 }
-
-// // implement Transfer interface
-// func (ttf *TokenTransfer) From() *common.Address {
-// 	return &ttf.OldFrom
-// }
-
-// func (ttf *TokenTransfer) To() *common.Address {
-// 	return &ttf.OldTo
-// }
-
-// func (ttf *TokenTransfer) TokenAddress() *common.Address {
-// 	return &ttf.Token.Address
-// }
-
-// func (ttf *TokenTransfer) TokenID() *big.Int {
-// 	return ttf.Token.ID
-// }
-
-// func (ttf *TokenTransfer) AmountTokens() *big.Int {
-// 	return ttf.OldAmountTokens
-// }
 
 // HistoryTokenTransaction is the representation of a token transaction in the history.
 type HistoryTokenTransaction struct {

@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
@@ -219,8 +220,10 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		// gas info
 		if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
 			gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
-			gasPrice := int(math.Ceil(gasPriceGwei))
+			gasPrice := uint64(math.Ceil(gasPriceGwei))
 			// gasTip, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Uint64()
+
+			atomic.StoreUint64(&s.gb.CurrentGasPriceGwei, gasPrice)
 
 			label := style.DarkGrayStyle.Render("   gas")
 			value := style.LightGrayStyle.Render(fmt.Sprintf("%3d", gasPrice))
@@ -605,8 +608,8 @@ func (s *Stats) highVolumeMint() {
 	}
 }
 
-func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput chan string) {
-	oldGasPrice := 0
+func GasTicker(gb *Gloomberg, gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput chan string) {
+	oldGasPrice := uint64(0)
 
 	for range gasTicker.C {
 		// gasNode := ethNodes.GetRandomLocalNode()
@@ -626,7 +629,9 @@ func GasTicker(gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput 
 			// gas price
 			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
 				gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
-				gasPrice := int(math.Round(gasPriceGwei))
+				gasPrice := uint64(math.Round(gasPriceGwei))
+
+				atomic.StoreUint64(&gb.CurrentGasPriceGwei, gasPrice)
 
 				if math.Abs(float64(gasPrice-oldGasPrice)) < 2.0 {
 					continue

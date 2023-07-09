@@ -13,9 +13,11 @@
 
     <body>
         <main>
-            <div id="event_stream" class="stream">
+            <div id="event_stream" class="stream"></div>
 
-                <div id="id22" class="message eventType">
+            {{/* {{ template "stream" . }} */}}
+
+            <!--<div id="id22" class="message eventType">
                     <span class="time">{{.Time}}</span>
                     <span class="typemoji">{{.Typemoji}}</span>
 
@@ -28,7 +30,7 @@
                     <span class="currency" style="color: #0099FF;">Ξ</span>
 
                 </div>
-            </div>
+            </div>-->
 
             <div class="commandline">
                 <form id="commandline" live-submit="send" live-hook="input">
@@ -38,7 +40,7 @@
             </div>
 
             <div class="side-top">
-                <p>gas: <span class="gas-price" live-update="replace">{{.Assigns.GasPrice}}</span>gw</p>
+                <p>gas: <span class="gas-price" id="gas-price"></span>gw</p>
             </div>
 
             <div class="side-trending"></div>

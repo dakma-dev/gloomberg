@@ -19,7 +19,16 @@ const (
 
 func (et TxType) String() string {
 	return map[TxType]string{
-		Sale: "Sale", Mint: "Mint", Transfer: "Transfer", Listing: "Listing", Purchase: "Purchase", Burn: "Burn", ReBurn: "ReBurn", Airdrop: "Airdrop", Unknown: "Unknown", Loan: "Loan",
+		Sale:     "sale",
+		Mint:     "mint",
+		Transfer: "transfer",
+		Listing:  "listing",
+		Purchase: "purchase",
+		Burn:     "burn",
+		ReBurn:   "reBurn",
+		Airdrop:  "airdrop",
+		Loan:     "loan",
+		Unknown:  "unknown",
 	}[et]
 }
 

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	chawagoModels "github.com/benleb/gloomberg/internal/chawago/models"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/charmbracelet/log"
@@ -28,6 +29,8 @@ type eventChannelsIn struct {
 	TxWithLogs        chan *chawagoModels.TxWithLogs
 	TokenTransactions chan *totra.TokenTransaction
 
+	ParsedEvents chan *degendb.ParsedEvent
+
 	SeawatcherMgmt chan *models.MgmtEvent
 
 	PrintToTerminal chan string
@@ -42,6 +45,8 @@ type eventChannelsOut struct {
 
 	TxWithLogs        []chan *chawagoModels.TxWithLogs
 	TokenTransactions []chan *totra.TokenTransaction
+
+	ParsedEvents []chan *degendb.ParsedEvent
 
 	SeawatcherMgmt []chan *models.MgmtEvent
 
@@ -62,6 +67,8 @@ func newEventHub() *eventHub {
 			TxWithLogs:        make(chan *chawagoModels.TxWithLogs, 1024),
 			TokenTransactions: make(chan *totra.TokenTransaction, 1024),
 
+			ParsedEvents: make(chan *degendb.ParsedEvent, 1024),
+
 			SeawatcherMgmt: make(chan *models.MgmtEvent, 1024),
 
 			PrintToTerminal: make(chan string, 1024),
@@ -76,6 +83,8 @@ func newEventHub() *eventHub {
 
 			TxWithLogs:        make([]chan *chawagoModels.TxWithLogs, 0),
 			TokenTransactions: make([]chan *totra.TokenTransaction, 0),
+
+			ParsedEvents: make([]chan *degendb.ParsedEvent, 0),
 
 			SeawatcherMgmt: make([]chan *models.MgmtEvent, 0),
 
@@ -98,18 +107,20 @@ func newEventHub() *eventHub {
 			sum += len(eh.In.CollectionOffer)
 			sum += len(eh.In.TxWithLogs)
 			sum += len(eh.In.TokenTransactions)
+			sum += len(eh.In.ParsedEvents)
 			sum += len(eh.In.SeawatcherMgmt)
 			sum += len(eh.In.PrintToTerminal)
 			sum += len(eh.In.NewBlock)
 
 			if sum > 0 {
 				log.Printf(
-					"eventHub | IListed: %d, IReceivedBid: %d, COffer: %d, TxWithLogs: %d, TTransactions: %d, SeawatcherMgmt: %d, PrintToTerminal: %d, NewBlock: %d",
+					"eventHub | IListed: %d, IReceivedBid: %d, COffer: %d, TxWithLogs: %d, TTransactions: %d, ParsedEvents: %d, SeawatcherMgmt: %d, PrintToTerminal: %d, NewBlock: %d",
 					len(eh.In.ItemListed),
 					len(eh.In.ItemReceivedBid),
 					len(eh.In.CollectionOffer),
 					len(eh.In.TxWithLogs),
 					len(eh.In.TokenTransactions),
+					len(eh.In.ParsedEvents),
 					len(eh.In.SeawatcherMgmt),
 					len(eh.In.PrintToTerminal),
 					len(eh.In.NewBlock),
@@ -154,6 +165,13 @@ func (eh *eventHub) SubscribeTxWithLogs() chan *chawagoModels.TxWithLogs {
 func (eh *eventHub) SubscribeTokenTransactions() chan *totra.TokenTransaction {
 	outChannel := make(chan *totra.TokenTransaction, 1024)
 	eh.out.TokenTransactions = append(eh.out.TokenTransactions, outChannel)
+
+	return outChannel
+}
+
+func (eh *eventHub) SubscribeParsedEvents() chan *degendb.ParsedEvent {
+	outChannel := make(chan *degendb.ParsedEvent, 1024)
+	eh.out.ParsedEvents = append(eh.out.ParsedEvents, outChannel)
 
 	return outChannel
 }
@@ -210,6 +228,12 @@ func (eh *eventHub) worker(workerID int) {
 			log.Debugf("CollectionOffer event | %d | pushing to %d receivers", workerID, len(eh.out.CollectionOffer))
 
 			for _, ch := range eh.out.CollectionOffer {
+				ch <- event
+			}
+		case event := <-eh.In.ParsedEvents:
+			log.Debugf("ParsedEvents event | %d | pushing to %d receivers", workerID, len(eh.out.ParsedEvents))
+
+			for _, ch := range eh.out.ParsedEvents {
 				ch <- event
 			}
 		case event := <-eh.In.SeawatcherMgmt:

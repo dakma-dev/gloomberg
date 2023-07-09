@@ -4,14 +4,13 @@ Copyright © 2023 NAME HERE <EMAIL ADDRESS>
 package oncecmd
 
 import (
-	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
-var lg = internal.BaseLogger
+// var lg = internal.BaseLogger
 
 func init() {
 	// what to show

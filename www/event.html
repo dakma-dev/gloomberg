@@ -1,0 +1,45 @@
+{{ define "event" }}
+<div id="{{.TxHash}}" class="message {{.Action}}">
+    {{/* time & type icon */}}
+    <span class="time" style="color: {{.TimeColor}};">{{.ReceivedAt}}</span>
+    <span class="typemoji">{{.Typemoji}}</span>
+
+    {{/* price */}}
+    <span class="pricearrow" style="color: {{.PriceArrowColor}};">→</span>
+    <span class="price" style="color: {{.PriceColor}};">{{.Price}}</span>
+    <span class="currency" style="color: {{.PriceCurrencyColor}};">Ξ</span>
+
+    {{/* item(s) */}}
+    {{range .TransferredCollections}}
+        <span class="collection" style="color: {{.PrimaryColor}};">{{.CollectionName}}</span>
+        {{$PrimaryColor := .PrimaryColor}}
+        {{$SecondaryColor := .SecondaryColor}}
+        {{range .TransferredTokens}}
+            {{if not (eq .Rank 0)}}
+                <span class="rank">{{.Rank}}</span>
+                {{if .RankSymbol}}
+                    <span class="ranksymbol">{{.RankSymbol}}</span>
+                {{end}}
+            {{end}}
+            <span class="hashtag" style="color: {{$SecondaryColor}};">#</span>
+            <span class="tokenid" style="color: {{$PrimaryColor}};">{{.ID}}</span>
+        {{end}}
+    {{end}}
+
+    <span class="divider">|</span>
+
+    {{/* links */}}
+    <span><a class="opensea" target="_blank" href="{{.OpenSeaURL}}">OS</a></span>
+    <span class="divider">|</span>
+    <span><a class="blur" target="_blank" href="{{.BlurURL}}">BL</a></span>
+    <span class="divider">|</span>
+    <span><a class="etherscan" target="_blank" href="{{.EtherscanURL}}">ES</a></span>
+
+    <span class="divider">|</span>
+
+    {{/* sender & receiver */}}
+    <span style="color: {{.FromColor}};">{{.From}}</span>
+    <span class="divider">→</span>
+    <span style="color: {{.ToColor}};">{{.To}}</span>
+</div>
+{{ end }}

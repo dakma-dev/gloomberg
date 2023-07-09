@@ -71,14 +71,19 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWat
 func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, ttx *totra.TokenTransaction) {
 	ctx := context.Background()
 
+	// parsed event to be used for the web-ui
+	parsedEvent := degendb.ParsedEvent{}
+
 	// fake a txHash for listings
 	txHash := common.Hash{}
-	if ttx.Tx != nil && ttx.Tx.Hash() != (common.Hash{}) {
-		txHash = ttx.Tx.Hash()
+	if ttx.Tx != nil && ttx.TxHash != (common.Hash{}) {
+		txHash = ttx.TxHash
 	} else {
 		// generate random Hash
 		txHash = common.BytesToHash(ttx.From.Bytes()) //  *ttx.Tx.To().Bytes())
 	}
+
+	parsedEvent.TxHash = txHash
 
 	// is a collections from configured collections + own wallets
 	isOwnCollection := false
@@ -114,6 +119,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		priceArrowColor = style.GetPriceShadeColor(ttx.GetPrice().Ether())
 	}
 
+	parsedEvent.PriceArrowColor = priceArrowColor
+
 	switch ttx.Action {
 	case totra.ReBurn, totra.Burn, totra.Airdrop, totra.Transfer:
 		priceStyle = style.DarkerGrayStyle
@@ -132,6 +139,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		priceCurrencyStyle = priceStyle.Copy().Foreground(style.DarkGray)
 	}
 
+	var ok bool
+	parsedEvent.PriceCurrencyColor, ok = priceCurrencyStyle.GetForeground().(lipgloss.Color)
+	if !ok {
+		parsedEvent.PriceCurrencyColor = style.DarkGray
+	}
+
 	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
 	formattedFaintCurrencySymbol := priceCurrencyStyle.Copy().Faint(true).Render("Ξ")
 
@@ -143,8 +156,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	currentTime := now.Format("15:04:05")
 	timeNow := style.Gray5Style.Render(currentTime)
 
+	parsedEvent.ReceivedAt = currentTime
+
 	// prepare links
-	etherscanURL, _, blurURL := utils.GetLinks(txHash, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
+	etherscanURL, openSeaURL, blurURL := utils.GetLinks(txHash, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
+
+	parsedEvent.BlurURL = blurURL
+	parsedEvent.EtherscanURL = etherscanURL
+	parsedEvent.OpenSeaURL = openSeaURL
 
 	// print collection name and token id
 	fmtTokensTransferred := make([]string, 0)
@@ -154,6 +173,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// contract addresses of the burned token(s)
 	// used in reburnes for nicer formatting
 	burnedTokenTransferIndex := -1
+
+	transferredCollections := make([]degendb.TransferredCollection, 0)
 
 	for contractAddress, transfers := range ttx.GetTransfersByContract() {
 		switch {
@@ -187,8 +208,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		numCollectionTokens := int64(0)
 
+		transferredTokens := make([]degendb.TransferredToken, 0)
+
 		for _, transfer := range transfers {
 			fmtTokenID := strings.Builder{}
+
+			transferredToken := degendb.TransferredToken{}
 
 			// ignore transfers of more than 9999 tokens
 			if transfer.AmountTokens.Cmp(big.NewInt(9999)) > 0 {
@@ -197,24 +222,16 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				continue
 			}
 
+			transferredToken.ID = transfer.Token.ID.Int64()
+
 			// add rank if available
 			var fmtRank string
 			if gb.Ranks[transfer.Token.Address] != nil {
 				if rank := gb.Ranks[transfer.Token.Address][transfer.Token.ID.Int64()].Rank; rank > 0 {
-					topX := float64(rank) / float64(collection.Metadata.TotalSupply)
+					rankSymbol := gb.Ranks[transfer.Token.Address][transfer.Token.ID.Int64()].GetRankSymbol(collection.Metadata.TotalSupply)
 
-					var rankSymbol string
-
-					switch {
-					case topX <= 0.01:
-						rankSymbol = "🥇"
-					case topX <= 0.1:
-						rankSymbol = "🥈"
-					case topX <= 0.25:
-						rankSymbol = "🥉"
-					default:
-						rankSymbol = ""
-					}
+					transferredToken.Rank = rank
+					transferredToken.RankSymbol = rankSymbol
 
 					// fmtRank := style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
 					fmtRank := lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
@@ -226,7 +243,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			// add number of tokens transferred
 			if transfer.AmountTokens.Cmp(big.NewInt(1)) > 0 {
 				fmtTokenID.WriteString(style.DarkGrayStyle.Render(transfer.AmountTokens.String() + "x"))
+
+				transferredToken.Amount = transfer.AmountTokens.Int64()
 			}
+
+			transferredTokens = append(transferredTokens, transferredToken)
 
 			fmtTokenID.WriteString(formatTokenID(collection, transfer.Token.ID))
 
@@ -339,6 +360,15 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			name = collection.Render(ttx.Transfers[0].Token.Name)
 		}
 
+		transferredCollection := degendb.TransferredCollection{
+			CollectionName: collection.Name,
+			PrimaryColor:   collection.Colors.Primary,
+			SecondaryColor: collection.Colors.Secondary,
+			From:           ttx.From.Hex(),
+
+			TransferredTokens: transferredTokens,
+		}
+
 		maxShown := 5
 		idsShown := int(math.Min(float64(len(fmtTokenIds[contractAddress])), float64(maxShown)))
 
@@ -382,7 +412,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		case totra.Mint:
 			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
 		}
+
+		transferredCollections = append(transferredCollections, transferredCollection)
 	}
+
+	parsedEvent.TransferredCollections = transferredCollections
 
 	// total counting
 	if gb.Stats != nil {
@@ -399,15 +433,20 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		gb.Stats.AddEvent(eventType, ttx.TotalTokens, ttx.AmountPaid)
 	}
 
+	parsedEvent.TimeColor = style.DarkGray
+
 	if ttx.IsListing() {
 		timeNow = style.Gray7Style.Render(currentTime)
+		parsedEvent.TimeColor = style.Gray7
 	} else if isOwnCollection {
 		timeNow = currentCollection.Style().Copy().Bold(true).Render(currentTime)
+		parsedEvent.TimeColor = currentCollection.Colors.Primary
 	}
 
 	// highlight line if the seller or buyer is a wallet from the configured wallets
 	if isOwnWallet {
 		timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
+		parsedEvent.TimeColor = lipgloss.Color(style.Pink.Dark)
 	}
 
 	// is our own wallet or collection
@@ -417,6 +456,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	out.WriteString(timeNow)
 	out.WriteString(" " + ttx.Action.Icon())
 	out.WriteString(" " + divider)
+
+	parsedEvent.Action = ttx.Action.String()
+	parsedEvent.Typemoji = ttx.Action.Icon()
 
 	var fixWidthPrice string
 	if ttx.GetPrice() != nil && ttx.GetPrice().Ether() < 100.0 {
@@ -451,6 +493,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		fixWidthPrice = beforeSepStyle.Render(before) + sepStyle.Render(".") + priceStyle.Render(after)
 	}
 
+	parsedEvent.PriceColor, ok = priceStyle.GetForeground().(lipgloss.Color)
+	if !ok {
+		parsedEvent.PriceColor = style.DarkGray
+	}
+
 	if len(fmtTokensTransferred) == 0 && ttx.Tx != nil {
 		gbl.Log.Debugf("🧐 no tokens transferred: %s | %+v", style.TerminalLink(utils.GetEtherscanTxURL(txHash.String()), txHash.String()), ttx.Transfers)
 
@@ -469,6 +516,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// price
 	fmtPrice := fixWidthPrice
 	out.WriteString(" " + fmtPrice + formattedCurrencySymbol)
+
+	parsedEvent.Price = fmt.Sprintf("%6.3f", ttx.GetPrice().Ether())
 
 	// if all collections in a tx have the IgnorePrinting flag set, don't print the tx
 	for _, collection := range ttxCollections {
@@ -627,13 +676,19 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 
 		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()))
+		parsedEvent.FromColor, ok = fromStyle.GetForeground().(lipgloss.Color)
+		if !ok {
+			parsedEvent.FromColor = style.DarkGray
+		}
 
 		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, transferFrom); err == nil {
 			gbl.Log.Debugf("🤷 from address %s has ENS %s", transferFrom.Hex(), fromENS)
 			fmtFrom = fromStyle.Render(fromENS)
+			parsedEvent.From = fromENS
 		} else {
 			gbl.Log.Debugf("🤷‍♀️ from address %s has NO ENS", transferFrom.Hex())
 			fmtFrom = style.ShortenAddressStyled(&transferFrom, fromStyle)
+			parsedEvent.From = style.ShortenAddress(&transferFrom)
 		}
 
 		out.WriteString(fmtFrom)
@@ -658,14 +713,23 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Hash().Big().Int64()))
 
+	parsedEvent.ToColor, ok = buyerStyle.GetForeground().(lipgloss.Color)
+	if !ok {
+		parsedEvent.ToColor = style.DarkGray
+	}
+
 	if buyerENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, buyer); err == nil {
 		gbl.Log.Debugf("✅ resolved ENS name for %s: %s", buyer.Hex(), buyerENS)
 
 		fmtBuyer = buyerStyle.Render(buyerENS)
+
+		parsedEvent.To = buyerENS
 	} else {
 		gbl.Log.Debugf("❌ failed to resolve ENS name for %s: %s", buyer.Hex(), err)
 
 		fmtBuyer = style.ShortenAddressStyled(&buyer, buyerStyle)
+
+		parsedEvent.To = style.ShortenAddress(&buyer)
 	}
 
 	arrow := style.DividerArrowRight
@@ -862,6 +926,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		// print to terminal
 		gb.In.PrintToTerminal <- printLine
+
+		gb.In.ParsedEvents <- &parsedEvent
 	}
 
 	// add to history
