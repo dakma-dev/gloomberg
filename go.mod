@@ -10,7 +10,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.2.1
-	github.com/klauspost/compress v1.16.6
+	github.com/klauspost/compress v1.16.7
 	github.com/lmittmann/flashbots v0.6.3
 	github.com/lmittmann/w3 v0.12.0
 	github.com/mitchellh/mapstructure v1.5.0
@@ -18,15 +18,15 @@ require (
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.10
+	github.com/redis/rueidis v1.0.11
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
 	github.com/wealdtech/go-ens/v3 v3.5.5
 	go.mongodb.org/mongo-driver v1.12.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/net v0.11.0
-	golang.org/x/term v0.9.0
+	golang.org/x/net v0.12.0
+	golang.org/x/term v0.10.0
 	gonum.org/v1/gonum v0.13.0
 )
 
@@ -110,11 +110,11 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/goleak v1.2.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
-	golang.org/x/crypto v0.10.0 // indirect
+	golang.org/x/crypto v0.11.0 // indirect
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/sync v0.2.0 // indirect
-	golang.org/x/sys v0.9.0 // indirect
-	golang.org/x/text v0.10.0 // indirect
+	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
