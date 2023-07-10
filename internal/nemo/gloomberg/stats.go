@@ -255,11 +255,11 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	// until runtime > timeframe, our data is not yet accurate -> darken the values
 	valueStyle := style.GrayStyle
 
-	if volume, _ := utils.WeiToEther(volumeWei).Float64(); volume > 0 {
-		volumeLabel := style.DarkGrayStyle.Render("Ξ /" + unitOrWait)
-
+	// assert volume and timeframeMinutes are > 0
+	if volume, _ := utils.WeiToEther(volumeWei).Float64(); volume*timeframeMinutes > 0 {
 		volumePerMin := volume / timeframeMinutes
 
+		volumeLabel := style.DarkGrayStyle.Render("Ξ /" + unitOrWait)
 		volumeStyle := valueStyle.Copy()
 
 		switch {
@@ -278,10 +278,9 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	}
 
 	if salesCount := s.eventslastTimeframe(degendb.Sale); salesCount > 0 {
-		salesLabel := style.DarkGrayStyle.Render("s/" + unitOrWait)
-
 		salesPerMin := int(float64(salesCount) / timeframeMinutes)
 
+		salesLabel := style.DarkGrayStyle.Render("s/" + unitOrWait)
 		salesStyle := valueStyle.Copy()
 
 		switch {

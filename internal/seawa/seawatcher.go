@@ -94,7 +94,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	// exponential backoff for reconnects
 	sw.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
 		// max waitTime is 2^7 = 128sec
-		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 7)))))
+		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 5)))))
 
 		sw.Prf("❌ reconnecting to OpenSea failed (#%d) 😩 trying again in %dsec..", attempt, int(waitTime.Seconds()))
 

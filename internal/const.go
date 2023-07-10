@@ -29,6 +29,8 @@ var (
 	ENSContractAddress            = common.HexToAddress("0x57f1887a8BF19b14fC0dF6Fd9B2acc9Af147eA85")
 	ENSNameWrapperContractAddress = common.HexToAddress("0xd4416b13d2b3a9abae7acd5d6c2bbdbe25686401")
 
+	GrifterContractAddress = common.HexToAddress("0xc143bbfcdbdbed6d454803804752a064a622c1f3")
+
 	// manifold.
 	ManifoldCreatorCoreERC721  = common.HexToAddress("0x5133522ea5A0494EcB83F26311A095DDD7a9D4b6")
 	ManifoldCreatorCoreERC1155 = common.HexToAddress("0xE9FF7CA11280553Af56d04Ecb8Be6B8c4468DCB2")

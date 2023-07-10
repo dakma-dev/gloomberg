@@ -222,6 +222,17 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				continue
 			}
 
+			// highlight grifters
+			if collection.ContractAddress == internal.GrifterContractAddress {
+				if transfer.Token.ID.Uint64() < 666 {
+					collection.Name = "Grifter"
+				} else {
+					gbl.Log.Infof("🧱 grifter token id out of range: %d", transfer.Token.ID.Int64())
+
+					continue
+				}
+			}
+
 			transferredToken.ID = transfer.Token.ID.Int64()
 
 			// add rank if available
