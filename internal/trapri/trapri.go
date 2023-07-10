@@ -439,6 +439,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		case totra.Mint:
 			// gb.Stats.AddMint(ttx.TotalTokens, ttx.AmountPaid)
 			eventType = degendb.Mint
+		case totra.Listing:
+			eventType = degendb.Listing
 		}
 
 		gb.Stats.AddEvent(eventType, ttx.TotalTokens, ttx.AmountPaid)
@@ -833,7 +835,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		//
 		// SaLiRas
 		if timeframedSaLiRas := currentCollection.GetPrettySaLiRas(); len(timeframedSaLiRas) > 0 {
-			out.WriteString(" ~ " + strings.Join(timeframedSaLiRas, "  "))
+			out.WriteString(style.DarkGrayStyle.Render(" ~ ") + strings.Join(timeframedSaLiRas, " "))
 
 			// add collection symbol ad the end for easier matching between salira and collection
 			if currentCollection.Metadata != nil && currentCollection.Metadata.Symbol != "" {
