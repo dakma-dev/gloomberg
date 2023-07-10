@@ -14,7 +14,7 @@
     color: #555;
 
     font-family: "JetBrains Mono", monospace;
-    font-size: 0.9rem;
+    {{/* font-size: 0.8em; */}}
     {{/* font-variation-settings: "wght" 200; */}}
 
     text-align: left;
@@ -42,18 +42,30 @@
   /* layout */
   main {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    font-size: 0.8em;
+    {{/* grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); */}}
+    {{/* grid-template-columns: minmax(200px, 1fr); */}}
+    {{/* repeat(auto-fill, 100px) ; */}}
     gap: 10px;
-    grid-auto-rows: minmax(50px, auto);
+    {{/* grid-auto-rows: minmax(50px, auto); */}}
+    {{/* grid-template-areas:
+      "stream side-top"
+      "stream side-middle"
+      "commandline side-bottom"; */}}
+
+    grid-template-areas:
+      "side-top"
+      "stream"
+      "commandline";
     height: 100vh;
   }
 
   .stream {
     grid-area: stream;
-    grid-column: 1 / 6;
-    grid-row: 1 / 8;
     padding: 0.5vh 0.5vw;
     overflow: scroll;
+    min-height: 75vh;
+    min-width: 80vw;
   }
 
   .stream {
@@ -66,41 +78,31 @@
 
   .commandline {
     grid-area: commandline;
-    grid-column: 1 / 6;
-    grid-row: 8 / 9;
     align-items: center;
     display: flex;
-    padding: 0.5rem 0.7rem;
+    padding: 0.5em 0.7em;
+    min-height: 5vh;
   }
 
   .side-top {
     grid-area: side-top;
-    grid-column: 6 / 7;
-    grid-row: 1;
+    min-height: 5vh;
+    padding: 0.5vh 0.5vw;
   }
-  .side-trending {
-    grid-area: side-trending;
-    grid-column: 6 / 7;
-    grid-row: 2 / 4;
+  .side-middle {
+    grid-area: side-middle;
   }
-  .side-wallets {
-    grid-area: side-wallets;
-    grid-column: 6 / 7;
-    grid-row: 4 / 6;
-  }
-  .side-footer {
-    grid-area: side-footer;
-    grid-column: 6 / 7;
-    grid-row: 6 / 8;
+  .side-bottom {
+    grid-area: side-bottom;
   }
 
   /* header */
   header p {
-    font-size: 0.6rem;
-    line-height: 0.6rem;
+    font-size: 0.6em;
+    line-height: 0.6em;
     text-shadow: 0 0 2px #666, 0 0 5px #666, 0 0 7px #666, 0 0 10px #ff2d95, 0 0 15px #ff2d95, 0 0 20px #ff2d95, 0 0 25px #ff2d95, 0 0 37px #ff2d95;
     letter-spacing: 6px;
-    margin: 0.5rem;
+    margin: 0.5em;
   }
 
   /* general */
@@ -116,9 +118,9 @@
 
   .message span,
   .message a {
-    letter-spacing: 0.01rem;
-    line-height: 1.15rem;
-    margin-left: 0.3rem;
+    letter-spacing: 0.01em;
+    line-height: 1.15em;
+    margin-left: 0.3em;
     overflow: hidden;
     text-align: right;
     vertical-align: middle;
@@ -129,26 +131,26 @@
   .message span.time,
   div.time {
     color: #555555;
-    min-width: 4.25rem;
+    width: 3em;
     margin-left: 0;
   }
 
   .message span.typemoji,
   div.typemoji {
     color: #333333;
-    margin-left: 0.5rem;
-    min-width: 1rem;
-    width: 1rem;
+    margin-left: 0.5em;
+    min-width: 1em;
+    width: 1em;
   }
 
   .message span.price {
     color: #f9f9f9;
-    min-width: 3.8rem;
+    min-width: 3.8em;
   }
 
   .message span.trendindicator {
-    margin-left: 0.666rem;
-    margin-right: 0.2rem;
+    margin-left: 0.666em;
+    margin-right: 0.2em;
   }
 
   .message span.floor-price {
@@ -181,17 +183,13 @@
     margin-right: 0;
   }
 
-  .message span.hashtag {
-    min-width: 1rem;
-  }
-
   .message span.pricearrow {
     color: #333333;
-    min-width: 1rem;
+    min-width: 1em;
   }
 
   .message span.collection {
-    margin-left: 0.815rem;
+    margin: 0 0.815em;
     max-width: 16em;
     text-align: left;
     text-overflow: ellipsis;
@@ -206,7 +204,7 @@
 
   .message span.divider {
     color: #cccccc;
-    margin: 0 0.337rem;
+    margin: 0 0.337em;
   }
 
   .message a.blur {
@@ -236,12 +234,12 @@
 
   .commandline form input {
     background-color: #090909;
-    border-radius: 0.2rem;
+    border-radius: 0.2em;
     border: 1px solid black;
     color: #ff009999;
     display: flex;
     flex: 1 0 80%;
-    padding: 0.5rem;
+    padding: 0.5em;
   }
   .commandline form input:focus {
     box-shadow: none;
@@ -249,18 +247,18 @@
 
   .commandline form button {
     background-color: #090909;
-    border-radius: 0.2rem;
+    border-radius: 0.2em;
     border: 1px solid black;
     display: flex;
-    margin-left: 0.5rem;
-    padding: 0.5rem;
+    margin-left: 0.5em;
+    padding: 0.5em;
   }
 
   /* divider */
   div.divider {
     flex-grow: 1;
     height: 1px;
-    margin: 0.333rem 13.37rem 0.333rem 0.666rem;
+    margin: 0.333rem 13.37rem 0.333rem 0.666em;
     border: 0;
     border-top: 1px dotted #333;
   }
@@ -274,7 +272,7 @@
 
   .gasline {
     color: #333;
-    font-size: 0.75rem;
+    font-size: 0.75em;
   }
 
   .gasline span.gas {
@@ -292,7 +290,7 @@
   .gasline-line {
     flex-grow: 1;
     height: 1px;
-    margin: 0 0.666rem;
+    margin: 0 0.666em;
     border: 0;
     border-top: 1px dotted #333;
   }
@@ -341,6 +339,28 @@
       background-color: #400817;
     }
   }
+
+  @media (min-width: 960px) {
+    main {
+      display: grid;
+      font-size: 1em;
+      {{/* grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); */}}
+      gap: 10px;
+      {{/* grid-auto-rows: minmax(50px, auto); */}}
+      grid-template-areas:
+        "stream side-top"
+        "stream side-middle"
+        "stream side-middle"
+        "stream side-middle"
+        "commandline side-bottom";
+    }
+
+    .message span.time,
+    div.time {
+      color: #555555;
+      min-width: 5.25em;
+      margin-left: 0;
+    }
 </style>
 
 {{ end }}
