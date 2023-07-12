@@ -23,7 +23,7 @@ jobs:
 
       - name: Set up Go
         uses: actions/setup-go@v4
-        with: { cache: false, check-latest: true, go-version-file: "go.mod" }
+        with: { cache: true, check-latest: true, go-version-file: "go.mod" }
 
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v3
