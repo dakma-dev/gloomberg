@@ -37,6 +37,11 @@ func main() {
 		// ctrl+c handler
 		log.Debug(fmt.Sprintf("Got %s signal. Aborting...\n", sig))
 
+		// if err := client.Disconnect(context.TODO()); err != nil {
+		// 	panic(err)
+		// }
+		cmd.GracefulShutdown()
+
 		// reset/restore default foreground color
 		termenv.DefaultOutput().SetForegroundColor(defaultForeground)
 		termenv.DefaultOutput().Reset()

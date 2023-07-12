@@ -1,6 +1,9 @@
 package degendb
 
 import (
+	"time"
+
+	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -8,31 +11,50 @@ import (
 type ParsedEvent struct {
 	TxHash                 common.Hash
 	Action                 string
-	ReceivedAt             string
-	TimeColor              lipgloss.Color
+	ReceivedAt             time.Time
 	Typemoji               string
-	Price                  string
-	PriceColor             lipgloss.Color
-	PriceCurrencyColor     lipgloss.Color
-	PriceArrowColor        lipgloss.Color
+	Price                  *price.Price
 	TransferredCollections []TransferredCollection
 	BlurURL                string
 	EtherscanURL           string
 	OpenSeaURL             string
 
+	// "attributes"
+	IsOwnWallet     bool
+	IsOwnCollection bool
+
+	// fix this with new chawago watcher
+	IsWatchUsersWallet bool
+
 	// temporary until we have a better solution
-	From      string
-	FromColor lipgloss.Color
-	To        string
-	ToColor   lipgloss.Color
+	From string
+	To   string
+
+	Colors EventColors
+	Other  map[string]interface{}
+}
+
+type EventColors struct {
+	Time          lipgloss.Color
+	Price         lipgloss.Color
+	PriceCurrency lipgloss.Color
+	PriceArrow    lipgloss.Color
+	From          lipgloss.Color
+	To            lipgloss.Color
+
+	Collections map[common.Address]CollectionColors
+}
+
+type CollectionColors struct {
+	Primary   lipgloss.Color
+	Secondary lipgloss.Color
 }
 
 type TransferredCollection struct {
 	CollectionName    string
 	TransferredTokens []TransferredToken
 
-	PrimaryColor   lipgloss.Color
-	SecondaryColor lipgloss.Color
+	Colors CollectionColors
 
 	// from & to per collection as we print one line per collection...^^
 	From string

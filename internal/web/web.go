@@ -30,7 +30,7 @@ func StartWebUI(gb *gloomberg.Gloomberg) {
 	keyPath := viper.GetString("web.tls.key")
 
 	// load index template
-	tmplFiles := []string{"www/index.html", "www/style.html", "www/javascript.html"}
+	tmplFiles := []string{"www/index.tpl.html", "www/style.tpl.html", "www/javascript.tpl.html"}
 	tmpl, err := template.ParseFiles(tmplFiles...)
 	if err != nil {
 		gbl.Log.Error(err)

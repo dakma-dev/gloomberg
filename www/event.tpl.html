@@ -1,19 +1,19 @@
 {{ define "event" }}
 <div id="{{.TxHash}}" class="message {{.Action}}">
     {{/* time & type icon */}}
-    <span class="time" style="color: {{.TimeColor}};">{{.ReceivedAt}}</span>
+    <span class="time" style="color: {{.Colors.Time}};">{{.ReceivedAt}}</span>
     <span class="typemoji">{{.Typemoji}}</span>
 
     {{/* price */}}
-    <span class="pricearrow" style="color: {{.PriceArrowColor}};">→</span>
-    <span class="price" style="color: {{.PriceColor}};">{{.Price}}</span>
-    <span class="currency" style="color: {{.PriceCurrencyColor}};">Ξ</span>
+    <span class="pricearrow" style="color: {{.Colors.PriceArrow}};">→</span>
+    <span class="price" style="color: {{.Colors.Price}};">{{.Price}}</span>
+    <span class="currency" style="color: {{.Colors.PriceCurrency}};">Ξ</span>
 
     {{/* item(s) */}}
     {{range .TransferredCollections}}
-        <span class="collection" style="color: {{.PrimaryColor}};">{{.CollectionName}}</span>
-        {{$PrimaryColor := .PrimaryColor}}
-        {{$SecondaryColor := .SecondaryColor}}
+        <span class="collection" style="color: {{.Colors.Primary}};">{{.CollectionName}}</span>
+        {{$PrimaryColor := .Colors.Primary}}
+        {{$SecondaryColor := .Colors.Secondary}}
         {{range .TransferredTokens}}
             {{if not (eq .Rank 0)}}
                 <span class="rank">{{.Rank}}</span>
@@ -38,8 +38,8 @@
     <span class="divider">|</span>
 
     {{/* sender & receiver */}}
-    <span style="color: {{.FromColor}};">{{.From}}</span>
+    <span style="color: {{.Colors.From}};">{{.From}}</span>
     <span class="divider">→</span>
-    <span style="color: {{.ToColor}};">{{.To}}</span>
+    <span style="color: {{.Colors.To}};">{{.To}}</span>
 </div>
 {{ end }}

@@ -12,6 +12,9 @@ type Wallet struct {
 	// Address is the wallet address
 	Address common.Address `bson:"address" json:"address"`
 
+	// Name is the name of this wallet
+	Name string `bson:"name,omitempty" json:"name"`
+
 	// Tags is a list of tags associated with this wallet
 	Tags []Tag `bson:"tags,omitempty" json:"tags"`
 

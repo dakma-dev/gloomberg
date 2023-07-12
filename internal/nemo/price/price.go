@@ -1,6 +1,7 @@
 package price
 
 import (
+	"fmt"
 	"math/big"
 
 	"github.com/benleb/gloomberg/internal/utils"
@@ -19,6 +20,18 @@ func NewPrice(price *big.Int) *Price {
 	return &Price{
 		valueWei: price,
 	}
+}
+
+func (p *Price) MarshalJSON() ([]byte, error) {
+	if p == nil {
+		return []byte("nilol"), nil
+	}
+
+	return []byte(p.String()), nil
+}
+
+func (p *Price) String() string {
+	return fmt.Sprintf("%5.3f", p.Ether())
 }
 
 func (p *Price) Add(itemPrice *Price) *Price {

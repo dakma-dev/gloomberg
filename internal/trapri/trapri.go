@@ -72,7 +72,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	ctx := context.Background()
 
 	// parsed event to be used for the web-ui
-	parsedEvent := degendb.ParsedEvent{}
+	parsedEvent := degendb.ParsedEvent{Other: make(map[string]interface{})}
 
 	// fake a txHash for listings
 	txHash := common.Hash{}
@@ -119,7 +119,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		priceArrowColor = style.GetPriceShadeColor(ttx.GetPrice().Ether())
 	}
 
-	parsedEvent.PriceArrowColor = priceArrowColor
+	parsedEvent.Colors.PriceArrow = priceArrowColor
 
 	switch ttx.Action {
 	case totra.ReBurn, totra.Burn, totra.Airdrop, totra.Transfer:
@@ -140,9 +140,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	var ok bool
-	parsedEvent.PriceCurrencyColor, ok = priceCurrencyStyle.GetForeground().(lipgloss.Color)
+	parsedEvent.Colors.PriceCurrency, ok = priceCurrencyStyle.GetForeground().(lipgloss.Color)
 	if !ok {
-		parsedEvent.PriceCurrencyColor = style.DarkGray
+		parsedEvent.Colors.PriceCurrency = style.DarkGray
 	}
 
 	formattedCurrencySymbol := priceCurrencyStyle.Render("Ξ")
@@ -156,7 +156,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	currentTime := now.Format("15:04:05")
 	timeNow := style.Gray5Style.Render(currentTime)
 
-	parsedEvent.ReceivedAt = currentTime
+	parsedEvent.ReceivedAt = now
 
 	// prepare links
 	etherscanURL, openSeaURL, blurURL := utils.GetLinks(txHash, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
@@ -373,11 +373,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		transferredCollection := degendb.TransferredCollection{
 			CollectionName: collection.Name,
-			PrimaryColor:   collection.Colors.Primary,
-			SecondaryColor: collection.Colors.Secondary,
 			From:           ttx.From.Hex(),
 
 			TransferredTokens: transferredTokens,
+
+			Colors: degendb.CollectionColors{
+				Primary:   collection.Colors.Primary,
+				Secondary: collection.Colors.Secondary,
+			},
 		}
 
 		maxShown := 5
@@ -446,20 +449,20 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		gb.Stats.AddEvent(eventType, ttx.TotalTokens, ttx.AmountPaid)
 	}
 
-	parsedEvent.TimeColor = style.DarkGray
+	parsedEvent.Colors.Time = style.DarkGray
 
 	if ttx.IsListing() {
 		timeNow = style.Gray7Style.Render(currentTime)
-		parsedEvent.TimeColor = style.Gray7
+		parsedEvent.Colors.Time = style.Gray7
 	} else if isOwnCollection {
 		timeNow = currentCollection.Style().Copy().Bold(true).Render(currentTime)
-		parsedEvent.TimeColor = currentCollection.Colors.Primary
+		parsedEvent.Colors.Time = currentCollection.Colors.Primary
 	}
 
 	// highlight line if the seller or buyer is a wallet from the configured wallets
 	if isOwnWallet {
 		timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
-		parsedEvent.TimeColor = lipgloss.Color(style.Pink.Dark)
+		parsedEvent.Colors.Time = lipgloss.Color(style.Pink.Dark)
 	}
 
 	// is our own wallet or collection
@@ -506,9 +509,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		fixWidthPrice = beforeSepStyle.Render(before) + sepStyle.Render(".") + priceStyle.Render(after)
 	}
 
-	parsedEvent.PriceColor, ok = priceStyle.GetForeground().(lipgloss.Color)
+	parsedEvent.Colors.Price, ok = priceStyle.GetForeground().(lipgloss.Color)
 	if !ok {
-		parsedEvent.PriceColor = style.DarkGray
+		parsedEvent.Colors.Price = style.DarkGray
 	}
 
 	if len(fmtTokensTransferred) == 0 && ttx.Tx != nil {
@@ -530,7 +533,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	fmtPrice := fixWidthPrice
 	out.WriteString(" " + fmtPrice + formattedCurrencySymbol)
 
-	parsedEvent.Price = fmt.Sprintf("%6.3f", ttx.GetPrice().Ether())
+	parsedEvent.Price = ttx.GetPrice() // fmt.Sprintf("%6.3f", ttx.GetPrice().Ether())
 
 	// if all collections in a tx have the IgnorePrinting flag set, don't print the tx
 	for _, collection := range ttxCollections {
@@ -689,9 +692,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 
 		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()))
-		parsedEvent.FromColor, ok = fromStyle.GetForeground().(lipgloss.Color)
+		parsedEvent.Colors.From, ok = fromStyle.GetForeground().(lipgloss.Color)
 		if !ok {
-			parsedEvent.FromColor = style.DarkGray
+			parsedEvent.Colors.From = style.DarkGray
 		}
 
 		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, transferFrom); err == nil {
@@ -726,9 +729,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Hash().Big().Int64()))
 
-	parsedEvent.ToColor, ok = buyerStyle.GetForeground().(lipgloss.Color)
+	parsedEvent.Colors.To, ok = buyerStyle.GetForeground().(lipgloss.Color)
 	if !ok {
-		parsedEvent.ToColor = style.DarkGray
+		parsedEvent.Colors.To = style.DarkGray
 	}
 
 	if buyerENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, buyer); err == nil {
@@ -945,8 +948,20 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// add to history
 	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid()) { // && ttx.Action != totra.ItemBid && ttx.Action != totra.CollectionOffer {
-		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && gb.Stats != nil {
-			gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
+		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && currentCollection.Source != collections.FromConfiguration && gb.Stats != nil {
+			// gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
+
+			// TODO: fix/remove this...
+			parsedEvent.Other["fmtTokensHistory"] = fmtTokensHistory
+
+			parsedEvent.IsOwnWallet = isOwnWallet
+			parsedEvent.IsOwnCollection = isOwnCollection
+			parsedEvent.IsWatchUsersWallet = isWatchUsersWallet
+
+			// ...and actually use this!!
+			gb.Stats.RecentOwnEvents.Add(&parsedEvent)
+
+			gbl.Log.Debugf("trapri added event to history: %+v", gb.Stats.RecentOwnEvents.Cardinality())
 		}
 	}
 }

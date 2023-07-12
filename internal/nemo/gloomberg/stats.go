@@ -17,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -51,16 +50,10 @@ type Stats struct {
 	interval  time.Duration
 	timeframe time.Duration
 
-	RecentEvents mapset.Set[*degendb.RecentEvent]
-
-	OwnEventsHistory []string
-	EventHistory     []*totra.HistoryTokenTransaction
+	RecentEvents    mapset.Set[*degendb.RecentEvent]
+	RecentOwnEvents mapset.Set[*degendb.ParsedEvent]
 
 	gasTicker *time.Ticker
-
-	// salesVolume *big.Int
-	// sales       uint64
-	// mints       uint64
 
 	NewLogs        uint64
 	NewListings    uint64
@@ -75,10 +68,8 @@ func NewStats(gb *Gloomberg, gasTicker *time.Ticker, wallets *wallet.Wallets, pr
 		providerPool: providerPool,
 		rdb:          rdb,
 
-		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
-
-		OwnEventsHistory: make([]string, viper.GetInt("stats.lines")),
-		EventHistory:     make([]*totra.HistoryTokenTransaction, 0),
+		RecentEvents:    mapset.NewSet[*degendb.RecentEvent](),
+		RecentOwnEvents: mapset.NewSet[*degendb.ParsedEvent](),
 
 		gasTicker: gasTicker,
 
@@ -197,7 +188,7 @@ func (s *Stats) Print(queueOutput chan string) {
 		statsLists = append(statsLists, listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, walletBalancesList...)))
 	}
 
-	if len(s.OwnEventsHistory) > 0 || len(s.EventHistory) > 0 {
+	if s.RecentOwnEvents.Cardinality() > 0 {
 		eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
 		statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
 	}
@@ -438,16 +429,17 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 func (s *Stats) getOwnEventsHistoryList() []string {
 	eventsList := make([]string, 0)
 
-	if len(s.EventHistory) == 0 {
+	if s.RecentOwnEvents.Cardinality() == 0 {
 		gbl.Log.Debugf("no events to show")
 
 		return eventsList
 	}
 
 	// cleanup (maybe replace this by not inserting events that are not shown anyways)
-	historyEvents := make([]*totra.HistoryTokenTransaction, 0)
+	historyEvents := make([]*degendb.ParsedEvent, 0)
 
-	for idx, event := range s.EventHistory {
+	// for idx, event := range s.EventHistory {
+	for idx, event := range s.RecentOwnEvents.ToSlice() {
 		if event == nil {
 			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
 
@@ -468,11 +460,11 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			break
 		}
 
-		if len(event.FmtTokensTransferred) == 0 {
+		if len(event.TransferredCollections) == 0 {
 			continue
 		}
 
-		collectionStyle := lipgloss.NewStyle().Foreground(event.Collection.Colors.Primary)
+		collectionStyle := lipgloss.NewStyle().Foreground(event.TransferredCollections[0].Colors.Primary)
 
 		timeAgo := time.Since(event.ReceivedAt)
 		statsboxEpoch := viper.GetDuration("ticker.statsbox")
@@ -496,25 +488,35 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 			printFaint = true
 		}
 
-		tokenInfo := event.FmtTokensTransferred[0] // strings.Join(event.FmtTokensTransferred, " | ")
+		tokenHistory, ok := event.Other["fmtTokensHistory"].([]string)
+		if !ok {
+			gbl.Log.Warnf("could not get token history for event: %+v", event)
 
-		isOwnWallet := s.wallets.ContainsAddressFromSlice(event.TokenTransaction.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
+			continue
+		}
+
+		tokenInfo := strings.Join(tokenHistory, " | ")
 
 		timeNow := rowStyle.Render(event.ReceivedAt.Format("15:04:05"))
-		if isOwnWallet {
+		if event.IsOwnWallet {
 			timeNow = collectionStyle.Render(event.ReceivedAt.Format("15:04:05"))
 		}
 
-		pricePerItem := price.NewPrice(event.AmountPaid)
-		if event.TokenTransaction.TotalTokens > 0 {
-			pricePerItem = price.NewPrice(big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TokenTransaction.TotalTokens)))
+		pricePerItem := price.NewPrice(event.Price.Wei())
+		// TODO: fix this
+		// if event.TransferredCollections.TotalTokens > 0 {
+		if len(event.TransferredCollections) > 0 {
+			// TODO: fix this (totaltokens)
+			// pricePerItem = price.NewPrice(big.NewInt(0).Div(event.Price.Wei(), big.NewInt(event.TransferredCollections.TotalTokens)))
+			pricePerItem = price.NewPrice(big.NewInt(0).Div(event.Price.Wei(), big.NewInt(int64(len(event.TransferredCollections)))))
 		}
 
 		historyLine := strings.Builder{}
 		historyLine.WriteString(timeNow)
-		historyLine.WriteString(" " + event.TokenTransaction.Action.Icon())
+		historyLine.WriteString(" " + event.Typemoji)
 		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", pricePerItem.Ether())))
 		historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
+		// historyLine.WriteString(" " + event.TransferredCollections[0].CollectionName)
 		historyLine.WriteString(" " + tokenInfo)
 
 		if viper.GetBool("log.debug") {

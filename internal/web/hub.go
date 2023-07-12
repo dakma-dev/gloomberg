@@ -99,7 +99,7 @@ func NewHub(gb *gloomberg.Gloomberg) *WsHub {
 		handlers: make(map[string]MessageHandler),
 	}
 
-	tmplFiles := []string{"www/event.html"}
+	tmplFiles := []string{"www/event.tpl.html"}
 	tmpls, err := template.ParseFiles(tmplFiles...)
 	if err != nil {
 		gbl.Log.Error(err)

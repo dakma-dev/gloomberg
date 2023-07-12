@@ -13,6 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/degendb/degendata"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
@@ -74,10 +75,14 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
 	// }
 
-	// gb := gloomberg.New()
+	// initialize
 	gb.CollectionDB = collections.New()
 	gb.OwnWallets = &wallet.Wallets{}
 	gb.Watcher = &watch.Watcher{}
+
+	go func() {
+		gb.DegenDB = degendb.NewDegenDB()
+	}()
 
 	//
 	// start central terminal printer

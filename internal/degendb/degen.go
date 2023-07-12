@@ -19,7 +19,9 @@ type Degen struct {
 	Accounts Accounts `bson:"accounts,omitempty" json:"accounts"`
 
 	// Wallets is a list of wallet addresses associated with this degen
-	Wallets []Wallet `bson:"wallets,omitempty" json:"wallets"`
+	Wallets []primitive.ObjectID `bson:"wallets,omitempty" json:"wallets"`
+	// RawWallets is a list of wallet addresses associated with this degen
+	RawWallets []Wallet `bson:"raw_wallets,omitempty" json:"raw_wallets"`
 
 	// Tags is a list of tags associated with this degen
 	Tags []Tag `bson:"tags,omitempty" json:"tags"`

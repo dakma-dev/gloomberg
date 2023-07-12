@@ -5,6 +5,7 @@
   html {
     overflow: hidden;
     padding: 0;
+    height: -webkit-fill-available;
   }
 
   body {
@@ -14,6 +15,7 @@
     color: #555;
 
     font-family: "JetBrains Mono", monospace;
+    {{/* letter-spacing: .042em; */}}
     {{/* font-size: 0.8em; */}}
     {{/* font-variation-settings: "wght" 200; */}}
 
@@ -21,7 +23,12 @@
     white-space: normal;
 
     margin: 0;
+
+    min-height: 100dvh;
+    /* mobile viewport bug fix */
+    min-height: -webkit-fill-available;
   }
+
   body.connected {
     border-top: none;
     background-color: #090909;
@@ -43,28 +50,29 @@
   main {
     display: grid;
     font-size: 0.8em;
-    {{/* grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); */}}
-    {{/* grid-template-columns: minmax(200px, 1fr); */}}
-    {{/* repeat(auto-fill, 100px) ; */}}
     gap: 10px;
-    {{/* grid-auto-rows: minmax(50px, auto); */}}
-    {{/* grid-template-areas:
-      "stream side-top"
-      "stream side-middle"
-      "commandline side-bottom"; */}}
 
     grid-template-areas:
       "side-top"
       "stream"
       "commandline";
-    height: 100vh;
+
+    {{/* magic 🤷‍♀️ https://twitter.com/ChallengesCss/status/1501634518872215558 */}}
+    {{/* margin-inline: max((100% - 97em)/2, .1337rem); */}}
+
+    {{/* height: 100dvh; */}}
+    {{/* min-height: 100dvh; */}}
+    /* mobile viewport bug fix */
+    {{/* min-height: -webkit-fill-available; */}}
   }
 
   .stream {
     grid-area: stream;
     padding: 0.5vh 0.5vw;
     overflow: scroll;
-    min-height: 75vh;
+    height: 80dvh;
+    min-height: 70dvh;
+    {{/* max-height: 80dvh; */}}
     min-width: 80vw;
   }
 
@@ -81,12 +89,14 @@
     align-items: center;
     display: flex;
     padding: 0.5em 0.7em;
-    min-height: 5vh;
+    {{/* min-height: 5dvh; */}}
+    height: 5dvh;
   }
 
   .side-top {
     grid-area: side-top;
-    min-height: 5vh;
+    {{/* min-height: 3.37dvh; */}}
+    height: 3.37dvh;
     padding: 0.5vh 0.5vw;
   }
   .side-middle {
@@ -101,7 +111,7 @@
     font-size: 0.6em;
     line-height: 0.6em;
     text-shadow: 0 0 2px #666, 0 0 5px #666, 0 0 7px #666, 0 0 10px #ff2d95, 0 0 15px #ff2d95, 0 0 20px #ff2d95, 0 0 25px #ff2d95, 0 0 37px #ff2d95;
-    letter-spacing: 6px;
+    {{/* letter-spacing: 6px; */}}
     margin: 0.5em;
   }
 
@@ -118,7 +128,7 @@
 
   .message span,
   .message a {
-    letter-spacing: 0.01em;
+    {{/* letter-spacing: 0.042em; */}}
     line-height: 1.15em;
     margin-left: 0.3em;
     overflow: hidden;
@@ -145,7 +155,7 @@
 
   .message span.price {
     color: #f9f9f9;
-    min-width: 3.8em;
+    width: 2.5em;
   }
 
   .message span.trendindicator {
@@ -180,7 +190,7 @@
 
   .message span.rank,
   .message span.ranksymbol {
-    margin-right: 0;
+    margin: 0 0 0 0.337em;
   }
 
   .message span.pricearrow {
@@ -189,7 +199,7 @@
   }
 
   .message span.collection {
-    margin: 0 0.815em;
+    margin: 0 0 0 0.815em;
     max-width: 16em;
     text-align: left;
     text-overflow: ellipsis;
@@ -360,6 +370,11 @@
       color: #555555;
       min-width: 5.25em;
       margin-left: 0;
+    }
+
+    .message span.price {
+      color: #f9f9f9;
+      min-width: 3.8em;
     }
 </style>
 

@@ -169,3 +169,12 @@ func initConfig() {
 
 	fmt.Print(rootCmd.CalledAs())
 }
+
+func GracefulShutdown() {
+	if gb.DegenDB != nil {
+		err := gb.DegenDB.Disconnect()
+		if err != nil {
+			gbl.Log.Error(err)
+		}
+	}
+}

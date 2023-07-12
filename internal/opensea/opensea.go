@@ -161,18 +161,23 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 			contractAddress := common.HexToAddress(contract.Address)
 
 			// if userCollections.Collections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
-			if userCollections.Collections[contractAddress] != nil {
-				continue
-			}
-
 			if collection.Stats.AveragePrice <= 0.001 {
 				continue
 			}
 
-			userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collections.FromWallet, nil)
-			userCollection.OpenseaSlug = collection.Slug
+			if userCollections.Collections[contractAddress] == nil {
+				userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collections.FromWallet, nil)
+				userCollection.OpenseaSlug = collection.Slug
 
-			receivedCollections = append(receivedCollections, userCollection)
+				receivedCollections = append(receivedCollections, userCollection)
+			} else {
+				userCollections.Collections[contractAddress].OpenseaSlug = collection.Slug
+				userCollections.Collections[contractAddress].Source = collections.FromWallet
+
+				if userCollections.Collections[contractAddress].Name == "" {
+					userCollections.Collections[contractAddress].Name = collection.Name
+				}
+			}
 		}
 	}
 

@@ -45,7 +45,7 @@ type Gloomberg struct {
 
 	*eventHub
 	*marmot
-	// *degendb.DegenDB
+	*degendb.DegenDB
 }
 
 type printConfig struct {
