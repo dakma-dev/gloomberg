@@ -5,12 +5,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/chawago"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/degendb"
@@ -36,7 +35,6 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/muesli/termenv"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -439,22 +437,22 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gb.PrMod("web", "web-ui started")
 	}
 
-	// prometheus metrics
-	if viper.GetBool("metrics.enabled") {
-		go func() {
-			listenHost := net.ParseIP(viper.GetString("metrics.host"))
-			listenPort := viper.GetUint("metrics.port")
-			listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
+	// // prometheus metrics
+	// if viper.GetBool("metrics.enabled") {
+	// 	go func() {
+	// 		listenHost := net.ParseIP(viper.GetString("metrics.host"))
+	// 		listenPort := viper.GetUint("metrics.port")
+	// 		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
 
-			http.Handle("/metrics", promhttp.Handler())
+	// 		http.Handle("/metrics", promhttp.Handler())
 
-			gbl.Log.Infof("prometheus metrics: http://%s", listenAddress)
+	// 		gbl.Log.Infof("prometheus metrics: http://%s", listenAddress)
 
-			if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
-				gbl.Log.Error(err)
-			}
-		}()
-	}
+	// 		if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
+	// 			gbl.Log.Error(err)
+	// 		}
+	// 	}()
+	// }
 
 	// marmot tasks
 	// gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
@@ -463,6 +461,13 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
 	// 	log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
 	// })
+
+	go func() {
+		wawa := chawago.NewWalletWatcher(gb)
+		wawa.Watch()
+
+		gb.Prf("wallet watcher started: %+v", wawa)
+	}()
 
 	// loop forever
 	select {}
