@@ -18,7 +18,7 @@ require (
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.11
+	github.com/redis/rueidis v1.0.12
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
@@ -27,6 +27,7 @@ require (
 	go.uber.org/zap v1.24.0
 	golang.org/x/net v0.12.0
 	golang.org/x/term v0.10.0
+	golang.org/x/text v0.11.0
 	gonum.org/v1/gonum v0.13.0
 )
 
@@ -66,7 +67,7 @@ require (
 	github.com/ipfs/go-cid v0.3.2 // indirect
 	github.com/jackpal/go-nat-pmp v1.0.2 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
+	github.com/kr/pretty v0.3.1
 	github.com/kr/text v0.2.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
@@ -115,7 +116,6 @@ require (
 	golang.org/x/exp v0.0.0-20230522175609-2e198f4a06a1 // indirect
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
 	google.golang.org/protobuf v1.30.0 // indirect
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
