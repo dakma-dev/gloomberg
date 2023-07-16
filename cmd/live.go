@@ -542,7 +542,12 @@ func init() { //nolint:gochecknoinits
 
 	// worker settings
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
-	viper.SetDefault("gloomberg.numEventHubHandlers", 3)
+
+	viper.SetDefault("gloomberg.eventhub.numHandler", 3)
+	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
+	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
+
+	viper.SetDefault("etherscan.fetchInterval", time.Second*3)
 
 	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)

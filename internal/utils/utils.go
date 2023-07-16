@@ -25,9 +25,12 @@ func GetEtherscanTxURL(txHash string) string {
 	return fmt.Sprintf("https://etherscan.io/tx/%s", txHash)
 }
 
-// etherscan.io.
-func GetEtherscanTokenURL(txHash string) string {
-	return fmt.Sprintf("https://etherscan.io/token/%s", txHash)
+func GetEtherscanAddressURL(address *common.Address) string {
+	return fmt.Sprintf("https://etherscan.io/address/%s", address.Hex())
+}
+
+func GetEtherscanTokenURL(address *common.Address) string {
+	return fmt.Sprintf("https://etherscan.io/token/%s", address.Hex())
 }
 
 // blur.io.

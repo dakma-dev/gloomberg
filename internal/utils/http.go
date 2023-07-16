@@ -28,6 +28,10 @@ func (h *HTTPClient) GetWithTLS12(ctx context.Context, url string) (*http.Respon
 	return h.httpCall(ctx, url, http.MethodGet, http.Header{}, nil, tls.VersionTLS12)
 }
 
+func (h *HTTPClient) GetWithTLS12AndHeader(ctx context.Context, url string, customHeader http.Header) (*http.Response, error) {
+	return h.httpCall(ctx, url, http.MethodGet, customHeader, nil, tls.VersionTLS12)
+}
+
 func (h *HTTPClient) GetWithHeader(ctx context.Context, url string, customHeader http.Header) (*http.Response, error) {
 	return h.httpCall(ctx, url, http.MethodGet, customHeader, nil, tls.VersionTLS13)
 }

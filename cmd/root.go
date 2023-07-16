@@ -57,6 +57,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.gloomberg.yaml)")
 
+	rootCmd.PersistentFlags().Bool("dev", false, "dev mode")
+	_ = viper.BindPFlag("dev.mode", rootCmd.PersistentFlags().Lookup("dev"))
+
 	// logging
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Show more output")
 	_ = viper.BindPFlag("log.verbose", rootCmd.PersistentFlags().Lookup("verbose"))

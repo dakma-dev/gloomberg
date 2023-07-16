@@ -351,3 +351,85 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 func withAPIKey(url string) string {
 	return url + "&apikey=" + viper.GetString("api_keys.etherscan")
 }
+
+func GetFirstTransactionsByContract(numTxs int64, contractAddress common.Address) ([]Transaction, error) {
+	if !viper.IsSet("api_keys.etherscan") {
+		log.Fatal("api_keys.etherscan not set")
+	}
+
+	url := withAPIKey(fmt.Sprintf("%s?module=account&action=tokennfttx&contractaddress=%s&page=1&offset=%d&startblock=0&endblock=99999999&sort=asc", apiBaseURL, contractAddress, numTxs))
+
+	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
+	if err != nil {
+		if os.IsTimeout(err) {
+			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
+		} else {
+			gbl.Log.Errorf("❌ first 1k txs error: %+v", err.Error())
+		}
+
+		return nil, err
+	}
+
+	// gbl.Log.Infof("fetched first 1k txs for %s: %s", contractAddress.Hex(), response.Status)
+
+	defer response.Body.Close()
+
+	// create a variable of the same type as our model
+	var firstTransactions *TransactionsResponse
+
+	responseBody, _ := io.ReadAll(response.Body)
+
+	// decode the data
+	if !json.Valid(responseBody) {
+		gbl.Log.Warnf("txs response invalid json: %s", err)
+
+		return nil, ErrInvalidJSON
+	}
+
+	// decode the data
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&firstTransactions); err != nil {
+		gbl.Log.Warnf("txs response decode error: %s | %+v", err.Error(), string(responseBody))
+
+		return nil, err
+	}
+
+	// log.Printf("first txs: %+v", firstTransactions.Result)
+	// log.Printf("first txs: %+v", firstTransactions.Result[0])
+	// log.Printf("num first txs: %d", len(firstTransactions.Result))
+
+	if len(firstTransactions.Result) < int(numTxs) {
+		gbl.Log.Debugf("only %d txs found for %s (requested %d)", len(firstTransactions.Result), contractAddress.Hex(), numTxs)
+
+		return nil, fmt.Errorf("only %d txs found for %s (requested %d)", len(firstTransactions.Result), contractAddress.Hex(), numTxs)
+	}
+
+	return firstTransactions.Result, nil
+}
+
+type TransactionsResponse struct {
+	Status  string        `json:"status"`
+	Message string        `json:"message"`
+	Result  []Transaction `json:"result"`
+}
+
+type Transaction struct {
+	BlockNumber       string `json:"blockNumber"`
+	TimeStamp         string `json:"timeStamp"`
+	Hash              string `json:"hash"`
+	Nonce             string `json:"nonce"`
+	BlockHash         string `json:"blockHash"`
+	From              string `json:"from"`
+	ContractAddress   string `json:"contractAddress"`
+	To                string `json:"to"`
+	TokenID           string `json:"tokenID"`
+	TokenName         string `json:"tokenName"`
+	TokenSymbol       string `json:"tokenSymbol"`
+	TokenDecimal      string `json:"tokenDecimal"`
+	TransactionIndex  string `json:"transactionIndex"`
+	Gas               string `json:"gas"`
+	GasPrice          string `json:"gasPrice"`
+	GasUsed           string `json:"gasUsed"`
+	CumulativeGasUsed string `json:"cumulativeGasUsed"`
+	Input             string `json:"input"`
+	Confirmations     string `json:"confirmations"`
+}
