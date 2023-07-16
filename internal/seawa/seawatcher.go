@@ -50,7 +50,7 @@ type SeaWatcher struct {
 }
 
 var (
-	availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemReceivedBid, osmodels.ItemMetadataUpdated} // , osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+	availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated} //  osmodels.ItemReceivedBid, osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
@@ -208,6 +208,8 @@ func (sw *SeaWatcher) eventHandler(response any) {
 
 		// push to eventHub for further processing
 		sw.gb.In.ItemListed <- event
+
+		// sw.gb.GloomHub.Publish(channel.ItemListed, event)
 
 	case osmodels.ItemReceivedBid:
 		var event *models.ItemReceivedBid
