@@ -204,6 +204,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			continue
 		}
 
+		// fetch & store the first 1k txs for this contract
+		collectionFileNamePrefix := collection.Name
+		if collection.OpenseaSlug != "" {
+			collectionFileNamePrefix = collection.OpenseaSlug
+		}
+
+		go gloomberg.GetFirstTxsForContract(collectionFileNamePrefix, contractAddress)
+
 		ttxCollections[contractAddress] = collection
 
 		numCollectionTokens := int64(0)
@@ -521,7 +529,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			gbl.Log.Debugf(
 				"  transfer of %dx %s | %+v",
 				transfer.AmountTokens,
-				style.TerminalLink(utils.GetEtherscanTokenURL(transfer.Token.Address.String()), style.ShortenAddress(&transfer.Token.Address)),
+				style.TerminalLink(utils.GetEtherscanTokenURL(&transfer.Token.Address), style.ShortenAddress(&transfer.Token.Address)),
 				transfer.Standard,
 			)
 		}
@@ -700,11 +708,15 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		if fromENS, err := gb.ProviderPool.ReverseResolveAddressToENS(ctx, transferFrom); err == nil {
 			gbl.Log.Debugf("🤷 from address %s has ENS %s", transferFrom.Hex(), fromENS)
 			fmtFrom = fromStyle.Render(fromENS)
-			parsedEvent.From = fromENS
+			parsedEvent.From = gb.DegenDB.NewDegen(fromENS, []common.Address{transferFrom}, "", "", 0, []degendb.Tag{})
+
+			parsedEvent.FromAddress = transferFrom
 		} else {
 			gbl.Log.Debugf("🤷‍♀️ from address %s has NO ENS", transferFrom.Hex())
 			fmtFrom = style.ShortenAddressStyled(&transferFrom, fromStyle)
-			parsedEvent.From = style.ShortenAddress(&transferFrom)
+			// shortName := style.ShortenAddress(&transferFrom)
+			parsedEvent.From = gb.DegenDB.NewDegen(fromENS, []common.Address{transferFrom}, "", "", 0, []degendb.Tag{})
+			parsedEvent.FromAddress = transferFrom
 		}
 
 		out.WriteString(fmtFrom)
@@ -739,13 +751,15 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		fmtBuyer = buyerStyle.Render(buyerENS)
 
-		parsedEvent.To = buyerENS
+		parsedEvent.To = gb.DegenDB.NewDegen(buyerENS, []common.Address{buyer}, "", "", 0, []degendb.Tag{})
+		parsedEvent.ToAddress = buyer
 	} else {
 		gbl.Log.Debugf("❌ failed to resolve ENS name for %s: %s", buyer.Hex(), err)
 
 		fmtBuyer = style.ShortenAddressStyled(&buyer, buyerStyle)
 
-		parsedEvent.To = style.ShortenAddress(&buyer)
+		parsedEvent.To = gb.DegenDB.NewDegen(buyerENS, []common.Address{buyer}, "", "", 0, []degendb.Tag{})
+		parsedEvent.ToAddress = buyer
 	}
 
 	arrow := style.DividerArrowRight
@@ -959,9 +973,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			parsedEvent.IsWatchUsersWallet = isWatchUsersWallet
 
 			// ...and actually use this!!
-			gb.Stats.RecentOwnEvents.Add(&parsedEvent)
+			gb.RecentOwnEvents.Add(&parsedEvent)
 
-			gbl.Log.Debugf("trapri added event to history: %+v", gb.Stats.RecentOwnEvents.Cardinality())
+			// new event added to own recent events, send the whole slice to the ui
+			if gb.RecentOwnEvents.Cardinality() > 0 {
+				gb.In.RecentOwnEvents <- gb.RecentOwnEvents.ToSlice()
+			}
+
+			gbl.Log.Debugf("trapri added event to history: %+v", gb.RecentOwnEvents.Cardinality())
 		}
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
+	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
@@ -24,8 +25,13 @@ var (
 func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBid) {
 	nftID := event.Payload.Item.NftID
 
-	// check if we hold the token
-	if !gb.OwnWallets.ContainsToken(nftID.ContractAddress(), nftID.TokenID().String()) {
+	// our token?
+	isOwnToken := gb.OwnWallets.ContainsToken(nftID.ContractAddress(), nftID.TokenID().String())
+	// did someone from us make a bid?
+	isWatchUsersWallet := gb.Watcher.Contains(event.Payload.Taker.Address)
+
+	// check if we hold the token/got a bid
+	if !isOwnToken && !isWatchUsersWallet {
 		gbl.Log.Debugf("🤷‍♀️ %s | bid for token not held by any of our own wallets", nftID.LinkOS())
 
 		return
@@ -79,7 +85,7 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 
 	//
 	// create a TokenTransaction
-	ttxListing := &totra.TokenTransaction{
+	ttxBid := &totra.TokenTransaction{
 		Tx:          nil,
 		TxReceipt:   nil,
 		From:        sellerAddress,
@@ -104,6 +110,17 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 		},
 	}
 
-	// format and print
-	gb.In.TokenTransactions <- ttxListing
+	if isOwnToken {
+		// format and print
+		gb.In.TokenTransactions <- ttxBid
+	}
+
+	if isWatchUsersWallet {
+		gbl.Log.Infof("🧱 sending telegram notification ItemReceivedBid 🧚 | isOwnToken: %+v | isWatchUsersWallet: %+v", isOwnToken, isWatchUsersWallet)
+
+		ttxBid.Action = totra.OwnBid
+
+		// send notification
+		go notify.SendNotification(gb, ttxBid)
+	}
 }

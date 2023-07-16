@@ -39,8 +39,6 @@ import (
 func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 	fmtHash := style.ShortenHashStyled(ttx.Tx.Hash())
 
-	// var notificationLock context.CancelFunc
-
 	// try to acquire the lock
 	if viper.GetBool("redis.enabled") {
 		notificationLock, err := gb.Rueidi.NotificationLock(ttx.Tx.Hash())
