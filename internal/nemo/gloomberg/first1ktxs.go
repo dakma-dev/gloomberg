@@ -64,7 +64,11 @@ func FirstTxsWorker() {
 
 	for task := range firstTxsWorkQueue {
 		err := fetchfirstTxsForContract(task.CollectionName, task.ContractAddress)
-		if err != nil {
+		if err != nil && os.IsExist(err) {
+			log.Debugf("file for %s already exists: %+v", task.CollectionName, err)
+
+			continue
+		} else if err != nil {
 			gbl.Log.Debugf("failed to get firstTxs for %s: %s", task.CollectionName, err)
 
 			// ignore for this session
@@ -104,14 +108,6 @@ func fetchfirstTxsForContract(collectionName string, contractAddress common.Addr
 	// create file
 	file, err := os.OpenFile(txsFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //nolint:nosnakecase
 	if err != nil {
-		if os.IsExist(err) {
-			log.Debugf("file %s already exists", txsFile)
-
-			return nil
-		}
-
-		log.Error(fmt.Errorf("failed to create file: %w", err))
-
 		return err
 	}
 
