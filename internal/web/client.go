@@ -5,10 +5,14 @@ import (
 	"errors"
 	"log"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gobwas/ws/wsutil"
 )
 
@@ -17,29 +21,69 @@ var (
 	pongWait = 10 * time.Second
 
 	// pingInterval has to be less than pongWait, We cant multiply by 0.9 to get 90% of time.
-
 	pingInterval = (pongWait * 9) / 10
 )
 
 type WsClient struct {
+	clientID string
+
 	// conn net.Conn
-	conn net.Conn
+	conn   net.Conn
+	ipInfo *external.IPInfo
 
 	hub *WsHub
 
 	// egress is used to avoid concurrent writes on the WebSocket
 	egress chan json.RawMessage
-	// egresszwo chan any
 }
 
 // NewClient is used to initialize a new Client with all required values initialized.
 func NewClient(conn net.Conn, hub *WsHub) *WsClient {
-	return &WsClient{
+	client := &WsClient{
 		conn:   conn,
 		hub:    hub,
 		egress: make(chan json.RawMessage),
-		// egresszwo: make(chan any),
 	}
+
+	// Create a unique ID for the Client
+	client.clientID = client.createID()
+
+	return client
+}
+
+func (wc *WsClient) createID() string {
+	var address string
+	if idx := strings.LastIndex(wc.conn.RemoteAddr().String(), ":"); idx == -1 {
+		gbl.Log.Warn("could not find ':' in remote address")
+
+		address = wc.conn.RemoteAddr().String()
+	} else {
+		address = wc.conn.RemoteAddr().String()[:idx]
+	}
+
+	data := []byte(address + "/" + wc.conn.RemoteAddr().Network())
+	hash := crypto.Keccak256Hash(data)
+
+	// create clientID from last 8 bytes of hash
+	clientID := hash.Hex()[58:]
+
+	return clientID
+}
+
+func (wc *WsClient) String() string {
+	if wc.countryFlag() != "" {
+		return wc.clientID + " " + wc.countryFlag()
+	}
+
+	return wc.clientID
+}
+
+func (wc *WsClient) countryFlag() string {
+	if wc.ipInfo != nil {
+		return internal.CountryFlags[wc.ipInfo.CountryCode]
+	}
+
+	return ""
 }
 
 // readMessages will start the client to read messages and handle them

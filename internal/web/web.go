@@ -21,7 +21,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-func StartWebUI(gb *gloomberg.Gloomberg) {
+func StartWebUI(gb *gloomberg.Gloomberg) (*WsHub, error) {
 	// Create a Manager instance used to handle WebSocket Connections
 	hub := NewHub(gb)
 
@@ -49,6 +49,7 @@ func StartWebUI(gb *gloomberg.Gloomberg) {
 
 	// static js files (the stripping feels a bit weird...)
 	http.Handle("/js/", http.StripPrefix("/js", http.FileServer(http.Dir("./www/js"))))
+	http.Handle("/fonts/", http.StripPrefix("/fonts", http.FileServer(http.Dir("./www/fonts"))))
 
 	// websocket endpoint
 	http.HandleFunc("/ws", hub.serveWS)
@@ -60,7 +61,7 @@ func StartWebUI(gb *gloomberg.Gloomberg) {
 	}
 
 	// create http server
-	server := &http.Server{
+	hub.server = &http.Server{
 		Addr:              listenOn.AddrPort().String(),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           nil,
@@ -72,6 +73,12 @@ func StartWebUI(gb *gloomberg.Gloomberg) {
 	}
 
 	// start http server
-	log.Debugf("starting web ui on %s | %+v", listenOn, server)
-	log.Fatal(server.ListenAndServeTLS("", ""))
+	log.Debugf("starting web ui on %s | %+v", listenOn, hub.server)
+	go func() {
+		if err := hub.server.ListenAndServeTLS("", ""); err != nil {
+			log.Fatal(err)
+		}
+	}()
+
+	return hub, nil
 }

@@ -20,6 +20,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
@@ -34,6 +35,8 @@ type Gloomberg struct {
 	OwnWallets   *wallet.Wallets
 	Stats        *Stats
 
+	RecentOwnEvents mapset.Set[*degendb.ParsedEvent]
+
 	Ranks map[common.Address]map[int64]degendb.TokenRank
 
 	Rdb    rueidis.Client
@@ -41,9 +44,11 @@ type Gloomberg struct {
 
 	QueueSlugs chan common.Address
 
-	CurrentGasPriceGwei uint64
+	CurrentGasPriceGwei   uint64
+	CurrentOnlineWebUsers uint64
 
 	*eventHub
+	// GloomHub *gloomhub
 	*marmot
 	*degendb.DegenDB
 }
@@ -101,16 +106,24 @@ func New() *Gloomberg {
 		Rdb:    rdb,
 		Rueidi: rueidica.NewRueidica(rdb),
 
+		RecentOwnEvents: mapset.NewSet[*degendb.ParsedEvent](),
+
 		Ranks: make(map[common.Address]map[int64]degendb.TokenRank),
 
 		QueueSlugs: make(chan common.Address, 1024),
 
 		eventHub: newEventHub(),
+		// GloomHub: newGloomhub(),
 		// DegenDB:  degendb.NewDegenDB(),
 	}
 
+	// gb.gloomhub.Start()
+	// log.Info("👚 gloomhub started")
+
 	// initialize marmot the task runner/scheduler
 	gb.newMarmot()
+
+	go FirstTxsWorker()
 
 	return gb
 }

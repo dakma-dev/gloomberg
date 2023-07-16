@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -60,6 +61,8 @@ const (
 	ResolveENS        methodCall = "resolve_ens"
 
 	GasInfo methodCall = "gas_info"
+
+	CodeAt methodCall = "bytecode"
 )
 
 type methodCallParams struct {
@@ -558,6 +561,14 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 				return gasInfo, nil
 			}
 
+		case CodeAt:
+			if params.Address == (common.Address{}) {
+				return nil, errors.New("invalid contract address")
+			}
+
+			if codeAt, err := provider.codeAt(ctx, params.Address); err == nil {
+				return codeAt, nil
+			}
 		default:
 			return nil, errors.New("invalid method")
 		}
@@ -716,6 +727,21 @@ func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
 	}
 
 	return nil, err
+}
+
+// get bytecode of address to check if its a EOA or contract.
+func (pp *Pool) GetCodeAt(ctx context.Context, address common.Address) ([]byte, error) {
+	codeAt, err := pp.callMethod(ctx, CodeAt, methodCallParams{Address: address})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	byteCode, ok := codeAt.([]byte)
+	if !ok {
+		return []byte{}, errors.New("bytecode is not a string")
+	}
+
+	return byteCode, nil
 }
 
 // // getClients returns a shuffled list of eth clients with local nodes preferred.

@@ -7,7 +7,7 @@
 <script type="text/javascript">
     // selectedchat is by default General.
     var selectedchat = "general";
-    var eventStream = document.getElementById("event_stream");
+    var eventStream = document.getElementById("live-events");
 
     /**
      * Event is used to wrap all messages Send and Recieved
@@ -44,6 +44,9 @@
         if (event.type === undefined) {
             // console.warn("no 'type' field in event");
         }
+
+        {{/* console.log(event.type + ": " + JSON.stringify(event.payload)); */}}
+
         switch (event.type) {
             // case "new_message":
             //     console.log(event.type + ": " + JSON.stringify(event.payload));
@@ -62,6 +65,26 @@
                     var gasInfo = document.getElementById("gas-price")
                     gasInfo.innerHTML = parseInt(event.gas_price);
                 }
+
+                break;
+            case "recent_own_events":
+
+                {{/* console.log("recent! " + event.type + ": " + JSON.stringify(event.payload)); */}}
+
+                {{/* var newEvent = event.payload.message; */}}
+                var recent_own_events = document.getElementById("recent-events")
+                {{/* console.log("recent_own_events: " + JSON.stringify(recent_own_events)); */}}
+
+                recent_own_events.innerHTML = event.payload.message;
+                {{/* console.log("recent_own_events after: " + JSON.stringify(recent_own_events)); */}}
+                {{/* newEvent.innerText = JSON.stringify(event.payload) */}}
+
+                {{/* appendEvent(newEvent); */}}
+
+                {{/* if (parseInt(event.gas_price) > 0) {
+                    var gasInfo = document.getElementById("gas-price")
+                    gasInfo.innerHTML = parseInt(event.gas_price);
+                } */}}
 
                 break;
             case "gas_price":

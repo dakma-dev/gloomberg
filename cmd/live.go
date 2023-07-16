@@ -432,7 +432,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// web ui
 	if viper.GetBool("web.enabled") {
-		go web.StartWebUI(gb)
+		go web.StartWebUI(gb) //nolint:errcheck
 
 		gb.PrMod("web", "web-ui started")
 	}

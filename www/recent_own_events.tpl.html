@@ -1,5 +1,9 @@
-{{ define "event" }}
-<div id="{{.TxHash}}" class="message {{.Action}}">
+{{ define "recent_own_events" }}
+{{range .}}
+    <!-- {{.}} -->
+
+    <div id="{{.TxHash}}" class="recent-own-event {{.Action}}">
+
     {{/* time & type icon */}}
     <span class="time" style="color: {{.Colors.Time}};">{{.ReceivedAt}}</span>
     <span class="typemoji">{{.Typemoji}}</span>
@@ -15,7 +19,6 @@
         {{$PrimaryColor := .Colors.Primary}}
         {{$SecondaryColor := .Colors.Secondary}}
         {{range .TransferredTokens}}
-            <span class="divider"></span>
             {{if not (eq .Rank 0)}}
                 <span class="rank">{{.Rank}}</span>
                 {{if .RankSymbol}}
@@ -39,8 +42,9 @@
     <span class="divider">|</span>
 
     {{/* sender & receiver */}}
-    <span><a target="_blank" href="https://etherscan.io/address/{{.FromAddress}}" style="color: {{.Colors.From}};">{{.From}}</a></span>
+    <span style="color: {{.Colors.From}};">{{.From}}</span>
     <span class="divider">→</span>
-    <span><a target="_blank" href="https://etherscan.io/address/{{.ToAddress}}" style="color: {{.Colors.To}};">{{.To}}</a></span>
+    <span style="color: {{.Colors.To}};">{{.To}}</span>
+{{end}}
 </div>
 {{ end }}

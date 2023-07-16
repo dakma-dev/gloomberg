@@ -47,7 +47,7 @@ type IPInfo struct {
 	Reserved           bool    `json:"reserved"`
 }
 
-func GetIPInfo(ipAddr net.Addr) (*IPInfo, error) {
+func GetIPInfo(ctx context.Context, ipAddr net.Addr) (*IPInfo, error) {
 	// get ip address without port
 	idx := strings.LastIndex(ipAddr.String(), ":")
 	if idx == -1 {
@@ -65,7 +65,7 @@ func GetIPInfo(ipAddr net.Addr) (*IPInfo, error) {
 
 	gbl.Log.Debugf("🩲 getting IPInfo fron ipapi.co for %+v", addrWithoutPort)
 
-	response, err := utils.HTTP.GetWithTLS12AndHeader(context.Background(), url, header)
+	response, err := utils.HTTP.GetWithTLS12AndHeader(ctx, url, header)
 	if err != nil && os.IsTimeout(err) {
 		gbl.Log.Debugf("⌛️ timeout while fetching ipapi.co IPInfo: %+v", err.Error())
 

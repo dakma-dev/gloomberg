@@ -50,8 +50,8 @@ type Stats struct {
 	interval  time.Duration
 	timeframe time.Duration
 
-	RecentEvents    mapset.Set[*degendb.RecentEvent]
-	RecentOwnEvents mapset.Set[*degendb.ParsedEvent]
+	RecentEvents mapset.Set[*degendb.RecentEvent]
+	// RecentOwnEvents mapset.Set[*degendb.ParsedEvent]
 
 	gasTicker *time.Ticker
 
@@ -68,8 +68,7 @@ func NewStats(gb *Gloomberg, gasTicker *time.Ticker, wallets *wallet.Wallets, pr
 		providerPool: providerPool,
 		rdb:          rdb,
 
-		RecentEvents:    mapset.NewSet[*degendb.RecentEvent](),
-		RecentOwnEvents: mapset.NewSet[*degendb.ParsedEvent](),
+		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
 
 		gasTicker: gasTicker,
 
@@ -188,7 +187,7 @@ func (s *Stats) Print(queueOutput chan string) {
 		statsLists = append(statsLists, listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, walletBalancesList...)))
 	}
 
-	if s.RecentOwnEvents.Cardinality() > 0 {
+	if s.gb.RecentOwnEvents.Cardinality() > 0 {
 		eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
 		statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
 	}
@@ -392,11 +391,15 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 	secondcolumn = append(secondcolumn, []string{listItem(labelRunningFor + " " + valueRunningFor)}...)
 
-	// running since
-	labelRunningSince := style.DarkGrayStyle.Render("  since")
-	valueRunningSince := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(internal.RunningSince.Format("15:04"))
+	// // running since
+	// labelRunningSince := style.DarkGrayStyle.Render("  since")
+	// valueRunningSince := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(internal.RunningSince.Format("15:04"))
 
-	secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", labelRunningSince, valueRunningSince))}...)
+	// connected web users
+	labelConnectedUsers := style.DarkGrayStyle.Render("users")
+	valueConnectedUsers := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(fmt.Sprintf("%d", atomic.LoadUint64(&s.gb.CurrentOnlineWebUsers)))
+
+	secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", labelConnectedUsers, valueConnectedUsers))}...)
 
 	// combine lists
 	statsOutput := []string{listStyle.Copy().Render(lipgloss.JoinVertical(lipgloss.Left, firstColumn...))}
@@ -429,7 +432,7 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 func (s *Stats) getOwnEventsHistoryList() []string {
 	eventsList := make([]string, 0)
 
-	if s.RecentOwnEvents.Cardinality() == 0 {
+	if s.gb.RecentOwnEvents.Cardinality() == 0 {
 		gbl.Log.Debugf("no events to show")
 
 		return eventsList
@@ -439,7 +442,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	historyEvents := make([]*degendb.ParsedEvent, 0)
 
 	// for idx, event := range s.EventHistory {
-	for idx, event := range s.RecentOwnEvents.ToSlice() {
+	for idx, event := range s.gb.RecentOwnEvents.ToSlice() {
 		if event == nil {
 			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
 
@@ -621,7 +624,7 @@ func GasTicker(gb *Gloomberg, gasTicker *time.Ticker, providerPool *provider.Poo
 		// }
 
 		gasLine.WriteString(lipgloss.NewStyle().Foreground(lipgloss.Color("#111111")).Render("|"))
-		gasLine.WriteString(style.GrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05")))
+		gasLine.WriteString(style.LightGrayStyle.Copy().Faint(true).Render(time.Now().Format("15:04:05")))
 		gasLine.WriteString(" " + style.DarkGrayStyle.Render("🧟"))
 
 		gasLine.WriteString("   ")

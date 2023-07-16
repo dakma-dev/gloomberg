@@ -12,7 +12,7 @@ type Token struct {
 	ID primitive.ObjectID `bson:"_id,omitempty" json:"id"`
 
 	// Collection is the collection this token belongs to
-	Collection Collection `bson:"collection,omitempty" json:"collection"`
+	Address Address `bson:"collection,omitempty" json:"collection"`
 
 	// CollectionSlugs are the collection slugs of the collection this token belongs to
 	CollectionSlugs Slugs `bson:"collection_slugs,omitempty" json:"collection_slugs"`

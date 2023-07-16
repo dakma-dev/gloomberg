@@ -42,8 +42,9 @@ const (
 	// MessageSendMessage is the message name for new chat messages sent
 	// MsgSendMessage = "send_message".
 
-	MsgNewSale  = "new_event"
-	MsgGasPrice = "gas_price"
+	MsgNewSale         = "new_event"
+	MsgGasPrice        = "gas_price"
+	MsgRecentOwnEvents = "recent_own_events"
 
 	MsgCommand = "cmd"
 )

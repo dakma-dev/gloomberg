@@ -27,8 +27,10 @@ type ParsedEvent struct {
 	IsWatchUsersWallet bool
 
 	// temporary until we have a better solution
-	From string
-	To   string
+	From        *Degen
+	FromAddress common.Address
+	To          *Degen
+	ToAddress   common.Address
 
 	Colors EventColors
 	Other  map[string]interface{}

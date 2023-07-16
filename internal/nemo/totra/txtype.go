@@ -15,20 +15,24 @@ const (
 	Loan
 	CollectionOffer
 	ItemBid
+	OwnBid
 )
 
 func (et TxType) String() string {
 	return map[TxType]string{
-		Sale:     "sale",
-		Mint:     "mint",
-		Transfer: "transfer",
-		Listing:  "listing",
-		Purchase: "purchase",
-		Burn:     "burn",
-		ReBurn:   "reBurn",
-		Airdrop:  "airdrop",
-		Loan:     "loan",
-		Unknown:  "unknown",
+		Sale:            "sale",
+		Mint:            "mint",
+		Transfer:        "transfer",
+		Listing:         "listing",
+		Purchase:        "purchase",
+		Burn:            "burn",
+		ReBurn:          "reBurn",
+		Airdrop:         "airdrop",
+		Loan:            "loan",
+		CollectionOffer: "collectionOffer",
+		ItemBid:         "itemBid",
+		OwnBid:          "ownBid",
+		Unknown:         "unknown",
 	}[et]
 }
 
@@ -56,6 +60,8 @@ func (et TxType) Icon() string {
 		return "🧊"
 	case ItemBid:
 		return "💦"
+	case OwnBid:
+		return "🤑"
 	case Unknown:
 		return "🔬"
 	default:
@@ -79,10 +85,16 @@ func (et TxType) ActionName() string {
 		return "burned"
 	case ReBurn:
 		return "re-burned"
-	case Loan:
-		return "(un?)loaned"
 	case Airdrop:
 		return "got airdropped"
+	case Loan:
+		return "(un?)loaned"
+	case CollectionOffer:
+		return "offered"
+	case ItemBid:
+		return "got bid"
+	case OwnBid:
+		return "bid on"
 	case Unknown:
 		return "did something"
 	}

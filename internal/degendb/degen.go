@@ -3,6 +3,7 @@ package degendb
 import (
 	"time"
 
+	"github.com/benleb/gloomberg/internal/style"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -18,10 +19,14 @@ type Degen struct {
 	// Accounts contains other accounts of this degen
 	Accounts Accounts `bson:"accounts,omitempty" json:"accounts"`
 
-	// Wallets is a list of wallet addresses associated with this degen
-	Wallets []primitive.ObjectID `bson:"wallets,omitempty" json:"wallets"`
-	// RawWallets is a list of wallet addresses associated with this degen
-	RawWallets []Wallet `bson:"raw_wallets,omitempty" json:"raw_wallets"`
+	// // mongoWallets is a list of wallet addresses associated with this degen
+	// mongoWallets []primitive.ObjectID `bson:"wallets,omitempty"`
+
+	// HexAddresses is the ethereum address for this wallet/collection
+	HexAddresses []string `bson:"hex_addresses,omitempty" json:"hex_addresses"`
+
+	// Addresses is a list of wallet addresses associated with this degen
+	Addresses []*Address `bson:"addresses,omitempty" json:"addresses"`
 
 	// Tags is a list of tags associated with this degen
 	Tags []Tag `bson:"tags,omitempty" json:"tags"`
@@ -31,6 +36,24 @@ type Degen struct {
 
 	// UpdatedAt is the time this degen was last updated
 	UpdatedAt time.Time `bson:"updated_at,omitempty" json:"updated_at"`
+}
+
+func (d *Degen) String() string {
+	var degenName string
+
+	switch {
+	case d.Name != "":
+		degenName = d.Name
+	case d.Accounts.Telegram != "":
+		degenName = d.Accounts.Telegram
+	case d.Accounts.Twitter != "":
+		degenName = d.Accounts.Twitter
+	default:
+		degenName = style.ShortenAddress(&d.Addresses[0].Address)
+		// degenName = d.Addresses[0].Address.Hex()
+	}
+
+	return degenName
 }
 
 type Accounts struct {

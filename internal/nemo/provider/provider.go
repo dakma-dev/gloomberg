@@ -573,3 +573,12 @@ func (p *Provider) getGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
 		GasTipWei:         gasTip,
 	}, nil
 }
+
+//
+// bytecode
+//
+
+// codeAt returns the current gas price and tip.
+func (p *Provider) codeAt(ctx context.Context, address common.Address) ([]byte, error) {
+	return p.Client.CodeAt(ctx, address, nil) // nil is latest block
+}

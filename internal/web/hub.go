@@ -4,17 +4,20 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"regexp"
 	"strings"
 	"sync"
+	"time"
 
+	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gobwas/ws"
 )
 
@@ -64,6 +67,8 @@ type WsHub struct {
 	// handlers are functions that are used to handle Events
 	handlers map[string]MessageHandler
 
+	server *http.Server
+
 	sync.RWMutex
 
 	// listenHost string `mapstructure:"host"`
@@ -93,13 +98,13 @@ func NewHub(gb *gloomberg.Gloomberg) *WsHub {
 
 	// return s
 
-	hub := &WsHub{
+	hub := WsHub{
 		gb:       gb,
 		clients:  make(map[*WsClient]bool),
 		handlers: make(map[string]MessageHandler),
 	}
 
-	tmplFiles := []string{"www/event.tpl.html"}
+	tmplFiles := []string{"www/event.tpl.html", "www/recent_own_events.tpl.html"}
 	tmpls, err := template.ParseFiles(tmplFiles...)
 	if err != nil {
 		gbl.Log.Error(err)
@@ -107,171 +112,127 @@ func NewHub(gb *gloomberg.Gloomberg) *WsHub {
 
 	hub.templates = tmpls
 
-	log.Print("")
-	log.Printf("Loaded %d templates", len(tmplFiles))
-	log.Printf("tmpl: %+v", hub.templates)
-
 	hub.setupEventHandlers()
 
-	go hub.broadcastTTx()
+	// loopy mcLoopface
+	hub.broadcaster()
 
-	return hub
+	// for i := 0; i < viper.GetInt("gloomberg.eventhub.numHandler"); i++ {
+	// 	go eh.worker(i)
+	// }
+
+	return &hub
 }
 
-// writer writes broadcast messages from chat.out channel.
-func (wh *WsHub) broadcastTTx() {
-	for parsedEvent := range wh.gb.SubscribeParsedEvents() {
-		if len(wh.clients) == 0 {
-			continue
+// func (hub *WsHub) StartServer(server *http.Server) {
+// 	// start http server
+// 	log.Fatal(server.ListenAndServeTLS("", ""))
+// }
+
+// ClientsOnline returns the number of clients that are currently connected.
+func (wh *WsHub) ClientsOnline() uint64 {
+	wh.RLock()
+	defer wh.RUnlock()
+
+	return uint64(len(wh.clients))
+}
+
+func (wh *WsHub) broadcaster() {
+	parsedEventsChannel := wh.gb.SubscribeParsedEvents()
+	recentOwnEventsChannel := wh.gb.SubscribeRecentOwnEvents()
+
+	// log.Printf(" 🧚‍♀️ 🧚‍♀️ 🧚‍♀️ parsedEventsChannel | %p | %d  🧚‍♀️ 🧚‍♀️ 🧚‍♀️ ", parsedEventsChannel, len(parsedEventsChannel))
+
+	go func() {
+		for {
+			var msgType, preparedMessage string
+			var rendered bytes.Buffer
+
+			select {
+			case parsedEvent := <-parsedEventsChannel:
+				// log.Printf("  🧚‍♀️ parsedEvent | %p | %d  🧚‍♀️ 🧚‍♀️ 🧚‍♀️ ", parsedEventsChannel, len(parsedEventsChannel))
+
+				if parsedEvent == nil {
+					continue
+				}
+
+				if parsedEvent.From == nil || parsedEvent.From.Addresses[0].Address == (common.Address{}) || len(parsedEvent.From.Addresses[0].Address) == 0 || parsedEvent.To == nil || parsedEvent.To.Addresses[0].Address == (common.Address{}) || len(parsedEvent.To.Addresses[0].Address) == 0 {
+					continue
+				}
+
+				err := wh.templates.ExecuteTemplate(io.MultiWriter(&rendered), "event", parsedEvent)
+				if err != nil {
+					log.Errorf("❌ rendering template failed: %+v", err)
+				}
+
+				log.Debugf("rendered: %s", rendered.String())
+
+				msgType = MsgNewSale
+
+			case recentOwnEvents := <-recentOwnEventsChannel:
+				if len(recentOwnEvents) == 0 {
+					continue
+				}
+
+				err := wh.templates.ExecuteTemplate(io.MultiWriter(&rendered), "recent_own_events", recentOwnEvents)
+				if err != nil {
+					log.Errorf("❌ rendering template failed: %+v", err)
+				}
+
+				log.Debugf("rendered: %s", rendered.String())
+
+				msgType = MsgRecentOwnEvents
+			}
+
+			if wh.ClientsOnline() == 0 {
+				time.Sleep(time.Second * 1)
+
+				continue
+			}
+
+			//
+			// html minify for the poor...
+			preparedMessage = strings.ReplaceAll(rendered.String(), "\n", "")
+
+			betweenTagsWhitespace := regexp.MustCompile(`> *<`)
+			preparedMessage = betweenTagsWhitespace.ReplaceAllString(preparedMessage, "><")
+
+			multiWhitespace := regexp.MustCompile(` {2,}`)
+			preparedMessage = multiWhitespace.ReplaceAllString(preparedMessage, " ")
+
+			//
+			// create ws message
+			msg := MessageGeneric[EventPayload]{
+				Type:     msgType,
+				Payload:  EventPayload{Message: preparedMessage},
+				GasPrice: wh.gb.CurrentGasPriceGwei,
+			}
+
+			log.Debugf("msg: %+v", msg)
+
+			marshalledMsg, err := json.Marshal(msg)
+			if err != nil {
+				gbl.Log.Errorf("error marshalling event: %s", err.Error())
+
+				continue
+			}
+
+			// broadcast
+			go wh.broadcast(marshalledMsg)
+
+			gbl.Log.Debugf("event sent to client: %s", string(marshalledMsg))
 		}
+	}()
+}
 
-		// // event := event
+func (wh *WsHub) broadcast(msg json.RawMessage) {
+	// broadcast
+	wh.RLock()
+	clients := wh.clients
+	wh.RUnlock()
 
-		// // var wsEvent *totra.TokenTransaction
-		// // copier.Copy(&wsEvent, &event)
-		// // wsEvent.Collection.Source = wsEvent.Collection.Source.String()
-
-		// // pushEvent := eventToPushEvent(ttx)
-
-		// // data := struct {
-		// // 	Time string
-		// // }{
-		// // 	Time: time.Now().Format("15:04:05"),
-		// // }
-
-		// // items := make(map[string][]int64)
-		// items := []struct {
-		// 	CollectionName  string
-		// 	CollectionColor lipgloss.Color
-		// 	Tokens          []struct {
-		// 		ID         int64
-		// 		Rank       int64
-		// 		RankSymbol string
-		// 	}
-		// }{}
-
-		// for contractAddress, tokenTransfers := range ttx.GetTransfersByContract() {
-		// 	collection := wh.gb.CollectionDB.Collections[contractAddress]
-		// 	if collection == nil {
-		// 		continue
-		// 	}
-
-		// 	tokens := make([]struct {
-		// 		ID         int64
-		// 		Rank       int64
-		// 		RankSymbol string
-		// 	}, len(tokenTransfers))
-
-		// 	for _, tokenTransfer := range tokenTransfers {
-		// 		tokenID := tokenTransfer.Token.ID.Int64()
-		// 		tokens = append(tokens, struct {
-		// 			ID         int64
-		// 			Rank       int64
-		// 			RankSymbol string
-		// 		}{
-		// 			ID:         tokenID,
-		// 			Rank:       wh.gb.Ranks[contractAddress][tokenID].Rank,
-		// 			RankSymbol: wh.gb.Ranks[contractAddress][tokenID].GetRankSymbol(collection.Metadata.TotalSupply),
-		// 		})
-		// 	}
-
-		// 	collectionName := collection.Name
-
-		// 	items = append(items, struct {
-		// 		CollectionName  string
-		// 		CollectionColor lipgloss.Color
-		// 		Tokens          []struct {
-		// 			ID         int64
-		// 			Rank       int64
-		// 			RankSymbol string
-		// 		}
-		// 	}{
-		// 		CollectionName:  collectionName,
-		// 		CollectionColor: collection.Colors.Primary,
-		// 		Tokens:          tokens,
-		// 	})
-		// }
-
-		// if len(items) == 0 {
-		// 	continue
-		// }
-
-		// // prepare data from the ttx for rendering
-		// ttxData := struct {
-		// 	TxHash     string
-		// 	Action     string
-		// 	ReceivedAt string
-		// 	Typemoji   string
-		// 	Price      string
-		// 	Items      []struct {
-		// 		CollectionName  string
-		// 		CollectionColor lipgloss.Color
-		// 		Tokens          []struct {
-		// 			ID         int64
-		// 			Rank       int64
-		// 			RankSymbol string
-		// 		}
-		// 	}
-		// 	EtherscanURL string
-		// }{
-		// 	TxHash:       ttx.TxHash.Hex(),
-		// 	Action:       cases.Fold().String(ttx.Action.String()),
-		// 	ReceivedAt:   ttx.ReceivedAt.Format("15:04:05"),
-		// 	Typemoji:     ttx.Action.Icon(),
-		// 	Price:        fmt.Sprintf("%6.3f", ttx.GetPrice().Ether()),
-		// 	Items:        items,
-		// 	EtherscanURL: ttx.GetEtherscanTxURL(),
-		// }
-
-		if parsedEvent == nil {
-			continue
-		}
-
-		var rendered bytes.Buffer
-		err := wh.templates.ExecuteTemplate(io.MultiWriter(&rendered), "event", parsedEvent)
-		if err != nil {
-			log.Errorf("❌ rendering template failed: %+v", err)
-		}
-
-		log.Debugf("rendered: %s", rendered.String())
-
-		//
-		// html minify for the poor...
-		preparedMessage := strings.ReplaceAll(rendered.String(), "\n", "")
-
-		betweenTagsWhitespace := regexp.MustCompile(`> *<`)
-		preparedMessage = betweenTagsWhitespace.ReplaceAllString(preparedMessage, "><")
-
-		multiWhitespace := regexp.MustCompile(` {2,}`)
-		preparedMessage = multiWhitespace.ReplaceAllString(preparedMessage, " ")
-
-		//
-		// create ws message
-		msg := MessageGeneric[EventPayload]{
-			Type:     MsgNewSale,
-			Payload:  EventPayload{Message: preparedMessage},
-			GasPrice: wh.gb.CurrentGasPriceGwei,
-		}
-
-		log.Debugf("msg: %+v", msg)
-
-		marshalledMsg, err := json.Marshal(msg)
-		if err != nil {
-			gbl.Log.Errorf("error marshalling event: %s", err.Error())
-
-			continue
-		}
-
-		// broadcast
-		wh.RLock()
-		clients := wh.clients
-		wh.RUnlock()
-
-		for client := range clients {
-			client.egress <- marshalledMsg
-		}
-
-		gbl.Log.Debugf("event sent to client: %s", string(marshalledMsg))
+	for client := range clients {
+		client.egress <- msg
 	}
 }
 
@@ -279,7 +240,6 @@ func (wh *WsHub) broadcastTTx() {
 func (wh *WsHub) setupEventHandlers() {
 	wh.handlers[MsgCommand] = func(msg Message, _ *WsClient) error {
 		gbl.Log.Info("received message: ", msg)
-		fmt.Println("received message: ", msg)
 
 		return nil
 	}
@@ -298,8 +258,6 @@ func (wh *WsHub) routeEvent(event Message, wc *WsClient) error {
 
 // serveWS is a HTTP Handler that the has the Manager that allows connections.
 func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
-	gbl.Log.Info("New connection")
-
 	conn, _, _, err := ws.UpgradeHTTP(r, w)
 	if err != nil {
 		// handle error
@@ -308,29 +266,44 @@ func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create New Client
+	// create Client
 	client := NewClient(conn, wh)
-	// Add the newly created client to the manager
+
+	// add the cliented to the hub
 	wh.addClient(client)
 
 	go client.readMessages()
-
 	go client.writeMessages()
 
-	// // We wont do anything yet so close connection again
-	// conn.Close()
+	ipInfo, err := external.GetIPInfo(r.Context(), client.conn.RemoteAddr())
+
+	switch {
+	case err != nil && ipInfo == nil:
+		gbl.Log.Infof("⁉️ error getting ip info: %s", err.Error())
+	case err != nil && ipInfo != nil:
+		gbl.Log.Debugf("⁉️ warning getting ip info: %s", err.Error())
+
+		client.ipInfo = ipInfo
+	default:
+		gbl.Log.Infof("ip info: %+v", ipInfo)
+
+		client.ipInfo = ipInfo
+	}
+
+	gbl.Log.Infof("new client connected: %+v", client)
+	wh.gb.PrModf("web", "new client connected: %+v", style.AlmostWhiteStyle.Render(client.String()))
 }
 
 // addClient will add clients to our clientList.
 func (wh *WsHub) addClient(client *WsClient) {
-	// Lock so we can manipulate
+	gbl.Log.Debugf("    adding client: %+v", client)
+
+	// add Client to locked map
 	wh.Lock()
-	defer wh.Unlock()
-
-	// Add Client
 	wh.clients[client] = true
+	wh.Unlock()
 
-	gbl.Log.Infof("client added: %s", client.conn.RemoteAddr().String())
+	wh.gb.CurrentOnlineWebUsers = wh.ClientsOnline()
 }
 
 // removeClient will remove the client and clean up.
@@ -338,13 +311,17 @@ func (wh *WsHub) removeClient(client *WsClient) {
 	wh.Lock()
 	defer wh.Unlock()
 
+	var clientID string
+
 	// Check if Client exists, then delete it
 	if _, ok := wh.clients[client]; ok {
+		clientID = client.String()
+
 		// close connection
 		client.conn.Close()
 		// remove
 		delete(wh.clients, client)
 	}
 
-	gbl.Log.Info("client removed")
+	gbl.Log.Info("client %s removed", clientID)
 }
