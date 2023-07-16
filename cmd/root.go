@@ -169,8 +169,6 @@ func initConfig() {
 	if rootCmd.CalledAs() != "generate" {
 		gb = gloomberg.New()
 	}
-
-	fmt.Print(rootCmd.CalledAs())
 }
 
 func GracefulShutdown() {
