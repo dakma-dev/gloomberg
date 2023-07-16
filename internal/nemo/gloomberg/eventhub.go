@@ -93,7 +93,7 @@ func newEventHub() *eventHub {
 		},
 
 		In: eventChannelsIn{
-			// ItemListed:      make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			ItemListed:      make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			ItemReceivedBid: make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
 			CollectionOffer: make(chan *models.CollectionOffer, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
@@ -111,7 +111,7 @@ func newEventHub() *eventHub {
 		},
 
 		out: eventChannelsOut{
-			// ItemListed:      make([]chan *models.ItemListed, 0),
+			ItemListed:      make([]chan *models.ItemListed, 0),
 			ItemReceivedBid: make([]chan *models.ItemReceivedBid, 0),
 
 			CollectionOffer: make([]chan *models.CollectionOffer, 0),
