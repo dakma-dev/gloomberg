@@ -219,6 +219,15 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 	return &collection
 }
 
+func (uc *Collection) String() string {
+	return fmt.Sprintf("%s (%s)", uc.Name, style.ShortenAddress(&uc.ContractAddress))
+}
+
+// IsOwn returns true if the collection is owned by the user (= in the wallet or configured in the config file).
+func (uc *Collection) IsOwn() bool {
+	return uc.Source == FromWallet || uc.Source == FromConfiguration
+}
+
 func (uc *Collection) prettyOpenseaSlug() string {
 	if uc.OpenseaSlug == "" {
 		return ""

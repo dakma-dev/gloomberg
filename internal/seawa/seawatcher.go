@@ -18,6 +18,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/charmbracelet/log"
+	"github.com/kr/pretty"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
 	"github.com/prometheus/client_golang/prometheus"
@@ -50,7 +51,7 @@ type SeaWatcher struct {
 }
 
 var (
-	availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated} //  osmodels.ItemReceivedBid, osmodels.CollectionOffer} //, osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+	availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_oswatcher_events_received_total",
@@ -233,6 +234,9 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		decoderConfig.Result = &event
 		decoder, _ := mapstructure.NewDecoder(decoderConfig)
 
+		// pretty.Println(rawEvent)
+		// gbl.Log.Infof(fmt.Sprintf("%# v", pretty.Formatter(rawEvent)))
+
 		err := decoder.Decode(rawEvent)
 		if err != nil {
 			log.Infof("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
@@ -242,6 +246,24 @@ func (sw *SeaWatcher) eventHandler(response any) {
 
 		// push to eventHub for further processing
 		sw.gb.In.CollectionOffer <- event
+
+	case osmodels.ItemMetadataUpdated:
+		var event *models.ItemMetadataUpdated
+
+		decoderConfig.Result = &event
+		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+
+		gbl.Log.Debugf(fmt.Sprintf("%# v", pretty.Formatter(rawEvent)))
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+
+			return
+		}
+
+		// push to eventHub for further processing
+		sw.gb.In.ItemMetadataUpdated <- event
 	}
 }
 

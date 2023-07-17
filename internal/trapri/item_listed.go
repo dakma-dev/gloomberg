@@ -4,6 +4,7 @@ import (
 	"math/big"
 	"strings"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/token"
@@ -34,7 +35,7 @@ func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 		AmountPaid:  event.Payload.GetPrice().Wei(),
 		TotalTokens: int64(event.Payload.Quantity),
 		Marketplace: &marketplace.OpenSea,
-		Action:      totra.Listing,
+		Action:      degendb.Listing,
 		ReceivedAt:  event.Payload.EventTimestamp,
 		DoNotPrint:  false,
 		Transfers: []*totra.TokenTransfer{

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -210,9 +211,9 @@ func readBlueChipWalltesFromJSON(file string, bluechipType HolderTypes) {
 	}
 }
 
-func allowedAction(action totra.TxType) bool {
+func allowedAction(action degendb.EventType) bool {
 	switch action {
-	case totra.Sale, totra.Purchase, totra.Mint:
+	case degendb.Sale, degendb.Purchase, degendb.Mint:
 		return true
 	}
 
@@ -287,10 +288,10 @@ func (s *BlueChipStats) CheckForBlueChipInvolvment(eventTx *totra.TokenTransacti
 	}
 
 	switch eventTx.Action {
-	case totra.Sale:
+	case degendb.Sale:
 		s.CollectionStats[contractAddress].SalesTXs++
 		s.CollectionStats[contractAddress].Sales++
-	case totra.Mint:
+	case degendb.Mint:
 		s.CollectionStats[contractAddress].Sales++
 		s.CollectionStats[contractAddress].Mints++
 	}

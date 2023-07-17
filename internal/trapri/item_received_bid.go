@@ -6,10 +6,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/token"
+	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/seawa/models"
@@ -28,7 +30,14 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 	// our token?
 	isOwnToken := gb.OwnWallets.ContainsToken(nftID.ContractAddress(), nftID.TokenID().String())
 	// did someone from us make a bid?
-	isWatchUsersWallet := gb.Watcher.Contains(event.Payload.Taker.Address)
+	isWatchUsersWallet := gb.Watcher.Contains(event.Payload.Maker.Address)
+
+	collection := tokencollections.GetCollection(gb, nftID.ContractAddress(), nftID.TokenID().Int64())
+
+	collectionName := "unknown"
+	if collection != nil {
+		collectionName = collection.Name
+	}
 
 	// check if we hold the token/got a bid
 	if !isOwnToken && !isWatchUsersWallet {
@@ -52,6 +61,8 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 
 	// get the current top bid for this token
 	topBid := tokenTopBids[nftID.TID()]
+
+	log.Debugf("2 %s | own: %+v | watchUser: %+v", collectionName, isOwnToken, isWatchUsersWallet)
 
 	switch {
 	// no or expired top bid - setting new top bid
@@ -83,6 +94,7 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 
 	itemName := strings.Split(event.Payload.Item.Metadata.Name, " #")[0]
 
+	log.Debugf("3 %s | own: %+v | watchUser: %+v", collectionName, isOwnToken, isWatchUsersWallet)
 	//
 	// create a TokenTransaction
 	ttxBid := &totra.TokenTransaction{
@@ -92,7 +104,7 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 		AmountPaid:  event.Payload.GetPrice().Wei(),
 		TotalTokens: int64(event.Payload.Quantity),
 		Marketplace: &marketplace.OpenSea,
-		Action:      totra.ItemBid,
+		Action:      degendb.Bid,
 		ReceivedAt:  event.Payload.EventTimestamp,
 		DoNotPrint:  false,
 		Highlight:   highlightBid,
@@ -115,10 +127,12 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 		gb.In.TokenTransactions <- ttxBid
 	}
 
+	log.Debugf("4 %s | own: %+v | watchUser: %+v", collectionName, isOwnToken, isWatchUsersWallet)
+
 	if isWatchUsersWallet {
 		gbl.Log.Infof("🧱 sending telegram notification ItemReceivedBid 🧚 | isOwnToken: %+v | isWatchUsersWallet: %+v", isOwnToken, isWatchUsersWallet)
 
-		ttxBid.Action = totra.OwnBid
+		ttxBid.Action = degendb.OwnBid
 
 		// send notification
 		go notify.SendNotification(gb, ttxBid)

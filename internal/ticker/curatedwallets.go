@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
@@ -80,8 +81,8 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 				blocksAgo := currentBlock - tx.TxReceipt.BlockNumber.Uint64()
 
 				// get correct ActionType
-				if tx.Action != totra.Mint && tx.GetNFTReceivers()[tx.From] != nil {
-					tx.Action = totra.Purchase
+				if tx.Action != degendb.Mint && tx.GetNFTReceivers()[tx.From] != nil {
+					tx.Action = degendb.Purchase
 				}
 
 				amountTokens := 0
@@ -306,14 +307,14 @@ func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAd
 
 	// get correct ActionType
 	if eventTx.GetNFTReceivers()[eventTx.From] != nil {
-		eventTx.Action = totra.Purchase
+		eventTx.Action = degendb.Purchase
 	}
 
-	if eventTx.Action == totra.Purchase || eventTx.Action == totra.Mint {
+	if eventTx.Action == degendb.Purchase || eventTx.Action == degendb.Mint {
 		s.CollectionData[collection.ContractAddress].Score += s.WalletMap[recipientAddress].Score
 	}
 
-	if eventTx.Action == totra.Sale {
+	if eventTx.Action == degendb.Sale {
 		s.CollectionData[collection.ContractAddress].Score -= s.WalletMap[recipientAddress].Score
 	}
 

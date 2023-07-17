@@ -16,16 +16,17 @@ import (
 )
 
 var (
-	counterItemListed        int64
-	counterItemReceivedBid   int64
-	counterCollectionOffer   int64
-	counterTxWithLogs        int64
-	counterTokenTransactions int64
-	counterParsedEvents      int64
-	counterRecentOwnEvents   int64
-	counterSeawatcherMgmt    int64
-	counterPrintToTerminal   int64
-	counterNewBlock          int64
+	counterItemListed          int64
+	counterItemReceivedBid     int64
+	counterItemMetadataUpdated int64
+	counterCollectionOffer     int64
+	counterTxWithLogs          int64
+	counterTokenTransactions   int64
+	counterParsedEvents        int64
+	counterRecentOwnEvents     int64
+	counterSeawatcherMgmt      int64
+	counterPrintToTerminal     int64
+	counterNewBlock            int64
 )
 
 // eventHub is a central hub for all events.
@@ -40,8 +41,9 @@ type eventHub struct {
 }
 
 type eventChannelsIn struct {
-	ItemListed      chan *models.ItemListed
-	ItemReceivedBid chan *models.ItemReceivedBid
+	ItemListed          chan *models.ItemListed
+	ItemReceivedBid     chan *models.ItemReceivedBid
+	ItemMetadataUpdated chan *models.ItemMetadataUpdated
 
 	CollectionOffer chan *models.CollectionOffer
 
@@ -58,8 +60,9 @@ type eventChannelsIn struct {
 }
 
 type eventChannelsOut struct {
-	ItemListed      []chan *models.ItemListed
-	ItemReceivedBid []chan *models.ItemReceivedBid
+	ItemListed          []chan *models.ItemListed
+	ItemReceivedBid     []chan *models.ItemReceivedBid
+	ItemMetadataUpdated []chan *models.ItemMetadataUpdated
 
 	CollectionOffer []chan *models.CollectionOffer
 
@@ -80,21 +83,23 @@ func newEventHub() *eventHub {
 		CurrentBlock: 0,
 
 		counters: map[string]*int64{
-			"ItemListed":        &counterItemListed,
-			"ItemReceivedBid":   &counterItemReceivedBid,
-			"CollectionOffer":   &counterCollectionOffer,
-			"TxWithLogs":        &counterTxWithLogs,
-			"TokenTransactions": &counterTokenTransactions,
-			"ParsedEvents":      &counterParsedEvents,
-			"RecentOwnEvents":   &counterRecentOwnEvents,
-			"SeawatcherMgmt":    &counterSeawatcherMgmt,
-			"PrintToTerminal":   &counterPrintToTerminal,
-			"NewBlock":          &counterNewBlock,
+			"ItemListed":          &counterItemListed,
+			"ItemReceivedBid":     &counterItemReceivedBid,
+			"ItemMetadataUpdated": &counterItemMetadataUpdated,
+			"CollectionOffer":     &counterCollectionOffer,
+			"TxWithLogs":          &counterTxWithLogs,
+			"TokenTransactions":   &counterTokenTransactions,
+			"ParsedEvents":        &counterParsedEvents,
+			"RecentOwnEvents":     &counterRecentOwnEvents,
+			"SeawatcherMgmt":      &counterSeawatcherMgmt,
+			"PrintToTerminal":     &counterPrintToTerminal,
+			"NewBlock":            &counterNewBlock,
 		},
 
 		In: eventChannelsIn{
-			ItemListed:      make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
-			ItemReceivedBid: make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			ItemListed:          make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			ItemReceivedBid:     make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			ItemMetadataUpdated: make(chan *models.ItemMetadataUpdated, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
 			CollectionOffer: make(chan *models.CollectionOffer, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
@@ -111,8 +116,9 @@ func newEventHub() *eventHub {
 		},
 
 		out: eventChannelsOut{
-			ItemListed:      make([]chan *models.ItemListed, 0),
-			ItemReceivedBid: make([]chan *models.ItemReceivedBid, 0),
+			ItemListed:          make([]chan *models.ItemListed, 0),
+			ItemReceivedBid:     make([]chan *models.ItemReceivedBid, 0),
+			ItemMetadataUpdated: make([]chan *models.ItemMetadataUpdated, 0),
 
 			CollectionOffer: make([]chan *models.CollectionOffer, 0),
 
@@ -151,29 +157,31 @@ func newEventHub() *eventHub {
 
 			// pretty.Println(eh.counters)
 			chans := map[string]int{
-				"ItemListed":        len(eh.In.ItemListed),
-				"ItemReceivedBid":   len(eh.In.ItemReceivedBid),
-				"CollectionOffer":   len(eh.In.CollectionOffer),
-				"TxWithLogs":        len(eh.In.TxWithLogs),
-				"TokenTransactions": len(eh.In.TokenTransactions),
-				"ParsedEvents":      len(eh.In.ParsedEvents),
-				"RecentOwnEvents":   len(eh.In.RecentOwnEvents),
-				"SeawatcherMgmt":    len(eh.In.SeawatcherMgmt),
-				"PrintToTerminal":   len(eh.In.PrintToTerminal),
-				"NewBlock":          len(eh.In.NewBlock),
+				"ItemListed":          len(eh.In.ItemListed),
+				"ItemReceivedBid":     len(eh.In.ItemReceivedBid),
+				"ItemMetadataUpdated": len(eh.In.ItemMetadataUpdated),
+				"CollectionOffer":     len(eh.In.CollectionOffer),
+				"TxWithLogs":          len(eh.In.TxWithLogs),
+				"TokenTransactions":   len(eh.In.TokenTransactions),
+				"ParsedEvents":        len(eh.In.ParsedEvents),
+				"RecentOwnEvents":     len(eh.In.RecentOwnEvents),
+				"SeawatcherMgmt":      len(eh.In.SeawatcherMgmt),
+				"PrintToTerminal":     len(eh.In.PrintToTerminal),
+				"NewBlock":            len(eh.In.NewBlock),
 			}
 
 			outChans := map[string]int{
-				"outItemListed":        len(eh.out.ItemListed),
-				"outItemReceivedBid":   len(eh.out.ItemReceivedBid),
-				"outCollectionOffer":   len(eh.out.CollectionOffer),
-				"outTxWithLogs":        len(eh.out.TxWithLogs),
-				"outTokenTransactions": len(eh.out.TokenTransactions),
-				"outParsedEvents":      len(eh.out.ParsedEvents),
-				"outRecentOwnEvents":   len(eh.out.RecentOwnEvents),
-				"outSeawatcherMgmt":    len(eh.out.SeawatcherMgmt),
-				"outPrintToTerminal":   len(eh.out.PrintToTerminal),
-				"outNewBlock":          len(eh.out.NewBlock),
+				"outItemListed":          len(eh.out.ItemListed),
+				"outItemReceivedBid":     len(eh.out.ItemReceivedBid),
+				"outItemMetadataUpdated": len(eh.out.ItemMetadataUpdated),
+				"outCollectionOffer":     len(eh.out.CollectionOffer),
+				"outTxWithLogs":          len(eh.out.TxWithLogs),
+				"outTokenTransactions":   len(eh.out.TokenTransactions),
+				"outParsedEvents":        len(eh.out.ParsedEvents),
+				"outRecentOwnEvents":     len(eh.out.RecentOwnEvents),
+				"outSeawatcherMgmt":      len(eh.out.SeawatcherMgmt),
+				"outPrintToTerminal":     len(eh.out.PrintToTerminal),
+				"outNewBlock":            len(eh.out.NewBlock),
 			}
 
 			inWarnings := strings.Builder{}
@@ -222,6 +230,13 @@ func (eh *eventHub) SubscribeItemListed() chan *models.ItemListed {
 func (eh *eventHub) SubscribeItemReceivedBid() chan *models.ItemReceivedBid {
 	outChannel := make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
 	eh.out.ItemReceivedBid = append(eh.out.ItemReceivedBid, outChannel)
+
+	return outChannel
+}
+
+func (eh *eventHub) SubscribeItemMetadataUpdated() chan *models.ItemMetadataUpdated {
+	outChannel := make(chan *models.ItemMetadataUpdated, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
+	eh.out.ItemMetadataUpdated = append(eh.out.ItemMetadataUpdated, outChannel)
 
 	return outChannel
 }
@@ -310,16 +325,21 @@ func (eh *eventHub) worker(workerID int) {
 				ch <- event
 			}
 		case event := <-eh.In.ItemReceivedBid:
-			log.Infof("ItemReceivedBid event | %d | pushing to %d receivers", workerID, len(eh.out.ItemReceivedBid))
+			log.Debugf("ItemReceivedBid event | %d | pushing to %d receivers", workerID, len(eh.out.ItemReceivedBid))
 
 			atomic.AddInt64(eh.counters["ItemReceivedBid"], 1)
 
 			for _, ch := range eh.out.ItemReceivedBid {
 				ch <- event
 			}
+		case event := <-eh.In.ItemMetadataUpdated:
+			log.Debugf("ItemMetadataUpdated event | %d | pushing to %d receivers", workerID, len(eh.out.ItemMetadataUpdated))
 
-			log.Infof("ItemReceivedBid event | %d | pushing to %d receivers", workerID, len(eh.out.ItemReceivedBid))
+			atomic.AddInt64(eh.counters["ItemMetadataUpdated"], 1)
 
+			for _, ch := range eh.out.ItemMetadataUpdated {
+				ch <- event
+			}
 		case event := <-eh.In.CollectionOffer:
 			log.Debugf("CollectionOffer event | %d | pushing to %d receivers", workerID, len(eh.out.CollectionOffer))
 

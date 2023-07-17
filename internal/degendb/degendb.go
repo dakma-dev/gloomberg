@@ -166,37 +166,7 @@ func (ddb *DegenDB) initializeDegensCollection() {
 	degensColl := ddb.mongo.Database(mongoDB).Collection(collDegens)
 	addressesColl := ddb.mongo.Database(mongoDB).Collection(collAddresses)
 
-	beAddr1 := common.HexToAddress("0x37416906c8011358DaB16F0d73BeEbf580d4AFa8")
-	beAddr2 := common.HexToAddress("0x8fEE0de24CB0B8df2423dfC68113C133Cd7650b3")
-	beAddr3 := common.HexToAddress("0xCd8aF79Ba3974404e37f126a8E355690351Da8bD")
-	luAddr1 := common.HexToAddress("0x0DB54CC560Ae7832898e82E5E607E8142e519891")
-	luAddr2 := common.HexToAddress("0x9654F22b9dEBac18396b4815C138A450786a7045")
-	luAddr3 := common.HexToAddress("0xB364600e673E63FCbA4Ed1012F55DEb31eFa14ac")
-
-	ogDegens := []interface{}{
-		&Degen{
-			Name:     "Ben",
-			Accounts: Accounts{Twitter: "ben_leb", Telegram: "benleb", TelegramChatID: -1001808788625},
-			Addresses: []*Address{
-				{HexAddress: beAddr1.Hex(), Address: beAddr1, Name: "gnova"},
-				{HexAddress: beAddr2.Hex(), Address: beAddr2, Name: "neva"},
-				{HexAddress: beAddr3.Hex(), Address: beAddr3, Name: "drastic"},
-			},
-			Tags:      []Tag{"og", "dakma", "dev"},
-			CreatedAt: time.Now(),
-		},
-		&Degen{
-			Name:     "Luke",
-			Accounts: Accounts{Twitter: "0xlugges", Telegram: "luke_take_profits"},
-			Addresses: []*Address{
-				{HexAddress: luAddr1.Hex(), Address: luAddr1},
-				{HexAddress: luAddr2.Hex(), Address: luAddr2},
-				{HexAddress: luAddr3.Hex(), Address: luAddr3},
-			},
-			Tags:      []Tag{"og", "dakma", "dev"},
-			CreatedAt: time.Now(),
-		},
-	}
+	ogDegens := []interface{}{}
 
 	for _, degen := range ogDegens {
 		degen, ok := degen.(*Degen)
@@ -218,8 +188,6 @@ func (ddb *DegenDB) initializeDegensCollection() {
 			log.Error(err)
 		}
 
-		log.Printf("addressResult: %#v", addressResult)
-
 		if addressResult == nil {
 			log.Printf("addressResult.InsertedIDs is nil")
 
@@ -234,19 +202,14 @@ func (ddb *DegenDB) initializeDegensCollection() {
 				continue
 			}
 
-			address := common.HexToAddress(hexAddress)
-
-			log.Printf("  👚 addr: %#v", address)
-			// log.Printf("  👚 common.BytesToAddress(addr.Data): %#v", common.BytesToAddress(addr.Data))
+			_ = common.HexToAddress(hexAddress)
 		}
 	}
 
-	degensResult, err := degensColl.InsertMany(context.TODO(), ogDegens)
+	_, err := degensColl.InsertMany(context.TODO(), ogDegens)
 	if err != nil {
 		log.Error(err)
 	}
-
-	log.Printf("degensResult: %#v", degensResult.InsertedIDs)
 }
 
 func (ddb *DegenDB) AddCollectionToken(collections interface{}, tokens interface{}) {

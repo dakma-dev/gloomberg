@@ -28,6 +28,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/kr/pretty"
 	"github.com/spf13/viper"
 )
 
@@ -96,7 +97,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// isBidDump := false
 
 	// telegram notification
-	if viper.GetBool("notifications.telegram.enabled") && (isOwnWallet || isWatchUsersWallet) && ttx.Action != totra.Transfer {
+	if viper.GetBool("notifications.telegram.enabled") && (isOwnWallet || isWatchUsersWallet) && ttx.Action != degendb.Transfer {
 		gbl.Log.Infof("🧱 sending telegram notification | isOwnWallet: %+v | isWatchUsersWallet: %+v", isOwnWallet, isWatchUsersWallet)
 
 		go notify.SendNotification(gb, ttx)
@@ -107,7 +108,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// over the collections/transfers
 	var currentCollection *collections.Collection
 
-	if len(ttx.GetTransfersByContract()) >= 1 && currentCollection == nil {
+	if len(ttx.GetTransfersByContract()) >= 1 && currentCollection == nil || ttx.Action == degendb.CollectionOffer {
 		currentCollection = tokencollections.GetCollection(gb, ttx.Transfers[0].Token.Address, ttx.Transfers[0].Token.ID.Int64())
 	}
 
@@ -122,7 +123,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	parsedEvent.Colors.PriceArrow = priceArrowColor
 
 	switch ttx.Action {
-	case totra.ReBurn, totra.Burn, totra.Airdrop, totra.Transfer:
+	case degendb.BurnRedeem, degendb.Burn, degendb.Airdrop, degendb.Transfer:
 		priceStyle = style.DarkerGrayStyle
 	}
 
@@ -274,7 +275,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			if transfer.To == internal.ZeroAddress {
 				fmtTokenID.WriteString("🔥")
 
-				if ttx.Action == totra.ReBurn {
+				if ttx.Action == degendb.BurnRedeem {
 					burnedTokenTransferIndex = len(fmtTokensTransferred)
 				}
 			}
@@ -422,21 +423,29 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			fmtTokensHistory = append(fmtTokensHistory, fmtHistoryEvent.String())
 		}
 
-		// counting
-		if !ttx.IsListing() {
+		// count sales/purchases
+		if degendb.SaleTypes.Contains(ttx.Action) {
 			ttx.TotalTokens += numCollectionTokens
+
+			collection.AddSales(ttx.AmountPaid, uint64(numCollectionTokens))
 		}
 
-		// collection counting
-		switch ttx.Action {
-		case totra.Sale, totra.Purchase:
-			collection.AddSales(ttx.AmountPaid, uint64(numCollectionTokens))
-		case totra.Mint:
+		// count mints
+		if ttx.Action == degendb.Mint {
 			collection.AddMintVolume(ttx.AmountPaid, uint64(numCollectionTokens))
 		}
 
 		transferredCollections = append(transferredCollections, transferredCollection)
 	}
+
+	// // add number of tokens transferred
+	// if transfer.AmountTokens.Cmp(big.NewInt(1)) > 0 {
+	// 	fmtTokenID.WriteString(style.DarkGrayStyle.Render(transfer.AmountTokens.String() + "x"))
+
+	// 	transferredToken.Amount = transfer.AmountTokens.Int64()
+	// }
+
+	// log.Printf("transfer.AmountTokens: %+v", transfer.AmountTokens)
 
 	parsedEvent.TransferredCollections = transferredCollections
 
@@ -444,13 +453,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	if gb.Stats != nil {
 		var eventType degendb.EventType
 		switch ttx.Action {
-		case totra.Sale, totra.Purchase:
-			// gb.Stats.AddSale(ttx.TotalTokens, ttx.AmountPaid)
+		case degendb.Sale, degendb.Purchase:
 			eventType = degendb.Sale
-		case totra.Mint:
-			// gb.Stats.AddMint(ttx.TotalTokens, ttx.AmountPaid)
+		case degendb.Mint:
 			eventType = degendb.Mint
-		case totra.Listing:
+		case degendb.Listing:
 			eventType = degendb.Listing
 		}
 
@@ -496,7 +503,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		sepStyle := style.GrayStyle
 
 		switch {
-		case ttx.Action == totra.Burn || ttx.Action == totra.ReBurn || ttx.Action == totra.Airdrop || ttx.Action == totra.Transfer:
+		case ttx.Action == degendb.Burn || ttx.Action == degendb.BurnRedeem || ttx.Action == degendb.Airdrop || ttx.Action == degendb.Transfer:
 			beforeSepStyle = style.DarkerGrayStyle
 			sepStyle = style.LightGrayStyle.Copy().Faint(true)
 
@@ -524,6 +531,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	if len(fmtTokensTransferred) == 0 && ttx.Tx != nil {
 		gbl.Log.Debugf("🧐 no tokens transferred: %s | %+v", style.TerminalLink(utils.GetEtherscanTxURL(txHash.String()), txHash.String()), ttx.Transfers)
+		gbl.Log.Debugf("no tokens transferred: %+v", fmt.Sprintf("%+v", pretty.Formatter(ttx)))
 
 		for _, transfer := range ttx.Transfers {
 			gbl.Log.Debugf(
@@ -637,14 +645,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		volume := utils.WeiToEther(currentCollection.Counters.SalesVolume)
 		out.WriteString(" | " + currentFloorPriceStyle.Render(fmt.Sprintf("Σ%6.1fΞ", volume)))
 
-		if ttx.Action == totra.Mint {
+		if ttx.Action == degendb.Mint {
 			out.WriteString(" | " + fmt.Sprintf("%dx", currentCollection.Counters.Mints))
 		}
 	}
 
 	//
 	// show the burned token(s) on the same line on the right side
-	if ttx.Action == totra.ReBurn && len(fmtTokensTransferred) == 2 && burnedTokenTransferIndex >= 0 && burnedTokenTransferIndex < len(fmtTokensTransferred) {
+	if ttx.Action == degendb.BurnRedeem && len(fmtTokensTransferred) == 2 && burnedTokenTransferIndex >= 0 && burnedTokenTransferIndex < len(fmtTokensTransferred) {
 		// flips between 0 and 1 depending on the burnedTokenTransferIndex
 		redeemedTokenTransferIndex := 1 - burnedTokenTransferIndex
 
@@ -657,6 +665,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	if len(fmtTokensTransferred) == 0 {
 		gb.PrWarn(fmt.Sprintf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL)))
+
+		gbl.Log.Warnf("no tokens transferred: %+v", fmt.Sprintf("%+v", pretty.Formatter(ttx)))
 
 		return
 	}
@@ -672,7 +682,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// link etherscan
-	if ttx.Action != totra.Listing {
+	if ttx.Action != degendb.Listing {
 		out.WriteString(" | " + style.GrayStyle.Render(style.TerminalLink(etherscanURL, "ES")))
 	}
 
@@ -786,31 +796,31 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			return
 		}
 
-		if !currentCollection.Show.Mints && (ttx.Action == totra.Mint || ttx.Action == totra.Airdrop) && !viper.GetBool("show.mints") {
+		if !currentCollection.Show.Mints && (ttx.Action == degendb.Mint || ttx.Action == degendb.Airdrop) && !viper.GetBool("show.mints") {
 			log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
 
 			return
 		}
 
-		if (ttx.Action == totra.Burn) && !viper.GetBool("show.burns") {
+		if (ttx.Action == degendb.Burn) && !viper.GetBool("show.burns") {
 			log.Debugf("skipping burn/airdrop %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.burns"), ttx)
 
 			return
 		}
 
-		if (ttx.Action == totra.ReBurn) && !viper.GetBool("show.reburns") {
+		if (ttx.Action == degendb.BurnRedeem) && !viper.GetBool("show.reburns") {
 			log.Debugf("skipping re-burn %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.reburns"), ttx)
 
 			return
 		}
 
-		if (ttx.Action == totra.Transfer) && !viper.GetBool("show.transfers") {
+		if (ttx.Action == degendb.Transfer) && !viper.GetBool("show.transfers") {
 			log.Debugf("skipping transfer %s | viper.GetBool(show.transfers): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.transfers"), ttx)
 
 			return
 		}
 
-		if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+		if (ttx.Action == degendb.Unknown) && !viper.GetBool("show.unknown") {
 			log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.ShortenHashStyled(txHash)), viper.GetBool("show.unknown"), ttx)
 
 			return
@@ -871,7 +881,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// add blue chip icons
 	if viper.GetBool("notifications.bluechip.enabled") {
-		if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != totra.Burn {
+		if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != degendb.Burn {
 			if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
 				out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
 			}
@@ -909,31 +919,31 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// 		return
 	// 	}
 
-	// 	if !currentCollection.Show.Mints && (ttx.Action == totra.Mint || ttx.Action == totra.Airdrop) && !viper.GetBool("show.mints") {
+	// 	if !currentCollection.Show.Mints && (ttx.Action == degendb.Mint || ttx.Action == degendb.Airdrop) && !viper.GetBool("show.mints") {
 	// 		gbl.Log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
 
 	// 		return
 	// 	}
 
-	// 	if (ttx.Action == totra.Burn) && !viper.GetBool("show.burns") {
+	// 	if (ttx.Action == degendb.Burn) && !viper.GetBool("show.burns") {
 	// 		gbl.Log.Debugf("skipping burn/airdrop %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.burns"), ttx)
 
 	// 		return
 	// 	}
 
-	// 	if (ttx.Action == totra.ReBurn) && !viper.GetBool("show.reburns") {
+	// 	if (ttx.Action == degendb.BurnRedeem) && !viper.GetBool("show.reburns") {
 	// 		gbl.Log.Debugf("skipping re-burn %s | viper.GetBool(show.burns): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.reburns"), ttx)
 
 	// 		return
 	// 	}
 
-	// 	if (ttx.Action == totra.Transfer) && !viper.GetBool("show.transfers") {
+	// 	if (ttx.Action == degendb.Transfer) && !viper.GetBool("show.transfers") {
 	// 		gbl.Log.Debugf("skipping transfer %s | viper.GetBool(show.transfers): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.transfers"), ttx)
 
 	// 		return
 	// 	}
 
-	// 	if (ttx.Action == totra.Unknown) && !viper.GetBool("show.unknown") {
+	// 	if (ttx.Action == degendb.Unknown) && !viper.GetBool("show.unknown") {
 	// 		gbl.Log.Debugf("skipping unknown %s | viper.GetBool(show.unknown): %v | %+v", style.TerminalLink(txHash.String(), style.ShortenHashStyled(txHash)), viper.GetBool("show.unknown"), ttx)
 
 	// 		return
@@ -961,7 +971,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// add to history
-	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid()) { // && ttx.Action != totra.ItemBid && ttx.Action != totra.CollectionOffer {
+	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid()) { // && ttx.Action != degendb.ItemBid && ttx.Action != degendb.CollectionOffer {
 		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && currentCollection.Source != collections.FromConfiguration && gb.Stats != nil {
 			// gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
 

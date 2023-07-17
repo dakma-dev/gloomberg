@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
@@ -73,7 +74,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 		AmountPaid:  amountPaid.Wei(),
 		TotalTokens: int64(event.Payload.Quantity),
 		Marketplace: &marketplace.OpenSea,
-		Action:      totra.Listing,
+		Action:      degendb.Listing,
 		ReceivedAt:  receivedAt,
 		DoNotPrint:  false,
 		Transfers: []*totra.TokenTransfer{

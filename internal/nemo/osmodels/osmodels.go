@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/price"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -28,11 +28,11 @@ const (
 	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
 
-var TxType = map[EventType]totra.TxType{
-	ItemListed:      totra.Listing,
-	ItemSold:        totra.Sale,
-	CollectionOffer: totra.CollectionOffer,
-	ItemReceivedBid: totra.ItemBid,
+var TxType = map[EventType]degendb.EventType{
+	ItemListed:      degendb.Listing,
+	ItemSold:        degendb.Sale,
+	CollectionOffer: degendb.CollectionOffer,
+	ItemReceivedBid: degendb.Bid,
 }
 
 type ItemEvent interface {

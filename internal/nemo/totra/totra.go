@@ -7,6 +7,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -29,7 +30,7 @@ type TokenTransaction struct {
 	TxReceipt *types.Receipt `json:"tx_receipt"`
 
 	// action performed by the tx
-	Action TxType `json:"action"`
+	Action degendb.EventType `json:"action"`
 
 	// the sender of the tx
 	From common.Address `json:"from"`
@@ -356,15 +357,15 @@ func (ttx *TokenTransaction) IsMovingNFTs() bool {
 }
 
 func (ttx *TokenTransaction) IsListing() bool {
-	return ttx.Action == Listing
+	return ttx.Action == degendb.Listing
 }
 
 func (ttx *TokenTransaction) IsItemBid() bool {
-	return ttx.Action == ItemBid
+	return ttx.Action == degendb.Bid
 }
 
 func (ttx *TokenTransaction) IsCollectionOffer() bool {
-	return ttx.Action == CollectionOffer
+	return ttx.Action == degendb.CollectionOffer
 }
 
 func (ttx *TokenTransaction) IsMint() bool {
@@ -514,30 +515,30 @@ func (ttx *TokenTransaction) IsTransfer() bool {
 	return true
 }
 
-func (ttx *TokenTransaction) getAction() TxType {
+func (ttx *TokenTransaction) getAction() *degendb.GBEventType {
 	if !ttx.IsMovingNFTs() {
-		return Unknown
+		return degendb.Unknown
 	}
 
 	switch {
 	case ttx.IsMint():
-		return Mint
+		return degendb.Mint
 	case ttx.IsLoan():
-		return Loan
+		return degendb.Loan
 	case ttx.Marketplace != nil && ttx.Marketplace != &marketplace.Unknown:
-		return Sale
+		return degendb.Sale
 	case ttx.IsAirdrop():
-		return Airdrop
+		return degendb.Airdrop
 	case ttx.IsReBurn():
-		return ReBurn
+		return degendb.BurnRedeem
 	case ttx.IsBurn():
-		return Burn
+		return degendb.Burn
 	case ttx.AmountPaid.Cmp(big.NewInt(0)) > 0:
-		return Sale
+		return degendb.Sale
 	case ttx.IsTransfer():
-		return Transfer
+		return degendb.Transfer
 	default:
-		return Unknown
+		return degendb.Unknown
 	}
 }
 

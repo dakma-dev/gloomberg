@@ -4,6 +4,7 @@ import (
 	"sort"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -70,4 +71,18 @@ func (ws *Wallets) ContainsToken(tokenAddress common.Address, tokenID string) bo
 	}
 
 	return false
+}
+
+func (ws *Wallets) GetCollectionTokens(collectionAddress common.Address) []*token.Token {
+	collectionTokens := make([]*token.Token, 0)
+
+	for _, w := range *ws {
+		if tokens := w.Tokens[collectionAddress]; len(tokens) > 0 {
+			for _, token := range tokens {
+				collectionTokens = append(collectionTokens, token)
+			}
+		}
+	}
+
+	return collectionTokens
 }

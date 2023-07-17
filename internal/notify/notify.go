@@ -17,6 +17,7 @@ import (
 	_ "image/png" //nolint:gci
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/price"
@@ -37,7 +38,14 @@ import (
 // }
 
 func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
-	fmtHash := style.ShortenHashStyled(ttx.Tx.Hash())
+	var fmtHash string
+	if ttx.TxHash == (common.Hash{}) {
+		gbl.Log.Warnf("❌ no tx hash in token transaction")
+
+		fmtHash = "unknown"
+	} else {
+		fmtHash = style.ShortenHashStyled(ttx.TxHash)
+	}
 
 	// try to acquire the lock
 	if viper.GetBool("redis.enabled") {
@@ -172,8 +180,8 @@ func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.Token
 
 	action := ttx.Action
 
-	if action == totra.Sale && transfer.To == triggerAddress {
-		action = totra.Purchase
+	if action == degendb.Sale && transfer.To == triggerAddress {
+		action = degendb.Purchase
 	}
 
 	tokenPrice := ttx.GetPrice()
