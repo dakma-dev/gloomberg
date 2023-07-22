@@ -142,22 +142,13 @@ func New() *Gloomberg {
 	// log.Info("👚 gloomhub started")
 
 	// initialize marmot the task runner/scheduler
-	gb.newMarmot()
+	gb.marmot = newMarmot()
+
+	// gb.marmot.AddJob("etherscan", GetFirstTxsForContract, "muh", internal.BlurBlendContractAddress)
 
 	go FirstTxsWorker()
 
 	return gb
-}
-
-func (gb *Gloomberg) newMarmot() *marmot {
-	gb.marmot = &marmot{
-		gb:    gb,
-		Tasks: make([]marmotTask, 0),
-	}
-
-	gb.marmot.run()
-
-	return gb.marmot
 }
 
 func (gb *Gloomberg) SendSlugsToServer() {

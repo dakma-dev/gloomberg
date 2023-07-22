@@ -4,108 +4,96 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/charmbracelet/log"
+	"github.com/spf13/viper"
 )
 
-// marmot is a simple task runner/scheduler.
+// marmot is the job runner and scheduler in gloomberg.
+// it is used to run several async tasks like filling the degendb, updating the token ranks, etc.
+// jobs will be put into marmots queue and will be executed in a separate goroutine when it's their turn.
 //
-// example usage
-//
-//	gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
-//	    log.Printf("testing tasks lol! %+v", len(gb.Ranks))
-//	})
-//
-//	gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
-//	    log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
-//	})
+// rate limits/throttling is handled by the marmot too,
+// so we don't hit the api limits of opensea, etherscan, whatever.
 
 type marmot struct {
-	gb *Gloomberg
+	// gb *Gloomberg
 
-	running bool
-	Tasks   []marmotTask
+	intervals map[string]time.Duration
+	lastRuns  map[string]time.Time
 }
 
-func (m *marmot) CreatePeriodicTask(name string, runEvery time.Duration, run func(*Gloomberg)) {
-	task := &marmotPeriodicTask{
-		Name:     name,
-		RunEvery: runEvery,
-		Run:      run,
+var Jobs = make(chan *marmotJob, 1024)
+
+func defaultIntervals() map[string]time.Duration {
+	defaultIntervals := make(map[string]time.Duration)
+
+	log.Printf("defaultIntervals: %+v", viper.GetStringMap("marmot.defaults.intervals"))
+
+	for key, interval := range viper.GetStringMap("marmot.defaults.intervals") {
+		var ok bool
+
+		defaultIntervals[key], ok = interval.(time.Duration)
+		if !ok {
+			log.Errorf("could not cast %v to time.Duration", interval)
+		}
 	}
 
-	m.addTask(task)
+	log.Printf("defaultIntervals p: %+v", defaultIntervals)
 
-	gbl.Log.Infof("created periodic task %s | runEvery: %s", task.Name, task.RunEvery.String())
+	return defaultIntervals
 }
 
-func (m *marmot) CreateScheduledTask(name string, runAt time.Time, run func(*Gloomberg)) {
-	task := &marmotScheduledTask{
-		Name:  name,
-		RunAt: runAt,
-		Run:   run,
+func AddJob(key string, run func(), params ...any) {
+	job := &marmotJob{
+		key:    key,
+		job:    run,
+		params: params,
 	}
 
-	m.addTask(task)
+	Jobs <- job
 
-	gbl.Log.Infof("created scheduled task %s | runAt: %s", task.Name, task.RunAt.Format("15:04:05"))
+	gbl.Log.Infof("created scheduled task %+v", job)
 }
 
-// addTask adds a task to the marmot task list.
-func (m *marmot) addTask(task marmotTask) {
-	m.Tasks = append(m.Tasks, task)
-
-	// run tasks added after marmot has started
-	if m.running {
-		go task.runTask(m.gb)
+func (m *marmot) AddJob(key string, run func(), params ...any) {
+	job := &marmotJob{
+		key:    key,
+		job:    run,
+		params: params,
 	}
+
+	Jobs <- job
+
+	gbl.Log.Infof("created scheduled task %+v", job)
 }
 
-// run starts the marmot task runner/scheduler.
-func (m *marmot) run() {
-	for _, task := range m.Tasks {
-		go task.runTask(m.gb)
+func newMarmot() *marmot {
+	marmot := &marmot{
+		intervals: defaultIntervals(),
+		lastRuns:  make(map[string]time.Time),
 	}
-	m.running = true
+
+	return marmot
 }
 
-// marmotTask is an interface that all tasks must implement.
-type marmotTask interface {
-	runTask(gb *Gloomberg)
+// // run starts the marmot task runner/scheduler.
+// func (m *marmot) run() {
+// 	for {
+// 		job := *<-Jobs
+
+// 		job.runJob(m.gb, job)
+
+// 		time.Sleep(time.Millisecond * 100)
+// 	}
+// }
+
+// marmotJob implementations.
+type marmotJob struct {
+	key    string
+	job    func()
+	params []any
 }
 
-// Periodic Tasks (run every X duration).
-type marmotPeriodicTask struct {
-	Name     string
-	RunEvery time.Duration
-	Run      func(*Gloomberg)
-}
-
-func (mt *marmotPeriodicTask) runTask(gb *Gloomberg) {
-	t := time.NewTicker(mt.RunEvery)
-
-	for {
-		<-t.C
-
-		gbl.Log.Infof("Running periodic task %s | runEvery: %s", mt.Name, mt.RunEvery.String())
-
-		mt.Run(gb)
-	}
-}
-
-// Scheduled Tasks (run at a specific time).
-type marmotScheduledTask struct {
-	Name  string
-	RunAt time.Time
-	Run   func(*Gloomberg)
-}
-
-func (mt *marmotScheduledTask) runTask(gb *Gloomberg) {
-	t := time.NewTimer(time.Until(mt.RunAt))
-
-	for {
-		<-t.C
-
-		gbl.Log.Infof("Running scheduled task %s | runAt: %s", mt.Name, mt.RunAt.Format("15:04:05"))
-
-		mt.Run(gb)
-	}
-}
+// func (j *marmotJob) runJob(_ *Gloomberg, params ...any) {
+// 	log.Printf("running job in queue %s | params: %#v | runAt: %s", j.key, params, time.Now().Format("15:04:05"))
+// }

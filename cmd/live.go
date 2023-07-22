@@ -600,6 +600,14 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
+	//
+	// marmot
+	viper.SetDefault("marmot.numJobRunner", 3)
+	viper.SetDefault("marmot.defaults.intervals", map[string]time.Duration{
+		"opensea":   time.Second * 7,
+		"etherscan": time.Second * 3,
+	})
+
 	viper.SetDefault("etherscan.fetchInterval", time.Second*3)
 
 	// OLD worker settings OLD
