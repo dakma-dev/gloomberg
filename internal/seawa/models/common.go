@@ -4,24 +4,57 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/ethereum/go-ethereum/common"
 )
 
 type Item struct {
-	Chain struct {
-		Name string `json:"name" mapstructure:"name"`
-	} `json:"chain" mapstructure:"chain"`
-	Metadata struct {
-		AnimationURL string `json:"animation_url" mapstructure:"animation_url"`
-		ImageURL     string `json:"image_url"     mapstructure:"image_url"`
-		MetadataURL  string `json:"metadata_url"  mapstructure:"metadata_url"`
-		Name         string `json:"name"          mapstructure:"name"`
-	} `json:"metadata"`
-	NftID     NftID  `json:"nft_id"    mapstructure:"nft_id"`
+	Metadata  `json:"metadata"  mapstructure:"metadata"`
+	NftID     `json:"nft_id"    mapstructure:"nft_id"`
+	Chain     Chain  `json:"chain"     mapstructure:"chain"`
 	Permalink string `json:"permalink" mapstructure:"permalink"`
 
 	Other map[string]interface{} `mapstructure:",remain"`
+}
+
+type Chain struct {
+	Name string `json:"name" mapstructure:"name"`
+}
+
+//
+// criteria structs
+//
+
+type CollectionCriteria struct {
+	Slug string `json:"slug" mapstructure:"slug"`
+}
+
+func (c *CollectionCriteria) String() string {
+	return c.Slug
+}
+
+type ContractCriteria struct {
+	Address common.Address `json:"address" mapstructure:"address"`
+}
+
+type TraitCriteria struct {
+	TraitName string `json:"trait_name"`
+	TraitType string `json:"trait_type"`
+}
+
+//
+// metadata structs
+//
+
+type Metadata struct {
+	Name            string          `json:"name"             mapstructure:"name"`
+	Description     string          `json:"description"      mapstructure:"description"`
+	BackgroundColor string          `json:"background_color" mapstructure:"background_color"`
+	AnimationURL    string          `json:"animation_url"    mapstructure:"animation_url"`
+	ImageURL        string          `json:"image_url"        mapstructure:"image_url"`
+	MetadataURL     string          `json:"metadata_url"     mapstructure:"metadata_url"`
+	Traits          []degendb.Trait `json:"traits"           mapstructure:"traits"`
 }
 
 type EventPayload struct {
@@ -30,31 +63,26 @@ type EventPayload struct {
 	EventTimestamp time.Time `json:"event_timestamp" mapstructure:"event_timestamp"`
 	ExpirationDate time.Time `json:"expiration_date" mapstructure:"expiration_date"`
 
-	Collection CollectionSlug `json:"collection" mapstructure:"collection"`
+	CollectionCriteria `json:"collection" mapstructure:"collection"`
 
 	Maker Account `json:"maker,omitempty" mapstructure:"maker,omitempty"`
 	Taker Account `json:"taker,omitempty" mapstructure:"taker,omitempty"`
 
-	BasePrice    *big.Int     `json:"base_price"    mapstructure:"base_price"`
-	Quantity     int          `json:"quantity"      mapstructure:"quantity"`
-	PaymentToken PaymentToken `json:"payment_token" mapstructure:"payment_token"`
+	BasePrice    *big.Int `json:"base_price"    mapstructure:"base_price"`
+	Quantity     int      `json:"quantity"      mapstructure:"quantity"`
+	PaymentToken `json:"payment_token" mapstructure:"payment_token"`
 
 	ProtocolAddress common.Address `json:"protocol_address,omitempty" mapstructure:"protocol_address,omitempty"`
 	ProtocolData    ProtocolData   `json:"protocol_data,omitempty"    mapstructure:"protocol_data,omitempty"`
+
+	// "item" is weird Oo it afaik just exists in the *collection*Offer event and is always empty!?
+	Item interface{} `json:"item,omitempty" mapstructure:"item,omitempty"`
 
 	Other map[string]interface{} `mapstructure:",remain"`
 }
 
 func (ep EventPayload) GetPrice() *price.Price {
 	return price.NewPrice(ep.BasePrice)
-}
-
-type CollectionSlug struct {
-	Slug string `json:"slug" mapstructure:"slug"`
-}
-
-func (c *CollectionSlug) GetCollectionSlug() string {
-	return c.Slug
 }
 
 type Account struct {
@@ -71,22 +99,24 @@ type PaymentToken struct {
 }
 
 type ProtocolData struct {
-	Parameters struct {
-		ConduitKey                      string          `json:"conduitKey"`
-		Consideration                   []Consideration `json:"consideration,omitempty"         mapstructure:"consideration,omitempty"`
-		Counter                         interface{}     `json:"counter"`
-		EndTime                         time.Time       `json:"endTime"`
-		Offer                           []Consideration `json:"offer,omitempty"                 mapstructure:"offer,omitempty"`
-		Offerer                         string          `json:"offerer"`
-		OrderType                       int             `json:"orderType"`
-		Salt                            string          `json:"salt,omitempty"                  mapstructure:"salt,omitempty"`
-		StartTime                       time.Time       `json:"startTime"`
-		TotalOriginalConsiderationItems int             `json:"totalOriginalConsiderationItems"`
-		Zone                            common.Address  `json:"zone"`
-		ZoneHash                        common.Hash     `json:"zoneHash"`
-	} `json:"parameters,omitempty"                        mapstructure:"parameters,omitempty"`
-	Signature                             string `json:"signature"`
-	UseLazyMintAdapterForSharedStorefront bool   `json:"use_lazy_mint_adapter_for_shared_storefront"`
+	Parameters                            `json:"parameters,omitempty"                        mapstructure:"parameters,omitempty"`
+	Signature                             string `json:"signature"                                   mapstructure:"signature"`
+	UseLazyMintAdapterForSharedStorefront bool   `json:"use_lazy_mint_adapter_for_shared_storefront" mapstructure:"use_lazy_mint_adapter_for_shared_storefront"`
+}
+
+type Parameters struct {
+	ConduitKey                      string          `json:"conduitKey"                      mapstructure:"conduitKey"`
+	Consideration                   []Consideration `json:"consideration,omitempty"         mapstructure:"consideration,omitempty"`
+	Counter                         interface{}     `json:"counter"                         mapstructure:"counter"`
+	EndTime                         time.Time       `json:"endTime"                         mapstructure:"endTime"`
+	Offer                           []Consideration `json:"offer,omitempty"                 mapstructure:"offer,omitempty"`
+	Offerer                         string          `json:"offerer"                         mapstructure:"offerer"`
+	OrderType                       int             `json:"orderType"                       mapstructure:"orderType"`
+	Salt                            string          `json:"salt,omitempty"                  mapstructure:"salt,omitempty"`
+	StartTime                       time.Time       `json:"startTime"                       mapstructure:"startTime"`
+	TotalOriginalConsiderationItems int             `json:"totalOriginalConsiderationItems" mapstructure:"totalOriginalConsiderationItems"`
+	Zone                            common.Address  `json:"zone"                            mapstructure:"zone"`
+	ZoneHash                        common.Hash     `json:"zoneHash"                        mapstructure:"zoneHash"`
 }
 
 type Consideration struct {

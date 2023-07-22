@@ -14,39 +14,54 @@ import (
 
 type NftID []string
 
-func NewNftID(chain string, contractAddress common.Address, tokenID *big.Int) NftID {
-	return NftID{chain, contractAddress.Hex(), tokenID.String()}
+// NewNftID returns a new NftID.
+func NewNftID(chain string, contractAddress common.Address, tokenID *big.Int) *NftID {
+	return &NftID{chain, contractAddress.Hex(), tokenID.String()}
 }
 
-func ParseNftID(combinedNftID string) NftID {
+// ParseNftID parses a NftID from a string in the format "chain/contractAddress/tokenID".
+func ParseNftID(combinedNftID string) *NftID {
 	nftID := strings.Split(combinedNftID, "/")
 
 	if len(nftID) != 3 {
 		gbl.Log.Error("Invalid NFT ID: %s", combinedNftID)
 
-		return nil
+		empty := []string{"", "", ""}
+
+		return (*NftID)(&empty)
 	}
 
 	tokenID, ok := new(big.Int).SetString(nftID[2], 10)
 	if !ok {
 		gbl.Log.Error("Invalid NFT ID: %s", combinedNftID)
 
-		return nil
+		empty := []string{"", "", ""}
+
+		return (*NftID)(&empty)
 	}
 
 	return NewNftID(nftID[0], common.HexToAddress(nftID[1]), tokenID)
 }
 
-func (n NftID) Chain() string {
-	return n[0]
+// Chain returns the chain of the token.
+func (n *NftID) Chain() string {
+	return (*n)[0]
 }
 
-func (n NftID) ContractAddress() common.Address {
-	return common.HexToAddress(n[1])
+// ContractAddress returns the contract address of the token.
+func (n *NftID) ContractAddress() common.Address {
+	if len(*n) < 2 {
+		gbl.Log.Error("Invalid NFT ID: %s", n)
+
+		return common.Address{}
+	}
+
+	return common.HexToAddress((*n)[1])
 }
 
-func (n NftID) TokenID() *big.Int {
-	tokenID, ok := new(big.Int).SetString(n[2], 10)
+// TokenID returns the tokens ID.
+func (n *NftID) TokenID() *big.Int {
+	tokenID, ok := new(big.Int).SetString((*n)[2], 10)
 	if !ok {
 		gbl.Log.Error("Invalid NFT ID: %s", n)
 
@@ -56,21 +71,24 @@ func (n NftID) TokenID() *big.Int {
 	return tokenID
 }
 
-func (n NftID) TID() string {
+// TID returns a shorter variant of the NftID, lacking the chain.
+func (n *NftID) TID() string {
 	return strings.Join([]string{n.ContractAddress().Hex(), n.TokenID().String()}, "/")
 }
 
-func (n NftID) LinkOS() string {
+// LinkOS returns a link to the token on OpenSea.
+func (n *NftID) LinkOS() string {
 	return style.TerminalLink(n.TID(), "https://opensea.io/assets/"+n.TID())
 }
 
-func (n NftID) Equal(other NftID) bool {
+// Equal returns true if the NftID is equal to the other NftID.
+func (n *NftID) Equal(other NftID) bool {
 	return n.Chain() == other.Chain() &&
 		n.ContractAddress() == other.ContractAddress() &&
 		n.TokenID().Cmp(other.TokenID()) == 0
 }
 
-func (n NftID) String() string {
+func (n *NftID) String() string {
 	return n.TID()
 }
 

@@ -3,7 +3,6 @@ package models
 import "time"
 
 type ItemMetadataUpdated struct {
-	// Event     string            `json:"event"      mapstructure:"event"`
 	Event   string                     `json:"event_type" mapstructure:"event_type"`
 	SentAt  time.Time                  `json:"sent_at"    mapstructure:"sent_at"`
 	Payload itemMetadataUpdatedPayload `json:"payload"    mapstructure:"payload"`
@@ -12,13 +11,10 @@ type ItemMetadataUpdated struct {
 }
 
 type itemMetadataUpdatedPayload struct {
-	EventPayload `mapstructure:",squash"`
+	Item               `json:"item"       mapstructure:"item"`
+	CollectionCriteria `json:"collection" mapstructure:"collection"`
 
-	Item Item `json:"item" mapstructure:"item"`
-
-	// IsPrivate   bool        `json:"is_private"   mapstructure:"is_private"`
-	// ListingDate time.Time   `json:"listing_date" mapstructure:"listing_date"`
-	// ListingType interface{} `json:"listing_type" mapstructure:"listing_type"`
+	CreatedDate time.Time `json:"created_date" mapstructure:"created_date"`
 
 	Other map[string]interface{} `mapstructure:",remain"`
 }

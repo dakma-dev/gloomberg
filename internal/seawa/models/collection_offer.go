@@ -1,28 +1,19 @@
 package models
 
-import (
-	"time"
-
-	"github.com/ethereum/go-ethereum/common"
-)
+import "time"
 
 type CollectionOffer struct {
-	Event   string    `json:"event"   mapstructure:"event"`
-	SentAt  time.Time `json:"sent_at" mapstructure:"sent_at"`
-	Payload struct {
-		EventType string                 `json:"event_type" mapstructure:"event_type"`
-		Payload   collectionOfferPayload `json:"payload"    mapstructure:"payload"`
-	} `json:"payload" mapstructure:"payload"`
+	EventType string                 `json:"event_type" mapstructure:"event_type"`
+	SentAt    time.Time              `json:"sent_at"    mapstructure:"sent_at"`
+	Payload   collectionOfferPayload `json:"payload"    mapstructure:"payload"`
+
+	Other map[string]interface{} `mapstructure:",remain"`
 }
 
 type collectionOfferPayload struct {
-	EventPayload `mapstructure:",squash"`
-
-	AssetContractCriteria struct {
-		Address common.Address `json:"address" mapstructure:"address"`
-	} `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
-
-	CollectionCriteria CollectionSlug `json:"collection_criteria" mapstructure:"collection_criteria"`
+	CollectionCriteria CollectionCriteria `json:"collection_criteria"     mapstructure:"collection_criteria"`
+	ContractCriteria   ContractCriteria   `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
+	EventPayload       `mapstructure:",squash"`
 
 	CreatedDate time.Time `json:"created_date" mapstructure:"created_date"`
 

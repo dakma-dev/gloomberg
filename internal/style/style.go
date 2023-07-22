@@ -25,8 +25,9 @@ var (
 
 	LightGrayForeground = lipgloss.Color("#BBB")
 
-	OpenSea = lipgloss.NewStyle().Foreground(OpenseaToneBlue).Render
-	Blur    = lipgloss.NewStyle().Foreground(BlurOrange).Render
+	OpenSea         = lipgloss.NewStyle().Foreground(OpenseaToneBlue).Render
+	Blur            = lipgloss.NewStyle().Foreground(BlurOrange).Render
+	BoldAlmostWhite = AlmostWhiteStyle.Copy().Bold(true).Render
 
 	OpenseaToneBlue      = lipgloss.Color("#5f7699")
 	WebUIColor           = lipgloss.Color("#662288")
@@ -191,7 +192,9 @@ func GetSmallHeader(version string) string {
 
 	width, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
-		gbl.Log.Error(err)
+		// gbl.Log.Error(err)
+
+		return lipgloss.NewStyle().Width(80 - 4).Render(header.String())
 	}
 
 	// return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
