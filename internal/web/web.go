@@ -8,7 +8,6 @@ package web
 //
 
 import (
-	"crypto/tls"
 	"html/template"
 	"net"
 	"net/http"
@@ -26,8 +25,6 @@ func StartWebUI(gb *gloomberg.Gloomberg) (*WsHub, error) {
 	hub := NewHub(gb)
 
 	listenOn := &net.TCPAddr{IP: net.ParseIP(viper.GetString("web.host")), Port: viper.GetInt("web.port")}
-	certPath := viper.GetString("web.tls.certificate")
-	keyPath := viper.GetString("web.tls.key")
 
 	// load index template
 	tmplFiles := []string{"www/index.tpl.html", "www/style.tpl.html", "www/javascript.tpl.html"}
@@ -54,10 +51,9 @@ func StartWebUI(gb *gloomberg.Gloomberg) (*WsHub, error) {
 	// websocket endpoint
 	http.HandleFunc("/ws", hub.serveWS)
 
-	// load tls certificate
-	cert, err := tls.LoadX509KeyPair(certPath, keyPath)
+	tlsConfig, err := gloomberg.GetServerTLSConfig()
 	if err != nil {
-		log.Fatal(err)
+		log.Warn("TLS certificate not found, using insecure connection")
 	}
 
 	// create http server
@@ -65,11 +61,7 @@ func StartWebUI(gb *gloomberg.Gloomberg) (*WsHub, error) {
 		Addr:              listenOn.AddrPort().String(),
 		ReadHeaderTimeout: 2 * time.Second,
 		Handler:           nil,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			MinVersion:   tls.VersionTLS12,
-			MaxVersion:   0,
-		},
+		TLSConfig:         tlsConfig,
 	}
 
 	// start http server
