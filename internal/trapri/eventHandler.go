@@ -1,10 +1,14 @@
 package trapri
 
 import (
+	"strings"
+
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/kr/pretty"
 	"github.com/spf13/viper"
 )
 
@@ -20,28 +24,42 @@ func OpenseaEventsHandler(gb *gloomberg.Gloomberg) {
 			for {
 				select {
 				case event := <-chanItemListed:
-					gbl.Log.Debugf("%s event received at trapri.eventWorker: %#v", event.Event, event)
+					gbl.Log.Debugf("  📢 item received bid: %+v", pretty.Sprintf("%#v", event))
 
 					go HandleItemListed(gb, event)
 
 				case event := <-chanItemReceivedBid:
-					gbl.Log.Debugf("%s event received at trapri.eventWorker: %#v", event.Event, event)
+					gbl.Log.Debugf("  💦 item received bid: %+v", pretty.Sprintf("%#v", event))
+
+					// log.Print("  🎭 💦 item received bid")
+					// pretty.Println(event)
 
 					go HandleItemReceivedBid(gb, event)
 
 				case event := <-chanCollectionOffer:
-					gbl.Log.Debugf("%s event received at trapri.eventWorker: %#v", event.Event, event)
+					gbl.Log.Debugf("  🦕 collection offer: %+v", pretty.Sprintf("%#v", event))
 
 					// go HandleCollectionOffer(gb, event)
 
 				case event := <-chanMetadataUpdated:
-					gbl.Log.Debugf("%s event received at trapri.eventWorker: %#v", event.Event, event)
-
-					if event.Payload.Item.NftID.ContractAddress() == common.HexToAddress("0xd3a0b315023243632a15fd623d6f33314193df4e") {
+					// filter lawless cloaknet transponders due to spam
+					if event.Payload.ContractAddress() == common.HexToAddress("0xd3a0b315023243632a15fd623d6f33314193df4e") {
 						continue
 					}
 
-					log.Printf("  🦄 metadata updated: %#v", event)
+					if len(event.Payload.Traits) > 0 {
+						fmtTraits := make([]string, 0)
+						for _, trait := range event.Payload.Traits {
+							fmtTraits = append(fmtTraits, trait.StringBold())
+						}
+
+						log.Printf("  🎭 | %s #%s", event.Payload.Name, event.Payload.NftID.TokenID().String())
+						log.Printf("  🎭 → %v", strings.Join(fmtTraits, style.DarkGrayStyle.Render(" | ")))
+
+						gbl.Log.Info("  🎭 metadata updated:")
+						gbl.Log.Info(pretty.Sprint(event))
+					}
+
 					// go HandleMetadataUpdated(gb, event)
 				}
 			}

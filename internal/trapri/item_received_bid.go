@@ -17,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/kr/pretty"
 )
 
 var (
@@ -133,6 +134,8 @@ func HandleItemReceivedBid(gb *gloomberg.Gloomberg, event *models.ItemReceivedBi
 		gbl.Log.Infof("🧱 sending telegram notification ItemReceivedBid 🧚 | isOwnToken: %+v | isWatchUsersWallet: %+v", isOwnToken, isWatchUsersWallet)
 
 		ttxBid.Action = degendb.OwnBid
+
+		log.Printf("  🍊 ttxBid: %+v", pretty.Sprintf("%#v", event))
 
 		// send notification
 		go notify.SendNotification(gb, ttxBid)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -20,6 +21,14 @@ import (
 var (
 	cfgFile    string
 	ownWallets []string
+
+	// tls.
+	certPath string
+	keyPath  string
+
+	// grpc.
+	grpcServer net.IP
+	grpcListen net.IP
 
 	gb *gloomberg.Gloomberg
 )
@@ -66,9 +75,11 @@ func init() {
 	rootCmd.PersistentFlags().BoolP("debug", "d", false, "Show debug output")
 	_ = viper.BindPFlag("log.debug", rootCmd.PersistentFlags().Lookup("debug"))
 
-	// // rpc nodes
-	// rootCmd.PersistentFlags().StringSliceVarP(&endpoints, "endpoints", "e", []string{}, "RPC endpoints")
-	// _ = viper.BindPFlag("endpoints", rootCmd.Flags().Lookup("endpoints"))
+	// tls
+	rootCmd.PersistentFlags().StringVar(&certPath, "certificate", "gloomberg.crt", "TLS certificate")
+	_ = viper.BindPFlag("tls.certificate", rootCmd.PersistentFlags().Lookup("certificate"))
+	rootCmd.PersistentFlags().StringVar(&keyPath, "key", "gloomberg.key", "TLS key")
+	_ = viper.BindPFlag("tls.key", rootCmd.PersistentFlags().Lookup("key"))
 
 	// // apis
 	// rootCmd.PersistentFlags().StringVar(&apiKeyEtherscan, "etherscan", "", "Etherscan API Key")

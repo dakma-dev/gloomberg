@@ -1,0 +1,167 @@
+// Copyright 2015 gRPC authors.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/any.proto";
+
+option go_package = "github.com/benleb/gloomberg/internal/seawa";
+
+package seawatcher;
+
+// Interface exported by the server.
+service SeaWatcher {
+  // A server-to-client streaming RPC.
+  //
+  // Obtains the Features available within the given Rectangle.  Results are
+  // streamed rather than returned at once (e.g. in a response message with a
+  // repeated field), as the rectangle may cover a large area and contain a
+  // huge number of features.
+  rpc GetEvents(SubscriptionRequest) returns (stream OpenSeaEvent) {}
+}
+
+// Points are represented as latitude-longitude pairs in the E7 representation
+// (degrees multiplied by 10**7 and rounded to the nearest integer).
+// Latitudes should be in the range +/- 90 degrees and longitude should be in
+// the range +/- 180 degrees (inclusive).
+// message Point {
+//   int32 latitude = 1;
+//   int32 longitude = 2;
+// }
+
+enum EventType {
+  UNKNOWN = 0;
+  ITEM_LISTED = 1;
+  ITEM_RECEIVED_BID = 2;
+  METADATA_UPDATED = 3;
+  COLLECTION_OFFER = 4;
+}
+
+message SubscriptionRequest {
+  repeated EventType eventTypes = 1;
+  repeated string collections = 2;
+}
+
+// A feature names something at a given point.
+//
+// If a feature could not be named, the name is empty.
+message OpenSeaEvent {
+  // The name of the feature.
+  string name = 1;
+
+  //   // The point where the feature is detected.
+  //   Point location = 2;
+}
+
+// Event emitted when an item is listed for sale.
+//
+// This event is emitted when an item is listed for sale on opensea.
+// It contains information about the item, such as its ID and metadata, as well
+// as information about the seller and the payment token used for the sale.
+message ItemListed {
+  message Collection {
+    string slug = 1;
+  }
+
+  message Chain {
+    string name = 1;
+  }
+
+  message Metadata {
+    string animation_url = 1;
+    string image_url = 2;
+    string metadata_url = 3;
+    string name = 4;
+  }
+
+  message Item {
+    Chain chain = 1;
+    Metadata metadata = 2;
+    string nft_id = 3;
+    string permalink = 4;
+  }
+
+  message Account {
+    string address = 1;
+  }
+
+  message Payment_token {
+    string address = 1;
+    uint32 decimals = 2;
+    string eth_price = 3;
+    string name = 4;
+    string symbol = 5;
+    string usd_price = 6;
+  }
+
+  message Consideration {
+    uint64 endAmount = 1;
+    uint32 identifierOrCriteria = 2;
+    uint32 itemType = 3;
+    string recipient = 4;
+    uint64 startAmount = 5;
+    string token = 6;
+  }
+
+  message Offer {
+    uint32 endAmount = 1;
+    uint64 identifierOrCriteria = 2;
+    uint32 itemType = 3;
+    uint32 startAmount = 4;
+    string token = 5;
+  }
+
+  message Parameters {
+    string conduitKey = 1;
+    repeated Consideration consideration = 2;
+    uint32 counter = 3;
+    uint32 endTime = 4;
+    repeated Offer offer = 5;
+    string offerer = 6;
+    uint32 orderType = 7;
+    uint64 salt = 8;
+    uint32 startTime = 9;
+    uint32 totalOriginalConsiderationItems = 10;
+    string zone = 11;
+    string zoneHash = 12;
+  }
+
+  message Protocol_data {
+    Parameters parameters = 1;
+    string signature = 2;
+    bool use_lazy_mint_adapter_for_shared_storefront = 3;
+  }
+
+  message ItemListedPayload {
+    string base_price = 1;
+    Collection collection = 2;
+    google.protobuf.Timestamp event_timestamp = 3;
+    google.protobuf.Timestamp expiration_date = 4;
+    bool is_private = 5;
+    Item item = 6;
+    google.protobuf.Timestamp listing_date = 7;
+    google.protobuf.Any listing_type = 8;
+    Account maker = 9;
+    string order_hash = 10;
+    Payment_token payment_token = 11;
+    Protocol_data protocol_data = 12;
+    uint32 quantity = 13;
+    Account taker = 14;
+  }
+
+  string event_type = 1;
+  ItemListedPayload payload = 2;
+  google.protobuf.Timestamp sent_at = 3;
+}

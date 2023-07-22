@@ -3,14 +3,15 @@ package cmd
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/chawago"
-	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/config"
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/degendb/degendata"
@@ -38,6 +39,8 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 // liveCmd represents the live command.
@@ -469,8 +472,73 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gb.Prf("wallet watcher started: %+v", wawa)
 	}()
 
+	gb.Prf("starting grpc client...")
+	go testGRPC()
+
 	// loop forever
 	select {}
+}
+
+func testGRPC() {
+	var opts []grpc.DialOption
+
+	// tls := true
+
+	// if tls {
+	// 	// if caFile == "" {
+	// 	// 	caFile = "x509/ca_cert.pem"
+	// 	// }
+
+	// 	creds := credentials.NewClientTLSFromCert(nil, "")
+
+	// 	opts = append(opts, grpc.WithTransportCredentials(creds))
+	// } else {
+	// 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	// }
+
+	if creds := gloomberg.GetTLSClientCredentials(); creds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
+
+	grpcAddress := fmt.Sprintf("%s:%d", viper.GetString("seawatcher.grpc.server"), viper.GetUint("seawatcher.grpc.port"))
+
+	gb.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
+
+	conn, err := grpc.Dial(grpcAddress, opts...)
+	if err != nil {
+		log.Errorf("fail to dial: %v", err)
+	}
+	defer conn.Close()
+	client := seawatcher.NewSeaWatcherClient(conn)
+
+	gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
+
+	subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
+	stream, err := client.GetEvents(context.Background(), subsriptionRequest)
+	if err != nil {
+		log.Errorf("client.GetEvents failed: %v", err)
+
+		return
+	}
+
+	for {
+		event, err := stream.Recv()
+		if err != nil {
+			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
+				log.Errorf("io.EOF error: %v", err)
+
+				break
+			}
+
+			log.Errorf("receiving event failed: %v", err)
+
+			time.Sleep(time.Second * 1)
+		}
+
+		gb.Prf("🐔 RECEIVED: %+v", event)
+	}
 }
 
 var degendataPath string

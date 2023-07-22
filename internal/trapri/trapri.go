@@ -97,7 +97,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// isBidDump := false
 
 	// telegram notification
-	if viper.GetBool("notifications.telegram.enabled") && (isOwnWallet || isWatchUsersWallet) && ttx.Action != degendb.Transfer {
+	if viper.GetBool("notifications.telegram.enabled") && (isOwnWallet || isWatchUsersWallet) { //  && ttx.Action != degendb.Transfer {
 		gbl.Log.Infof("🧱 sending telegram notification | isOwnWallet: %+v | isWatchUsersWallet: %+v", isOwnWallet, isWatchUsersWallet)
 
 		go notify.SendNotification(gb, ttx)
@@ -211,7 +211,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			collectionFileNamePrefix = collection.OpenseaSlug
 		}
 
-		go gloomberg.GetFirstTxsForContract(collectionFileNamePrefix, contractAddress)
+		if viper.GetBool("first_txs.enabled") {
+			go gloomberg.GetFirstTxsForContract(collectionFileNamePrefix, contractAddress)
+		}
 
 		ttxCollections[contractAddress] = collection
 
@@ -850,7 +852,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				}
 
 				if !seawa.IsSubscribed(currentCollection.OpenseaSlug) {
-					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
+					// if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
+					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED, seawatcher.EventType_ITEM_RECEIVED_BID, seawatcher.EventType_COLLECTION_OFFER}) { //nolint:nosnakecase
 						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
 				}
