@@ -106,6 +106,8 @@ func New() *Gloomberg {
 		Rdb:    rdb,
 		Rueidi: rueidica.NewRueidica(rdb),
 
+		CollectionDB: collections.New(),
+
 		RecentOwnEvents: mapset.NewSet[*degendb.ParsedEvent](),
 
 		Ranks: make(map[common.Address]map[int64]degendb.TokenRank),
@@ -116,6 +118,25 @@ func New() *Gloomberg {
 		// GloomHub: newGloomhub(),
 		// DegenDB:  degendb.NewDegenDB(),
 	}
+
+	//
+	// start central terminal printer
+	go func() {
+		gbl.Log.Debug("starting terminal printer...")
+
+		printToTerminalChannel := gb.SubscribePrintToTerminal()
+
+		for eventLine := range printToTerminalChannel {
+			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+
+			if viper.GetBool("log.debug") {
+				debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
+				eventLine = fmt.Sprint(debugPrefix, eventLine)
+			}
+
+			fmt.Println(eventLine)
+		}
+	}()
 
 	// gb.gloomhub.Start()
 	// log.Info("👚 gloomhub started")

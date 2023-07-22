@@ -49,11 +49,11 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 
 	// try to acquire the lock
 	if viper.GetBool("redis.enabled") {
-		notificationLock, err := gb.Rueidi.NotificationLock(ttx.Tx.Hash())
+		notificationLock, err := gb.Rueidi.NotificationLock(ttx.TxHash)
 		// if !notificationLock || err != nil {
 		if notificationLock == nil || err != nil {
 			gbl.Log.Infof("🔒 notification lock for %s already exists", fmtHash)
-			log.Printf("🔒 %s | notification already locked!", style.ShortenHashStyled(ttx.Tx.Hash()))
+			log.Printf("🔒 %s | notification already locked!", style.ShortenHashStyled(ttx.TxHash))
 
 			return
 		}
@@ -62,7 +62,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 		defer notificationLock()
 
 		gbl.Log.Infof("🔐 notification lock for %s acquired (%.0fsec)", fmtHash, viper.GetDuration("cache.notifications_lock_ttl").Seconds())
-		log.Printf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.Tx.Hash()), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
+		log.Printf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.TxHash), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
 	}
 
 	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder)
@@ -108,6 +108,8 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 			imagesPerUserMap[triggerUser] = imageURI
 
 			gbl.Log.Debugf("📸 imageURI: %s", imageURI)
+
+			log.Printf("ttx: %+v | transfer: %+v | collection: %+v | userName: %s | triggerAddress: %s", ttx, transfer, collection, userName, triggerAddress.String())
 
 			// collect telegram messages per user
 			msgTelegram := buildNotificationMessage(ttx, transfer, collection, userName, triggerAddress)
