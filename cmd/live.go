@@ -452,8 +452,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gb.Prf("wallet watcher started: %+v", wawa)
 	}()
 
-	gb.Prf("starting grpc client...")
-	go testGRPC()
+	if viper.IsSet("seawatcher.grpc.server") {
+		gb.Prf("starting grpc client...")
+		go testGRPC()
+	}
 
 	// loop forever
 	select {}

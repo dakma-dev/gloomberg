@@ -1,51 +1,54 @@
 run:
-  timeout: 3m
-  allow-parallel-runners: true
-  skip-dirs:
-    # used for testing/experiments
-    - "cmd/oncecmd"
-    # testing
-    - "internal/ddb"
-    - ".*degendata.*"
-    - "ignored"
+    timeout: 3m
+    allow-parallel-runners: false
+    concurrency: 8
+    tests: false
+    skip-dirs:
+        # used for testing/experiments
+        - "cmd/oncecmd"
+        # testing
+        - "internal/ddb"
+        - ".*degendata.*"
+        - "ignored"
 
 linters-settings:
-  ireturn:
-    allow:
-      - anon
-      - error
-      - empty
-      - stdlib
+    ireturn:
+        allow:
+            - anon
+            - error
+            - empty
+            - stdlib
 
-      - go-ethereum.Subscription
-      - mapstructure.DecodeHookFunc
-      - rueidis.Client
-      - w3types.Caller
+            - go-ethereum.Subscription
+            - mapstructure.DecodeHookFunc
+            - rueidis.Client
+            - w3types.Caller
 
 linters:
-  enable-all: true
-  disable:
-    - cyclop
-    - depguard
-    - exhaustive
-    - exhaustivestruct
-    - exhaustruct
-    - forbidigo
-    - funlen
-    - gochecknoglobals
-    - gochecknoinits
-    - gocognit
-    - gocyclo
-    - godox
-    - goerr113
-    - golint
-    - gomnd
-    - interfacer
-    - lll
-    - maintidx
-    - maligned
-    - nestif
-    - tagliatelle
-    - varnamelen
-    - wrapcheck
-    - wsl
+    enable-all: true
+    # fast: true
+    disable:
+        - cyclop
+        - depguard
+        - exhaustive
+        - exhaustivestruct
+        - exhaustruct
+        - forbidigo
+        - funlen
+        - gochecknoglobals
+        - gochecknoinits
+        - gocognit
+        - gocyclo
+        - godox
+        - goerr113
+        - golint
+        - gomnd
+        - interfacer
+        - lll
+        - maintidx
+        - maligned
+        - nestif
+        - tagliatelle
+        - varnamelen
+        - wrapcheck
+        - wsl

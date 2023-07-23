@@ -55,7 +55,8 @@ type SeaWatcher struct {
 	mu *sync.Mutex
 }
 
-// availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+// availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled.
+var availableEventTypes = []EventType{EventType_ITEM_LISTED, EventType_METADATA_UPDATED, EventType_ITEM_RECEIVED_BID, EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 var eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "gloomberg_oswatcher_events_received_total",
@@ -567,7 +568,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 				continue
 			}
 
-			if action(slug, []EventType{}) {
+			if action(slug, availableEventTypes) {
 				newEventSubscriptions++
 
 				time.Sleep(337 * time.Millisecond)

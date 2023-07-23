@@ -20,7 +20,9 @@ func OpenseaEventsHandler(gb *gloomberg.Gloomberg) {
 	chanMetadataUpdated := gb.SubscribeItemMetadataUpdated()
 
 	for i := 0; i < viper.GetInt("trapri.numOpenSeaEventhandlers"); i++ {
-		go func() {
+		go func(i int) {
+			log.Printf("  👨‍🔧 OpenseaEventsHandler %d running", i)
+
 			for {
 				select {
 				case event := <-chanItemListed:
@@ -63,6 +65,6 @@ func OpenseaEventsHandler(gb *gloomberg.Gloomberg) {
 					// go HandleMetadataUpdated(gb, event)
 				}
 			}
-		}()
+		}(i)
 	}
 }
