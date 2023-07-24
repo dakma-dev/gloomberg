@@ -52,29 +52,46 @@ type Gloomberg struct {
 	// GloomHub *gloomhub
 	Jobs *jobs.Runner
 	*degendb.DegenDB
+
+	// misc / maybe find better solutions...
+	PrintConfigurations map[string]*printConfig
+}
+
+func (gb *Gloomberg) String() {
+	fmt.Println("gloomberg | " + internal.GloombergVersion)
 }
 
 type printConfig struct {
-	Icon    string
-	Keyword string
-	Color   lipgloss.Color
+	Icon     string
+	Keywords []string
+	Color    lipgloss.Color
 }
 
-var prConigs = map[string]printConfig{
-	"web": {
-		Icon:    "🖥️",
-		Keyword: "web",
-		Color:   lipgloss.Color("#662288"),
+var predefinedPrintConfigurations = []printConfig{
+	{
+		Icon:     "🖥️",
+		Keywords: []string{"web", "ws"},
+		Color:    lipgloss.Color("#662288"),
 	},
-	"wawa": {
-		Icon:    "💳",
-		Keyword: "wawa",
-		Color:   lipgloss.Color("#550933"),
+	{
+		Icon:     "💳",
+		Keywords: []string{"wawa", "watch"},
+		Color:    lipgloss.Color("#550933"),
 	},
-	"ddb": {
-		Icon:    "🤺",
-		Keyword: "ddb",
-		Color:   lipgloss.Color("#095533"),
+	{
+		Icon:     "🤺",
+		Keywords: []string{"ddb", "degendb"},
+		Color:    lipgloss.Color("#095533"),
+	},
+	{
+		Icon:     "🧪",
+		Keywords: []string{"exp", "e6551", "eip6551"},
+		Color:    lipgloss.Color("#5FF3B3"),
+	},
+	{
+		Icon:     "🏃‍♂️",
+		Keywords: []string{"jobs", "job"},
+		Color:    lipgloss.Color("#4dc6e2"),
 	},
 }
 
@@ -139,15 +156,16 @@ func New() *Gloomberg {
 		}
 	}()
 
-	// gb.gloomhub.Start()
-	// log.Info("👚 gloomhub started")
+	// load print configurations to pretty style prints from our different "modules"
+	gb.PrintConfigurations = make(map[string]*printConfig)
 
-	// initialize marmot the task runner/scheduler
-	gb.marmot = newMarmot()
+	for idx, config := range predefinedPrintConfigurations {
+		printConfiguration := predefinedPrintConfigurations[idx]
 
-	// gb.marmot.AddJob("etherscan", GetFirstTxsForContract, "muh", internal.BlurBlendContractAddress)
-
-	go FirstTxsWorker()
+		for _, keyword := range config.Keywords {
+			gb.PrintConfigurations[keyword] = &printConfiguration
+		}
+	}
 
 	return gb
 }
@@ -206,19 +224,23 @@ func (gb *Gloomberg) PrWithKeywordAndIcon(icon string, keyword string, message s
 }
 
 func (gb *Gloomberg) PrMod(mod string, message string) {
-	var icon, keyword string
+	prConfig, ok := gb.PrintConfigurations[mod]
+	if !ok {
+		gbl.Log.Warnf("no print configuration for module %s | message: %s", mod, message)
 
-	if prConfig, ok := prConigs[mod]; ok {
-		icon = prConfig.Icon
-
-		if prConfig.Color != "" {
-			keyword = lipgloss.NewStyle().Foreground(prConfig.Color).Render(prConfig.Keyword)
-		} else {
-			keyword = prConfig.Keyword
-		}
+		return
 	}
 
-	gb.printToTerminal(icon, keyword, message)
+	icon := prConfig.Icon
+
+	color := style.DarkGray
+	if prConfig.Color != "" {
+		color = prConfig.Color
+	}
+
+	tag := lipgloss.NewStyle().Foreground(color).Render(mod)
+
+	gb.printToTerminal(icon, tag, message)
 }
 
 // PrModf formats and prints messages from gloomberg to the terminal.
