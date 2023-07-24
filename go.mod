@@ -18,7 +18,7 @@ require (
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.12
+	github.com/redis/rueidis v1.0.13
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
