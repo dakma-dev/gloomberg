@@ -29,6 +29,7 @@ import (
 	"github.com/benleb/gloomberg/internal/utils"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -41,8 +42,7 @@ import (
 )
 
 var (
-	flagURL        string
-	flagIdentifier int64
+	flagURL string
 
 	flagPrivateKeys []string
 	flagRPCs        []string
@@ -65,18 +65,22 @@ func init() {
 
 	// manifold url or identifier
 	manifoldCmd.Flags().StringVar(&flagURL, "url", "", "manifold url to mint from (prefer to use identifier if possible)")
-	manifoldCmd.Flags().Int64Var(&flagIdentifier, "identifier", -1, "manifold identifier (will be fetched from manifold if not set)")
-	manifoldCmd.MarkFlagsMutuallyExclusive("url", "identifier")
+	// manifoldCmd.Flags().Int64Var(&flagIdentifier, "identifier", -1, "manifold identifier (will be fetched from manifold if not set)")
+	// manifoldCmd.MarkFlagsMutuallyExclusive("url", "identifier")
 
 	// private keys/wallets to mint with
 	manifoldCmd.Flags().StringSliceVarP(&flagPrivateKeys, "keys", "p", make([]string, 0), "private keys/wallets to mint with")
 	_ = viper.BindPFlag("mint.keys", manifoldCmd.Flags().Lookup("keys"))
-	_ = manifoldCmd.MarkFlagRequired("keys")
+	// _ = manifoldCmd.MarkFlagRequired("keys")
 
 	// rpc endpoints to use
 	manifoldCmd.Flags().StringSliceVarP(&flagRPCs, "rpcs", "r", make([]string, 0), "rpc endpoints to mint with (randomly chosen)")
 	_ = viper.BindPFlag("mint.rpcs", manifoldCmd.Flags().Lookup("rpcs"))
-	_ = manifoldCmd.MarkFlagRequired("rpcs")
+	// _ = manifoldCmd.MarkFlagRequired("rpcs")
+
+	// number of wallets to use
+	manifoldCmd.Flags().Uint16("num-wallets", 3, "number of wallets to use for minting")
+	_ = viper.BindPFlag("mint.manifold.num-wallets", manifoldCmd.Flags().Lookup("num-wallets"))
 
 	manifoldCmd.Flags().Uint16("amount-tx", 1, "number of tokens to mint per transaction")
 	_ = viper.BindPFlag("mint.manifold.amount-tx", manifoldCmd.Flags().Lookup("amount-tx"))
@@ -93,11 +97,16 @@ type MintWallet struct {
 }
 
 func mintManifold(_ *cobra.Command, _ []string) {
-	rpcClients := make([]*ethclient.Client, 0)
-	mintWallets := make([]*MintWallet, 0)
+	// rpcClients := make([]*ethclient.Client, 0)
+	// availableWallets := make([]*MintWallet, 0)
+	rpcClients := mapset.NewSet[*ethclient.Client]()
+	rpcEndpoints := mapset.NewSet[string]()
+
+	availableWallets := mapset.NewSet[*MintWallet]()
+	mintWallets := mapset.NewSet[*MintWallet]()
 
 	// check for valid keys
-	for _, privateKey := range flagPrivateKeys {
+	for _, privateKey := range viper.GetStringSlice("mint.keys") {
 		mintWallet := &MintWallet{}
 
 		if key, err := crypto.HexToECDSA(privateKey); err == nil {
@@ -120,17 +129,19 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
 		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAddress(mintWallet.address))
 
-		mintWallets = append(mintWallets, mintWallet)
+		availableWallets.Add(mintWallet)
 	}
 
 	// connect to rpc endpoints
-	for _, rpc := range flagRPCs {
+	for _, rpc := range viper.GetStringSlice("mint.rpcs") {
+		rpcEndpoints.Add(rpc)
+
 		rpcClient, err := ethclient.Dial(rpc)
 		if err != nil {
 			log.Fatalf("❌ failed to connect to rpc endpoint %s: %v", rpc, err)
 		}
 
-		rpcClients = append(rpcClients, rpcClient)
+		rpcClients.Add(rpcClient)
 	}
 
 	mintIdentifier, err := getMintIdentifier("https://app.manifold.xyz/c/above-the-noise")
@@ -167,16 +178,37 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print("")
 
 	fmtWallets := make([]string, 0)
-	for _, wallet := range mintWallets {
+	for _, wallet := range availableWallets.ToSlice() {
 		fmtWallets = append(fmtWallets, style.Bold(wallet.tag))
 	}
 
-	log.Printf("  wallets: %s", strings.Join(fmtWallets, ", "))
+	log.Printf("  available wallets: %s", strings.Join(fmtWallets, ", "))
+
+	//
+	// randomly choose numWallets from our available wallets
+
+	// (max) number of wallets to use
+	numWallets := uint16(math.Min(float64(viper.GetUint16("mint.manifold.num-wallets")), float64(availableWallets.Cardinality())))
+
+	// choose unique numWallets random wallets
+	for i := uint16(0); i < numWallets; i++ {
+		// choose a random wallet
+		if wallet, ok := availableWallets.Pop(); ok && wallet != nil {
+			mintWallets.Add(wallet)
+		}
+	}
+
+	fmtWallets = make([]string, 0)
+	for _, wallet := range mintWallets.ToSlice() {
+		fmtWallets = append(fmtWallets, style.Bold(wallet.tag))
+	}
+
+	log.Printf("  mint wallets: %s", strings.Join(fmtWallets, ", "))
 
 	amountPerTx := viper.GetUint16("mint.manifold.amount-tx")
 	amountPerWallet := uint16(math.Max(float64(amountPerTx), float64(viper.GetUint16("mint.manifold.amount-wallet"))))
 	txsPerWallet := amountPerWallet / amountPerTx
-	totalTxs := txsPerWallet * uint16(len(mintWallets))
+	totalTxs := txsPerWallet * uint16(mintWallets.Cardinality())
 
 	log.Print("")
 	log.Printf("  amount per tx: %s", style.BoldAlmostWhite(fmt.Sprint(amountPerTx)))
@@ -217,7 +249,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print(style.BoldAlmostWhite("manifold info (from chain)"))
 
 	// get the mint fee (once)
-	lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClients[rand.Intn(len(rpcClients))]) //nolint:gosec
+	lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClients.ToSlice()[rand.Intn(len(rpcClients.ToSlice()))]) //nolint:gosec
 	if err != nil {
 		log.Error(err)
 
@@ -245,52 +277,61 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Printf("  remaining: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.TotalMax-claimInfo.Total)))
 	log.Printf("  max/wallet: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.WalletMax)))
 
-	totalMints, err := lazyClaimERC1155.GetTotalMints(&bind.CallOpts{}, *mintWallets[0].address, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
+	totalMints, err := lazyClaimERC1155.GetTotalMints(&bind.CallOpts{}, *mintWallets.ToSlice()[0].address, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
 	if err != nil {
 		log.Debugf("🤷‍♀️ getting total mints failed: %s", style.BoldAlmostWhite(err.Error()))
 	} else {
-		log.Printf("totalMints: %#v", totalMints)
+		log.Printf("  totalMints: %d", totalMints)
 	}
 
 	log.Print("")
 
-	log.Print("")
-	log.Print("starting minter jobs...")
-	log.Print("")
-
 	// start the minting jobs
+
+	log.Print("")
+	log.Print("")
+	log.Print(" 🚀 🚀 🚀  starting minter jobs  🚀 🚀 🚀")
+	log.Print("")
+	log.Print("")
 
 	wg := sync.WaitGroup{}
 
-	for _, mintWallet := range mintWallets {
+	for _, mintWallet := range mintWallets.ToSlice() {
 		wg.Add(1)
-
-		// choose random rpc client
-		rpcClient := rpcClients[0]
-
-		// if we have more than one rpc client, choose a random one
-		if len(rpcClients) > 1 {
-			rpcClient = rpcClients[rand.Intn(len(rpcClients))] //nolint:gosec
-		}
 
 		go func(mintWallet *MintWallet) {
 			defer wg.Done()
 
-			mintERC1155(rpcClient, mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, manifoldFee)
+			mintERC1155(rpcEndpoints.Clone(), mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, manifoldFee)
 		}(mintWallet)
 	}
 
 	wg.Wait()
 
 	log.Print("")
-	log.Print("  all jobs finished! 🍹")
+	log.Print("  🟢 all jobs finished! 🍹")
 	log.Print("")
 }
 
-func mintERC1155(rpcClient *ethclient.Client, mintWallet *MintWallet, txsPerWallet uint16, manifoldInstanceID *big.Int, mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim, manifoldFee *big.Int) {
+func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPerWallet uint16, manifoldInstanceID *big.Int, mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim, manifoldFee *big.Int) {
 	txConfirmed := 0
 
 	for {
+		// choose random rpc endpoint
+		rpcIdx := rand.Intn(len(rpcEndpoints.ToSlice())) //nolint:gosec
+		rpcEndpoint := rpcEndpoints.ToSlice()[rpcIdx]
+
+		log.Debugf("%s | rpc endpoints (%d): %s", mintWallet.tag, rpcEndpoints.Cardinality(), style.BoldAlmostWhite(fmt.Sprintf("%+v", rpcEndpoints)))
+
+		log.Printf("%s | selected rpc endpoint: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(rpcIdx)))
+
+		rpcClient, err := ethclient.Dial(rpcEndpoint)
+		if err != nil {
+			log.Errorf("❌ failed to connect to rpc endpoint %s: %v", rpcEndpoint, err)
+
+			continue
+		}
+
 		log.Printf("%s | preparing transaction...", mintWallet.tag)
 
 		lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClient)
