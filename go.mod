@@ -18,7 +18,7 @@ require (
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.16.0
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.12
+	github.com/redis/rueidis v1.0.13
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
@@ -30,7 +30,6 @@ require (
 	golang.org/x/text v0.11.0
 	gonum.org/v1/gonum v0.13.0
 	google.golang.org/grpc v1.56.2
-	gotest.tools v2.2.0+incompatible
 )
 
 require github.com/google/uuid v1.3.0 // indirect
@@ -60,7 +59,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
