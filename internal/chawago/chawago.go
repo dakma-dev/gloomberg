@@ -12,6 +12,8 @@ import (
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 var numWorkersRawLogs = 4
@@ -22,6 +24,16 @@ const (
 	Topic2
 	Topic3
 )
+
+var logsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "gloomberg_chainwatcher_logs_received_count_total",
+	Help: "The number of received logs from the chain.",
+})
+
+var txReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "gloomberg_chainwatcher_tx_received_count_total",
+	Help: "The number of received transactions from the chain.",
+})
 
 // GetTransactionsForLogs utilizes the providerPool to fetch the transaction & receipt for logs from qRawLogs.
 // The transaction with the receipt is then sent to qTxsWithLogs.
@@ -43,6 +55,8 @@ func GetTransactionsForLogsWithChannel(gb *gloomberg.Gloomberg, qRawLogs chan ty
 
 		go func() {
 			for rawLog := range qRawLogs {
+				logsReceivedCounter.Inc()
+
 				// skip if we already processed this logs tx
 				knownTransactionsMu.Lock()
 				known, ok := knownTransactions[rawLog.TxHash]
@@ -104,6 +118,8 @@ func GetTransactionsForLogsWithChannel(gb *gloomberg.Gloomberg, qRawLogs chan ty
 				// qTxsWithLogs <- txWithLogs
 
 				gb.In.TxWithLogs <- txWithLogs
+
+				txReceivedCounter.Inc()
 
 				// update last log received at timestamp to detect stalled providers
 				gb.ProviderPool.LastLogReceivedAt = time.Now()

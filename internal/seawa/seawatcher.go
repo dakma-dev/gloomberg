@@ -58,9 +58,9 @@ type SeaWatcher struct {
 // availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled.
 var availableEventTypes = []EventType{EventType_ITEM_LISTED, EventType_METADATA_UPDATED, EventType_ITEM_RECEIVED_BID, EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
-var eventsReceivedTotal = promauto.NewCounter(prometheus.CounterOpts{
-	Name: "gloomberg_oswatcher_events_received_total",
-	Help: "The total number of received events from the OpenSea api/stream",
+var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "gloomberg_seawatcher_events_received_count_total",
+	Help: "The number of received events from OpenSea API.",
 })
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
@@ -191,7 +191,7 @@ func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[EventType]func() {
 
 // eventHandler handles incoming stream api events and forwards them as map.
 func (sw *SeaWatcher) eventHandler(response any) {
-	eventsReceivedTotal.Inc()
+	eventsReceivedCounter.Inc()
 
 	rawEvent, ok := response.(map[string]interface{})
 	if !ok {

@@ -17,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/charmbracelet/log"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/spf13/viper"
 )
 
@@ -50,6 +51,9 @@ func StartWebUI(gb *gloomberg.Gloomberg) (*WsHub, error) {
 
 	// websocket endpoint
 	http.HandleFunc("/ws", hub.serveWS)
+
+	// prometheus metrics
+	http.Handle("/metrics", promhttp.Handler())
 
 	tlsConfig, err := gloomberg.GetServerTLSConfig()
 	if err != nil {
