@@ -37,7 +37,7 @@ func NewDegenDB() *DegenDB {
 		return nil
 	}
 
-	log.Infof("✅ connected to mongoDB at %s", ddb.uri)
+	log.Debugf("✅ connected to mongoDB at %s", ddb.uri)
 
 	ddb.mongo = mongoClient
 
@@ -108,7 +108,7 @@ func (ddb *DegenDB) connect() (*mongo.Client, error) {
 		return nil, err
 	}
 
-	log.Print("mongodb ping successful")
+	log.Debug("mongodb ping successful")
 
 	return client, nil
 }
@@ -204,6 +204,12 @@ func (ddb *DegenDB) initializeDegensCollection() {
 
 			_ = common.HexToAddress(hexAddress)
 		}
+	}
+
+	if len(ogDegens) == 0 {
+		log.Debugf("ogDegens is empty")
+
+		return
 	}
 
 	_, err := degensColl.InsertMany(context.TODO(), ogDegens)

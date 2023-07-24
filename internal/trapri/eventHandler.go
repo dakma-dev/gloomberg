@@ -21,7 +21,7 @@ func OpenseaEventsHandler(gb *gloomberg.Gloomberg) {
 
 	for i := 0; i < viper.GetInt("trapri.numOpenSeaEventhandlers"); i++ {
 		go func(i int) {
-			log.Printf("  👨‍🔧 OpenseaEventsHandler %d running", i)
+			log.Debugf("  👨‍🔧 OpenseaEventsHandler %d started", i)
 
 			for {
 				select {

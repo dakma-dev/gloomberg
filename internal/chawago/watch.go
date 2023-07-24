@@ -2,6 +2,7 @@ package chawago
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
@@ -46,6 +47,15 @@ func (ww *WalletWatcher) Prf(format string, a ...interface{}) {
 	ww.Pr(fmt.Sprintf(format, a...))
 }
 
+func (ww *WalletWatcher) FormattedWallets() []string {
+	names := make([]string, 0)
+	for _, w := range ww.Wallets {
+		names = append(names, lipgloss.NewStyle().Foreground(&w.Color).Render(w.Name))
+	}
+
+	return names
+}
+
 func (ww *WalletWatcher) Watch() {
 	ww.Wallets[common.HexToAddress("0x1329d762e5e34e53a6c5e24bd15fa032482eb0f9")] = &wallet.Wallet{
 		Name:    "unknown",
@@ -54,7 +64,7 @@ func (ww *WalletWatcher) Watch() {
 
 	ww.watchedWallets = mapset.NewSetFromMapKeys[common.Address](ww.Wallets)
 
-	ww.Prf("watching %d wallets: %+v", ww.watchedWallets.Cardinality(), ww.watchedWallets)
+	ww.Prf("watching %d wallets: %+v", ww.watchedWallets.Cardinality(), strings.Join(ww.FormattedWallets(), ", "))
 
 	// watch for new transactions
 	txsWithLogs := ww.gb.SubscribeTxWithLogs()
