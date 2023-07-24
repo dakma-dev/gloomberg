@@ -16,6 +16,8 @@ import (
 	"github.com/charmbracelet/log"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/spf13/viper"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
@@ -30,7 +32,31 @@ var (
 	firstTxsWorkQueue = make(chan *FirstTxsTask, 1024)
 	fetchedContracts  = mapset.NewSet[common.Address]()
 	ignoredContracts  = mapset.NewSet[common.Address]()
+
+	firstTxsCollectionCounter = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "gloomberg_firsttxs_collection_count_total",
+		Help: "No of collections with first txs downloaded.",
+	},
+	)
 )
+
+func JobFirstTxsForContract(params ...any) {
+	if len(params) != 2 {
+		return
+	}
+
+	collectionName, ok := params[0].(string)
+	if !ok {
+		return
+	}
+
+	contractAddress, ok := params[1].(common.Address)
+	if !ok {
+		return
+	}
+
+	GetFirstTxsForContract(collectionName, contractAddress)
+}
 
 // GetFirstTxsForContract fetches the first 1337 txs for a contract from etherscan and saves them to a json file.
 func GetFirstTxsForContract(collectionName string, contractAddress common.Address) {
@@ -51,7 +77,19 @@ func GetFirstTxsForContract(collectionName string, contractAddress common.Addres
 	}
 
 	collectionData := FirstTxsTask{CollectionName: collectionName, ContractAddress: contractAddress}
-	firstTxsWorkQueue <- &collectionData
+	// firstTxsWorkQueue <- &collectionData
+
+	err := fetchfirstTxsForContract(collectionData.CollectionName, collectionData.ContractAddress)
+	if err != nil && os.IsExist(err) {
+		log.Debugf("file for %s already exists: %+v", collectionData.CollectionName, err)
+	} else if err != nil {
+		gbl.Log.Debugf("failed to get firstTxs for %s: %s", collectionData.CollectionName, err)
+
+		// ignore for this session
+		ignoredContracts.Add(collectionData.ContractAddress)
+	}
+
+	fetchedContracts.Add(collectionData.ContractAddress)
 
 	gbl.Log.Debugf("⏳ added %s to firstTxs queue", style.AlmostWhiteStyle.Render(collectionData.CollectionName))
 }
@@ -129,6 +167,8 @@ func fetchfirstTxsForContract(collectionName string, contractAddress common.Addr
 	}
 
 	file.Close()
+
+	firstTxsCollectionCounter.Inc()
 
 	return nil
 }

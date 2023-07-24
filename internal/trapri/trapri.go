@@ -13,6 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
@@ -211,8 +212,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			collectionFileNamePrefix = collection.OpenseaSlug
 		}
 
-		if viper.GetBool("first_txs.enabled") {
-			go gloomberg.GetFirstTxsForContract(collectionFileNamePrefix, contractAddress)
+		if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= 0.1 {
+			jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
 		}
 
 		ttxCollections[contractAddress] = collection
@@ -328,6 +329,10 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			}
 
 			numCollectionTokens += transfer.AmountTokens.Int64()
+
+			if viper.GetBool("experiments.eip6551") {
+				jobs.AddJob("eip6551", "node", gloomberg.JobCheckEIP6551TokenAccount, gb, &transfer.Token.Address, transfer.Token.ID)
+			}
 		}
 
 		if ttx.IsReBurn() {

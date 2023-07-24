@@ -31,7 +31,7 @@ func Test_getCreationCode(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getCreationCode(tt.args.implementation, tt.args.tokenContract, tt.args.tokenId); !reflect.DeepEqual(got, tt.want) {
+			if got := getCreationCode(tt.args.implementation, &tt.args.tokenContract, tt.args.tokenId); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("getCreationCode() = %v, want %v", got, tt.want)
 			}
 		})
@@ -87,7 +87,7 @@ func TestGetTokenboundTokenAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := GetTokenboundTokenAddress(tt.args.tokenContract, tt.args.tokenId); !reflect.DeepEqual(got, tt.want) {
+			if got := GetTokenboundTokenAddress(&tt.args.tokenContract, tt.args.tokenId); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("GetTokenboundTokenAddress() = %v, want %v", got, tt.want)
 			}
 		})

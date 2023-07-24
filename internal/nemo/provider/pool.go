@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"math/big"
 	"math/rand"
 	"sync/atomic"
@@ -18,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -62,7 +62,8 @@ const (
 
 	GasInfo methodCall = "gas_info"
 
-	CodeAt methodCall = "bytecode"
+	CodeAt  methodCall = "bytecode"
+	NonceAt methodCall = "nonce"
 )
 
 type methodCallParams struct {
@@ -569,6 +570,15 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 			if codeAt, err := provider.codeAt(ctx, params.Address); err == nil {
 				return codeAt, nil
 			}
+
+		case NonceAt:
+			if params.Address == (common.Address{}) {
+				return nil, errors.New("invalid contract address")
+			}
+
+			if nonceAt, err := provider.nonceAt(ctx, params.Address); err == nil {
+				return nonceAt, nil
+			}
 		default:
 			return nil, errors.New("invalid method")
 		}
@@ -742,6 +752,20 @@ func (pp *Pool) GetCodeAt(ctx context.Context, address common.Address) ([]byte, 
 	}
 
 	return byteCode, nil
+}
+
+func (pp *Pool) GetNonceAt(ctx context.Context, address common.Address) (uint64, error) {
+	nonceAt, err := pp.callMethod(ctx, NonceAt, methodCallParams{Address: address})
+	if err != nil {
+		return 0, err
+	}
+
+	nonce, ok := nonceAt.(uint64)
+	if !ok {
+		return 0, errors.New("nonce not a uint64")
+	}
+
+	return nonce, nil
 }
 
 // // getClients returns a shuffled list of eth clients with local nodes preferred.

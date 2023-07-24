@@ -16,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/degendb/degendata"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/token"
@@ -34,6 +35,7 @@ import (
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/muesli/termenv"
 	"github.com/redis/rueidis"
@@ -79,6 +81,21 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// initialize
 	gb.OwnWallets = &wallet.Wallets{}
 	gb.Watcher = &watch.Watcher{}
+	// initialize marmot the task runner/scheduler
+	gb.Jobs = jobs.NewJobRunner()
+
+	// (TODO: MOVE THIS TO WHERE IT BELONGS...?^^)
+	// experiments (feature flags)
+	activeExperiments := mapset.NewSet[string]()
+	for experiment, active := range viper.GetStringMap("experiments") {
+		if active == true {
+			gbl.Log.Debugf("🧪 experiment %s is active", style.BoldStyle.Render(experiment))
+		}
+
+		activeExperiments.Add(style.BoldAlmostWhite(experiment))
+	}
+
+	gb.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
 
 	go func() {
 		gb.DegenDB = degendb.NewDegenDB()
@@ -602,13 +619,9 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
-	//
-	// marmot
-	viper.SetDefault("marmot.numJobRunner", 3)
-	viper.SetDefault("marmot.defaults.intervals", map[string]time.Duration{
-		"opensea":   time.Second * 7,
-		"etherscan": time.Second * 3,
-	})
+	// job runner
+	viper.SetDefault("jobs.numRunner", 3)
+	viper.SetDefault("jobs.defaults.intervals", jobs.DefaultIntervals)
 
 	viper.SetDefault("etherscan.fetchInterval", time.Second*3)
 

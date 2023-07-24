@@ -342,7 +342,7 @@ func (p *Provider) connect() error {
 	p.Client = ethClient
 
 	if p.Preferred {
-		gbl.Log.Infof("%s syncing: %v", p.Name, syncing)
+		gbl.Log.Debugf("%s syncing: %v", p.Name, syncing)
 
 		p.GethClient = gethclient.New(rpcClient)
 	}
@@ -581,4 +581,13 @@ func (p *Provider) getGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
 // codeAt returns the current gas price and tip.
 func (p *Provider) codeAt(ctx context.Context, address common.Address) ([]byte, error) {
 	return p.Client.CodeAt(ctx, address, nil) // nil is latest block
+}
+
+//
+// nonce
+//
+
+// codeAt returns the current gas price and tip.
+func (p *Provider) nonceAt(ctx context.Context, address common.Address) (uint64, error) {
+	return p.Client.NonceAt(ctx, address, nil)
 }

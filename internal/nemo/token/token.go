@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -30,4 +31,8 @@ func (t *Token) NftID() string {
 
 func (t *Token) ShortID() string {
 	return fmt.Sprintf("%s/%s", t.Address.String(), t.ID.String())
+}
+
+func (t *Token) LipglossedShortID() string {
+	return style.AlmostWhiteStyle.Render(t.Address.String()) + style.GrayStyle.Render("/") + style.BoldAlmostWhite(t.ID.String())
 }

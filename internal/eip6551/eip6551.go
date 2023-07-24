@@ -22,13 +22,13 @@ var (
 	erc1167Footer = []byte{0x5a, 0xf4, 0x3d, 0x82, 0x80, 0x3e, 0x90, 0x3d, 0x91, 0x60, 0x2b, 0x57, 0xfd, 0x5b, 0xf3}
 )
 
-func GetTokenboundTokenAddress(tokenContract common.Address, tokenID *big.Int) common.Address {
+func GetTokenboundTokenAddress(tokenContract *common.Address, tokenID *big.Int) common.Address {
 	creationCode := getCreationCode(TokenboundERC6551AccountProxy, tokenContract, tokenID)
 
 	return computeAddress(crypto.Keccak256(creationCode), [32]byte(salt))
 }
 
-func getCreationCode(implementation common.Address, tokenContract common.Address, tokenID *big.Int) []byte {
+func getCreationCode(implementation common.Address, tokenContract *common.Address, tokenID *big.Int) []byte {
 	// use default implementation (tokenbound.org) if none provided
 	if implementation == (common.Address{}) {
 		implementation = TokenboundERC6551AccountProxy

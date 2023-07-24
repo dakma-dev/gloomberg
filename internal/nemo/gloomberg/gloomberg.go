@@ -12,6 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
@@ -49,7 +50,7 @@ type Gloomberg struct {
 
 	*eventHub
 	// GloomHub *gloomhub
-	*marmot
+	Jobs *jobs.Runner
 	*degendb.DegenDB
 }
 
