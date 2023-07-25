@@ -13,6 +13,7 @@ type DataResponse struct {
 	AppID         int64      `json:"appId"`
 	MintPrice     float64    `json:"mintPrice"`
 	IsOpenEdition bool       `json:"isOpenEdition"`
+	IsIykClaim    bool       `json:"isIykClaim"`
 }
 
 type Creator struct {
