@@ -102,7 +102,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	rpcClients := mapset.NewSet[*ethclient.Client]()
 	rpcEndpoints := mapset.NewSet[string]()
 
-	availableWallets := mapset.NewSet[*MintWallet]()
+	availableWallets := make([]*MintWallet, 0)
 	mintWallets := mapset.NewSet[*MintWallet]()
 
 	// check for valid keys
@@ -129,7 +129,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
 		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAddress(mintWallet.address))
 
-		availableWallets.Add(mintWallet)
+		availableWallets = append(availableWallets, mintWallet)
 	}
 
 	// connect to rpc endpoints
@@ -144,12 +144,14 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		rpcClients.Add(rpcClient)
 	}
 
-	mintIdentifier, err := getMintIdentifier("https://app.manifold.xyz/c/above-the-noise")
+	mintIdentifier, err := getMintIdentifier(flagURL)
 	if err != nil {
 		log.Fatalf("❌ getting mint identifier from manifold failed: %v", err)
 
 		return
 	}
+
+	log.Print("mintIdentifier: %sd", mintIdentifier)
 
 	mintInfo, err := getMintInfoWithURL(flagURL)
 	if err != nil {
@@ -157,6 +159,15 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 		return
 	}
+
+	getMintInfoWithIdentifier, err := getMintInfoWithIdentifier(mintIdentifier)
+	if err != nil {
+		log.Fatalf("❌ getting mint identifier from manifold failed: %v", err)
+
+		return
+	}
+
+	log.Debug(getMintInfoWithIdentifier)
 
 	manifoldInstanceID := *big.NewInt(int64(mintInfo.PublicData.ClaimIndex))
 
@@ -178,7 +189,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print("")
 
 	fmtWallets := make([]string, 0)
-	for _, wallet := range availableWallets.ToSlice() {
+	for _, wallet := range availableWallets {
 		fmtWallets = append(fmtWallets, style.Bold(wallet.tag))
 	}
 
@@ -188,14 +199,11 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	// randomly choose numWallets from our available wallets
 
 	// (max) number of wallets to use
-	numWallets := uint16(math.Min(float64(viper.GetUint16("mint.manifold.num-wallets")), float64(availableWallets.Cardinality())))
+	numWallets := uint16(math.Min(float64(viper.GetUint16("mint.manifold.num-wallets")), float64(len(availableWallets))))
 
-	// choose unique numWallets random wallets
-	for i := uint16(0); i < numWallets; i++ {
-		// choose a random wallet
-		if wallet, ok := availableWallets.Pop(); ok && wallet != nil {
-			mintWallets.Add(wallet)
-		}
+	// select the first numWallets from our available wallets
+	for _, wallet := range availableWallets[:numWallets] {
+		mintWallets.Add(wallet)
 	}
 
 	fmtWallets = make([]string, 0)
@@ -309,7 +317,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	wg.Wait()
 
 	log.Print("")
-	log.Print("  🟢 all jobs finished! 🍹")
+	log.Print("  🍹 all jobs finished! 🍹")
 	log.Print("")
 }
 
@@ -321,10 +329,10 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		rpcIdx := rand.Intn(len(rpcEndpoints.ToSlice())) //nolint:gosec
 		rpcEndpoint := rpcEndpoints.ToSlice()[rpcIdx]
 
-		log.Debugf("%s | rpc endpoints (%d): %s", mintWallet.tag, rpcEndpoints.Cardinality(), style.BoldAlmostWhite(fmt.Sprintf("%+v", rpcEndpoints)))
+		log.Debugf("%s | 📑 rpc endpoints (%d): %s", mintWallet.tag, rpcEndpoints.Cardinality(), style.BoldAlmostWhite(fmt.Sprintf("%+v", rpcEndpoints)))
+		log.Debugf("%s | 🎯 selected rpc endpoint: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(rpcIdx)))
 
-		log.Printf("%s | selected rpc endpoint: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(rpcIdx)))
-
+		// connect to rpc endpoint
 		rpcClient, err := ethclient.Dial(rpcEndpoint)
 		if err != nil {
 			log.Errorf("❌ failed to connect to rpc endpoint %s: %v", rpcEndpoint, err)
@@ -332,7 +340,8 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s | preparing transaction...", mintWallet.tag)
+		// contract binding
+		log.Printf("%s | create contract binding...", mintWallet.tag)
 
 		lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClient)
 		if err != nil {
@@ -340,6 +349,8 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 
 			continue
 		}
+
+		log.Debugf("%s | lazyClaimERC1155: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(lazyClaimERC1155)))
 
 		// get the nonce
 		nonce, err := rpcClient.PendingNonceAt(context.Background(), crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey))
@@ -349,8 +360,49 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
+		log.Debugf("%s | nonce: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(nonce)))
+
+		// get the current gas price
+		gasPrice, err := rpcClient.SuggestGasPrice(context.Background())
+		if err != nil {
+			log.Errorf("%s | ❌ getting gasPrice failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
+
+			continue
+		}
+
+		log.Debugf("%s | ⛽️ gasPrice: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasPrice)))
+
+		// get the current gas tip
+		gasTip, err := rpcClient.SuggestGasTipCap(context.Background())
+		if err != nil {
+			log.Errorf("%s | ❌ getting gasTip failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
+
+			continue
+		}
+
+		log.Debugf("%s | ⛽️ gasTip: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTip)))
+
 		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
 		totalCost := new(big.Int).Add(manifoldFee, mintCost)
+
+		//
+		// create the transaction options
+		txOpts, err := bind.NewKeyedTransactorWithChainID(mintWallet.privateKey, big.NewInt(1))
+		if err != nil {
+			log.Errorf("%s | ❌ creating transaction options failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
+
+			continue
+		}
+
+		txOpts.From = crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey)
+		txOpts.Nonce = big.NewInt(int64(nonce))
+		txOpts.Value = totalCost
+		// use 1.5x the amount of the current suggested gas price
+		txOpts.GasPrice = new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(3)), big.NewInt(2))
+		// use 2x the amount of the current suggested gas tip
+		txOpts.GasTipCap = new(big.Int).Mul(gasTip, big.NewInt(2))
+
+		log.Debugf("%s | txOpts: %#v", mintWallet.tag, txOpts)
 
 		// create the transaction
 		var tx *types.Transaction
@@ -364,13 +416,9 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 				merkelProofs = append(merkelProofs, [][32]byte{claimInfo.MerkleRoot})
 			}
 
-			tx, err = lazyClaimERC1155.MintBatch(&bind.TransactOpts{
-				From:  crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey),
-				Nonce: big.NewInt(int64(nonce)),
-				Value: totalCost,
-			}, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkelProofs, *mintWallet.address)
+			tx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkelProofs, *mintWallet.address)
 			if err != nil {
-				log.Printf("%s | ❌ creating transaction failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
+				log.Printf("%s | ❌ creating batch transaction failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
 
 				if !viper.GetBool("dev.mode") {
 					continue
@@ -397,7 +445,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 
 		log.Debugf("%s | tx: %#v", mintWallet.tag, tx)
 
-		log.Printf("%s | signing transaction...", mintWallet.tag)
+		log.Printf("%s | ✍️ signing transaction...", mintWallet.tag)
 
 		// sign the transaction
 		signedTx, err := types.SignTx(tx, types.NewEIP155Signer(big.NewInt(1)), mintWallet.privateKey)
@@ -407,16 +455,16 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Debugf("%s | signedTx: %#v", mintWallet.tag, signedTx)
+		log.Debugf("%s | ✍️ signedTx: %#v", mintWallet.tag, signedTx)
 
 		// send the transaction
-		if viper.GetBool("dev.mode") {
-			log.Printf("%s | would send transaction...", mintWallet.tag)
+		// if viper.GetBool("dev.mode") {
+		// 	log.Printf("%s | would send transaction...", mintWallet.tag)
 
-			continue
-		}
+		// 	continue
+		// }
 
-		log.Printf("%s | sending transaction...", mintWallet.tag)
+		log.Printf("%s | 📦 sending transaction...", mintWallet.tag)
 
 		err = rpcClient.SendTransaction(context.Background(), signedTx)
 		if err != nil {
@@ -450,11 +498,71 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		}
 
 		if txConfirmed >= int(txsPerWallet) {
-			log.Printf("%s | all txs confirmed! 🍹", mintWallet.tag)
+			log.Printf("%s | 💥 🙌 💥 all txs confirmed! 🍹 🥃 🥂s", mintWallet.tag)
 
 			return
 		}
+
+		time.Sleep(time.Millisecond * 337)
 	}
+}
+
+func getMintInfoWithIdentifier(identifier int64) (*manifold.DataResponse, error) {
+	url := fmt.Sprintf("https://apps.api.manifoldxyz.dev/public/instance/data?id=%d", identifier)
+
+	log.Printf("Identifier url: %s", url)
+
+	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
+	if err != nil {
+		if os.IsTimeout(err) {
+			log.Printf("⌛️ Identifier GetMintInfo · timeout while fetching: %+v\n", err.Error())
+		} else {
+			log.Errorf("❌ Identifier gGetMintInfo · error: %+v\n", err.Error())
+		}
+
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		log.Errorf("❌ Identifier gGetMintInfo · error: %+v\n", response.Status)
+
+		return nil, err
+	}
+
+	// read the response body
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Errorf("❌ Identifier gGetMintInfo · response read error: %+v\n", err.Error())
+
+		return nil, err
+	}
+
+	// decode the data
+	if err != nil || !json.Valid(responseBody) {
+		log.Warnf("getContractMetadata invalid json: %s", err)
+
+		return nil, err
+	}
+
+	var unmarshalled map[string]interface{}
+	_ = json.Unmarshal(responseBody, &unmarshalled)
+
+	log.Print("")
+	log.Print("")
+	log.Print("")
+	log.Print("with identifier")
+	pretty.Println(unmarshalled)
+
+	// fmt.Println(string(responseBody))
+	var decoded *manifold.DataResponse
+	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&decoded); err != nil {
+		log.Errorf("❌  decode error: %s\n", err.Error())
+
+		return nil, err
+	}
+
+	return decoded, nil
 }
 
 func getMintInfoWithURL(mintURL string) (*manifold.DataResponse, error) {
@@ -462,6 +570,9 @@ func getMintInfoWithURL(mintURL string) (*manifold.DataResponse, error) {
 	slug := mintURL[strings.LastIndex(mintURL, "/")+1:]
 
 	url := fmt.Sprintf("https://apps.api.manifoldxyz.dev/public/instance/data?appId=%d&instanceSlug=%s", manifoldMagicAppID, slug)
+
+	log.Printf("URL url: %s", url)
+
 	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
@@ -494,6 +605,15 @@ func getMintInfoWithURL(mintURL string) (*manifold.DataResponse, error) {
 
 		return nil, err
 	}
+
+	var unmarshalled map[string]interface{}
+	_ = json.Unmarshal(responseBody, &unmarshalled)
+
+	log.Print("")
+	log.Print("")
+	log.Print("")
+	log.Print("with URL")
+	pretty.Println(unmarshalled)
 
 	// fmt.Println(string(responseBody))
 	var decoded *manifold.DataResponse
