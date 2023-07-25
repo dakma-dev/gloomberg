@@ -5,8 +5,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/rs/xid"
@@ -98,12 +101,25 @@ func (m *Runner) run() {
 
 			jobsCounter.Inc()
 
-			gbl.Log.Infof(
+			gbl.Log.Debugf(
 				"✔️ %s | %v %s",
 				style.TrendGreenStyle.Render("done"),
 				job,
 				style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(*m.jobs))))),
 			)
+
+			if jobsProcessed := int64(utils.GetMetricValue(jobsCounter)); jobsProcessed%viper.GetInt64("jobs.status_every") == 0 {
+				msg := fmt.Sprintf(
+					"✔️ %s jobs %s | %s jobs/min %s",
+					style.BoldAlmostWhite(fmt.Sprint(jobsProcessed)),
+					style.TrendGreenStyle.Render("processed"),
+					style.BoldAlmostWhite(fmt.Sprintf("%.2f", float64(jobsProcessed)/time.Since(internal.RunningSince).Minutes())),
+					style.DarkGrayStyle.Render(fmt.Sprintf("|🔜  queue: %s", style.GrayStyle.Render(fmt.Sprint(len(*m.jobs))))),
+				)
+
+				gbl.Log.Info(msg)
+				log.Print(msg)
+			}
 		} else {
 			*m.jobs <- job
 
@@ -151,5 +167,5 @@ func AddJob(name string, key string, run func(...any), params ...any) {
 
 	jobQueue <- job
 
-	gbl.Log.Infof("🔜 %s | %+v %s", style.LightGrayStyle.Render("new"), job, style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(jobQueue))))))
+	gbl.Log.Debugf("🔜 %s | %+v %s", style.LightGrayStyle.Render("new"), job, style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(jobQueue))))))
 }
