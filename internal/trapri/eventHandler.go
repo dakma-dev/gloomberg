@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/viper"
 )
 
-// OpenseaEventsHandler handles all incoming & decoded events from OpenSea and dispatches them to the appropriate handler.
-func OpenseaEventsHandler(gb *gloomberg.Gloomberg) {
+// SeaWatcherEventsHandler handles all incoming & decoded events from OpenSea and dispatches them to the appropriate handler.
+func SeaWatcherEventsHandler(gb *gloomberg.Gloomberg) {
 	chanItemListed := gb.SubscribeItemListed()
 	chanItemReceivedBid := gb.SubscribeItemReceivedBid()
 	chanCollectionOffer := gb.SubscribeCollectionOffer()

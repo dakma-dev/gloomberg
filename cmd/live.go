@@ -379,10 +379,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.local") || viper.GetBool("listings.enabled") {
-		go trapri.OpenseaEventsHandler(gb)
+	if viper.GetBool("seawatcher.local") || viper.GetBool("seawatcher.grpc.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("listings.enabled") {
+		go trapri.SeaWatcherEventsHandler(gb)
 
-		go gb.SendSlugsToServer()
+		if viper.GetBool("seawatcher.pubsub") {
+			go gb.SendSlugsToServer()
+		}
 	}
 
 	if viper.GetBool("seawatcher.grpc.client.enabled") {
@@ -579,10 +581,8 @@ func testGRPC() {
 			},
 		}
 
+		// send event to the eventhub
 		gb.In.ItemListed <- &itemListedEvent
-
-		// gb.Prf("🐔 RECEIVED: %+v", event)
-		gb.Prf("🐔🐔🐔 RECEIVED: %+v", itemListedEvent)
 	}
 }
 
@@ -672,7 +672,7 @@ func init() { //nolint:gochecknoinits
 	// job runner
 	viper.SetDefault("jobs.numRunner", 3)
 	viper.SetDefault("jobs.defaults.intervals", jobs.DefaultIntervals)
-	viper.SetDefault("jobs.status_every", 137)
+	viper.SetDefault("jobs.status_every", 1337)
 
 	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)
