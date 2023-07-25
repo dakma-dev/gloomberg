@@ -27,9 +27,8 @@ type FirstTxsTask struct {
 }
 
 var (
-	firstTxsWorkQueue = make(chan *FirstTxsTask, 1024)
-	fetchedContracts  = mapset.NewSet[common.Address]()
-	ignoredContracts  = mapset.NewSet[common.Address]()
+	fetchedContracts = mapset.NewSet[common.Address]()
+	ignoredContracts = mapset.NewSet[common.Address]()
 
 	firstTxsCollectionCounter = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "gloomberg_firsttxs_collection_count_total",
