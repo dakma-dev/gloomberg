@@ -29,7 +29,8 @@ service SeaWatcher {
   // streamed rather than returned at once (e.g. in a response message with a
   // repeated field), as the rectangle may cover a large area and contain a
   // huge number of features.
-  rpc GetEvents(SubscriptionRequest) returns (stream OpenSeaEvent) {}
+  // rpc GetEvents(SubscriptionRequest) returns (stream OpenSeaEvent) {}
+  rpc GetItemListedEvents(SubscriptionRequest) returns (stream ItemListed) {}
 }
 
 // Points are represented as latitude-longitude pairs in the E7 representation
@@ -61,8 +62,8 @@ message OpenSeaEvent {
   // The name of the feature.
   string name = 1;
 
-  //   // The point where the feature is detected.
-  //   Point location = 2;
+  // The event type.
+  EventType eventType = 2;
 }
 
 // Event emitted when an item is listed for sale.
@@ -161,7 +162,7 @@ message ItemListed {
     Account taker = 14;
   }
 
-  string event_type = 1;
+  EventType event_type = 1;
   ItemListedPayload payload = 2;
   google.protobuf.Timestamp sent_at = 3;
 }

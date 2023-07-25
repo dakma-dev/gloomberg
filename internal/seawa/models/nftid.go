@@ -23,24 +23,46 @@ func NewNftID(chain string, contractAddress common.Address, tokenID *big.Int) *N
 func ParseNftID(combinedNftID string) *NftID {
 	nftID := strings.Split(combinedNftID, "/")
 
-	if len(nftID) != 3 {
-		gbl.Log.Error("Invalid NFT ID: %s", combinedNftID)
+	chain := "ethereum"
+
+	var collection common.Address
+
+	var tokenID *big.Int
+
+	var rawTokenID string
+
+	switch len(nftID) {
+	case 3:
+		chain = nftID[0]
+
+		collection = common.HexToAddress(nftID[1])
+
+		rawTokenID = nftID[2]
+
+	case 2:
+		collection = common.HexToAddress(nftID[0])
+
+		rawTokenID = nftID[1]
+
+	default:
+		gbl.Log.Errorf("Invalid NFT ID: %s", combinedNftID)
 
 		empty := []string{"", "", ""}
 
 		return (*NftID)(&empty)
 	}
 
-	tokenID, ok := new(big.Int).SetString(nftID[2], 10)
+	var ok bool
+	tokenID, ok = new(big.Int).SetString(rawTokenID, 10)
 	if !ok {
-		gbl.Log.Error("Invalid NFT ID: %s", combinedNftID)
+		gbl.Log.Errorf("Invalid NFT ID - error parsing tokenID: %s", combinedNftID)
 
 		empty := []string{"", "", ""}
 
 		return (*NftID)(&empty)
 	}
 
-	return NewNftID(nftID[0], common.HexToAddress(nftID[1]), tokenID)
+	return NewNftID(chain, collection, tokenID)
 }
 
 // Chain returns the chain of the token.

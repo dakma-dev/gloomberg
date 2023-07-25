@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"strings"
 	"time"
@@ -378,10 +379,18 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
+	if viper.GetBool("seawatcher.local") || viper.GetBool("listings.enabled") {
 		go trapri.OpenseaEventsHandler(gb)
 
 		go gb.SendSlugsToServer()
+	}
+
+	if viper.GetBool("seawatcher.grpc.client.enabled") {
+		gb.Prf("starting grpc client...")
+
+		// go seawa.GetEvents()
+
+		go testGRPC()
 	}
 
 	//
@@ -469,11 +478,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gb.Prf("wallet watcher started: %+v", wawa)
 	}()
 
-	if viper.IsSet("seawatcher.grpc.server") {
-		gb.Prf("starting grpc client...")
-		go testGRPC()
-	}
-
 	// loop forever
 	select {}
 }
@@ -501,7 +505,7 @@ func testGRPC() {
 		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	}
 
-	grpcAddress := fmt.Sprintf("%s:%d", viper.GetString("seawatcher.grpc.server"), viper.GetUint("seawatcher.grpc.port"))
+	grpcAddress := fmt.Sprintf("%s:%d", viper.GetString("seawatcher.grpc.client.host"), viper.GetUint("seawatcher.grpc.port"))
 
 	gb.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
 
@@ -515,7 +519,7 @@ func testGRPC() {
 	gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
 
 	subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-	stream, err := client.GetEvents(context.Background(), subsriptionRequest)
+	stream, err := client.GetItemListedEvents(context.Background(), subsriptionRequest)
 	if err != nil {
 		log.Errorf("client.GetEvents failed: %v", err)
 
@@ -536,7 +540,49 @@ func testGRPC() {
 			time.Sleep(time.Second * 1)
 		}
 
-		gb.Prf("🐔 RECEIVED: %+v", event)
+		basePrice, ok := new(big.Int).SetString(event.Payload.BasePrice, 10)
+		if !ok {
+			log.Errorf("error parsing base price: %v", err)
+
+			continue
+		}
+
+		// transform event back to seawaModel.ItemListed
+		itemListedEvent := seawaModels.ItemListed{
+			EventType: strings.ToLower(event.EventType.String()),
+			SentAt:    event.SentAt.AsTime(),
+			Payload: seawaModels.ItemListedPayload{
+				Item: seawaModels.Item{
+					NftID:     *seawaModels.ParseNftID(event.Payload.Item.NftId),
+					Chain:     seawaModels.Chain{Name: event.Payload.Item.Chain.Name},
+					Permalink: event.Payload.Item.Permalink,
+					Metadata: seawaModels.Metadata{
+						Name:         event.Payload.Item.Metadata.Name,
+						ImageURL:     event.Payload.Item.Metadata.ImageUrl,
+						AnimationURL: event.Payload.Item.Metadata.AnimationUrl,
+						MetadataURL:  event.Payload.Item.Metadata.MetadataUrl,
+					},
+				},
+				IsPrivate:   event.Payload.IsPrivate,
+				ListingDate: event.Payload.ListingDate.AsTime(),
+				EventPayload: seawaModels.EventPayload{
+					EventTimestamp:     event.Payload.EventTimestamp.AsTime(),
+					BasePrice:          basePrice,
+					Maker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.Maker.Address)},
+					Taker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.Taker.Address)},
+					Quantity:           int(event.Payload.Quantity),
+					OrderHash:          common.HexToHash(event.Payload.OrderHash),
+					ExpirationDate:     event.Payload.ExpirationDate.AsTime(),
+					CollectionCriteria: seawaModels.CollectionCriteria{Slug: event.Payload.Collection.Slug},
+					PaymentToken:       seawaModels.PaymentToken{Address: common.HexToAddress(event.Payload.PaymentToken.Address), Symbol: event.Payload.PaymentToken.Symbol, Decimals: int(event.Payload.PaymentToken.Decimals)},
+				},
+			},
+		}
+
+		gb.In.ItemListed <- &itemListedEvent
+
+		// gb.Prf("🐔 RECEIVED: %+v", event)
+		gb.Prf("🐔🐔🐔 RECEIVED: %+v", itemListedEvent)
 	}
 }
 
@@ -615,15 +661,18 @@ func init() { //nolint:gochecknoinits
 	// worker settings
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
 
+	// eventhub
 	viper.SetDefault("gloomberg.eventhub.numHandler", 3)
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
+	// first txs
+	viper.SetDefault("gloomberg.firstTxs.min_value", 0.5)
+
 	// job runner
 	viper.SetDefault("jobs.numRunner", 3)
 	viper.SetDefault("jobs.defaults.intervals", jobs.DefaultIntervals)
-
-	viper.SetDefault("etherscan.fetchInterval", time.Second*3)
+	viper.SetDefault("jobs.status_every", 137)
 
 	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)

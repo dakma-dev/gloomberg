@@ -28,6 +28,7 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	grpc "google.golang.org/grpc"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type SeaWatcher struct {
@@ -47,6 +48,10 @@ type SeaWatcher struct {
 	// subscriptions map[string]map[osmodels.EventType]func()
 	subscriptions map[string]map[EventType]func()
 
+	runLocal        bool
+	runPubsubServer bool
+	runGRPCServer   bool
+
 	// redis client
 	rdb rueidis.Client
 
@@ -65,7 +70,10 @@ var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
 func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
-	if apiToken == "" {
+	// we might not connect to the stream api locally if we use grpc or other ways to get the events
+	runLocalAPIClient := viper.GetBool("seawatcher.local")
+
+	if runLocalAPIClient && apiToken == "" {
 		log.Info("no OpenSea api token provided, skipping OpenSea stream api")
 
 		return nil
@@ -87,6 +95,10 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 
 		channels: make(map[string]*phx.Channel),
 
+		runLocal:        runLocalAPIClient,
+		runPubsubServer: viper.GetBool("seawatcher.pubsub"),
+		runGRPCServer:   viper.IsSet("seawatcher.grpc.listen"),
+
 		gb:  gb,
 		rdb: gb.Rdb,
 
@@ -94,53 +106,57 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	}
 
 	// create phoenix socket
-	sw.phoenixSocket = phx.NewSocket(endpoint)
-	sw.phoenixSocket.Logger = phx.NewCustomLogger(phx.LoggerLevel(phx.LogWarning), zap.NewStdLog(gbl.Log.Desugar()))
+	if runLocalAPIClient {
+		sw.phoenixSocket = phx.NewSocket(endpoint)
+		sw.phoenixSocket.Logger = phx.NewCustomLogger(phx.LoggerLevel(phx.LogWarning), zap.NewStdLog(gbl.Log.Desugar()))
 
-	// exponential backoff for reconnects
-	sw.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
-		// max waitTime is 2^7 = 128sec
-		waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 5)))))
+		// exponential backoff for reconnects
+		sw.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
+			// max waitTime is 2^7 = 128sec
+			waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 5)))))
 
-		sw.Prf("❌ reconnecting to OpenSea failed (#%d) 😩 trying again in %dsec..", attempt, int(waitTime.Seconds()))
+			sw.Prf("❌ reconnecting to OpenSea failed (#%d) 😩 trying again in %dsec..", attempt, int(waitTime.Seconds()))
 
-		return waitTime
-	}
-
-	// error function
-	sw.phoenixSocket.OnError(func(err error) { gbl.Log.Errorf("❌ seawa socket error: %+v", err) })
-
-	// called on successful connection to the socket/OpenSea
-	sw.phoenixSocket.OnOpen(func() {
-		sw.Pr("✅ connected to the OpenSea stream")
-	})
-
-	// called on disconnect/connection breaks to the socket/OpenSea
-	sw.phoenixSocket.OnClose(func() {
-		sw.Pr("❕ connection to OpenSea closed, trying to reconnect...")
-
-		err := sw.phoenixSocket.Reconnect()
-		if err != nil {
-			sw.Prf("❌ reconnecting to OpenSea stream failed: %s", err)
+			return waitTime
 		}
-	})
 
-	// initial connection to the socket/OpenSea
-	if sw.phoenixSocket != nil {
-		sw.Pr("connecting to OpenSea...")
+		// error function
+		sw.phoenixSocket.OnError(func(err error) { gbl.Log.Errorf("❌ seawa socket error: %+v", err) })
 
-		if err := sw.phoenixSocket.Connect(); err != nil {
-			socketError := errors.New("OpenSea stream socket connection failed: " + err.Error())
-			sw.Prf("❌ socket error: %s", socketError.Error())
+		// called on successful connection to the socket/OpenSea
+		sw.phoenixSocket.OnOpen(func() {
+			sw.Pr("✅ connected to the OpenSea stream")
+		})
 
-			return nil
+		// called on disconnect/connection breaks to the socket/OpenSea
+		sw.phoenixSocket.OnClose(func() {
+			sw.Pr("❕ connection to OpenSea closed, trying to reconnect...")
+
+			err := sw.phoenixSocket.Reconnect()
+			if err != nil {
+				sw.Prf("❌ reconnecting to OpenSea stream failed: %s", err)
+			}
+		})
+
+		// initial connection to the socket/OpenSea
+		if sw.phoenixSocket != nil {
+			sw.Pr("connecting to OpenSea...")
+
+			if err := sw.phoenixSocket.Connect(); err != nil {
+				socketError := errors.New("OpenSea stream socket connection failed: " + err.Error())
+				sw.Prf("❌ socket error: %s", socketError.Error())
+
+				return nil
+			}
 		}
 	}
 
 	// start worker for managing subscriptions
-	go sw.WorkerMgmtChannel()
+	if viper.GetBool("seawatcher.grpc.pubsub") {
+		go sw.WorkerMgmtChannel()
+	}
 
-	if viper.IsSet("seawatcher.grpc.listen") {
+	if viper.GetBool("seawatcher.grpc.server.enabled") {
 		sw.Prf("starting grpc server...")
 
 		listenHost := viper.GetString("seawatcher.grpc.listen")
@@ -609,7 +625,7 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 	}
 }
 
-func (sw *SeaWatcher) GetEvents(req *SubscriptionRequest, stream SeaWatcher_GetEventsServer) error { //nolint:nosnakecase
+func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWatcher_GetItemListedEventsServer) error { //nolint:nosnakecase
 	sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
 
 	newEventSubscriptions := 0
@@ -633,11 +649,45 @@ func (sw *SeaWatcher) GetEvents(req *SubscriptionRequest, stream SeaWatcher_GetE
 	}()
 
 	for event := range sw.gb.SubscribeItemListed() {
-		osEvent := &OpenSeaEvent{Name: event.Payload.Item.Name}
+		// transform *models.ItemListed event to ItemListed grpc message
+		itemListed := &ItemListed{
+			EventType: EventType_ITEM_LISTED, //nolint:nosnakecase
+			SentAt:    &timestamppb.Timestamp{Seconds: event.SentAt.Unix()},
+			Payload: &ItemListed_ItemListedPayload{ //nolint:nosnakecase
+				Item: &ItemListed_Item{ //nolint:nosnakecase
+					Chain:     &ItemListed_Chain{Name: "ethereum"}, //nolint:nosnakecase
+					NftId:     event.Payload.Item.String(),
+					Permalink: event.Payload.Item.Permalink,
+					Metadata: &ItemListed_Metadata{ //nolint:nosnakecase
+						Name:         event.Payload.Item.Name,
+						ImageUrl:     event.Payload.Item.ImageURL,
+						AnimationUrl: event.Payload.Item.AnimationURL,
+						MetadataUrl:  event.Payload.Item.MetadataURL,
+					},
+				},
+				BasePrice:      event.Payload.BasePrice.String(),
+				Collection:     &ItemListed_Collection{Slug: event.Payload.Slug}, //nolint:nosnakecase
+				IsPrivate:      event.Payload.IsPrivate,
+				ListingDate:    &timestamppb.Timestamp{Seconds: event.Payload.ListingDate.Unix()},
+				EventTimestamp: &timestamppb.Timestamp{Seconds: event.Payload.EventTimestamp.Unix()},
+				Quantity:       uint32(event.Payload.Quantity),
+				Maker:          &ItemListed_Account{Address: event.Payload.Maker.Address.String()}, //nolint:nosnakecase
+				Taker:          &ItemListed_Account{Address: event.Payload.Taker.Address.String()}, //nolint:nosnakecase
+				ExpirationDate: &timestamppb.Timestamp{Seconds: event.Payload.ExpirationDate.Unix()},
+				OrderHash:      event.Payload.OrderHash.String(),
+				PaymentToken: &ItemListed_PaymentToken{ //nolint:nosnakecase
+					Address:  event.Payload.Address.String(),
+					Symbol:   event.Payload.Symbol,
+					Name:     event.Payload.Name,
+					Decimals: uint32(event.Payload.Decimals),
+					UsdPrice: event.Payload.UsdPrice,
+				},
+			},
+		}
 
-		sw.Prf("🐔 received osEvent %s", style.AlmostWhiteStyle.Render(fmt.Sprint(osEvent)))
+		sw.Prf("🐔 received osEvent %s", style.AlmostWhiteStyle.Render(fmt.Sprint(itemListed)))
 
-		if err := stream.Send(osEvent); err != nil {
+		if err := stream.Send(itemListed); err != nil {
 			return err
 		}
 	}

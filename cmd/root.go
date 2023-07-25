@@ -27,8 +27,8 @@ var (
 	keyPath  string
 
 	// grpc.
-	grpcServer net.IP
-	grpcListen net.IP
+	grpcServerListen net.IP
+	grpcClientHost   net.IP
 
 	gb *gloomberg.Gloomberg
 )

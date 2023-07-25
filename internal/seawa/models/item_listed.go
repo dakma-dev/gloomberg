@@ -5,12 +5,12 @@ import "time"
 type ItemListed struct {
 	EventType string            `json:"event_type" mapstructure:"event_type"`
 	SentAt    time.Time         `json:"sent_at"    mapstructure:"sent_at"`
-	Payload   itemListedPayload `json:"payload"    mapstructure:"payload"`
+	Payload   ItemListedPayload `json:"payload"    mapstructure:"payload"`
 
 	Other map[string]interface{} `mapstructure:",remain"`
 }
 
-type itemListedPayload struct {
+type ItemListedPayload struct {
 	Item         Item `json:"item"            mapstructure:"item"`
 	EventPayload `mapstructure:",squash"`
 

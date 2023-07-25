@@ -33,7 +33,7 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	SeaWatcher_GetEvents_FullMethodName = "/seawatcher.SeaWatcher/GetEvents"
+	SeaWatcher_GetItemListedEvents_FullMethodName = "/seawatcher.SeaWatcher/GetItemListedEvents"
 )
 
 // SeaWatcherClient is the client API for SeaWatcher service.
@@ -46,7 +46,8 @@ type SeaWatcherClient interface {
 	// streamed rather than returned at once (e.g. in a response message with a
 	// repeated field), as the rectangle may cover a large area and contain a
 	// huge number of features.
-	GetEvents(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (SeaWatcher_GetEventsClient, error)
+	// rpc GetEvents(SubscriptionRequest) returns (stream OpenSeaEvent) {}
+	GetItemListedEvents(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (SeaWatcher_GetItemListedEventsClient, error)
 }
 
 type seaWatcherClient struct {
@@ -57,12 +58,12 @@ func NewSeaWatcherClient(cc grpc.ClientConnInterface) SeaWatcherClient {
 	return &seaWatcherClient{cc}
 }
 
-func (c *seaWatcherClient) GetEvents(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (SeaWatcher_GetEventsClient, error) {
-	stream, err := c.cc.NewStream(ctx, &SeaWatcher_ServiceDesc.Streams[0], SeaWatcher_GetEvents_FullMethodName, opts...)
+func (c *seaWatcherClient) GetItemListedEvents(ctx context.Context, in *SubscriptionRequest, opts ...grpc.CallOption) (SeaWatcher_GetItemListedEventsClient, error) {
+	stream, err := c.cc.NewStream(ctx, &SeaWatcher_ServiceDesc.Streams[0], SeaWatcher_GetItemListedEvents_FullMethodName, opts...)
 	if err != nil {
 		return nil, err
 	}
-	x := &seaWatcherGetEventsClient{stream}
+	x := &seaWatcherGetItemListedEventsClient{stream}
 	if err := x.ClientStream.SendMsg(in); err != nil {
 		return nil, err
 	}
@@ -72,17 +73,17 @@ func (c *seaWatcherClient) GetEvents(ctx context.Context, in *SubscriptionReques
 	return x, nil
 }
 
-type SeaWatcher_GetEventsClient interface {
-	Recv() (*OpenSeaEvent, error)
+type SeaWatcher_GetItemListedEventsClient interface {
+	Recv() (*ItemListed, error)
 	grpc.ClientStream
 }
 
-type seaWatcherGetEventsClient struct {
+type seaWatcherGetItemListedEventsClient struct {
 	grpc.ClientStream
 }
 
-func (x *seaWatcherGetEventsClient) Recv() (*OpenSeaEvent, error) {
-	m := new(OpenSeaEvent)
+func (x *seaWatcherGetItemListedEventsClient) Recv() (*ItemListed, error) {
+	m := new(ItemListed)
 	if err := x.ClientStream.RecvMsg(m); err != nil {
 		return nil, err
 	}
@@ -99,7 +100,8 @@ type SeaWatcherServer interface {
 	// streamed rather than returned at once (e.g. in a response message with a
 	// repeated field), as the rectangle may cover a large area and contain a
 	// huge number of features.
-	GetEvents(*SubscriptionRequest, SeaWatcher_GetEventsServer) error
+	// rpc GetEvents(SubscriptionRequest) returns (stream OpenSeaEvent) {}
+	GetItemListedEvents(*SubscriptionRequest, SeaWatcher_GetItemListedEventsServer) error
 	mustEmbedUnimplementedSeaWatcherServer()
 }
 
@@ -107,8 +109,8 @@ type SeaWatcherServer interface {
 type UnimplementedSeaWatcherServer struct {
 }
 
-func (UnimplementedSeaWatcherServer) GetEvents(*SubscriptionRequest, SeaWatcher_GetEventsServer) error {
-	return status.Errorf(codes.Unimplemented, "method GetEvents not implemented")
+func (UnimplementedSeaWatcherServer) GetItemListedEvents(*SubscriptionRequest, SeaWatcher_GetItemListedEventsServer) error {
+	return status.Errorf(codes.Unimplemented, "method GetItemListedEvents not implemented")
 }
 func (UnimplementedSeaWatcherServer) mustEmbedUnimplementedSeaWatcherServer() {}
 
@@ -123,24 +125,24 @@ func RegisterSeaWatcherServer(s grpc.ServiceRegistrar, srv SeaWatcherServer) {
 	s.RegisterService(&SeaWatcher_ServiceDesc, srv)
 }
 
-func _SeaWatcher_GetEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
+func _SeaWatcher_GetItemListedEvents_Handler(srv interface{}, stream grpc.ServerStream) error {
 	m := new(SubscriptionRequest)
 	if err := stream.RecvMsg(m); err != nil {
 		return err
 	}
-	return srv.(SeaWatcherServer).GetEvents(m, &seaWatcherGetEventsServer{stream})
+	return srv.(SeaWatcherServer).GetItemListedEvents(m, &seaWatcherGetItemListedEventsServer{stream})
 }
 
-type SeaWatcher_GetEventsServer interface {
-	Send(*OpenSeaEvent) error
+type SeaWatcher_GetItemListedEventsServer interface {
+	Send(*ItemListed) error
 	grpc.ServerStream
 }
 
-type seaWatcherGetEventsServer struct {
+type seaWatcherGetItemListedEventsServer struct {
 	grpc.ServerStream
 }
 
-func (x *seaWatcherGetEventsServer) Send(m *OpenSeaEvent) error {
+func (x *seaWatcherGetItemListedEventsServer) Send(m *ItemListed) error {
 	return x.ServerStream.SendMsg(m)
 }
 
@@ -153,8 +155,8 @@ var SeaWatcher_ServiceDesc = grpc.ServiceDesc{
 	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
-			StreamName:    "GetEvents",
-			Handler:       _SeaWatcher_GetEvents_Handler,
+			StreamName:    "GetItemListedEvents",
+			Handler:       _SeaWatcher_GetItemListedEvents_Handler,
 			ServerStreams: true,
 		},
 	},
