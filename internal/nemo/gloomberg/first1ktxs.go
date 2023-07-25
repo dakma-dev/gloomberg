@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
-	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/external"
@@ -18,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"github.com/spf13/viper"
 	"golang.org/x/text/cases"
 	"golang.org/x/text/language"
 )
@@ -94,34 +92,34 @@ func GetFirstTxsForContract(collectionName string, contractAddress common.Addres
 	gbl.Log.Debugf("⏳ added %s to firstTxs queue", style.AlmostWhiteStyle.Render(collectionData.CollectionName))
 }
 
-func FirstTxsWorker() {
-	interval := viper.GetDuration("etherscan.fetchInterval")
-	fetchTicker := time.NewTicker(interval)
+// func FirstTxsWorker() {
+// 	interval := viper.GetDuration("etherscan.fetchInterval")
+// 	fetchTicker := time.NewTicker(interval)
 
-	log.Printf("👷 firstTxs worker started with interval %.0fs", interval.Seconds())
+// 	log.Printf("👷 firstTxs worker started with interval %.0fs", interval.Seconds())
 
-	for task := range firstTxsWorkQueue {
-		err := fetchfirstTxsForContract(task.CollectionName, task.ContractAddress)
-		if err != nil && os.IsExist(err) {
-			log.Debugf("file for %s already exists: %+v", task.CollectionName, err)
+// 	for task := range firstTxsWorkQueue {
+// 		err := fetchfirstTxsForContract(task.CollectionName, task.ContractAddress)
+// 		if err != nil && os.IsExist(err) {
+// 			log.Debugf("file for %s already exists: %+v", task.CollectionName, err)
 
-			continue
-		} else if err != nil {
-			gbl.Log.Debugf("failed to get firstTxs for %s: %s", task.CollectionName, err)
+// 			continue
+// 		} else if err != nil {
+// 			gbl.Log.Debugf("failed to get firstTxs for %s: %s", task.CollectionName, err)
 
-			// ignore for this session
-			ignoredContracts.Add(task.ContractAddress)
+// 			// ignore for this session
+// 			ignoredContracts.Add(task.ContractAddress)
 
-			continue
-		}
+// 			continue
+// 		}
 
-		fetchedContracts.Add(task.ContractAddress)
+// 		fetchedContracts.Add(task.ContractAddress)
 
-		gbl.Log.Infof("📝 firstTxs fetched for %s (%d total | queue: %d)", task.CollectionName, fetchedContracts.Cardinality(), len(firstTxsWorkQueue))
+// 		gbl.Log.Infof("📝 firstTxs fetched for %s (%d total | queue: %d)", task.CollectionName, fetchedContracts.Cardinality(), len(firstTxsWorkQueue))
 
-		<-fetchTicker.C
-	}
-}
+// 		<-fetchTicker.C
+// 	}
+// }
 
 func fetchfirstTxsForContract(collectionName string, contractAddress common.Address) error {
 	numTxsToFecth := int64(1337)

@@ -212,7 +212,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			collectionFileNamePrefix = collection.OpenseaSlug
 		}
 
-		if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= 0.1 {
+		if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= viper.GetFloat64("gloomberg.firstTxs.min_value") {
 			jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
 		}
 
