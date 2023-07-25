@@ -385,6 +385,13 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 
 // func (sw *SeaWatcher) SubscribeForSlug(slug string) bool {.
 func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []EventType) bool {
+	if !viper.GetBool("seawatcher.local") {
+		log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
+		log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
+
+		return false
+	}
+
 	if sw.IsSubscribed(slug) {
 		log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 
