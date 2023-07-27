@@ -695,8 +695,25 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 		sw.Prf("🐔 received osEvent %s", style.AlmostWhiteStyle.Render(fmt.Sprint(itemListed)))
 
 		if err := stream.Send(itemListed); err != nil {
-			return err
+			log.Printf("❌ error sending event to grpc client: %s", err)
+
+			continue
 		}
+
+		// output to terminal
+		price := price.NewPrice(event.Payload.BasePrice)
+		eventType := degendb.GetEventType(event.EventType)
+		collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Hash().Big().Int64()))
+		collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Big().Int64() ^ 2))
+		currencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")
+
+		fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%5.2f", price.Ether())) + currencySymbol
+		fmtItemName := strings.ReplaceAll(collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.Name), "#", collectionSecondaryStyle.Render("#"))
+
+		fmtItemLink := style.TerminalLink(event.Payload.Item.Permalink, fmtItemName)
+		// fmtCollectionLink := style.TerminalLink(utils.GetOpenseaCollectionLink(event.Payload.Slug), style.LightGrayStyle.Render(fmt.Sprint(event.Payload.Slug)))
+
+		sw.Prf("%s %s %s", eventType.Icon(), fmtPrice, fmtItemLink)
 	}
 
 	return nil

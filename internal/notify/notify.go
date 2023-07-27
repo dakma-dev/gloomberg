@@ -62,7 +62,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 		defer notificationLock()
 
 		gbl.Log.Infof("🔐 notification lock for %s acquired (%.0fsec)", fmtHash, viper.GetDuration("cache.notifications_lock_ttl").Seconds())
-		log.Printf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.TxHash), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
+		log.Debugf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(ttx.TxHash), viper.GetDuration("cache.notifications_lock_ttl").Seconds())
 	}
 
 	messagesPerUserMap := make(map[*watch.WUser]*strings.Builder)
@@ -109,7 +109,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 
 			gbl.Log.Debugf("📸 imageURI: %s", imageURI)
 
-			log.Printf("ttx: %+v | transfer: %+v | collection: %+v | userName: %s | triggerAddress: %s", ttx, transfer, collection, userName, triggerAddress.String())
+			gbl.Log.Infof("ttx: %+v | transfer: %+v | collection: %+v | userName: %s | triggerAddress: %s", ttx, transfer, collection, userName, triggerAddress.String())
 
 			// collect telegram messages per user
 			msgTelegram := buildNotificationMessage(ttx, transfer, collection, userName, triggerAddress)

@@ -97,7 +97,7 @@ func CheckEIP6551TokenAccount(gb *Gloomberg, tokenContract *common.Address, toke
 		return false, nil, nil
 	}
 
-	log.Printf("‼️ EIP6551 account %s is a contract!? 🧐", eip6551AccountAddress.String())
+	gbl.Log.Infof("‼️ EIP6551 account %s is a contract!? 🧐", eip6551AccountAddress.String())
 
 	// check if account has nonce
 	nonceAt, err := gb.ProviderPool.GetNonceAt(context.Background(), eip6551AccountAddress)
@@ -107,19 +107,19 @@ func CheckEIP6551TokenAccount(gb *Gloomberg, tokenContract *common.Address, toke
 		return false, nil, fmt.Errorf("failed to get nonce for %s: %w", eip6551AccountAddress.String(), err)
 	}
 
-	log.Debugf("EIP6551 nonceAt: %d", nonceAt)
+	gbl.Log.Infof("EIP6551 nonceAt: %d", nonceAt)
 
-	if nonceAt == 0 {
-		log.Debugf("EIP6551 account %s has a zero nonce", eip6551AccountAddress.String())
+	if nonceAt < 2 {
+		log.Debugf("EIP6551 account %s has no transactions besides contract creation 🤷‍♀️", eip6551AccountAddress.String())
 
-		// not a hard criteria for now, so don't stop here
-		// return false, nil, nil
+		return false, nil, fmt.Errorf("EIP6551 account %s has no transactions besides contract creation 🤷‍♀️", eip6551AccountAddress.String())
 	}
 
 	gb.PrModf(
-		"e6551", "💥  %s  →  %+v",
+		"e6551", "💥  %s  →  %+v (nonce: %d)",
 		style.TerminalLink(utils.GetEtherscanAddressURL(tokenContract), style.ShortenAddressStyled(tokenContract, lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(tokenContract.Hash().Big().Int64())))),
 		style.TerminalLink(utils.GetEtherscanAddressURL(&eip6551AccountAddress), eip6551AccountAddress.String()),
+		nonceAt,
 	)
 
 	eip6551TokenDiscoveredCounter.Inc()
