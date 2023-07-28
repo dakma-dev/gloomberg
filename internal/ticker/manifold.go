@@ -153,7 +153,7 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			manifoldLine.WriteString(" " + tokenInfo)
 
-			openseaURL := utils.GetOpenseaLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
+			openseaURL := utils.GetOpenseaItemLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 
@@ -238,7 +238,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 			telegramMessage.WriteString(fmt.Sprintf("%6.3f", priceEtherPerItem))
 			telegramMessage.WriteString("Ξ")
 
-			openseaURL := utils.GetOpenseaLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
+			openseaURL := utils.GetOpenseaItemLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 			// telegramMessage.WriteString(" " + collection.Name)
