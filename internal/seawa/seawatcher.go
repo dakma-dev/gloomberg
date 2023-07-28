@@ -13,12 +13,15 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
+	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
@@ -164,21 +167,23 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
 
 		// configure grpc server
-		grpcListener, err := net.Listen("tcp", serverAddress)
-		if err != nil {
-			log.Errorf("failed to listen: %v", err)
-		}
+		go func() {
+			grpcListener, err := net.Listen("tcp", serverAddress)
+			if err != nil {
+				log.Errorf("failed to listen: %v", err)
+			}
 
-		var opts []grpc.ServerOption
-		if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
-			opts = []grpc.ServerOption{grpc.Creds(creds)}
-		}
+			var opts []grpc.ServerOption
+			if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
+				opts = []grpc.ServerOption{grpc.Creds(creds)}
+			}
 
-		// start grpc server
-		grpcServer := grpc.NewServer(opts...)
-		RegisterSeaWatcherServer(grpcServer, sw)
+			// start grpc server
+			grpcServer := grpc.NewServer(opts...)
+			RegisterSeaWatcherServer(grpcServer, sw)
 
-		go log.Error(grpcServer.Serve(grpcListener))
+			go log.Error(grpcServer.Serve(grpcListener))
+		}()
 
 		sw.Prf("grpc server started on %+v", style.BoldAlmostWhite(serverAddress))
 	}
@@ -240,6 +245,8 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		),
 		Metadata: metadata,
 	}
+
+	// log.Printf("⚓️ received %s event: %+v", itemEventType, rawEvent)
 
 	switch osmodels.EventType(itemEventType) {
 	// item listed
@@ -404,6 +411,8 @@ func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []EventType) bool
 
 	for _, eventType := range eventTypes {
 		sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
+
+		time.Sleep(time.Millisecond * 137)
 	}
 	sw.mu.Unlock()
 
@@ -633,6 +642,9 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 }
 
 func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWatcher_GetItemListedEventsServer) error { //nolint:nosnakecase
+	// TODO: remove when handler for other event types are implemented
+	req.EventTypes = availableEventTypes
+
 	sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
 
 	newEventSubscriptions := 0
@@ -658,8 +670,9 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 	for event := range sw.gb.SubscribeItemListed() {
 		// transform *models.ItemListed event to ItemListed grpc message
 		itemListed := &ItemListed{
-			EventType: EventType_ITEM_LISTED, //nolint:nosnakecase
+			EventType: EventType(EventType_value[event.EventType]), //nolint:nosnakecase
 			SentAt:    &timestamppb.Timestamp{Seconds: event.SentAt.Unix()},
+
 			Payload: &ItemListed_ItemListedPayload{ //nolint:nosnakecase
 				Item: &ItemListed_Item{ //nolint:nosnakecase
 					Chain:     &ItemListed_Chain{Name: "ethereum"}, //nolint:nosnakecase
@@ -692,17 +705,25 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 			},
 		}
 
-		sw.Prf("🐔 received osEvent %s", style.AlmostWhiteStyle.Render(fmt.Sprint(itemListed)))
+		ev := &Event{
+			EventType: EventType_ITEM_LISTED, //nolint:nosnakecase
+			Payload: &EventPayload{
+				Kind: &EventPayload_ItemListed{ //nolint:nosnakecase
+					ItemListed: itemListed,
+				},
+			},
+		}
 
-		if err := stream.Send(itemListed); err != nil {
+		if err := stream.Send(ev); err != nil {
 			log.Printf("❌ error sending event to grpc client: %s", err)
 
-			continue
+			return err
+			// continue
 		}
 
 		// output to terminal
 		price := price.NewPrice(event.Payload.BasePrice)
-		eventType := degendb.GetEventType(event.EventType)
+		eventType := degendb.EventType(degendb.GetEventType(event.EventType))
 		collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Hash().Big().Int64()))
 		collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Big().Int64() ^ 2))
 		currencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")

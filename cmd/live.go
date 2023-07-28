@@ -44,7 +44,10 @@ import (
 	"github.com/spf13/viper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/encoding/protojson"
 )
+
+var manualParser = true
 
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
@@ -520,69 +523,116 @@ func testGRPC() {
 
 	gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
 
-	subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-	stream, err := client.GetItemListedEvents(context.Background(), subsriptionRequest)
-	if err != nil {
-		log.Errorf("client.GetEvents failed: %v", err)
-
-		return
-	}
-
 	for {
-		event, err := stream.Recv()
+		subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
+		stream, err := client.GetItemListedEvents(context.Background(), subsriptionRequest)
 		if err != nil {
-			if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) {
-				log.Errorf("io.EOF error: %v", err)
+			log.Errorf("client.GetEvents failed: %v", err)
 
-				break
+			return
+		}
+
+		for {
+			event, err := stream.Recv()
+			if err != nil {
+				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) {
+					log.Errorf("io.EOF error: %v", err)
+
+					log.Errorf("lets fucking reconnect! %v", stream.CloseSend())
+
+					// //
+					// // reconnect?!
+					// conn.Close()
+
+					// conn, err := grpc.Dial(grpcAddress, opts...)
+					// if err != nil {
+					// 	log.Errorf("reco fail to dial: %v", err)
+					// }
+					// defer conn.Close()
+					// client = seawatcher.NewSeaWatcherClient(conn)
+
+					// subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
+					// stream, err = client.GetItemListedEvents(context.Background(), subsriptionRequest)
+					// if err != nil {
+					// 	log.Errorf("reco client.GetEvents failed: %v", err)
+
+					// 	continue
+					// }
+					// //
+					// //
+
+					break
+				}
+
+				log.Errorf("receiving event failed: %v", err)
+
+				time.Sleep(time.Second * 1)
 			}
 
-			log.Errorf("receiving event failed: %v", err)
+			basePrice, ok := new(big.Int).SetString(event.Payload.GetItemListed().Payload.BasePrice, 10)
+			if !ok {
+				log.Errorf("error parsing base price: %v", err)
 
-			time.Sleep(time.Second * 1)
-		}
+				continue
+			}
 
-		basePrice, ok := new(big.Int).SetString(event.Payload.BasePrice, 10)
-		if !ok {
-			log.Errorf("error parsing base price: %v", err)
+			var itemListed seawaModels.ItemListed
 
-			continue
-		}
+			log.Debugf("🐔 client received: %+v", protojson.Format(event))
 
-		// transform event back to seawaModel.ItemListed
-		itemListedEvent := seawaModels.ItemListed{
-			EventType: strings.ToLower(event.EventType.String()),
-			SentAt:    event.SentAt.AsTime(),
-			Payload: seawaModels.ItemListedPayload{
-				Item: seawaModels.Item{
-					NftID:     *seawaModels.ParseNftID(event.Payload.Item.NftId),
-					Chain:     seawaModels.Chain{Name: event.Payload.Item.Chain.Name},
-					Permalink: event.Payload.Item.Permalink,
-					Metadata: seawaModels.Metadata{
-						Name:         event.Payload.Item.Metadata.Name,
-						ImageURL:     event.Payload.Item.Metadata.ImageUrl,
-						AnimationURL: event.Payload.Item.Metadata.AnimationUrl,
-						MetadataURL:  event.Payload.Item.Metadata.MetadataUrl,
+			if manualParser {
+				// transform event back to seawaModel.ItemListed
+				itemListed = seawaModels.ItemListed{
+					EventType: strings.ToLower(event.EventType.String()),
+					SentAt:    event.Payload.GetItemListed().SentAt.AsTime(),
+					Payload: seawaModels.ItemListedPayload{
+						Item: seawaModels.Item{
+							NftID:     *seawaModels.ParseNftID(event.Payload.GetItemListed().Payload.Item.NftId),
+							Chain:     seawaModels.Chain{Name: event.Payload.GetItemListed().Payload.Item.Chain.Name},
+							Permalink: event.Payload.GetItemListed().Payload.Item.Permalink,
+							Metadata: seawaModels.Metadata{
+								Name:         event.Payload.GetItemListed().Payload.Item.Metadata.Name,
+								ImageURL:     event.Payload.GetItemListed().Payload.Item.Metadata.ImageUrl,
+								AnimationURL: event.Payload.GetItemListed().Payload.Item.Metadata.AnimationUrl,
+								MetadataURL:  event.Payload.GetItemListed().Payload.Item.Metadata.MetadataUrl,
+							},
+						},
+						IsPrivate:   event.Payload.GetItemListed().Payload.IsPrivate,
+						ListingDate: event.Payload.GetItemListed().Payload.ListingDate.AsTime(),
+						EventPayload: seawaModels.EventPayload{
+							EventTimestamp:     event.Payload.GetItemListed().Payload.EventTimestamp.AsTime(),
+							BasePrice:          basePrice,
+							Maker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.Maker.Address)},
+							Taker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.Taker.Address)},
+							Quantity:           int(event.Payload.GetItemListed().Payload.Quantity),
+							OrderHash:          common.HexToHash(event.Payload.GetItemListed().Payload.OrderHash),
+							ExpirationDate:     event.Payload.GetItemListed().Payload.ExpirationDate.AsTime(),
+							CollectionCriteria: seawaModels.CollectionCriteria{Slug: event.Payload.GetItemListed().Payload.Collection.Slug},
+							PaymentToken:       seawaModels.PaymentToken{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.PaymentToken.Address), Symbol: event.Payload.GetItemListed().Payload.PaymentToken.Symbol, Decimals: int(event.Payload.GetItemListed().Payload.PaymentToken.Decimals)},
+						},
 					},
-				},
-				IsPrivate:   event.Payload.IsPrivate,
-				ListingDate: event.Payload.ListingDate.AsTime(),
-				EventPayload: seawaModels.EventPayload{
-					EventTimestamp:     event.Payload.EventTimestamp.AsTime(),
-					BasePrice:          basePrice,
-					Maker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.Maker.Address)},
-					Taker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.Taker.Address)},
-					Quantity:           int(event.Payload.Quantity),
-					OrderHash:          common.HexToHash(event.Payload.OrderHash),
-					ExpirationDate:     event.Payload.ExpirationDate.AsTime(),
-					CollectionCriteria: seawaModels.CollectionCriteria{Slug: event.Payload.Collection.Slug},
-					PaymentToken:       seawaModels.PaymentToken{Address: common.HexToAddress(event.Payload.PaymentToken.Address), Symbol: event.Payload.PaymentToken.Symbol, Decimals: int(event.Payload.PaymentToken.Decimals)},
-				},
-			},
-		}
+				}
+			} // else {
+			// log.Printf("🐔 client received: %+v", protojson.Format(event))
 
-		// send event to the eventhub
-		gb.In.ItemListed <- &itemListedEvent
+			// 	// transform event back to seawaModel.ItemListed
+			// 	rawEvent, err := protojson.Marshal(event)
+			// 	if err != nil {
+			// 		log.Errorf("error parsing base price: %v", err)
+
+			// 		continue
+			// 	}
+
+			// 	if err := json.Unmarshal(rawEvent, &itemListed); err != nil {
+			// 		log.Errorf("error unmarshaling : %v", err)
+
+			// 		continue
+			// 	}
+			// }
+
+			// send event to the eventhub
+			gb.In.ItemListed <- &itemListed
+		}
 	}
 }
 

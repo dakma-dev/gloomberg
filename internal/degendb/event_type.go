@@ -18,9 +18,9 @@ type GBEventType struct {
 	openseaEventName string
 }
 
-func GetEventType(name string) *EventType {
+func GetEventType(name string) *GBEventType {
 	if eventType, ok := eventTypes[name]; ok {
-		return &eventType
+		return eventType
 	}
 
 	return nil
@@ -68,7 +68,7 @@ var (
 	SaleTypes = mapset.NewSet[EventType](Sale, Purchase)
 
 	// map of lowercase_with_underscores openseaEventName to event type.
-	eventTypes = map[string]EventType{
+	eventTypes = map[string]*GBEventType{
 		"item_transferred":      Transfer,
 		"item_sold":             Sale,
 		"item_listed":           Listing,
