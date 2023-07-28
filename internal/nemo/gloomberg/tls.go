@@ -18,7 +18,7 @@ func GetServerTLSConfig() (*tls.Config, error) {
 
 	return &tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   tls.VersionTLS13,
+		MinVersion:   tls.VersionTLS12,
 		MaxVersion:   0,
 
 		// disable mutual tls for now
