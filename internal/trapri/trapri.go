@@ -56,15 +56,6 @@ func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWat
 		go func() {
 			for ttx := range tokenTransactionsChannel {
 				go formatTokenTransaction(gb, seawa, ttx)
-
-				// send to bluechip ticker
-				if viper.GetBool("notifications.bluechip.enabled") {
-					ticker.BlueChips.CheckForBlueChipInvolvment(ttx)
-				}
-
-				if viper.GetBool("notifications.smart_wallets.enabled") {
-					ticker.AlphaCaller.AddEvent(ttx)
-				}
 			}
 		}()
 	}
@@ -644,7 +635,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 		// print bluechip collection sales
 		if ticker.BlueChips != nil && ticker.BlueChips.GetStats(currentCollection.ContractAddress) != nil {
-			out.WriteString("/" + lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render(fmt.Sprintf("%d", ticker.BlueChips.GetStats(currentCollection.ContractAddress).Sales)))
+			out.WriteString("/" + lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render(fmt.Sprintf("%d", ticker.BlueChips.GetStats(currentCollection.ContractAddress).GetTXCount())))
 		} else {
 			out.WriteString(" ")
 		}
@@ -894,7 +885,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
 			}
 
-			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Holder {
+			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Types {
 				if i == 0 {
 					out.WriteString("·")
 				}

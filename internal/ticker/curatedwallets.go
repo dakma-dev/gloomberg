@@ -12,7 +12,6 @@ import (
 
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -48,6 +47,13 @@ type CollectionStats struct {
 }
 
 func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicker *time.Ticker) {
+	tokenTransactionsChannel := s.gb.SubscribeTokenTransactions()
+	go func() {
+		for ttx := range tokenTransactionsChannel {
+			s.AddEvent(ttx)
+		}
+	}()
+
 	for range alphaCallerTicker.C {
 		for collectionAddress, collection := range AlphaCaller.CollectionData {
 			// skip collections with no transactions
@@ -64,10 +70,24 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 			transactions := len(collection.Transactions) + len(collection.ArchivedTransactions)
 
 			collectionName := gb.CollectionDB.Collections[collectionAddress].Name
-			// message.WriteString(fmt.Sprintf("*%d curated transactions \n\n*", transactions))
+
+			groupByWallets := make(map[common.Address]bool, 0)
+			for _, tx := range collection.Transactions {
+				wallet := AlphaCaller.WalletMap[tx.From]
+				groupByWallets[wallet.Address] = true
+			}
+
+			if len(groupByWallets) < minTXCountForNotifcation {
+				continue
+			}
+			for _, tx := range collection.ArchivedTransactions {
+				groupByWallets[AlphaCaller.WalletMap[tx.From].Address] = true
+			}
+
+			message.WriteString(fmt.Sprintf("*%d unique wallets \n\n*", len(groupByWallets)))
 			averageScore := int(collection.Score / int32(transactions))
-			message.WriteString(fmt.Sprintf("*%s* Score : Ø: *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
-			message.WriteString("_ 🔥 Latest Transactions per Wallets:_\n")
+			message.WriteString(fmt.Sprintf("*%s* \n Ø: *%d* %s \n\n", collectionName, averageScore, getScoreEmoji(collection.Score, transactions)))
+			message.WriteString("_ 🔥 Latest Transactions per Wallets:_\n\n")
 
 			var tokenID *big.Int
 
@@ -77,6 +97,8 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 
 			for _, tx := range collection.Transactions {
 				wallet := AlphaCaller.WalletMap[tx.From]
+
+				groupByWallets[wallet.Address] = true
 
 				blocksAgo := currentBlock - tx.TxReceipt.BlockNumber.Uint64()
 
@@ -137,16 +159,16 @@ func (s *AlphaScore) AlphaCallerTicker(gb *gloomberg.Gloomberg, alphaCallerTicke
 				)
 
 				// try to acquire the lock
-				if viper.GetBool("redis.enabled") {
-					notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(txHash, time.Hour*1)
-					if notificationLock == nil || err != nil {
-						gbl.Log.Debugf("notification lock for %s already exists", style.BoldStyle.Render(txHash.String()))
-
-						continue
-					}
-
-					gbl.Log.Debugf("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(txHash.String()))
-				}
+				// if viper.GetBool("redis.enabled") {
+				//	notificationLock, err := s.gb.Rueidi.NotificationLockWtihDuration(txHash, time.Minute*5)
+				//	if notificationLock == nil || err != nil {
+				//		gbl.Log.Debugf("notification lock for %s already exists", style.BoldStyle.Render(txHash.String()))
+				//		gbl.Log.Errorf("error: %s", err.Error())
+				//
+				//		continue
+				//	}
+				//	gbl.Log.Debugf("notification lock for %s acquired, trying to send...", style.BoldStyle.Render(txHash.String()))
+				//}
 
 				notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.smart_wallets.telegram_chat_id"), "", viper.GetInt("notifications.smart_wallets.telegram_reply_to_message_id"), replyMarkup)
 			}
@@ -183,7 +205,7 @@ func NewAlphaScore(gb *gloomberg.Gloomberg) *AlphaScore {
 	miwSpinner := style.GetSpinner("setting up curated wallets watcher ...")
 	_ = miwSpinner.Start()
 
-	fromJSON := ReadCuratedWalletsFromJSON("wallets/wallet_scores_edited_new.json")
+	fromJSON := ReadCuratedWalletsFromJSON("degendata/wallets/wallet_scores_edited_new.json")
 
 	// build wallet map
 	for _, address := range fromJSON.Addresses {
@@ -264,7 +286,7 @@ func getFirstContractAddressAndTokenID(eventTx *totra.TokenTransaction) (common.
 }
 
 func (s *AlphaScore) UpdateScore(collection *collections.Collection, recipientAddress common.Address, eventTx *totra.TokenTransaction) {
-	if eventTx.IsListing() {
+	if eventTx.IsListing() || eventTx.TxReceipt == nil {
 		return
 	}
 	// check if we already know the transaction the log belongs to

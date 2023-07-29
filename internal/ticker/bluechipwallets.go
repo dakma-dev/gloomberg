@@ -15,7 +15,7 @@ type Wallets struct {
 type Wallet struct {
 	Address common.Address `json:"address"`
 	Ens     string         `json:"ens"`
-	Holder  []HolderTypes
+	Types   []HolderTypes
 	Score   int32 `json:"score"`
 }
 
@@ -24,7 +24,7 @@ type GetOwnersForCollectionResponse struct {
 }
 
 func (s *Wallet) Contains(e HolderTypes) bool {
-	for _, a := range s.Holder {
+	for _, a := range s.Types {
 		if a == e {
 			return true
 		}
@@ -48,6 +48,7 @@ const (
 	Azuki
 	CYBERKONGZ
 	Captainz
+	DeGods
 )
 
 func ReadWalletsFromJSON(filePath string) *GetOwnersForCollectionResponse {

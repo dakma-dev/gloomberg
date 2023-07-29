@@ -7,7 +7,9 @@ require (
 	github.com/charmbracelet/lipgloss v0.7.1
 	github.com/charmbracelet/log v0.2.2
 	github.com/deckarep/golang-set/v2 v2.3.0
+	github.com/dghubble/oauth1 v0.7.2
 	github.com/ethereum/go-ethereum v1.12.0
+	github.com/g8rswimmer/go-twitter/v2 v2.1.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.2.1
 	github.com/klauspost/compress v1.16.7
