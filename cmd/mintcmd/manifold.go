@@ -46,6 +46,9 @@ var (
 
 	flagInstanceID int64
 
+	flagGasFeeCapMultiplier float64
+	flagGasTipCapMultiplier float64
+
 	flagPrivateKeys []string
 	flagRPCs        []string
 
@@ -83,6 +86,12 @@ func init() {
 	manifoldCmd.Flags().StringSliceVarP(&flagRPCs, "rpcs", "r", make([]string, 0), "rpc endpoints to mint with (randomly chosen)")
 	_ = viper.BindPFlag("mint.rpcs", manifoldCmd.Flags().Lookup("rpcs"))
 	// _ = manifoldCmd.MarkFlagRequired("rpcs")
+
+	// gas settings
+	manifoldCmd.Flags().Float64Var(&flagGasFeeCapMultiplier, "fee-cap", 1.0, "gas fee cap multiplier")
+	_ = viper.BindPFlag("mint.fee_multiplier", manifoldCmd.Flags().Lookup("fee-cap"))
+	manifoldCmd.Flags().Float64Var(&flagGasTipCapMultiplier, "tip-cap", 1.0, "gas tip cap multiplier")
+	_ = viper.BindPFlag("mint.tip_multiplier", manifoldCmd.Flags().Lookup("tip-cap"))
 
 	// number of wallets to use
 	manifoldCmd.Flags().Uint16("num-wallets", 3, "number of wallets to use for minting")
@@ -330,7 +339,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		log.Print("")
 		log.Printf(" 💤 💤 💤  waiting for mint start in %s  💤 💤 💤", style.BoldAlmostWhite(fmt.Sprint(time.Until(startDate).Truncate(time.Second).String())))
 		log.Print("")
-		log.Printf(style.GrayStyle.Render("  (use --no-wait to skip waiting)"))
+		log.Printf(style.GrayStyle.Render("    (use --no-wait to skip waiting)"))
 		log.Print("")
 		log.Print("")
 
@@ -443,6 +452,18 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 
 		log.Printf("%s | ⛽️ gasTip: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTip)))
 
+		//
+		// apply gas multiplier
+		feeCapMultiplier := new(big.Float).SetFloat64(viper.GetFloat64("mint.fee_multiplier"))
+		tipCapMultiplier := new(big.Float).SetFloat64(viper.GetFloat64("mint.tip_multiplier"))
+
+		suggestedFee := new(big.Float).SetInt(gasPrice)
+		suggestedTip := new(big.Float).SetInt(gasTip)
+
+		gasFeeCap, _ := new(big.Float).Mul(suggestedFee, feeCapMultiplier).Int(nil)
+		gasTipCap, _ := new(big.Float).Mul(suggestedTip, tipCapMultiplier).Int(nil)
+
+		// 💸 💸 💸
 		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
 		totalCost := new(big.Int).Add(manifoldFee, mintCost)
 
@@ -462,12 +483,8 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		txOpts.From = crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey)
 		txOpts.Nonce = big.NewInt(int64(nonce))
 		txOpts.Value = totalCost
-		// use 1.5x the amount of the current suggested gas price
-		// txOpts.GasPrice = new(big.Int).Div(new(big.Int).Mul(gasPrice, big.NewInt(3)), big.NewInt(2))
-		// use 2x the amount of the current suggested gas tip
-		// txOpts.GasTipCap = new(big.Int).Mul(gasTip, big.NewInt(2))
-		// txOpts.GasTipCap = new(big.Int).Mul(gasTip, big.NewInt(1))
-		txOpts.GasFeeCap = new(big.Int).Mul(gasPrice, big.NewInt(1))
+		txOpts.GasFeeCap = gasFeeCap
+		txOpts.GasTipCap = gasTipCap
 
 		log.Printf("%s | txOpts: %#v", mintWallet.tag, txOpts)
 
