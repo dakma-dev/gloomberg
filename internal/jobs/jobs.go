@@ -52,12 +52,6 @@ type Runner struct {
 	*sync.RWMutex
 }
 
-var DefaultIntervals = map[string]time.Duration{
-	"opensea":   time.Millisecond * 7730,
-	"etherscan": time.Millisecond * 3370,
-	"node":      time.Millisecond * 337,
-}
-
 var jobQueue = make(chan *Job, 1024)
 
 func NewJobRunner() *Runner {

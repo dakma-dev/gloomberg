@@ -19,6 +19,8 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -390,6 +392,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}
 	}
 
+	if viper.GetBool("grpc.server.enabled") {
+		gbgrpc.StartServer(gb, seawa)
+	}
+
 	if viper.GetBool("seawatcher.grpc.client.enabled") {
 		gb.Prf("starting grpc client...")
 
@@ -519,13 +525,13 @@ func testGRPC() {
 		log.Errorf("fail to dial: %v", err)
 	}
 	defer conn.Close()
-	client := seawatcher.NewSeaWatcherClient(conn)
+	client := gen.NewGloombergClient(conn)
 
 	gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
 
 	for {
-		subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-		stream, err := client.GetItemListedEvents(context.Background(), subsriptionRequest)
+		subsriptionRequest := &gen.SubscriptionRequest{EventTypes: []gen.EventType{gen.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
+		stream, err := client.GetEvents(context.Background(), subsriptionRequest)
 		if err != nil {
 			log.Errorf("client.GetEvents failed: %v", err)
 
@@ -721,7 +727,11 @@ func init() { //nolint:gochecknoinits
 
 	// job runner
 	viper.SetDefault("jobs.numRunner", 3)
-	viper.SetDefault("jobs.defaults.intervals", jobs.DefaultIntervals)
+	viper.SetDefault("jobs.defaults.intervals", map[string]time.Duration{
+		"opensea":   time.Millisecond * 7730,
+		"etherscan": time.Millisecond * 3370,
+		"node":      time.Millisecond * 337,
+	})
 	viper.SetDefault("jobs.status_every", 1337)
 
 	// OLD worker settings OLD

@@ -97,7 +97,7 @@ func (ww *WalletWatcher) Watch() {
 
 		// go notify.SendMessageViaTelegram(fmt.Sprintf("👀  %s", "https://etherscan.io/tx/"+tx.Hash().Hex()), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil)
 
-		log.Printf(" | %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
+		log.Debugf(" | %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 
 		// do something with the transaction
 		if tx.Sender() != nil && ww.watchedWallets.Contains(*tx.Sender()) {

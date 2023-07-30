@@ -3,6 +3,7 @@ package cmd
 import (
 	"net"
 
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/charmbracelet/log"
@@ -65,6 +66,9 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 	}
 
 	// sw.Prf("seaWatcherCmd.CalledAs(): %+v", cmd.CalledAs())
+	if viper.GetBool("grpc.server.enabled") {
+		gbgrpc.StartServer(gb, sw)
+	}
 
 	//
 	// manifold SNS receiver

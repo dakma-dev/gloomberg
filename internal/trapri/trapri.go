@@ -15,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
@@ -849,7 +850,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 				if !seawa.IsSubscribed(currentCollection.OpenseaSlug) {
 					// if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
-					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED, seawatcher.EventType_ITEM_RECEIVED_BID, seawatcher.EventType_COLLECTION_OFFER}) { //nolint:nosnakecase
+					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []gen.EventType{gen.EventType_ITEM_LISTED, gen.EventType_ITEM_RECEIVED_BID, gen.EventType_COLLECTION_OFFER}) { //nolint:nosnakecase
 						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
 				}

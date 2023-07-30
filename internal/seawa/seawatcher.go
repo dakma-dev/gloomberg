@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"net"
 	"net/url"
 	"strings"
 	"sync"
@@ -16,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	gbgrpc "github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa/models"
@@ -30,12 +30,12 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	grpc "google.golang.org/grpc"
+	emptypb "google.golang.org/protobuf/types/known/emptypb"
 	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type SeaWatcher struct {
-	UnimplementedSeaWatcherServer
+	// UnimplementedSeaWatcherServer
 
 	// channel for events received from the opensea stream
 	receivedEvents chan map[string]interface{}
@@ -49,7 +49,7 @@ type SeaWatcher struct {
 	// subscribed slugs/events
 	// subscriptions map[osmodels.EventType]map[string]func()
 	// subscriptions map[string]map[osmodels.EventType]func()
-	subscriptions map[string]map[EventType]func()
+	subscriptions map[string]map[gbgrpc.EventType]func()
 
 	runLocal        bool
 	runPubsubServer bool
@@ -64,7 +64,7 @@ type SeaWatcher struct {
 }
 
 // availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled.
-var availableEventTypes = []EventType{EventType_ITEM_LISTED, EventType_METADATA_UPDATED, EventType_ITEM_RECEIVED_BID, EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+var availableEventTypes = []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED, gbgrpc.EventType_METADATA_UPDATED, gbgrpc.EventType_ITEM_RECEIVED_BID, gbgrpc.EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "gloomberg_seawatcher_events_received_count_total",
@@ -94,7 +94,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	sw := &SeaWatcher{
 		receivedEvents: make(chan map[string]interface{}, 1024),
 		// subscriptions:  make(map[string]map[osmodels.EventType]func()),
-		subscriptions: make(map[string]map[EventType]func()),
+		subscriptions: make(map[string]map[gbgrpc.EventType]func()),
 
 		channels: make(map[string]*phx.Channel),
 
@@ -159,34 +159,34 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		go sw.WorkerMgmtChannel()
 	}
 
-	if viper.GetBool("seawatcher.grpc.server.enabled") {
-		sw.Prf("starting grpc server...")
+	// if viper.GetBool("seawatcher.grpc.server.enabled") {
+	// 	sw.Prf("starting grpc server...")
 
-		listenHost := viper.GetString("seawatcher.grpc.listen")
-		port := viper.GetUint16("seawatcher.grpc.port")
-		serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
+	// 	listenHost := viper.GetString("seawatcher.grpc.listen")
+	// 	port := viper.GetUint16("seawatcher.grpc.port")
+	// 	serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
 
-		// configure grpc server
-		go func() {
-			grpcListener, err := net.Listen("tcp", serverAddress)
-			if err != nil {
-				log.Errorf("failed to listen: %v", err)
-			}
+	// 	// configure grpc server
+	// 	go func() {
+	// 		grpcListener, err := net.Listen("tcp", serverAddress)
+	// 		if err != nil {
+	// 			log.Errorf("failed to listen: %v", err)
+	// 		}
 
-			var opts []grpc.ServerOption
-			if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
-				opts = []grpc.ServerOption{grpc.Creds(creds)}
-			}
+	// 		var opts []grpc.ServerOption
+	// 		if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
+	// 			opts = []grpc.ServerOption{grpc.Creds(creds)}
+	// 		}
 
-			// start grpc server
-			grpcServer := grpc.NewServer(opts...)
-			RegisterSeaWatcherServer(grpcServer, sw)
+	// 		// start grpc server
+	// 		grpcServer := grpc.NewServer(opts...)
+	// 		RegisterSeaWatcherServer(grpcServer, sw)
 
-			go log.Error(grpcServer.Serve(grpcListener))
-		}()
+	// 		go log.Error(grpcServer.Serve(grpcListener))
+	// 	}()
 
-		sw.Prf("grpc server started on %+v", style.BoldAlmostWhite(serverAddress))
-	}
+	// 	sw.Prf("grpc server started on %+v", style.BoldAlmostWhite(serverAddress))
+	// }
 
 	return sw
 }
@@ -206,7 +206,7 @@ func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
 }
 
 // func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[osmodels.EventType]func() {.
-func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[EventType]func() {
+func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[gbgrpc.EventType]func() {
 	return sw.subscriptions
 }
 
@@ -390,8 +390,11 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-// func (sw *SeaWatcher) SubscribeForSlug(slug string) bool {.
-func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []EventType) bool {
+func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []gbgrpc.EventType) bool {
+	return sw.SubscribeForSlugs([]string{slug}, eventTypes)
+}
+
+func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.EventType) bool {
 	if !viper.GetBool("seawatcher.local") {
 		log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
 		log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
@@ -399,33 +402,38 @@ func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []EventType) bool
 		return false
 	}
 
-	if sw.IsSubscribed(slug) {
-		log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
+	for _, slug := range slug {
+		if sw.IsSubscribed(slug) {
+			log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 
-		return false
-	}
+			return false
+		}
 
-	sw.mu.Lock()
-	// sw.subscriptions[slug] = make(map[osmodels.EventType]func())
-	sw.subscriptions[slug] = make(map[EventType]func())
+		sw.mu.Lock()
 
-	for _, eventType := range eventTypes {
-		sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
+		sw.subscriptions[slug] = make(map[gbgrpc.EventType]func())
+
+		for _, eventType := range eventTypes {
+			sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
+
+			time.Sleep(time.Millisecond * 37)
+		}
+
+		sw.mu.Unlock()
+
+		if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
+			log.Debugf("⏮️ resetting stats for %s", slug)
+
+			collection.ResetStats()
+		}
 
 		time.Sleep(time.Millisecond * 137)
-	}
-	sw.mu.Unlock()
-
-	if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
-		log.Debugf("⏮️ resetting stats for %s", slug)
-
-		collection.ResetStats()
 	}
 
 	return true
 }
 
-func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ []EventType) bool {
+func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ []gbgrpc.EventType) bool {
 	sw.mu.Lock()
 	slugSubscriptions := sw.subscriptions[slug]
 	sw.mu.Unlock()
@@ -493,7 +501,7 @@ func (sw *SeaWatcher) getChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (sw *SeaWatcher) on(eventType EventType, collectionSlug string, eventHandler func(response any)) func() {
+func (sw *SeaWatcher) on(eventType gbgrpc.EventType, collectionSlug string, eventHandler func(response any)) func() {
 	topic := fmt.Sprintf("collection:%s", collectionSlug)
 	evType := strings.ToLower(eventType.String())
 
@@ -582,7 +590,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 			return
 		}
 
-		var action func(slug string, eventTypes []EventType) bool
+		var action func(slug string, eventTypes []gbgrpc.EventType) bool
 
 		switch mgmtEvent.Action {
 		case models.Subscribe:
@@ -641,11 +649,15 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 	}
 }
 
-func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWatcher_GetItemListedEventsServer) error { //nolint:nosnakecase
+func (sw *SeaWatcher) Subscribe(context.Context, *gbgrpc.SubscriptionRequest) (*emptypb.Empty, error) {
+	return &emptypb.Empty{}, nil
+}
+
+func (sw *SeaWatcher) GetItemListedEvents(req *gbgrpc.SubscriptionRequest, stream *gbgrpc.Gloomberg_GetEventsServer) error { //nolint:nosnakecase
 	// TODO: remove when handler for other event types are implemented
 	req.EventTypes = availableEventTypes
 
-	sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
+	// sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
 
 	newEventSubscriptions := 0
 
@@ -669,16 +681,16 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 
 	for event := range sw.gb.SubscribeItemListed() {
 		// transform *models.ItemListed event to ItemListed grpc message
-		itemListed := &ItemListed{
-			EventType: EventType(EventType_value[event.EventType]), //nolint:nosnakecase
+		itemListed := &gbgrpc.ItemListed{
+			EventType: gbgrpc.EventType(gbgrpc.EventType_value[event.EventType]), //nolint:nosnakecase
 			SentAt:    &timestamppb.Timestamp{Seconds: event.SentAt.Unix()},
 
-			Payload: &ItemListed_ItemListedPayload{ //nolint:nosnakecase
-				Item: &ItemListed_Item{ //nolint:nosnakecase
-					Chain:     &ItemListed_Chain{Name: "ethereum"}, //nolint:nosnakecase
+			Payload: &gbgrpc.ItemListed_ItemListedPayload{ //nolint:nosnakecase
+				Item: &gbgrpc.ItemListed_Item{ //nolint:nosnakecase
+					Chain:     &gbgrpc.ItemListed_Chain{Name: "ethereum"}, //nolint:nosnakecase
 					NftId:     event.Payload.Item.String(),
 					Permalink: event.Payload.Item.Permalink,
-					Metadata: &ItemListed_Metadata{ //nolint:nosnakecase
+					Metadata: &gbgrpc.ItemListed_Metadata{ //nolint:nosnakecase
 						Name:         event.Payload.Item.Name,
 						ImageUrl:     event.Payload.Item.ImageURL,
 						AnimationUrl: event.Payload.Item.AnimationURL,
@@ -686,16 +698,16 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 					},
 				},
 				BasePrice:      event.Payload.BasePrice.String(),
-				Collection:     &ItemListed_Collection{Slug: event.Payload.Slug}, //nolint:nosnakecase
+				Collection:     &gbgrpc.ItemListed_Collection{Slug: event.Payload.Slug}, //nolint:nosnakecase
 				IsPrivate:      event.Payload.IsPrivate,
 				ListingDate:    &timestamppb.Timestamp{Seconds: event.Payload.ListingDate.Unix()},
 				EventTimestamp: &timestamppb.Timestamp{Seconds: event.Payload.EventTimestamp.Unix()},
 				Quantity:       uint32(event.Payload.Quantity),
-				Maker:          &ItemListed_Account{Address: event.Payload.Maker.Address.String()}, //nolint:nosnakecase
-				Taker:          &ItemListed_Account{Address: event.Payload.Taker.Address.String()}, //nolint:nosnakecase
+				Maker:          &gbgrpc.ItemListed_Account{Address: event.Payload.Maker.Address.String()}, //nolint:nosnakecase
+				Taker:          &gbgrpc.ItemListed_Account{Address: event.Payload.Taker.Address.String()}, //nolint:nosnakecase
 				ExpirationDate: &timestamppb.Timestamp{Seconds: event.Payload.ExpirationDate.Unix()},
 				OrderHash:      event.Payload.OrderHash.String(),
-				PaymentToken: &ItemListed_PaymentToken{ //nolint:nosnakecase
+				PaymentToken: &gbgrpc.ItemListed_PaymentToken{ //nolint:nosnakecase
 					Address:  event.Payload.Address.String(),
 					Symbol:   event.Payload.Symbol,
 					Name:     event.Payload.Name,
@@ -705,16 +717,16 @@ func (sw *SeaWatcher) GetItemListedEvents(req *SubscriptionRequest, stream SeaWa
 			},
 		}
 
-		ev := &Event{
-			EventType: EventType_ITEM_LISTED, //nolint:nosnakecase
-			Payload: &EventPayload{
-				Kind: &EventPayload_ItemListed{ //nolint:nosnakecase
+		ev := &gbgrpc.Event{
+			EventType: gbgrpc.EventType_ITEM_LISTED, //nolint:nosnakecase
+			Payload: &gbgrpc.EventPayload{
+				Kind: &gbgrpc.EventPayload_ItemListed{ //nolint:nosnakecase
 					ItemListed: itemListed,
 				},
 			},
 		}
 
-		if err := stream.Send(ev); err != nil {
+		if err := (*stream).Send(ev); err != nil {
 			log.Printf("❌ error sending event to grpc client: %s", err)
 
 			return err

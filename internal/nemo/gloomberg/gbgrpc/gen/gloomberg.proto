@@ -1,4 +1,4 @@
-// dakma-dev | seawatcher.proto
+// dakma-dev | gloomberg.proto
 
 syntax = "proto3";
 
@@ -6,16 +6,14 @@ import "google/protobuf/timestamp.proto";
 import "google/protobuf/any.proto";
 import "google/protobuf/empty.proto";
 
-import "internal/nemo/gloomberg/gbgrpc/gloomberg.proto";
+option go_package = "github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen";
 
-option go_package = "github.com/benleb/gloomberg/internal/seawa";
-
-package seawatcher;
+package gen;
 
 // Interface exported by the server.
-service SeaWatcher {
-  rpc Subscribe(gbgrpc.SubscriptionRequest) returns (google.protobuf.Empty) {}
-  rpc GetItemListedEvents(SubscriptionRequest) returns (stream Event) {}
+service Gloomberg {
+  rpc Subscribe(SubscriptionRequest) returns (google.protobuf.Empty) {}
+  rpc GetEvents(SubscriptionRequest) returns (stream Event) {}
 }
 
 enum EventType {
