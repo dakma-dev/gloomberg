@@ -21,6 +21,7 @@ require (
 	github.com/prometheus/client_golang v1.16.0
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/redis/rueidis v1.0.13
+	github.com/rs/xid v1.5.0
 	github.com/spf13/cobra v1.7.0
 	github.com/spf13/viper v1.16.0
 	github.com/theckman/yacspin v0.13.12
@@ -31,9 +32,11 @@ require (
 	golang.org/x/term v0.10.0
 	golang.org/x/text v0.11.0
 	gonum.org/v1/gonum v0.13.0
-	google.golang.org/grpc v1.56.2
+	google.golang.org/grpc v1.57.0
 	gotest.tools v2.2.0+incompatible
 )
+
+require google.golang.org/genproto/googleapis/rpc v0.0.0-20230525234030-28d5490b6b19 // indirect
 
 require (
 	github.com/DataDog/zstd v1.5.5 // indirect
@@ -97,7 +100,6 @@ require (
 	github.com/prometheus/procfs v0.10.1 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/rogpeppe/go-internal v1.9.0 // indirect
-	github.com/rs/xid v1.5.0
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.5 // indirect
@@ -122,7 +124,6 @@ require (
 	golang.org/x/sync v0.2.0 // indirect
 	golang.org/x/sys v0.10.0 // indirect
 	golang.org/x/time v0.3.0 // indirect
-	google.golang.org/genproto v0.0.0-20230410155749-daa745c078e1 // indirect
 	google.golang.org/protobuf v1.31.0
 	gopkg.in/cenkalti/backoff.v1 v1.1.0 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
