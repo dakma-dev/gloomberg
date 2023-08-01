@@ -4,7 +4,6 @@ import (
 	context "context"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/degendb"
@@ -139,13 +138,9 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 	defer gg.gb.UnsubscribeItemListed(chanItemListed)
 
 	for event := range chanItemListed {
-		itemName := event.Payload.Item.Name
-
 		// fix missing collection name in item name (example: INS1D3RS)
-		if strings.HasPrefix(event.Payload.Item.Name, "#") {
-			if collectionName, _ := gg.gb.Rueidi.GetCachedContractName(context.Background(), event.Payload.Item.ContractAddress()); collectionName != "" {
-				itemName = fmt.Sprintf("%s %s%s", collectionName, "#", event.Payload.Item.TokenID())
-			}
+		if collectionName, _ := gg.gb.Rueidi.GetCachedContractName(context.Background(), event.Payload.Item.ContractAddress()); collectionName != "" {
+			event.Payload.Item.Name = fmt.Sprintf("%s %s%s", collectionName, "#", event.Payload.Item.TokenID())
 		}
 
 		// transform *models.ItemListed event to ItemListed grpc message
@@ -159,7 +154,7 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 					NftId:     event.Payload.Item.String(),
 					Permalink: event.Payload.Item.Permalink,
 					Metadata: &gen.ItemListed_Metadata{ //nolint:nosnakecase
-						Name:         itemName,
+						Name:         event.Payload.Item.Name,
 						ImageUrl:     event.Payload.Item.ImageURL,
 						AnimationUrl: event.Payload.Item.AnimationURL,
 						MetadataUrl:  event.Payload.Item.MetadataURL,
@@ -204,14 +199,12 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 
 		// output to terminal
 		collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Hash().Big().Int64()))
-		collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Big().Int64() ^ 2))
 
 		price := price.NewPrice(event.Payload.BasePrice)
 		fmtCurrencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")
 		fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%5.2f", price.Ether())) + fmtCurrencySymbol
 
-		fmtItemName := strings.ReplaceAll(collectionPrimaryStyle.Bold(true).Render(itemName), "#", collectionSecondaryStyle.Render("#"))
-		fmtItemName = strings.ReplaceAll(fmtItemName, event.Payload.Item.TokenID().String(), collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.TokenID().String()))
+		fmtItemName := collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.Name)
 
 		fmtItemLink := style.TerminalLink(event.Payload.Item.Permalink, fmtItemName)
 
