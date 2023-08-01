@@ -12,16 +12,13 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	gbgrpc "github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
-	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
@@ -31,7 +28,6 @@ import (
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
-	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 )
 
 type SeaWatcher struct {
@@ -64,7 +60,8 @@ type SeaWatcher struct {
 }
 
 // availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled.
-var availableEventTypes = []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED, gbgrpc.EventType_METADATA_UPDATED, gbgrpc.EventType_ITEM_RECEIVED_BID, gbgrpc.EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+var availableEventTypes = []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED} //nolint:nosnakecase
+// , gbgrpc.EventType_METADATA_UPDATED, gbgrpc.EventType_ITEM_RECEIVED_BID, gbgrpc.EventType_COLLECTION_OFFER} // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "gloomberg_seawatcher_events_received_count_total",
@@ -155,7 +152,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	}
 
 	// start worker for managing subscriptions
-	if viper.GetBool("seawatcher.grpc.pubsub") {
+	if viper.GetBool("pubsub.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("grpc.client.enabled") {
 		go sw.WorkerMgmtChannel()
 	}
 
@@ -390,24 +387,28 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []gbgrpc.EventType) bool {
+func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []gbgrpc.EventType) uint64 {
 	return sw.SubscribeForSlugs([]string{slug}, eventTypes)
 }
 
-func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.EventType) bool {
+func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.EventType) uint64 {
 	if !viper.GetBool("seawatcher.local") {
 		log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
 		log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
 
-		return false
+		return 0
 	}
+
+	newEventSubscriptions := uint64(0)
 
 	for _, slug := range slug {
 		if sw.IsSubscribed(slug) {
 			log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 
-			return false
+			return 0
 		}
+
+		sw.Prf("subscribing to %s...", slug)
 
 		sw.mu.Lock()
 
@@ -421,6 +422,8 @@ func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.Event
 
 		sw.mu.Unlock()
 
+		newEventSubscriptions++
+
 		if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
 			log.Debugf("⏮️ resetting stats for %s", slug)
 
@@ -430,31 +433,47 @@ func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.Event
 		time.Sleep(time.Millisecond * 137)
 	}
 
-	return true
+	return newEventSubscriptions
 }
 
-func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ []gbgrpc.EventType) bool {
-	sw.mu.Lock()
-	slugSubscriptions := sw.subscriptions[slug]
-	sw.mu.Unlock()
+func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ []gbgrpc.EventType) uint64 {
+	return sw.UnubscribeForSlugs([]string{slug}, nil)
+}
 
-	if slugSubscriptions != nil {
-		// unsubscribe
-		for _, unsubscribe := range slugSubscriptions {
-			unsubscribe()
+func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ []gbgrpc.EventType) uint64 {
+	numUnsubscribed := uint64(0)
+
+	for _, slug := range slugs {
+		if sw.IsSubscribed(slug) {
+			log.Debugf("⚓️ ☕️ not subscribed to events for %s", slug)
+
+			return 0
 		}
 
-		// remove slug
 		sw.mu.Lock()
-		sw.subscriptions[slug] = nil
+		slugSubscriptions := sw.subscriptions[slug]
 		sw.mu.Unlock()
 
-		return true
+		if slugSubscriptions != nil {
+			// unsubscribe
+			for _, unsubscribe := range slugSubscriptions {
+				unsubscribe()
+			}
+
+			// remove slug
+			sw.mu.Lock()
+			sw.subscriptions[slug] = nil
+			sw.mu.Unlock()
+
+			// return true
+		}
+
+		numUnsubscribed++
 	}
 
-	log.Debugf("unsubscribed %s from opense events", slug)
+	log.Debugf("unsubscribed %d from opensea events", numUnsubscribed)
 
-	return false
+	return numUnsubscribed
 }
 
 func (sw *SeaWatcher) IsSubscribed(slug string) bool {
@@ -590,30 +609,16 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 			return
 		}
 
-		var action func(slug string, eventTypes []gbgrpc.EventType) bool
+		var action func(slug []string, eventTypes []gbgrpc.EventType) uint64
 
 		switch mgmtEvent.Action {
 		case models.Subscribe:
-			action = sw.SubscribeForSlug
+			action = sw.SubscribeForSlugs
 		case models.Unsubscribe:
-			action = sw.UnubscribeForSlug
+			action = sw.UnubscribeForSlugs
 		}
 
-		newEventSubscriptions := 0
-
-		for _, slug := range mgmtEvent.Slugs {
-			if slug == "ens" {
-				sw.Pr("⚓️ ␚ skipping ens for now")
-
-				continue
-			}
-
-			if action(slug, availableEventTypes) {
-				newEventSubscriptions++
-
-				time.Sleep(337 * time.Millisecond)
-			}
-		}
+		newEventSubscriptions := action(mgmtEvent.Slugs, availableEventTypes)
 
 		sw.Prf(
 			"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
@@ -651,103 +656,4 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 
 func (sw *SeaWatcher) Subscribe(context.Context, *gbgrpc.SubscriptionRequest) (*emptypb.Empty, error) {
 	return &emptypb.Empty{}, nil
-}
-
-func (sw *SeaWatcher) GetItemListedEvents(req *gbgrpc.SubscriptionRequest, stream *gbgrpc.Gloomberg_GetEventsServer) error { //nolint:nosnakecase
-	// TODO: remove when handler for other event types are implemented
-	req.EventTypes = availableEventTypes
-
-	// sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
-
-	newEventSubscriptions := 0
-
-	go func() {
-		for _, slug := range req.Collections {
-			sw.Prf("subscribing to %s...", slug)
-
-			if sw.SubscribeForSlug(slug, req.EventTypes) {
-				newEventSubscriptions++
-
-				time.Sleep(337 * time.Millisecond)
-			}
-		}
-
-		sw.Prf(
-			"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
-			style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
-			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
-		)
-	}()
-
-	for event := range sw.gb.SubscribeItemListed() {
-		// transform *models.ItemListed event to ItemListed grpc message
-		itemListed := &gbgrpc.ItemListed{
-			EventType: gbgrpc.EventType(gbgrpc.EventType_value[event.EventType]), //nolint:nosnakecase
-			SentAt:    &timestamppb.Timestamp{Seconds: event.SentAt.Unix()},
-
-			Payload: &gbgrpc.ItemListed_ItemListedPayload{ //nolint:nosnakecase
-				Item: &gbgrpc.ItemListed_Item{ //nolint:nosnakecase
-					Chain:     &gbgrpc.ItemListed_Chain{Name: "ethereum"}, //nolint:nosnakecase
-					NftId:     event.Payload.Item.String(),
-					Permalink: event.Payload.Item.Permalink,
-					Metadata: &gbgrpc.ItemListed_Metadata{ //nolint:nosnakecase
-						Name:         event.Payload.Item.Name,
-						ImageUrl:     event.Payload.Item.ImageURL,
-						AnimationUrl: event.Payload.Item.AnimationURL,
-						MetadataUrl:  event.Payload.Item.MetadataURL,
-					},
-				},
-				BasePrice:      event.Payload.BasePrice.String(),
-				Collection:     &gbgrpc.ItemListed_Collection{Slug: event.Payload.Slug}, //nolint:nosnakecase
-				IsPrivate:      event.Payload.IsPrivate,
-				ListingDate:    &timestamppb.Timestamp{Seconds: event.Payload.ListingDate.Unix()},
-				EventTimestamp: &timestamppb.Timestamp{Seconds: event.Payload.EventTimestamp.Unix()},
-				Quantity:       uint32(event.Payload.Quantity),
-				Maker:          &gbgrpc.ItemListed_Account{Address: event.Payload.Maker.Address.String()}, //nolint:nosnakecase
-				Taker:          &gbgrpc.ItemListed_Account{Address: event.Payload.Taker.Address.String()}, //nolint:nosnakecase
-				ExpirationDate: &timestamppb.Timestamp{Seconds: event.Payload.ExpirationDate.Unix()},
-				OrderHash:      event.Payload.OrderHash.String(),
-				PaymentToken: &gbgrpc.ItemListed_PaymentToken{ //nolint:nosnakecase
-					Address:  event.Payload.Address.String(),
-					Symbol:   event.Payload.Symbol,
-					Name:     event.Payload.Name,
-					Decimals: uint32(event.Payload.Decimals),
-					UsdPrice: event.Payload.UsdPrice,
-				},
-			},
-		}
-
-		ev := &gbgrpc.Event{
-			EventType: gbgrpc.EventType_ITEM_LISTED, //nolint:nosnakecase
-			Payload: &gbgrpc.EventPayload{
-				Kind: &gbgrpc.EventPayload_ItemListed{ //nolint:nosnakecase
-					ItemListed: itemListed,
-				},
-			},
-		}
-
-		if err := (*stream).Send(ev); err != nil {
-			log.Printf("❌ error sending event to grpc client: %s", err)
-
-			return err
-			// continue
-		}
-
-		// output to terminal
-		price := price.NewPrice(event.Payload.BasePrice)
-		eventType := degendb.EventType(degendb.GetEventType(event.EventType))
-		collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Hash().Big().Int64()))
-		collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Big().Int64() ^ 2))
-		currencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")
-
-		fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%5.2f", price.Ether())) + currencySymbol
-		fmtItemName := strings.ReplaceAll(collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.Name), "#", collectionSecondaryStyle.Render("#"))
-
-		fmtItemLink := style.TerminalLink(event.Payload.Item.Permalink, fmtItemName)
-		// fmtCollectionLink := style.TerminalLink(utils.GetOpenseaCollectionLink(event.Payload.Slug), style.LightGrayStyle.Render(fmt.Sprint(event.Payload.Slug)))
-
-		sw.Prf("%s %s %s", eventType.Icon(), fmtPrice, fmtItemLink)
-	}
-
-	return nil
 }

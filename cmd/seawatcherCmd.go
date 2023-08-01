@@ -30,13 +30,13 @@ func init() {
 
 	// grpc
 	seaWatcherCmd.Flags().Uint16("grpc-port", 31337, "gRPC server port")
-	_ = viper.BindPFlag("seawatcher.grpc.port", seaWatcherCmd.Flags().Lookup("grpc-port"))
+	_ = viper.BindPFlag("grpc.port", seaWatcherCmd.Flags().Lookup("grpc-port"))
 	// grpc server
 	seaWatcherCmd.Flags().IPVar(&grpcServerListen, "grpc-listen", nil, "gRPC server listen address")
 	_ = viper.BindPFlag("grpc.listen", seaWatcherCmd.Flags().Lookup("grpc-listen"))
 	// grpc client
 	seaWatcherCmd.Flags().IPVar(&grpcClientHost, "grpc", nil, "server gRPC client connects to")
-	_ = viper.BindPFlag("seawatcher.grpc.client.host", seaWatcherCmd.Flags().Lookup("grpc"))
+	_ = viper.BindPFlag("grpc.client.host", seaWatcherCmd.Flags().Lookup("grpc"))
 }
 
 func runSeawatcher(_ *cobra.Command, _ []string) {

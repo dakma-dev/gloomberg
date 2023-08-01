@@ -12,6 +12,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/spf13/viper"
 )
 
@@ -60,11 +61,10 @@ type eventChannelsIn struct {
 }
 
 type eventChannelsOut struct {
-	ItemListed          []chan *models.ItemListed
-	ItemReceivedBid     []chan *models.ItemReceivedBid
-	ItemMetadataUpdated []chan *models.ItemMetadataUpdated
-
-	CollectionOffer []chan *models.CollectionOffer
+	ItemListed          mapset.Set[chan *models.ItemListed]
+	ItemReceivedBid     mapset.Set[chan *models.ItemReceivedBid]
+	ItemMetadataUpdated mapset.Set[chan *models.ItemMetadataUpdated]
+	CollectionOffer     mapset.Set[chan *models.CollectionOffer]
 
 	TxWithLogs        []chan *chawagoModels.TxWithLogs
 	TokenTransactions []chan *totra.TokenTransaction
@@ -100,8 +100,7 @@ func newEventHub() *eventHub {
 			ItemListed:          make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			ItemReceivedBid:     make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			ItemMetadataUpdated: make(chan *models.ItemMetadataUpdated, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
-
-			CollectionOffer: make(chan *models.CollectionOffer, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			CollectionOffer:     make(chan *models.CollectionOffer, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
 			TxWithLogs:        make(chan *chawagoModels.TxWithLogs, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			TokenTransactions: make(chan *totra.TokenTransaction, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
@@ -116,11 +115,10 @@ func newEventHub() *eventHub {
 		},
 
 		out: eventChannelsOut{
-			ItemListed:          make([]chan *models.ItemListed, 0),
-			ItemReceivedBid:     make([]chan *models.ItemReceivedBid, 0),
-			ItemMetadataUpdated: make([]chan *models.ItemMetadataUpdated, 0),
-
-			CollectionOffer: make([]chan *models.CollectionOffer, 0),
+			ItemListed:          mapset.NewSet[chan *models.ItemListed](),
+			ItemReceivedBid:     mapset.NewSet[chan *models.ItemReceivedBid](),
+			ItemMetadataUpdated: mapset.NewSet[chan *models.ItemMetadataUpdated](),
+			CollectionOffer:     mapset.NewSet[chan *models.CollectionOffer](),
 
 			TxWithLogs:        make([]chan *chawagoModels.TxWithLogs, 0),
 			TokenTransactions: make([]chan *totra.TokenTransaction, 0),
@@ -171,10 +169,11 @@ func newEventHub() *eventHub {
 			}
 
 			outChans := map[string]int{
-				"outItemListed":          len(eh.out.ItemListed),
-				"outItemReceivedBid":     len(eh.out.ItemReceivedBid),
-				"outItemMetadataUpdated": len(eh.out.ItemMetadataUpdated),
-				"outCollectionOffer":     len(eh.out.CollectionOffer),
+				// "outItemListed":          len(eh.out.ItemListed),
+				"outItemListed":          eh.out.ItemListed.Cardinality(),
+				"outItemReceivedBid":     eh.out.ItemReceivedBid.Cardinality(),
+				"outItemMetadataUpdated": eh.out.ItemMetadataUpdated.Cardinality(),
+				"outCollectionOffer":     eh.out.CollectionOffer.Cardinality(),
 				"outTxWithLogs":          len(eh.out.TxWithLogs),
 				"outTokenTransactions":   len(eh.out.TokenTransactions),
 				"outParsedEvents":        len(eh.out.ParsedEvents),
@@ -222,30 +221,46 @@ func newEventHub() *eventHub {
 
 func (eh *eventHub) SubscribeItemListed() chan *models.ItemListed {
 	outChannel := make(chan *models.ItemListed, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
-	eh.out.ItemListed = append(eh.out.ItemListed, outChannel)
+	eh.out.ItemListed.Add(outChannel)
 
 	return outChannel
+}
+
+func (eh *eventHub) UnsubscribeItemListed(itemListedChan chan *models.ItemListed) {
+	eh.out.ItemListed.Remove(itemListedChan)
 }
 
 func (eh *eventHub) SubscribeItemReceivedBid() chan *models.ItemReceivedBid {
 	outChannel := make(chan *models.ItemReceivedBid, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
-	eh.out.ItemReceivedBid = append(eh.out.ItemReceivedBid, outChannel)
+	eh.out.ItemReceivedBid.Add(outChannel)
 
 	return outChannel
+}
+
+func (eh *eventHub) UnsubscribeItemReceivedBid(itemReceivedBidChan chan *models.ItemReceivedBid) {
+	eh.out.ItemReceivedBid.Remove(itemReceivedBidChan)
 }
 
 func (eh *eventHub) SubscribeItemMetadataUpdated() chan *models.ItemMetadataUpdated {
 	outChannel := make(chan *models.ItemMetadataUpdated, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
-	eh.out.ItemMetadataUpdated = append(eh.out.ItemMetadataUpdated, outChannel)
+	eh.out.ItemMetadataUpdated.Add(outChannel)
 
 	return outChannel
 }
 
+func (eh *eventHub) UnsubscribeItemMetadataUpdated(itemMetadataUpdatedChan chan *models.ItemMetadataUpdated) {
+	eh.out.ItemMetadataUpdated.Remove(itemMetadataUpdatedChan)
+}
+
 func (eh *eventHub) SubscribeCollectionOffer() chan *models.CollectionOffer {
 	outChannel := make(chan *models.CollectionOffer, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
-	eh.out.CollectionOffer = append(eh.out.CollectionOffer, outChannel)
+	eh.out.CollectionOffer.Add(outChannel)
 
 	return outChannel
+}
+
+func (eh *eventHub) UnsubscribeCollectionOffer(collectionOfferChan chan *models.CollectionOffer) {
+	eh.out.CollectionOffer.Remove(collectionOfferChan)
 }
 
 func (eh *eventHub) SubscribeTxWithLogs() chan *chawagoModels.TxWithLogs {
@@ -317,35 +332,36 @@ func (eh *eventHub) worker(workerID int) {
 				ch <- event
 			}
 		case event := <-eh.In.ItemListed:
-			log.Debugf("ItemListedEvents event | %d | pushing to %d receivers", workerID, len(eh.out.ItemListed))
+			// log.Debugf("ItemListedEvents event | %d | pushing to %d receivers", workerID, len(eh.out.ItemListed))
+			log.Debugf("ItemListedEvents event | %d | pushing to %d receivers", workerID, eh.out.ItemListed.Cardinality())
 
 			atomic.AddInt64(eh.counters["ItemListed"], 1)
 
-			for _, ch := range eh.out.ItemListed {
+			for _, ch := range eh.out.ItemListed.ToSlice() {
 				ch <- event
 			}
 		case event := <-eh.In.ItemReceivedBid:
-			log.Debugf("ItemReceivedBid event | %d | pushing to %d receivers", workerID, len(eh.out.ItemReceivedBid))
+			log.Debugf("ItemReceivedBid event | %d | pushing to %d receivers", workerID, eh.out.ItemReceivedBid.Cardinality())
 
 			atomic.AddInt64(eh.counters["ItemReceivedBid"], 1)
 
-			for _, ch := range eh.out.ItemReceivedBid {
+			for _, ch := range eh.out.ItemReceivedBid.ToSlice() {
 				ch <- event
 			}
 		case event := <-eh.In.ItemMetadataUpdated:
-			log.Debugf("ItemMetadataUpdated event | %d | pushing to %d receivers", workerID, len(eh.out.ItemMetadataUpdated))
+			log.Debugf("ItemMetadataUpdated event | %d | pushing to %d receivers", workerID, eh.out.ItemMetadataUpdated.Cardinality())
 
 			atomic.AddInt64(eh.counters["ItemMetadataUpdated"], 1)
 
-			for _, ch := range eh.out.ItemMetadataUpdated {
+			for _, ch := range eh.out.ItemMetadataUpdated.ToSlice() {
 				ch <- event
 			}
 		case event := <-eh.In.CollectionOffer:
-			log.Debugf("CollectionOffer event | %d | pushing to %d receivers", workerID, len(eh.out.CollectionOffer))
+			log.Debugf("CollectionOffer event | %d | pushing to %d receivers", workerID, eh.out.CollectionOffer.Cardinality())
 
 			atomic.AddInt64(eh.counters["CollectionOffer"], 1)
 
-			for _, ch := range eh.out.CollectionOffer {
+			for _, ch := range eh.out.CollectionOffer.ToSlice() {
 				ch <- event
 			}
 		case event := <-eh.In.ParsedEvents:

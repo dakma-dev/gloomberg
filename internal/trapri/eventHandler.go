@@ -26,7 +26,7 @@ func SeaWatcherEventsHandler(gb *gloomberg.Gloomberg) {
 			for {
 				select {
 				case event := <-chanItemListed:
-					gbl.Log.Debugf("  📢 item received bid: %+v", pretty.Sprintf("%#v", event))
+					gbl.Log.Debugf("  📢 item listed: %+v", pretty.Sprintf("%#v", event))
 
 					go HandleItemListed(gb, event)
 

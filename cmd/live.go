@@ -3,10 +3,7 @@ package cmd
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io"
-	"math/big"
 	"net"
 	"strings"
 	"time"
@@ -20,7 +17,6 @@ import (
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -44,9 +40,6 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var manualParser = true
@@ -96,9 +89,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	for experiment, active := range viper.GetStringMap("experiments") {
 		if active == true {
 			gbl.Log.Debugf("🧪 experiment %s is active", style.BoldStyle.Render(experiment))
-		}
 
-		activeExperiments.Add(style.BoldAlmostWhite(experiment))
+			activeExperiments.Add(style.BoldAlmostWhite(experiment))
+		}
 	}
 
 	gb.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
@@ -384,7 +377,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.local") || viper.GetBool("seawatcher.grpc.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("listings.enabled") {
+	if viper.GetBool("seawatcher.local") || viper.GetBool("grpc.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("listings.enabled") {
 		go trapri.SeaWatcherEventsHandler(gb)
 
 		if viper.GetBool("seawatcher.pubsub") {
@@ -394,14 +387,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	if viper.GetBool("grpc.server.enabled") {
 		gbgrpc.StartServer(gb, seawa)
-	}
-
-	if viper.GetBool("seawatcher.grpc.client.enabled") {
-		gb.Prf("starting grpc client...")
-
-		// go seawa.GetEvents()
-
-		go testGRPC()
 	}
 
 	//
@@ -482,6 +467,15 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
 	// })
 
+	// grpc client
+	if viper.GetBool("grpc.client.enabled") {
+		gb.Prf("starting grpc client...")
+
+		// go seawa.GetEvents()
+
+		go gbgrpc.StartClient(gb)
+	}
+
 	go func() {
 		wawa := chawago.NewWalletWatcher(gb)
 		wawa.Watch()
@@ -491,155 +485,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// loop forever
 	select {}
-}
-
-func testGRPC() {
-	var opts []grpc.DialOption
-
-	// tls := true
-
-	// if tls {
-	// 	// if caFile == "" {
-	// 	// 	caFile = "x509/ca_cert.pem"
-	// 	// }
-
-	// 	creds := credentials.NewClientTLSFromCert(nil, "")
-
-	// 	opts = append(opts, grpc.WithTransportCredentials(creds))
-	// } else {
-	// 	opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	// }
-
-	if creds := gloomberg.GetTLSClientCredentials(); creds != nil {
-		opts = append(opts, grpc.WithTransportCredentials(creds))
-	} else {
-		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
-	}
-
-	grpcAddress := fmt.Sprintf("%s:%d", viper.GetString("seawatcher.grpc.client.host"), viper.GetUint("seawatcher.grpc.port"))
-
-	gb.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
-
-	conn, err := grpc.Dial(grpcAddress, opts...)
-	if err != nil {
-		log.Errorf("fail to dial: %v", err)
-	}
-	defer conn.Close()
-	client := gen.NewGloombergClient(conn)
-
-	gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
-
-	for {
-		subsriptionRequest := &gen.SubscriptionRequest{EventTypes: []gen.EventType{gen.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-		stream, err := client.GetEvents(context.Background(), subsriptionRequest)
-		if err != nil {
-			log.Errorf("client.GetEvents failed: %v", err)
-
-			return
-		}
-
-		for {
-			event, err := stream.Recv()
-			if err != nil {
-				if errors.Is(err, io.ErrUnexpectedEOF) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrClosedPipe) {
-					log.Errorf("io.EOF error: %v", err)
-
-					log.Errorf("lets fucking reconnect! %v", stream.CloseSend())
-
-					// //
-					// // reconnect?!
-					// conn.Close()
-
-					// conn, err := grpc.Dial(grpcAddress, opts...)
-					// if err != nil {
-					// 	log.Errorf("reco fail to dial: %v", err)
-					// }
-					// defer conn.Close()
-					// client = seawatcher.NewSeaWatcherClient(conn)
-
-					// subsriptionRequest := &seawatcher.SubscriptionRequest{EventTypes: []seawatcher.EventType{seawatcher.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-					// stream, err = client.GetItemListedEvents(context.Background(), subsriptionRequest)
-					// if err != nil {
-					// 	log.Errorf("reco client.GetEvents failed: %v", err)
-
-					// 	continue
-					// }
-					// //
-					// //
-
-					break
-				}
-
-				log.Errorf("receiving event failed: %v", err)
-
-				time.Sleep(time.Second * 1)
-			}
-
-			basePrice, ok := new(big.Int).SetString(event.Payload.GetItemListed().Payload.BasePrice, 10)
-			if !ok {
-				log.Errorf("error parsing base price: %v", err)
-
-				continue
-			}
-
-			var itemListed seawaModels.ItemListed
-
-			log.Debugf("🐔 client received: %+v", protojson.Format(event))
-
-			if manualParser {
-				// transform event back to seawaModel.ItemListed
-				itemListed = seawaModels.ItemListed{
-					EventType: strings.ToLower(event.EventType.String()),
-					SentAt:    event.Payload.GetItemListed().SentAt.AsTime(),
-					Payload: seawaModels.ItemListedPayload{
-						Item: seawaModels.Item{
-							NftID:     *seawaModels.ParseNftID(event.Payload.GetItemListed().Payload.Item.NftId),
-							Chain:     seawaModels.Chain{Name: event.Payload.GetItemListed().Payload.Item.Chain.Name},
-							Permalink: event.Payload.GetItemListed().Payload.Item.Permalink,
-							Metadata: seawaModels.Metadata{
-								Name:         event.Payload.GetItemListed().Payload.Item.Metadata.Name,
-								ImageURL:     event.Payload.GetItemListed().Payload.Item.Metadata.ImageUrl,
-								AnimationURL: event.Payload.GetItemListed().Payload.Item.Metadata.AnimationUrl,
-								MetadataURL:  event.Payload.GetItemListed().Payload.Item.Metadata.MetadataUrl,
-							},
-						},
-						IsPrivate:   event.Payload.GetItemListed().Payload.IsPrivate,
-						ListingDate: event.Payload.GetItemListed().Payload.ListingDate.AsTime(),
-						EventPayload: seawaModels.EventPayload{
-							EventTimestamp:     event.Payload.GetItemListed().Payload.EventTimestamp.AsTime(),
-							BasePrice:          basePrice,
-							Maker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.Maker.Address)},
-							Taker:              seawaModels.Account{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.Taker.Address)},
-							Quantity:           int(event.Payload.GetItemListed().Payload.Quantity),
-							OrderHash:          common.HexToHash(event.Payload.GetItemListed().Payload.OrderHash),
-							ExpirationDate:     event.Payload.GetItemListed().Payload.ExpirationDate.AsTime(),
-							CollectionCriteria: seawaModels.CollectionCriteria{Slug: event.Payload.GetItemListed().Payload.Collection.Slug},
-							PaymentToken:       seawaModels.PaymentToken{Address: common.HexToAddress(event.Payload.GetItemListed().Payload.PaymentToken.Address), Symbol: event.Payload.GetItemListed().Payload.PaymentToken.Symbol, Decimals: int(event.Payload.GetItemListed().Payload.PaymentToken.Decimals)},
-						},
-					},
-				}
-			} // else {
-			// log.Printf("🐔 client received: %+v", protojson.Format(event))
-
-			// 	// transform event back to seawaModel.ItemListed
-			// 	rawEvent, err := protojson.Marshal(event)
-			// 	if err != nil {
-			// 		log.Errorf("error parsing base price: %v", err)
-
-			// 		continue
-			// 	}
-
-			// 	if err := json.Unmarshal(rawEvent, &itemListed); err != nil {
-			// 		log.Errorf("error unmarshaling : %v", err)
-
-			// 		continue
-			// 	}
-			// }
-
-			// send event to the eventhub
-			gb.In.ItemListed <- &itemListed
-		}
-	}
 }
 
 var degendataPath string
@@ -718,7 +563,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
 
 	// eventhub
-	viper.SetDefault("gloomberg.eventhub.numHandler", 3)
+	viper.SetDefault("gloomberg.eventhub.numHandler", 1)
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
@@ -732,7 +577,7 @@ func init() { //nolint:gochecknoinits
 		"etherscan": time.Millisecond * 3370,
 		"node":      time.Millisecond * 337,
 	})
-	viper.SetDefault("jobs.status_every", 1337)
+	viper.SetDefault("jobs.status_every", 137)
 
 	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)

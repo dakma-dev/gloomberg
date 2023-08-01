@@ -30,6 +30,28 @@ type GloombergGRPC struct {
 	// grpcServer *grpc.Server
 }
 
+// connect to grpc server.
+func listen(serverAddress string, gloombergGRPC *GloombergGRPC) error {
+	// configure listener
+	grpcListener, err := net.Listen("tcp", serverAddress)
+	if err != nil {
+		log.Errorf("failed to listen: %v", err)
+	}
+
+	// configure server
+	var opts []grpc.ServerOption
+	if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
+		opts = []grpc.ServerOption{grpc.Creds(creds)}
+	}
+
+	// run grpc server
+	grpcServer := grpc.NewServer(opts...)
+
+	gen.RegisterGloombergServer(grpcServer, gloombergGRPC)
+
+	return grpcServer.Serve(grpcListener)
+}
+
 func StartServer(gb *gloomberg.Gloomberg, sw *seawa.SeaWatcher) {
 	gloombergGRPC := &GloombergGRPC{
 		gb: gb,
@@ -41,66 +63,48 @@ func StartServer(gb *gloomberg.Gloomberg, sw *seawa.SeaWatcher) {
 	port := viper.GetUint16("grpc.server.port")
 	serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
 
-	log.Printf("grpc listen address: %+v", style.BoldAlmostWhite(serverAddress))
+	go func() {
+		for {
+			log.Error(listen(serverAddress, gloombergGRPC))
 
-	// configure listener
-	grpcListener, err := net.Listen("tcp", serverAddress)
-	if err != nil {
-		log.Errorf("failed to listen: %v", err)
-	}
-
-	log.Printf("grpc listener: %+v", grpcListener)
-
-	// configure server
-	var opts []grpc.ServerOption
-	if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
-		opts = []grpc.ServerOption{grpc.Creds(creds)}
-	}
-
-	// run grpc server
-	grpcServer := grpc.NewServer(opts...)
-
-	log.Printf("grpc server: %+v", grpcServer)
-
-	// RegisterGloombergServer(grpcServer)
-
-	// // seawatcher
-	// if sw != nil {
-	// 	seawa.RegisterSeaWatcherServer(grpcServer, sw)
+			time.Sleep(time.Second * 2)
+		}
+	}()
+	// // configure listener
+	// grpcListener, err := net.Listen("tcp", serverAddress)
+	// if err != nil {
+	// 	log.Errorf("failed to listen: %v", err)
 	// }
 
-	gen.RegisterGloombergServer(grpcServer, gloombergGRPC)
+	// // configure server
+	// var opts []grpc.ServerOption
+	// if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
+	// 	opts = []grpc.ServerOption{grpc.Creds(creds)}
+	// }
 
-	// log.Printf("starting grpc server on %+v...", style.BoldAlmostWhite(serverAddress))
+	// // run grpc server
+	// go func() {
+	// 	grpcServer := grpc.NewServer(opts...)
 
-	go log.Fatal(grpcServer.Serve(grpcListener))
+	// 	gen.RegisterGloombergServer(grpcServer, gloombergGRPC)
 
-	log.Printf("grpc server running on %+v", style.BoldAlmostWhite(serverAddress))
+	// 	go log.Fatal(grpcServer.Serve(grpcListener))
+	// }()
+
+	sw.Prf("grpc server running on %+v", style.BoldAlmostWhite(serverAddress))
 }
 
-func (gg *GloombergGRPC) Subscribe(ctx context.Context, in *gen.SubscriptionRequest) (*emptypb.Empty, error) {
-	return gg.sw.Subscribe(ctx, in)
-}
-
-func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloomberg_GetEventsServer) error { //nolint:nosnakecase
+func (gg *GloombergGRPC) Subscribe(_ context.Context, req *gen.SubscriptionRequest) (*emptypb.Empty, error) {
 	availableEventTypes := []gen.EventType{gen.EventType_ITEM_LISTED, gen.EventType_METADATA_UPDATED, gen.EventType_ITEM_RECEIVED_BID, gen.EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
 
 	req.EventTypes = availableEventTypes
 
 	gg.sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
 
-	newEventSubscriptions := 0
+	newEventSubscriptions := uint64(0)
 
 	go func() {
-		for _, slug := range req.Collections {
-			gg.sw.Prf("subscribing to %s...", slug)
-
-			if gg.sw.SubscribeForSlug(slug, req.EventTypes) {
-				newEventSubscriptions++
-
-				time.Sleep(337 * time.Millisecond)
-			}
-		}
+		newEventSubscriptions = gg.sw.SubscribeForSlugs(req.Collections, req.EventTypes)
 
 		gg.sw.Prf(
 			"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
@@ -109,7 +113,41 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 		)
 	}()
 
-	for event := range gg.gb.SubscribeItemListed() {
+	return &emptypb.Empty{}, nil
+}
+
+func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloomberg_GetEventsServer) error { //nolint:nosnakecase
+	// availableEventTypes := []gen.EventType{gen.EventType_ITEM_LISTED, gen.EventType_METADATA_UPDATED, gen.EventType_ITEM_RECEIVED_BID, gen.EventType_COLLECTION_OFFER} //nolint:nosnakecase // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+
+	// req.EventTypes = availableEventTypes
+
+	// gg.sw.Prf("received subscription request for %s collections/slugs (%s types each)...", style.BoldAlmostWhite(fmt.Sprint(len(req.Collections))), style.BoldAlmostWhite(fmt.Sprint(len(req.EventTypes))))
+
+	// go func() {
+	// 	newEventSubscriptions := gg.sw.SubscribeForSlugs(req.Collections, req.EventTypes)
+
+	// 	gg.sw.Prf(
+	// 		"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
+	// 		style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
+	// 		style.AlmostWhiteStyle.Render(fmt.Sprint(len(gg.sw.ActiveSubscriptions()))),
+	// 	)
+	// }()
+
+	go gg.Subscribe(context.Background(), req) //nolint:errcheck
+
+	chanItemListed := gg.gb.SubscribeItemListed()
+	defer gg.gb.UnsubscribeItemListed(chanItemListed)
+
+	for event := range chanItemListed {
+		itemName := event.Payload.Item.Name
+
+		// fix missing collection name in item name (example: INS1D3RS)
+		if strings.HasPrefix(event.Payload.Item.Name, "#") {
+			if collectionName, _ := gg.gb.Rueidi.GetCachedContractName(context.Background(), event.Payload.Item.ContractAddress()); collectionName != "" {
+				itemName = fmt.Sprintf("%s %s%s", collectionName, "#", event.Payload.Item.TokenID())
+			}
+		}
+
 		// transform *models.ItemListed event to ItemListed grpc message
 		itemListed := &gen.ItemListed{
 			EventType: gen.EventType(gen.EventType_value[event.EventType]), //nolint:nosnakecase
@@ -121,7 +159,7 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 					NftId:     event.Payload.Item.String(),
 					Permalink: event.Payload.Item.Permalink,
 					Metadata: &gen.ItemListed_Metadata{ //nolint:nosnakecase
-						Name:         event.Payload.Item.Name,
+						Name:         itemName,
 						ImageUrl:     event.Payload.Item.ImageURL,
 						AnimationUrl: event.Payload.Item.AnimationURL,
 						MetadataUrl:  event.Payload.Item.MetadataURL,
@@ -156,27 +194,30 @@ func (gg *GloombergGRPC) GetEvents(req *gen.SubscriptionRequest, stream gen.Gloo
 			},
 		}
 
+		// gg.sw.Prf("sending event: %+v", ev)
+
 		if err := stream.Send(ev); err != nil {
 			log.Printf("❌ error sending event to grpc client: %s", err)
 
 			return err
-			// continue
 		}
 
 		// output to terminal
-		price := price.NewPrice(event.Payload.BasePrice)
-		eventType := degendb.EventType(degendb.GetEventType(event.EventType))
 		collectionPrimaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Hash().Big().Int64()))
 		collectionSecondaryStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(event.Payload.Item.NftID.ContractAddress().Big().Int64() ^ 2))
-		currencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")
 
-		fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%5.2f", price.Ether())) + currencySymbol
-		fmtItemName := strings.ReplaceAll(collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.Name), "#", collectionSecondaryStyle.Render("#"))
+		price := price.NewPrice(event.Payload.BasePrice)
+		fmtCurrencySymbol := collectionPrimaryStyle.Bold(false).Render("Ξ")
+		fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%5.2f", price.Ether())) + fmtCurrencySymbol
+
+		fmtItemName := strings.ReplaceAll(collectionPrimaryStyle.Bold(true).Render(itemName), "#", collectionSecondaryStyle.Render("#"))
+		fmtItemName = strings.ReplaceAll(fmtItemName, event.Payload.Item.TokenID().String(), collectionPrimaryStyle.Bold(true).Render(event.Payload.Item.TokenID().String()))
 
 		fmtItemLink := style.TerminalLink(event.Payload.Item.Permalink, fmtItemName)
-		// fmtCollectionLink := style.TerminalLink(utils.GetOpenseaCollectionLink(event.Payload.Slug), style.LightGrayStyle.Render(fmt.Sprint(event.Payload.Slug)))
 
-		gg.sw.Prf("xx %s %s %s", eventType.Icon(), fmtPrice, fmtItemLink)
+		eventType := degendb.EventType(degendb.GetEventType(event.EventType))
+
+		gg.sw.Prf("%s %s %s", eventType.Icon(), fmtPrice, fmtItemLink)
 	}
 
 	return nil

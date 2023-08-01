@@ -95,6 +95,8 @@ var predefinedPrintConfigurations = []printConfig{
 	},
 }
 
+var GB *Gloomberg
+
 func New() *Gloomberg {
 	// redis
 	// rueidis / new redis library
@@ -166,6 +168,8 @@ func New() *Gloomberg {
 			gb.PrintConfigurations[keyword] = &printConfiguration
 		}
 	}
+
+	GB = gb
 
 	return gb
 }
