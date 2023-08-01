@@ -323,5 +323,5 @@ func (wh *WsHub) removeClient(client *WsClient) {
 		delete(wh.clients, client)
 	}
 
-	gbl.Log.Info("client %s removed", clientID)
+	gbl.Log.Infof("client %s removed", clientID)
 }
