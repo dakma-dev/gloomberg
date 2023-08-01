@@ -145,13 +145,13 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	var seawa *seawatcher.SeaWatcher
 	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
-		var oopenseaAPIKey string
+		var openseaAPIKey string
 		if key := viper.GetString("api_keys.opensea"); key != "" {
-			oopenseaAPIKey = viper.GetString("api_keys.opensea")
+			openseaAPIKey = viper.GetString("api_keys.opensea")
 		} else if key := viper.GetString("seawatcher.api_key"); key != "" {
-			oopenseaAPIKey = viper.GetString("seawatcher.api_key")
+			openseaAPIKey = viper.GetString("seawatcher.api_key")
 		}
-		seawa = seawatcher.NewSeaWatcher(oopenseaAPIKey, gb)
+		seawa = seawatcher.NewSeaWatcher(openseaAPIKey, gb)
 	}
 
 	// trapri | ttx printer to process and format the token transactions
@@ -563,6 +563,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("trapri.numOpenSeaEventhandlers", 3)
 
 	// eventhub
+	viper.SetDefault("gloomberg.terminalPrinter.numWorker", 1)
 	viper.SetDefault("gloomberg.eventhub.numHandler", 1)
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)

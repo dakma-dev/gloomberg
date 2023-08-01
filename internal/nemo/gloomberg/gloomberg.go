@@ -118,7 +118,10 @@ func New() *Gloomberg {
 	}
 
 	clientName := hostname + "_gloomberg_v" + internal.GloombergVersion
-	redisClientOptions := rueidis.ClientOption{InitAddress: []string{connectAddr}, ClientName: clientName}
+	redisClientOptions := rueidis.ClientOption{
+		InitAddress: []string{connectAddr},
+		ClientName:  clientName,
+	}
 
 	rdb := getRedisClient(redisClientOptions)
 
@@ -141,22 +144,25 @@ func New() *Gloomberg {
 
 	//
 	// start central terminal printer
-	go func() {
-		gbl.Log.Debug("starting terminal printer...")
+	printToTerminalChannel := gb.SubscribePrintToTerminal()
 
-		printToTerminalChannel := gb.SubscribePrintToTerminal()
+	// experimental: start multiple terminal printers
+	for i := 0; i < viper.GetInt("gloomberg.terminalPrinter.numWorker"); i++ {
+		go func() {
+			gbl.Log.Debug("starting terminal printer...")
 
-		for eventLine := range printToTerminalChannel {
-			gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
+			for eventLine := range printToTerminalChannel {
+				gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
 
-			if viper.GetBool("log.debug") {
-				debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
-				eventLine = fmt.Sprint(debugPrefix, eventLine)
+				if viper.GetBool("log.debug") {
+					debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
+					eventLine = fmt.Sprint(debugPrefix, eventLine)
+				}
+
+				fmt.Println(eventLine)
 			}
-
-			fmt.Println(eventLine)
-		}
-	}()
+		}()
+	}
 
 	// load print configurations to pretty style prints from our different "modules"
 	gb.PrintConfigurations = make(map[string]*printConfig)
