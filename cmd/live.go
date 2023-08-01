@@ -577,7 +577,7 @@ func init() { //nolint:gochecknoinits
 		"etherscan": time.Millisecond * 3370,
 		"node":      time.Millisecond * 337,
 	})
-	viper.SetDefault("jobs.status_every", 137)
+	viper.SetDefault("jobs.status_every", 1337)
 
 	// OLD worker settings OLD
 	viper.SetDefault("server.workers.newHeadHandler", 2)
