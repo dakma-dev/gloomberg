@@ -88,13 +88,13 @@ func init() {
 	// _ = manifoldCmd.MarkFlagRequired("rpcs")
 
 	// gas settings
-	manifoldCmd.Flags().Float64Var(&flagGasFeeCapMultiplier, "fee-cap", 1.0, "gas fee cap multiplier")
+	manifoldCmd.Flags().Float64Var(&flagGasFeeCapMultiplier, "fee-cap", 1.5, "gas fee cap multiplier")
 	_ = viper.BindPFlag("mint.fee_multiplier", manifoldCmd.Flags().Lookup("fee-cap"))
-	manifoldCmd.Flags().Float64Var(&flagGasTipCapMultiplier, "tip-cap", 1.0, "gas tip cap multiplier")
+	manifoldCmd.Flags().Float64Var(&flagGasTipCapMultiplier, "tip-cap", 1.5, "gas tip cap multiplier")
 	_ = viper.BindPFlag("mint.tip_multiplier", manifoldCmd.Flags().Lookup("tip-cap"))
 
 	// number of wallets to use
-	manifoldCmd.Flags().Uint16("num-wallets", 3, "number of wallets to use for minting")
+	manifoldCmd.Flags().Uint16("num-wallets", 1, "number of wallets to use for minting")
 	_ = viper.BindPFlag("mint.manifold.num-wallets", manifoldCmd.Flags().Lookup("num-wallets"))
 
 	manifoldCmd.Flags().Uint16("amount-tx", 1, "number of tokens to mint per transaction")
@@ -218,8 +218,14 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 	log.Debugf("mint info: %#v", mintInfo)
 
+	if mintInfo.PublicData.MerkleTreeID > 0 {
+		// TODO skip if public phase started
+		log.Printf(style.BoldAlmostWhite(fmt.Sprintf("  EXCLUSIVE MINT:  merkle tree id: %d", mintInfo.PublicData.MerkleTreeID)))
+
+	}
+
 	log.Print("")
-	log.Print(style.BoldAlmostWhite("configuration"))
+	log.Print(style.BoldAlmostWhite("  configuration"))
 	log.Print("")
 
 	fmtWallets := make([]string, 0)
@@ -374,6 +380,25 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print("")
 }
 
+func getMerkleProofContractParamater(merkleProofData []Merkle) ([]uint32, [][][32]byte) {
+	mintIndices := make([]uint32, 0)
+	merkelProofs := make([][][32]byte, 0)
+
+	for _, proof := range merkleProofData {
+		for _, hash := range proof.MerkleProof {
+			var byteArr [32]byte
+			copy(byteArr[:], []byte(hash))
+			merkelProofs = append(merkelProofs, [][32]byte{byteArr})
+		}
+		mintIndices = append(mintIndices, uint32(proof.Value))
+	}
+
+	log.Printf(" converted mint indices: %v", mintIndices)
+	log.Printf(" converted merkle proofs: %v", merkelProofs)
+
+	return mintIndices, merkelProofs
+}
+
 func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPerWallet uint16, manifoldInstanceID *big.Int, mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim, manifoldFee *big.Int) {
 	txConfirmed := 0
 
@@ -439,7 +464,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s | ⛽️ gasPrice: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasPrice)))
+		log.Printf("%s | ⛽️ suggested gasPrice: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasPrice)))
 
 		// get the current gas tip
 		gasTip, err := rpcClient.SuggestGasTipCap(context.Background())
@@ -450,7 +475,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s | ⛽️ gasTip: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTip)))
+		log.Printf("%s | ⛽️ suggested gasTip: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTip)))
 
 		//
 		// apply gas multiplier
@@ -460,8 +485,12 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		suggestedFee := new(big.Float).SetInt(gasPrice)
 		suggestedTip := new(big.Float).SetInt(gasTip)
 
-		gasFeeCap, _ := new(big.Float).Mul(suggestedFee, feeCapMultiplier).Int(nil)
-		gasTipCap, _ := new(big.Float).Mul(suggestedTip, tipCapMultiplier).Int(nil)
+		gasFeeCapWei, _ := new(big.Float).Mul(suggestedFee, feeCapMultiplier).Int(nil)
+		gasTipCapWei, _ := new(big.Float).Mul(suggestedTip, tipCapMultiplier).Int(nil)
+
+		log.Printf("%s | ⛽️ your gasFeeCapWei: %+v, gwei: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasFeeCapWei)), utils.WeiToGwei(gasFeeCapWei))
+
+		log.Printf("%s | ⛽️ your gasTipCapWei: %+v, gwei %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTipCapWei)), utils.WeiToGwei(gasTipCapWei))
 
 		// 💸 💸 💸
 		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
@@ -483,8 +512,8 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		txOpts.From = crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey)
 		txOpts.Nonce = big.NewInt(int64(nonce))
 		txOpts.Value = totalCost
-		txOpts.GasFeeCap = gasFeeCap
-		txOpts.GasTipCap = gasTipCap
+		txOpts.GasFeeCap = gasFeeCapWei
+		txOpts.GasTipCap = gasTipCapWei
 
 		if viper.GetBool("dev.mode") {
 			txOpts.NoSend = true
@@ -495,22 +524,55 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		// create the transaction
 		var sentTx *types.Transaction
 
-		if amountPerTx := viper.GetUint16("mint.manifold.amount-tx"); amountPerTx > 1 {
-			mintIndices := make([]uint32, 0)
-			merkelProofs := make([][][32]byte, 0)
+		merkleProofData, err := getMerkleProofFromManifoldForAddress(mintInfo.PublicData.MerkleTreeID, *mintWallet.address)
+		if err != nil {
+			return
+		}
 
-			for i := uint16(0); i < amountPerTx; i++ {
-				mintIndices = append(mintIndices, uint32(0))
-				merkelProofs = append(merkelProofs, [][32]byte{claimInfo.MerkleRoot})
+		// TODO skip if public
+		mintIndices, merkleProofs := getMerkleProofContractParamater(merkleProofData)
+		if len(mintIndices) == 0 {
+			log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+
+			//return
+		}
+		if len(merkleProofs) == 0 {
+			log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+
+			//return
+		}
+
+		if amountPerTx := viper.GetUint16("mint.manifold.amount-tx"); amountPerTx > 1 {
+			// public mint:
+			if len(merkleProofs) == 0 {
+				mintIndices = make([]uint32, 0)
+				merkleProofs = make([][][32]byte, 0)
+				for i := uint16(0); i < amountPerTx; i++ {
+					mintIndices = append(mintIndices, uint32(0))
+					merkleProofs = append(merkleProofs, [][32]byte{claimInfo.MerkleRoot})
+				}
 			}
 
-			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkelProofs, *mintWallet.address)
+			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkleProofs, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
 				log.Printf("%s | ❌ creating batch transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
 		} else {
-			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, 0, [][32]byte{claimInfo.MerkleRoot}, *mintWallet.address)
+			// for public: mintIndex = 0, merkleProof = nil
+			// for exlusive: mintIndex = from api, merkleProof = from api
+
+			merkleProof := [][32]byte{}
+
+			if len(merkleProofs) > 0 {
+				merkleProof = merkleProofs[0]
+			}
+			var mintIndex uint32 = 0
+			if len(mintIndices) > 0 {
+				mintIndex = mintIndices[0]
+			}
+
+			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, mintIndex, merkleProof, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
 				log.Printf("%s | ❌ creating transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
@@ -550,6 +612,66 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 
 		time.Sleep(time.Millisecond * 337)
 	}
+}
+
+type Merkle struct {
+	MerkleProof []string `json:"merkleProof"`
+	Value       int      `json:"value"`
+}
+
+func getMerkleProofFromManifoldForAddress(merkleTreeID int, address common.Address) ([]Merkle, error) {
+	// https://apps.api.manifoldxyz.dev/public/merkleTree/1068163731/merkleInfo?address=0x9654F22b9dEBac18396b4815C138A450786a7045
+	url := fmt.Sprintf("https://apps.api.manifoldxyz.dev/public/merkleTree/%d/merkleInfo?address=%s", merkleTreeID, address.Hex())
+
+	log.Printf("Merkle proof url: %s", url)
+
+	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
+	if err != nil {
+		if os.IsTimeout(err) {
+			log.Printf("⌛️ Merkle proof GetMerkleProofFromManifoldForAddress · timeout while fetching: %+v\n", err.Error())
+		} else {
+			log.Errorf("❌ Merkle proof GetMerkleProofFromManifoldForAddress · error: %+v\n", err.Error())
+		}
+
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		log.Errorf("❌ Merkle proof GetMerkleProofFromManifoldForAddress · error: %+v\n", response.Status)
+
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	// read the response body
+	responseBody, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Errorf("❌ Identifier gGetMintInfo · response read error: %+v\n", err.Error())
+
+		return nil, err
+	}
+
+	// decode the data
+	if err != nil || !json.Valid(responseBody) {
+		log.Warnf("getContractMetadata invalid json: %s", err)
+
+		return nil, err
+	}
+
+	merkleData := []Merkle{}
+	_ = json.Unmarshal(responseBody, &merkleData)
+
+	log.Printf("Merkle data: %+v", merkleData)
+
+	//var decoded *manifold.Merkle
+	//if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&decoded); err != nil {
+	//	log.Errorf("❌  decode error: %s\n", err.Error())
+	//
+	//	return nil, err
+	//}
+
+	return merkleData, nil
+
 }
 
 func getMintInfoWithInstanceID(identifier int64) (*manifold.DataResponse, error) {
