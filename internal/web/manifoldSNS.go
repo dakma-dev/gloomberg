@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -244,7 +243,7 @@ func HandlerManifoldSNSTopic(w http.ResponseWriter, r *http.Request) {
 	message.WriteString(fmt.Sprintf("📢 new manifold claim: %s", manifoldSNSPayload.Link))
 	message.WriteString(fmt.Sprintf("\n\n%+v", manifoldSNSPayload))
 
-	notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil) //nolint:contextcheck
+	// notify.SendMessageViaTelegram(message.String(), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil) //nolint:contextcheck
 
 	// w.WriteHeader(http.StatusOK)
 	w.WriteHeader(http.StatusCreated)
