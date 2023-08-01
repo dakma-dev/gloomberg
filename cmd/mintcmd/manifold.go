@@ -486,6 +486,10 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		txOpts.GasFeeCap = gasFeeCap
 		txOpts.GasTipCap = gasTipCap
 
+		if viper.GetBool("dev.mode") {
+			txOpts.NoSend = true
+		}
+
 		log.Printf("%s | txOpts: %#v", mintWallet.tag, txOpts)
 
 		// create the transaction
@@ -503,50 +507,39 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkelProofs, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
-				log.Printf("%s | ❌ creating batch transaction failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
-
-				if !viper.GetBool("dev.mode") {
-					continue
-				}
-
-				sentTx = types.NewTransaction(nonce, internal.ManifoldLazyClaimERC1155, big.NewInt(1), 1337, big.NewInt(1337), nil)
+				log.Printf("%s | ❌ creating batch transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
 		} else {
 			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, 0, [][32]byte{claimInfo.MerkleRoot}, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
-				log.Printf("%s | ❌ creating transaction failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
-
-				if !viper.GetBool("dev.mode") {
-					continue
-				}
-
-				sentTx = types.NewTransaction(nonce, internal.ManifoldLazyClaimERC1155, big.NewInt(1), 1337, big.NewInt(1337), nil)
+				log.Printf("%s | ❌ creating transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
+		}
+
+		if sentTx == nil {
+			log.Printf("%s | ❌ executing transaction failed - sentTx is %#v", mintWallet.tag, sentTx)
+
+			continue
 		}
 
 		log.Printf("%s | 🙌 tx sent! → %s 🙌", mintWallet.tag, style.TerminalLink(utils.GetEtherscanTxURL(sentTx.Hash().Hex()), style.BoldAlmostWhite(sentTx.Hash().Hex())))
 
 		// wait for the transaction to be mined
-		for {
-			log.Printf("%s | waiting for tx confirmation...", mintWallet.tag)
-			time.Sleep(time.Second * 2)
+		receipt, err := bind.WaitMined(context.Background(), rpcClient, sentTx)
+		if err != nil {
+			prErr(mintInfo, claimInfo)
 
-			receipt, err := rpcClient.TransactionReceipt(context.Background(), sentTx.Hash())
-			if err != nil {
-				log.Errorf("%s | error waiting for tx: %+v", mintWallet.tag, err)
+			log.Printf("%s | ❌ transaction failed: %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()))
 
-				continue
-			}
+			continue
+		}
 
-			if receipt != nil {
-				log.Printf("%s | 🎉 transaction mined! → %s 🎉", mintWallet.tag, style.TerminalLink(utils.GetEtherscanTxURL(sentTx.Hash().Hex()), style.BoldAlmostWhite(sentTx.Hash().Hex())))
-				pretty.Println(receipt)
+		if receipt != nil {
+			log.Printf("%s | 🎉 transaction mined! → %s 🎉", mintWallet.tag, style.TerminalLink(utils.GetEtherscanTxURL(receipt.TxHash.Hex()), style.BoldAlmostWhite(receipt.TxHash.Hex())))
+			pretty.Println(receipt)
 
-				txConfirmed++
-
-				break
-			}
+			txConfirmed++
 		}
 
 		if txConfirmed >= int(txsPerWallet) {
