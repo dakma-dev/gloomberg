@@ -6,7 +6,6 @@ package mintcmd
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,15 +41,7 @@ import (
 )
 
 var (
-	flagURL string
-
-	flagInstanceID int64
-
-	flagGasFeeCapMultiplier float64
-	flagGasTipCapMultiplier float64
-
-	flagPrivateKeys []string
-	flagRPCs        []string
+	flagManifoldInstanceID int64
 
 	manifoldMagicAppID = 2537426615
 )
@@ -70,7 +61,7 @@ func init() {
 
 	// manifold url or identifier
 	manifoldCmd.Flags().StringVar(&flagURL, "url", "", "manifold url to mint from (prefer to use identifier if possible)")
-	manifoldCmd.Flags().Int64Var(&flagInstanceID, "instance-id", -1, "manifold identifier (will be fetched from manifold if not set)")
+	manifoldCmd.Flags().Int64Var(&flagManifoldInstanceID, "instance-id", -1, "manifold identifier (will be fetched from manifold if not set)")
 	manifoldCmd.MarkFlagsMutuallyExclusive("url", "instance-id")
 
 	// do not wait for mint start
@@ -101,14 +92,6 @@ func init() {
 	_ = viper.BindPFlag("mint.manifold.amount-tx", manifoldCmd.Flags().Lookup("amount-tx"))
 	manifoldCmd.Flags().Uint16("amount-wallet", 1, "number of tokens to mint per wallet/key")
 	_ = viper.BindPFlag("mint.manifold.amount-wallet", manifoldCmd.Flags().Lookup("amount-wallet"))
-}
-
-type MintWallet struct {
-	privateKey *ecdsa.PrivateKey
-	address    *common.Address
-
-	color lipgloss.Color
-	tag   string
 }
 
 func mintManifold(_ *cobra.Command, _ []string) {
@@ -182,10 +165,10 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 			return
 		}
-	case flagInstanceID > 0:
+	case flagManifoldInstanceID > 0:
 		var err error
 
-		mintInfo, err = getMintInfoWithInstanceID(flagInstanceID)
+		mintInfo, err = getMintInfoWithInstanceID(flagManifoldInstanceID)
 		if err != nil {
 			log.Fatalf("❌ getting mint identifier from manifold failed: %v", err)
 
@@ -270,6 +253,9 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 	log.Print("")
 	log.Printf("  price: %s", style.BoldAlmostWhite(fmt.Sprintf("%5.4f", mintInfo.MintPrice)))
+
+	log.Print("")
+	log.Printf("  merkeleTreeID: %s", style.BoldAlmostWhite(fmt.Sprintf("%d", mintInfo.PublicData.MerkleTreeID)))
 
 	log.Print("")
 	log.Printf("  collection/creator contract: %s", style.TerminalLink(utils.GetEtherscanTokenURL(&mintInfo.PublicData.CreatorContractAddress), style.BoldAlmostWhite(mintInfo.PublicData.CreatorContractAddress.Hex())))
@@ -467,6 +453,9 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
 		totalCost := new(big.Int).Add(manifoldFee, mintCost)
 
+		log.Print("")
+		log.Printf("  totalCost: %s", style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(totalCost).Ether())))
+
 		//
 		// create the transaction options
 		txOpts, err := bind.NewKeyedTransactorWithChainID(mintWallet.privateKey, big.NewInt(1))
@@ -507,18 +496,18 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkelProofs, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
-				log.Printf("%s | ❌ creating batch transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
+				log.Printf("%s | ❌ creating batch transaction failed: %+v | %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
 		} else {
 			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, 0, [][32]byte{claimInfo.MerkleRoot}, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
-				log.Printf("%s | ❌ creating transaction failed: %#v | %#v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
+				log.Printf("%s | ❌ creating transaction failed: %+v | %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
 		}
 
 		if sentTx == nil {
-			log.Printf("%s | ❌ executing transaction failed - sentTx is %#v", mintWallet.tag, sentTx)
+			log.Printf("%s | ❌ executing transaction failed - sentTx is %+v", mintWallet.tag, sentTx)
 
 			continue
 		}

@@ -1,8 +1,20 @@
 package mintcmd
 
 import (
+	"crypto/ecdsa"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/cobra"
 )
+
+type MintWallet struct {
+	privateKey *ecdsa.PrivateKey
+	address    *common.Address
+
+	color lipgloss.Color
+	tag   string
+}
 
 // MintCmd represents the mint command.
 var MintCmd = &cobra.Command{
@@ -16,5 +28,15 @@ var MintCmd = &cobra.Command{
 	//		fmt.Println("mint called")
 	//	},
 }
+
+var (
+	flagURL string
+
+	flagGasFeeCapMultiplier float64
+	flagGasTipCapMultiplier float64
+
+	flagPrivateKeys []string
+	flagRPCs        []string
+)
 
 func init() {}
