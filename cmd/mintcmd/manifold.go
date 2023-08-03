@@ -268,7 +268,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Printf("  price: %s", style.BoldAlmostWhite(fmt.Sprintf("%5.4f", mintInfo.MintPrice)))
 
 	log.Print("")
-	log.Printf("  merkeleTreeID: %s", style.BoldAlmostWhite(fmt.Sprintf("%d", mintInfo.PublicData.MerkleTreeID)))
+	log.Printf("  merkleTreeID: %s", style.BoldAlmostWhite(fmt.Sprintf("%d", mintInfo.PublicData.MerkleTreeID)))
 
 	log.Print("")
 	log.Printf("  collection/creator contract: %s", style.TerminalLink(utils.GetEtherscanTokenURL(&mintInfo.PublicData.CreatorContractAddress), style.BoldAlmostWhite(mintInfo.PublicData.CreatorContractAddress.Hex())))
@@ -300,6 +300,8 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	//
 	// get manifold fee
 	var manifoldFee *big.Int
+	feeIndicator := ""
+
 	if isPublicMint {
 		manifoldFee, err = lazyClaimERC1155.MINTFEE(&bind.CallOpts{})
 		if err != nil {
@@ -308,17 +310,14 @@ func mintManifold(_ *cobra.Command, _ []string) {
 			return
 		}
 	} else {
+		feeIndicator = " (merkle)"
+
 		manifoldFee, err = lazyClaimERC1155.MINTFEEMERKLE(&bind.CallOpts{})
 		if err != nil {
 			log.Errorf("❌ getting merkle mint fee failed: %s", style.BoldAlmostWhite(err.Error()))
 
 			return
 		}
-	}
-
-	feeIndicator := ""
-	if !isPublicMint {
-		feeIndicator = " (merkle fee)"
 	}
 
 	log.Print("")
@@ -381,12 +380,45 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	wg := sync.WaitGroup{}
 
 	for _, mintWallet := range mintWallets.ToSlice() {
+		// wg.Add(1)
+
+		mintIndices := make([]uint32, 0)
+		merkleProofs := make([][][32]byte, 0)
+
+		if isPublicMint {
+			for i := uint16(0); i < amountPerTx; i++ {
+				mintIndices = append(mintIndices, uint32(0))
+				merkleProofs = append(merkleProofs, [][32]byte{claimInfo.MerkleRoot})
+			}
+		} else {
+			merkleProofData, err := getMerkleProofFromManifoldForAddress(mintInfo.PublicData.MerkleTreeID, *mintWallet.address)
+			if err != nil {
+				continue
+			}
+
+			mintIndices, merkleProofs = getMerkleProofContractParamater(merkleProofData)
+
+			if len(mintIndices) == 0 {
+				log.Errorf("%s | ❌ no mint indices found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+
+				continue
+			}
+			if len(merkleProofs) == 0 {
+				log.Errorf("%s | ❌ no merkle proofs found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+
+				continue
+			}
+
+			// log.Printf("%s | merkleProofs (%d): %#v", mintWallet.tag, len(merkleProofs), merkleProofs)
+			// log.Printf("%s | merkleProofs[0]: %#v", mintWallet.tag, merkleProofs[0])
+		}
+
 		wg.Add(1)
 
 		go func(mintWallet *MintWallet) {
 			defer wg.Done()
 
-			mintERC1155(rpcEndpoints.Clone(), mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, manifoldFee)
+			mintERC1155(rpcEndpoints.Clone(), mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, mintIndices, merkleProofs, manifoldFee)
 		}(mintWallet)
 	}
 
@@ -399,7 +431,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 func getMerkleProofContractParamater(merkleProofData []Merkle) ([]uint32, [][][32]byte) {
 	mintIndices := make([]uint32, 0)
-	merkelProofs := make([][][32]byte, 0)
+	merkleProofs := make([][][32]byte, 0)
 
 	for _, proof := range merkleProofData {
 		merkleProof := make([][32]byte, 0)
@@ -419,17 +451,17 @@ func getMerkleProofContractParamater(merkleProofData []Merkle) ([]uint32, [][][3
 			// fmt.Println(byteArr)
 			merkleProof = append(merkleProof, byteArr)
 		}
-		merkelProofs = append(merkelProofs, merkleProof)
+		merkleProofs = append(merkleProofs, merkleProof)
 		mintIndices = append(mintIndices, uint32(proof.Value))
 	}
 
 	log.Printf(" converted mint indices: %v", mintIndices)
-	log.Printf(" converted merkle proofs: %v", merkelProofs)
+	log.Printf(" converted merkle proofs: %v", merkleProofs)
 
-	return mintIndices, merkelProofs
+	return mintIndices, merkleProofs
 }
 
-func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPerWallet uint16, manifoldInstanceID *big.Int, mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim, manifoldFee *big.Int) {
+func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPerWallet uint16, manifoldInstanceID *big.Int, mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim, mintIndices []uint32, merkleProofs [][][32]byte, manifoldFee *big.Int) {
 	txConfirmed := 0
 
 	prErr := func(mintInfo *manifold.DataResponse, claimInfo manifoldABIs.IERC1155LazyPayableClaimClaim) {
@@ -518,9 +550,11 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		gasFeeCapWei, _ := new(big.Float).Mul(suggestedFee, feeCapMultiplier).Int(nil)
 		gasTipCapWei, _ := new(big.Float).Mul(suggestedTip, tipCapMultiplier).Int(nil)
 
-		log.Printf("%s | ⛽️ your gasFeeCapWei: %+v, gwei: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasFeeCapWei)), utils.WeiToGwei(gasFeeCapWei))
+		fmtUnitGwei := style.GrayStyle.Render("gwei")
+		fmtUnitWei := style.GrayStyle.Render("wei")
 
-		log.Printf("%s | ⛽️ your gasTipCapWei: %+v, gwei %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(gasTipCapWei)), utils.WeiToGwei(gasTipCapWei))
+		log.Printf("%s | ⛽️ your gasFeeCap: %s%s | %d%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%4.1f", utils.WeiToGwei(gasFeeCapWei))), fmtUnitGwei, gasFeeCapWei, fmtUnitWei)
+		log.Printf("%s | ⛽️ your gasTipCap: %s%s | %d%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%4.1f", utils.WeiToGwei(gasTipCapWei))), fmtUnitGwei, gasTipCapWei, fmtUnitWei)
 
 		// 💸 💸 💸
 		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
@@ -557,71 +591,19 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		// create the transactions
 		var sentTx *types.Transaction
 
-		// merkleProofData, err := getMerkleProofFromManifoldForAddress(mintInfo.PublicData.MerkleTreeID, *mintWallet.address)
-		// if err != nil {
-		// 	return
-		// }
-
-		// public if claimInfo.MerkleRoot is null [32]byte{}
-		// isPublic := true
-		// if claimInfo.MerskleRoot != [32]byte{} {
-		//	isPublic = false
-		//}
-
-		// if !isPublicMint {
-		// 	// TODO skip if public
-		// 	mintIndices, merkleProofs = getMerkleProofContractParamater(merkleProofData)
-		// 	if len(mintIndices) == 0 {
-		// 		log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
-
-		// 		// return
-		// 	}
-		// 	if len(merkleProofs) == 0 {
-		// 		log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
-
-		// 		// return
-		// 	}
-		// }
-
-		var mintIndex uint32
-		mintIndices := make([]uint32, 0)
-		merkleProofs := make([][][32]byte, 0)
-
 		if amountPerTx := viper.GetUint16("mint.manifold.amount-tx"); amountPerTx > 1 {
-			// // public mint
-			// if len(merkleProofs) == 0 {
-			// 	mintIndices = make([]uint32, 0)
-			// 	merkleProofs = make([][][32]byte, 0)
-			// 	for i := uint16(0); i < amountPerTx; i++ {
-			// 		mintIndices = append(mintIndices, uint32(0))
-			// 		merkleProofs = append(merkleProofs, [][32]byte{claimInfo.MerkleRoot})
-			// 	}
-			// }
-
 			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkleProofs, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
 				log.Printf("%s | ❌ creating batch transaction failed: %+v | %+v", mintWallet.tag, style.BoldAlmostWhite(err.Error()), err)
 			}
 		} else {
-			// for public: mintIndex = 0, merkleProof = nil
-			// for exlusive: mintIndex = from api, merkleProof = from api
+			var mintIndex uint32
+			if len(mintIndices) > 0 {
+				mintIndex = mintIndices[0]
+			}
 
-			// // merkleProof := [][32]byte{}
-
-			// log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs)
-			// log.Printf("len(merkleProofs): %d", len(merkleProofs))
-			// // if len(merkleProofs) > 0 {
-			// // 	// merkleProof := merkleProofs[0]
-			// // }
-
-			// log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs[0])
-
-			// var mintIndex uint32
-			// if len(mintIndices) > 0 {
-			// 	mintIndex = mintIndices[0]
-			// }
-			// log.Printf("%s | mintIndex: %#v", mintWallet.tag, mintIndex)
+			// log.Printf("%s | mintIndex: %+v", mintWallet.tag, mintIndex)
 
 			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, mintIndex, merkleProofs[0], *mintWallet.address)
 			if err != nil {
