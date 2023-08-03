@@ -190,7 +190,7 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 
 // Pr prints messages from seawatcher to the terminal.
 func (sw *SeaWatcher) Pr(message string) {
-	sw.gb.PrWithKeywordAndIcon("🌊", style.OpenSea("seawa"), message)
+	gloomberg.PrWithKeywordAndIcon("🌊", style.OpenSea("seawa"), message)
 }
 
 // Prf formats and prints messages from seawatcher to the terminal.

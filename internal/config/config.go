@@ -297,7 +297,7 @@ func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *ruei
 // }
 
 // GetWatchRulesFromConfig reads configured users to be notified from config.
-func GetWatchRulesFromConfig(gb *gloomberg.Gloomberg) *watch.Watcher {
+func GetWatchRulesFromConfig() *watch.Watcher {
 	mu := sync.Mutex{}
 
 	watcher := watch.Watcher{
@@ -375,7 +375,7 @@ func GetWatchRulesFromConfig(gb *gloomberg.Gloomberg) *watch.Watcher {
 
 	// _ = watchSpinner.Stop()
 
-	gb.PrMod("wawa", fmt.Sprintf("watching %s users with %s wallets in total: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(userNames))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(userWallets))), strings.Join(userNames, ", ")))
+	gloomberg.PrMod("wawa", fmt.Sprintf("watching %s users with %s wallets in total: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(userNames))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(userWallets))), strings.Join(userNames, ", ")))
 
 	return &watcher
 }

@@ -5,8 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
-	"time"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -47,6 +45,9 @@ type Gloomberg struct {
 
 	CurrentGasPriceGwei   uint64
 	CurrentOnlineWebUsers uint64
+
+	// grpc
+	// grpcClient *remote.ClientGRPC
 
 	*eventHub
 	// GloomHub *gloomhub
@@ -138,24 +139,24 @@ func New() *Gloomberg {
 		QueueSlugs: make(chan common.Address, 1024),
 
 		eventHub: newEventHub(),
-		// GloomHub: newGloomhub(),
+
 		// DegenDB:  degendb.NewDegenDB(),
 	}
 
 	//
 	// start central terminal printer
-	printToTerminalChannel := gb.SubscribePrintToTerminal()
+	// printToTerminalChannel := gb.SubscribePrintToTerminal()
 
 	// experimental: start multiple terminal printers
 	for i := 0; i < viper.GetInt("gloomberg.terminalPrinter.numWorker"); i++ {
 		go func() {
 			gbl.Log.Debug("starting terminal printer...")
 
-			for eventLine := range printToTerminalChannel {
+			for eventLine := range TerminalPrinterQueue {
 				gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
 
 				if viper.GetBool("log.debug") {
-					debugPrefix := fmt.Sprintf("%d | ", len(printToTerminalChannel))
+					debugPrefix := fmt.Sprintf("%d | ", len(TerminalPrinterQueue))
 					eventLine = fmt.Sprint(debugPrefix, eventLine)
 				}
 
@@ -213,96 +214,6 @@ func (gb *Gloomberg) SendSlugsToServer() {
 			gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
 		}
 	}
-}
-
-// Pr prints messages from gloomberg to the terminal.
-func (gb *Gloomberg) Pr(message string) {
-	gb.printToTerminal("🧃", style.Gray5Style.Render("gb"), message) // style.PinkBoldStyle.Render("・"))
-}
-
-// Prf formats and prints messages from gloomberg to the terminal.
-func (gb *Gloomberg) Prf(format string, a ...any) {
-	gb.Pr(fmt.Sprintf(format, a...))
-}
-
-func (gb *Gloomberg) PrWarn(message string) {
-	gb.printToTerminal("⚠️", "", message)
-}
-
-func (gb *Gloomberg) PrWithKeywordAndIcon(icon string, keyword string, message string) {
-	gb.printToTerminal(icon, keyword, message)
-}
-
-func (gb *Gloomberg) PrMod(mod string, message string) {
-	prConfig, ok := gb.PrintConfigurations[mod]
-	if !ok {
-		gbl.Log.Warnf("no print configuration for module %s | message: %s", mod, message)
-
-		return
-	}
-
-	icon := prConfig.Icon
-
-	color := style.DarkGray
-	if prConfig.Color != "" {
-		color = prConfig.Color
-	}
-
-	tag := lipgloss.NewStyle().Foreground(color).Render(mod)
-
-	gb.printToTerminal(icon, tag, message)
-}
-
-// PrModf formats and prints messages from gloomberg to the terminal.
-func (gb *Gloomberg) PrModf(mod string, format string, a ...any) {
-	gb.PrMod(mod, fmt.Sprintf(format, a...))
-}
-
-// PrVMod prints messages from gloomberg to the terminal if verbose mode is enabled.
-func (gb *Gloomberg) PrVMod(mod string, message string) {
-	if viper.GetBool("log.verbose") {
-		gb.PrMod(mod, message)
-	}
-}
-
-// PrVModf formats and prints messages from gloomberg to the terminal if verbose mode is enabled.
-func (gb *Gloomberg) PrVModf(mod string, format string, a ...any) {
-	if viper.GetBool("log.verbose") {
-		gb.PrModf(mod, format, a...)
-	}
-}
-
-// PrDMod prints messages from gloomberg to the terminal if debug mode is enabled.
-func (gb *Gloomberg) PrDMod(mod string, message string) {
-	if viper.GetBool("log.debug") {
-		gb.PrMod(mod, message)
-	}
-}
-
-// PrDModf formats and prints messages from gloomberg to the terminal if debug mode is enabled.
-func (gb *Gloomberg) PrDModf(mod string, format string, a ...any) {
-	if viper.GetBool("log.debug") {
-		gb.PrModf(mod, format, a...)
-	}
-}
-
-func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string) {
-	if message == "" {
-		return
-	}
-
-	// WEN...??
-	now := time.Now()
-	currentTime := now.Format("15:04:05")
-
-	out := strings.Builder{}
-	out.WriteString(style.DarkGrayStyle.Render("|"))
-	out.WriteString(style.Gray4Style.Render(currentTime))
-	out.WriteString(" " + icon)
-	out.WriteString(" " + lipgloss.NewStyle().Width(6).Align(lipgloss.Right).Render(keyword))
-	out.WriteString("  " + message)
-
-	gb.In.PrintToTerminal <- out.String()
 }
 
 func getRedisClient(redisClientOptions rueidis.ClientOption) rueidis.Client {

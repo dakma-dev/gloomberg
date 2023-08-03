@@ -115,7 +115,7 @@ func CheckEIP6551TokenAccount(gb *Gloomberg, tokenContract *common.Address, toke
 		return false, nil, fmt.Errorf("EIP6551 account %s has no transactions besides contract creation 🤷‍♀️", eip6551AccountAddress.String())
 	}
 
-	gb.PrModf(
+	PrModf(
 		"e6551", "💥  %s  →  %+v (nonce: %d)",
 		style.TerminalLink(utils.GetEtherscanAddressURL(tokenContract), style.ShortenAddressStyled(tokenContract, lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(tokenContract.Hash().Big().Int64())))),
 		style.TerminalLink(utils.GetEtherscanAddressURL(&eip6551AccountAddress), eip6551AccountAddress.String()),

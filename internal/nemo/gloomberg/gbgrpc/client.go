@@ -25,8 +25,18 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-// connect to grpc server.
-func connect(grpcAddress string) gen.GloombergClient {
+var GRPCClient gen.GloombergClient
+
+// type grpcClient struct {
+// 	gen.GloombergClient
+// }
+
+// NewClient to grpc server.
+func NewClient(grpcAddress string) gen.GloombergClient {
+	if grpcAddress == "" {
+		grpcAddress = fmt.Sprintf("%s:%d", viper.GetString("grpc.client.host"), viper.GetUint("grpc.client.port"))
+	}
+
 	// grpc options
 	var opts []grpc.DialOption
 
@@ -37,7 +47,7 @@ func connect(grpcAddress string) gen.GloombergClient {
 	}
 
 	// connect
-	gloomberg.GB.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
+	gloomberg.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
 	conn, err := grpc.Dial(grpcAddress, opts...)
 	if err != nil {
 		gbl.Log.Warnf("fail to dial: %v", err)
@@ -54,12 +64,23 @@ func connect(grpcAddress string) gen.GloombergClient {
 	}
 
 	// return client
-	return gen.NewGloombergClient(conn)
+	GRPCClient = gen.NewGloombergClient(conn)
+
+	return GRPCClient // gen.NewGloombergClient(conn)
 }
 
-func StartClient(gb *gloomberg.Gloomberg) {
+func FetchEvents(gb *gloomberg.Gloomberg) {
 	// server to connect to
 	grpcAddress := fmt.Sprintf("%s:%d", viper.GetString("grpc.client.host"), viper.GetUint("grpc.client.port"))
+
+	// grpc options
+	var opts []grpc.DialOption
+
+	if creds := gloomberg.GetTLSClientCredentials(); creds != nil {
+		opts = append(opts, grpc.WithTransportCredentials(creds))
+	} else {
+		opts = append(opts, grpc.WithTransportCredentials(insecure.NewCredentials()))
+	}
 
 	failedAttempts := 0
 
@@ -73,8 +94,27 @@ func StartClient(gb *gloomberg.Gloomberg) {
 			time.Sleep(waitTime)
 		}
 
-		client := connect(grpcAddress)
-		if client == nil {
+		// connect
+		gloomberg.Prf("connecting to gRPC %s...", style.BoldAlmostWhite(grpcAddress))
+		conn, err := grpc.Dial(grpcAddress, opts...)
+		if err != nil {
+			gbl.Log.Warnf("fail to dial: %v", err)
+
+			continue
+		}
+
+		// time needed to establish connection
+		time.Sleep(time.Millisecond * 337)
+
+		// check connection state
+		if conn.GetState() != connectivity.Ready {
+			log.Errorf("fail to connect to gRPC %s", style.BoldAlmostWhite(grpcAddress))
+		}
+
+		// return client
+		grpcClient := gen.NewGloombergClient(conn)
+
+		if grpcClient == nil {
 			log.Errorf("fail to connect to gRPC %s", style.BoldAlmostWhite(grpcAddress))
 
 			failedAttempts++
@@ -83,10 +123,10 @@ func StartClient(gb *gloomberg.Gloomberg) {
 		}
 
 		// get eventstream
-		gb.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
+		gloomberg.Prf("subscribing via grpc to: %s", style.BoldAlmostWhite(degendb.Listing.OpenseaEventName()))
 
 		subsriptionRequest := &gen.SubscriptionRequest{EventTypes: []gen.EventType{gen.EventType_ITEM_LISTED}, Collections: gb.CollectionDB.OpenseaSlugs()} //nolint:nosnakecase
-		stream, err := client.GetEvents(context.Background(), subsriptionRequest)
+		stream, err := grpcClient.GetEvents(context.Background(), subsriptionRequest)
 		if err != nil {
 			log.Errorf("getting stream failed: %v, retrying", err)
 

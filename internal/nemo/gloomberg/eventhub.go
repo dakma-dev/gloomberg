@@ -17,6 +17,8 @@ import (
 )
 
 var (
+	TerminalPrinterQueue = make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
+
 	counterItemListed          int64
 	counterItemReceivedBid     int64
 	counterItemMetadataUpdated int64
@@ -26,8 +28,9 @@ var (
 	counterParsedEvents        int64
 	counterRecentOwnEvents     int64
 	counterSeawatcherMgmt      int64
-	counterPrintToTerminal     int64
-	counterNewBlock            int64
+	// counterPrintToTerminal      int64.
+	counterTerminalPrinterQueue int64
+	counterNewBlock             int64
 )
 
 // eventHub is a central hub for all events.
@@ -56,8 +59,8 @@ type eventChannelsIn struct {
 
 	SeawatcherMgmt chan *models.MgmtEvent
 
-	PrintToTerminal chan string
-	NewBlock        chan uint64
+	// PrintToTerminal chan string
+	NewBlock chan uint64
 }
 
 type eventChannelsOut struct {
@@ -74,8 +77,8 @@ type eventChannelsOut struct {
 
 	SeawatcherMgmt []chan *models.MgmtEvent
 
-	PrintToTerminal []chan string
-	NewBlock        []chan uint64
+	// PrintToTerminal []chan string
+	NewBlock []chan uint64
 }
 
 func newEventHub() *eventHub {
@@ -92,8 +95,9 @@ func newEventHub() *eventHub {
 			"ParsedEvents":        &counterParsedEvents,
 			"RecentOwnEvents":     &counterRecentOwnEvents,
 			"SeawatcherMgmt":      &counterSeawatcherMgmt,
-			"PrintToTerminal":     &counterPrintToTerminal,
-			"NewBlock":            &counterNewBlock,
+			// "PrintToTerminal":     &counterPrintToTerminal,
+			"TerminalPrinterQueue": &counterTerminalPrinterQueue,
+			"NewBlock":             &counterNewBlock,
 		},
 
 		In: eventChannelsIn{
@@ -110,8 +114,8 @@ func newEventHub() *eventHub {
 
 			SeawatcherMgmt: make(chan *models.MgmtEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
-			PrintToTerminal: make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
-			NewBlock:        make(chan uint64, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			// PrintToTerminal: make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			NewBlock: make(chan uint64, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 		},
 
 		out: eventChannelsOut{
@@ -128,8 +132,8 @@ func newEventHub() *eventHub {
 
 			SeawatcherMgmt: make([]chan *models.MgmtEvent, 0),
 
-			PrintToTerminal: make([]chan string, 0),
-			NewBlock:        make([]chan uint64, 0),
+			// PrintToTerminal: make([]chan string, 0),
+			NewBlock: make([]chan uint64, 0),
 		},
 	}
 
@@ -164,8 +168,9 @@ func newEventHub() *eventHub {
 				"ParsedEvents":        len(eh.In.ParsedEvents),
 				"RecentOwnEvents":     len(eh.In.RecentOwnEvents),
 				"SeawatcherMgmt":      len(eh.In.SeawatcherMgmt),
-				"PrintToTerminal":     len(eh.In.PrintToTerminal),
-				"NewBlock":            len(eh.In.NewBlock),
+				// "PrintToTerminal":     len(eh.In.PrintToTerminal),
+				"TerminalPrinterQueue": len(TerminalPrinterQueue),
+				"NewBlock":             len(eh.In.NewBlock),
 			}
 
 			outChans := map[string]int{
@@ -179,8 +184,8 @@ func newEventHub() *eventHub {
 				"outParsedEvents":        len(eh.out.ParsedEvents),
 				"outRecentOwnEvents":     len(eh.out.RecentOwnEvents),
 				"outSeawatcherMgmt":      len(eh.out.SeawatcherMgmt),
-				"outPrintToTerminal":     len(eh.out.PrintToTerminal),
-				"outNewBlock":            len(eh.out.NewBlock),
+				// "outPrintToTerminal":     len(eh.out.PrintToTerminal),
+				"outNewBlock": len(eh.out.NewBlock),
 			}
 
 			inWarnings := strings.Builder{}
@@ -298,12 +303,12 @@ func (eh *eventHub) SubscribeSeawatcherMgmt() chan *models.MgmtEvent {
 	return outChannel
 }
 
-func (eh *eventHub) SubscribePrintToTerminal() chan string {
-	outChannel := make(chan string, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
-	eh.out.PrintToTerminal = append(eh.out.PrintToTerminal, outChannel)
+// func (eh *eventHub) SubscribePrintToTerminal() chan string {
+// 	outChannel := make(chan string, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
+// 	eh.out.PrintToTerminal = append(eh.out.PrintToTerminal, outChannel)
 
-	return outChannel
-}
+// 	return outChannel
+// }
 
 func (eh *eventHub) SubscribNewBlocks() chan uint64 {
 	outChannel := make(chan uint64, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
@@ -388,14 +393,14 @@ func (eh *eventHub) worker(workerID int) {
 			for _, ch := range eh.out.SeawatcherMgmt {
 				ch <- event
 			}
-		case event := <-eh.In.PrintToTerminal:
-			log.Debugf("PrintToTerminal event | %d | pushing to %d receivers", workerID, len(eh.out.PrintToTerminal))
+		// case event := <-eh.In.PrintToTerminal:
+		// 	log.Debugf("PrintToTerminal event | %d | pushing to %d receivers", workerID, len(eh.out.PrintToTerminal))
 
-			atomic.AddInt64(eh.counters["PrintToTerminal"], 1)
+		// 	atomic.AddInt64(eh.counters["PrintToTerminal"], 1)
 
-			for _, ch := range eh.out.PrintToTerminal {
-				ch <- event
-			}
+		// 	for _, ch := range eh.out.PrintToTerminal {
+		// 		ch <- event
+		// 	}
 		case event := <-eh.In.NewBlock:
 			log.Debugf("CurrentBlock event | %d | pushing to %d receivers", workerID, len(eh.out.NewBlock))
 

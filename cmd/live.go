@@ -42,8 +42,6 @@ import (
 	"github.com/spf13/viper"
 )
 
-var manualParser = true
-
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
 	Use:   "live",
@@ -94,7 +92,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		}
 	}
 
-	gb.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
+	gloomberg.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
 
 	go func() {
 		gb.DegenDB = degendb.NewDegenDB()
@@ -126,7 +124,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
 		}
 
-		gb.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
+		gloomberg.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
 	}
 
 	//
@@ -216,7 +214,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
 	// }
 
-	gb.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+	gloomberg.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
 
 	// // stop spinner
 	// _ = collectionsSpinner.Stop()
@@ -229,7 +227,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		if len(*gb.OwnWallets) > 0 {
 			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
 			// _ = miwSpinner.Stop()
-			gb.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
+			gloomberg.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
 		}
 	}
 
@@ -265,7 +263,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
 		// }
 
-		gb.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+		gloomberg.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
 
 		// _ = collectionsSpinner.Stop()
 	}
@@ -295,7 +293,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	//
 	// wallet watcher (todo) & MIWs
 	if viper.GetBool("sales.enabled") {
-		watcher := config.GetWatchRulesFromConfig(gb)
+		watcher := config.GetWatchRulesFromConfig()
 		gb.Watcher = watcher
 
 		//
@@ -308,7 +306,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		if len(wwatcher.MIWC.WeightedMIWs) > 0 {
 			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
 			// _ = miwSpinner.Stop()
-			gb.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs)))))
+			gloomberg.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs)))))
 		}
 		//  else {
 		// 	_ = miwSpinner.StopFail()
@@ -439,7 +437,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	if viper.GetBool("web.enabled") {
 		go web.StartWebUI(gb) //nolint:errcheck
 
-		gb.PrMod("web", "web-ui started")
+		gloomberg.PrMod("web", "web-ui started")
 	}
 
 	// // prometheus metrics
@@ -469,18 +467,18 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// grpc client
 	if viper.GetBool("grpc.client.enabled") {
-		gb.Prf("starting grpc client...")
+		gloomberg.Prf("starting grpc client...")
 
 		// go seawa.GetEvents()
 
-		go gbgrpc.StartClient(gb)
+		go gbgrpc.FetchEvents(gb)
 	}
 
 	go func() {
 		wawa := chawago.NewWalletWatcher(gb)
 		wawa.Watch()
 
-		gb.Prf("wallet watcher started: %+v", wawa)
+		gloomberg.Prf("wallet watcher started: %+v", wawa)
 	}()
 
 	// loop forever
@@ -644,7 +642,7 @@ func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
 		time.Sleep(time.Millisecond * 337)
 	}
 
-	gb.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gbTokens))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets)))))
+	gloomberg.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gbTokens))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets)))))
 
 	// create map
 	gbTokensMap := make(map[common.Address]*token.Token)

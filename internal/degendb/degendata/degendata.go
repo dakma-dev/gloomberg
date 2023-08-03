@@ -44,12 +44,12 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 			if addr, err := gb.Rueidi.GetAddressForOSSlug(context.Background(), slug); err == nil && addr != "" {
 				address = common.HexToAddress(addr)
 
-				gb.PrDModf("ddb", "found address %s for slug %s in cache", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
+				gloomberg.PrDModf("ddb", "found address %s for slug %s in cache", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
 			} else if collectionResponse := opensea.GetCollection(slug); collectionResponse != nil {
 				// don't fuck opensea
 				time.Sleep(time.Millisecond * 337)
 
-				gb.PrDModf("ddb", "fetched address %s for slug %s from opensea", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
+				gloomberg.PrDModf("ddb", "fetched address %s for slug %s from opensea", style.AlmostWhiteStyle.Render(addr), style.AlmostWhiteStyle.Render(slug))
 
 				if len(collectionResponse.Collection.PrimaryAssetContracts) > 0 {
 					address = common.HexToAddress(collectionResponse.Collection.PrimaryAssetContracts[0].Address)
@@ -64,7 +64,7 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 				continue
 			}
 		} else {
-			gb.PrDModf("ddb", fmt.Sprintf("address %s for slug %s from our collectionDB", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug)))
+			gloomberg.PrDModf("ddb", fmt.Sprintf("address %s for slug %s from our collectionDB", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug)))
 		}
 
 		// cache
@@ -72,7 +72,7 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 			gb.Rueidi.StoreAddressForOSSlug(context.Background(), slug, address)
 			gb.Rueidi.StoreOSSlugForAddress(context.Background(), address, slug)
 
-			gb.PrDModf("ddb", "stored address %s for slug %s in cache", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug))
+			gloomberg.PrDModf("ddb", "stored address %s for slug %s in cache", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug))
 		}
 
 		ranksOpensea := make(degendb.OpenSeaRanks)
@@ -103,26 +103,26 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 		for tokenId, rank := range ranksOpensea {
 			if rank.Rank <= 0 {
 				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
-				gb.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gloomberg.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
 
 				continue
 			}
 
 			if rank.Score <= 0 {
 				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
-				gb.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gloomberg.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
 
 				continue
 			}
 		}
 
-		gb.PrDModf("ddb", "added %s ranks for %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug))
+		gloomberg.PrDModf("ddb", "added %s ranks for %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug))
 
 		gb.Ranks[address] = ranksOpensea
 		totalRanks += len(ranksOpensea)
 	}
 
-	gb.PrMod("ddb", fmt.Sprintf("%s collections with %s ranks in total (opensea)", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.Ranks))), style.AlmostWhiteStyle.Render(fmt.Sprint(totalRanks))))
+	gloomberg.PrMod("ddb", fmt.Sprintf("%s collections with %s ranks in total (opensea)", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.Ranks))), style.AlmostWhiteStyle.Render(fmt.Sprint(totalRanks))))
 
 	return nil
 }

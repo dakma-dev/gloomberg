@@ -33,7 +33,7 @@ func NewWalletWatcher(gb *gloomberg.Gloomberg) *WalletWatcher {
 
 // Pr prints messages from seawatcher to the terminal.
 func (ww *WalletWatcher) Pr(message string) {
-	ww.gb.PrWithKeywordAndIcon("👀", lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0099")).Faint(true).Render("wawa"), message)
+	gloomberg.PrWithKeywordAndIcon("👀", lipgloss.NewStyle().Foreground(lipgloss.Color("#ff0099")).Faint(true).Render("wawa"), message)
 }
 
 func (ww *WalletWatcher) PrDf(format string, a ...interface{}) {

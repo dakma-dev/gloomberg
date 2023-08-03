@@ -578,7 +578,7 @@ func (s *Stats) highVolumeMint() {
 	mintsCount := s.eventslastTimeframe(degendb.Mint)
 	mintsPerMin := int(float64(mintsCount) / s.getTimeframeMinutes())
 
-	s.gb.Prf("👀 high volume mint (%d > %d /min| %d) | activating mints | check every: %.0fsec | min. checks below: %d", mintsPerMin, mintsTreshold, mintsCount, checkInterval.Seconds(), minChecksBelowThreshold)
+	Prf("👀 high volume mint (%d > %d /min| %d) | activating mints | check every: %.0fsec | min. checks below: %d", mintsPerMin, mintsTreshold, mintsCount, checkInterval.Seconds(), minChecksBelowThreshold)
 
 	viper.Set("show.mints", true)
 
@@ -600,7 +600,7 @@ func (s *Stats) highVolumeMint() {
 			log.Debugf("👀 <- high volume | last mints below threshold %d < %d | checksBelow: %d <-> %d", mintsPerMin, mintsTreshold, checksBelow, minChecksBelowThreshold)
 
 			if checksBelow >= minChecksBelowThreshold {
-				s.gb.Prf("👀 high volume mint over, deactivating mints again")
+				Prf("👀 high volume mint over, deactivating mints again")
 
 				viper.Set("show.mints", false)
 

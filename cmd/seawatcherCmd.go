@@ -73,7 +73,7 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 	//
 	// manifold SNS receiver
 	if viper.GetBool("manifoldSNS.enabled") {
-		go web.StartmanifoldSNS(gb)
+		go web.StartmanifoldSNS()
 	}
 
 	select {}

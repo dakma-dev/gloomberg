@@ -107,7 +107,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	waitForStart := !viper.GetBool("mint.manifold.nowait")
 
 	// check for valid keys
-	for _, privateKey := range viper.GetStringSlice("mint.keys") {
+	for _, privateKey := range viper.GetStringSlice("mint.keys") { //nolint:dupl
 		mintWallet := &MintWallet{}
 
 		if key, err := crypto.HexToECDSA(privateKey); err == nil {
@@ -178,6 +178,11 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		log.Fatalf("❌ no url or identifier given")
 
 		return
+	}
+
+	if viper.GetBool("dev.mode") {
+		log.Printf("\n\nmintInfo:")
+		pretty.Println(mintInfo)
 	}
 
 	manifoldInstanceID = *big.NewInt(int64(mintInfo.PublicData.ClaimIndex))
@@ -299,6 +304,11 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		log.Errorf("❌ getClaim(…) failed: %s", style.BoldAlmostWhite(err.Error()))
 
 		return
+	}
+
+	if viper.GetBool("dev.mode") {
+		log.Printf("\n\nclaimInfo:")
+		pretty.Println(claimInfo)
 	}
 
 	startDate := time.Unix(claimInfo.StartDate.Int64(), 0)

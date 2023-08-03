@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"path"
 	"strings"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -71,7 +73,7 @@ type ManifoldSNSPayload struct {
 	NetworkID      int64          `json:"networkId"`
 }
 
-func StartmanifoldSNS(gb *gloomberg.Gloomberg) {
+func StartmanifoldSNS() {
 	// if viper.GetBool("gloomberg.manifoldSNS.enabled") {
 
 	listenHost := viper.GetString("manifoldSNS.listen")
@@ -80,7 +82,7 @@ func StartmanifoldSNS(gb *gloomberg.Gloomberg) {
 
 	postRoute := "manifoldSNS"
 
-	gb.PrModf("web", "starting manifold SNS receiver on https://%s/%s", serverAddress, postRoute)
+	gloomberg.PrModf("web", "starting manifold SNS receiver on https://%s/%s", serverAddress, postRoute)
 
 	// manifold sns handler (received via aws sqs/sns)
 	http.HandleFunc("/"+postRoute, HandlerManifoldSNSTopic)
@@ -100,7 +102,7 @@ func StartmanifoldSNS(gb *gloomberg.Gloomberg) {
 
 	// start http server
 	// log.Debugf("starting manifold SNS receiver on %s | %+v", listenOn, snsReceiverServer)
-	gb.PrDModf("web", "starting manifold SNS receiver on https://%s/%s", serverAddress, postRoute)
+	gloomberg.PrDModf("web", "starting manifold SNS receiver on https://%s/%s", serverAddress, postRoute)
 
 	// go func() {
 	if err := snsReceiverServer.ListenAndServeTLS("", ""); err != nil {
@@ -231,13 +233,13 @@ func HandlerManifoldSNSTopic(w http.ResponseWriter, r *http.Request) {
 
 	// 	// return
 	// }
+	mintType := "claim"
+	if strings.Contains(manifoldSNSPayload.Link, "/br/") {
+		mintType = "burn"
+	}
 
-	log.Print("")
-	log.Print("⬇  ⬇  ⬇  ⬇  ⬇  ⬇")
-	// log.Printf("manifoldSNSMsg: %#v", manifoldSNSMsg)
-	log.Printf("manifoldSNSPayload: %#v", manifoldSNSPayload)
-	log.Print("⬆  ⬆  ⬆  ⬆  ⬆  ⬆")
-	log.Print("")
+	fmtLink := strings.ReplaceAll(manifoldSNSPayload.Link, path.Base(manifoldSNSPayload.Link), style.BoldAlmostWhite(path.Base(manifoldSNSPayload.Link)))
+	log.Printf("🆕 manifold %s: %s", mintType, style.TerminalLink(manifoldSNSPayload.Link, fmtLink))
 
 	message := strings.Builder{}
 	message.WriteString(fmt.Sprintf("📢 new manifold claim: %s", manifoldSNSPayload.Link))

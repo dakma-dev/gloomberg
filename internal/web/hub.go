@@ -291,7 +291,7 @@ func (wh *WsHub) serveWS(w http.ResponseWriter, r *http.Request) {
 	}
 
 	gbl.Log.Infof("new client connected: %+v", client)
-	wh.gb.PrModf("web", "new client connected: %+v", style.AlmostWhiteStyle.Render(client.String()))
+	gloomberg.PrModf("web", "new client connected: %+v", style.AlmostWhiteStyle.Render(client.String()))
 }
 
 // addClient will add clients to our clientList.

@@ -663,7 +663,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	if len(fmtTokensTransferred) == 0 {
-		gb.PrWarn(fmt.Sprintf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL)))
+		gloomberg.PrWarn(fmt.Sprintf("no tokens transferred in tx %s", style.TerminalLink(etherscanURL)))
 
 		gbl.Log.Warnf("no tokens transferred: %+v", fmt.Sprintf("%+v", pretty.Formatter(ttx)))
 
@@ -965,7 +965,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 
 		// print to terminal
-		gb.In.PrintToTerminal <- printLine
+		// gb.In.PrintToTerminal <- printLine
+		gloomberg.TerminalPrinterQueue <- printLine
 
 		gb.In.ParsedEvents <- &parsedEvent
 	}
