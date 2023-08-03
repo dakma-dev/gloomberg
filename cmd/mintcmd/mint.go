@@ -12,6 +12,9 @@ type MintWallet struct {
 	privateKey *ecdsa.PrivateKey
 	address    *common.Address
 
+	mintIndices  []uint32
+	merkleProofs [][][32]byte
+
 	color lipgloss.Color
 	tag   string
 }

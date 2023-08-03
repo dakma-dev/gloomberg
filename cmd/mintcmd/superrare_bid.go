@@ -103,7 +103,7 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 	waitForStart := !viper.GetBool("mint.superrare.nowait")
 
 	// check for valid keys
-	for _, privateKey := range viper.GetStringSlice("mint.keys") { //nolint:dupl
+	for _, privateKey := range viper.GetStringSlice("mint.keys") {
 		mintWallet := &MintWallet{}
 
 		if key, err := crypto.HexToECDSA(privateKey); err == nil {
