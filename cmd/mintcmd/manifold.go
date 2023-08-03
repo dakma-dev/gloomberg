@@ -186,6 +186,8 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		pretty.Println(mintInfo)
 	}
 
+	isPublicMint := mintInfo.PublicData.MerkleTreeID == 0
+
 	manifoldInstanceID = *big.NewInt(int64(mintInfo.PublicData.ClaimIndex))
 
 	if mintInfo.PublicData.ExtensionContractAddress != internal.ManifoldLazyClaimERC1155 {
@@ -295,24 +297,35 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	manifoldFee, err := lazyClaimERC1155.MINTFEE(&bind.CallOpts{})
-	if err != nil {
-		log.Errorf("❌ getting mint fee failed: %s", style.BoldAlmostWhite(err.Error()))
+	//
+	// get manifold fee
+	var manifoldFee *big.Int
+	if isPublicMint {
+		manifoldFee, err = lazyClaimERC1155.MINTFEE(&bind.CallOpts{})
+		if err != nil {
+			log.Errorf("❌ getting mint fee failed: %s", style.BoldAlmostWhite(err.Error()))
 
-		return
+			return
+		}
+	} else {
+		manifoldFee, err = lazyClaimERC1155.MINTFEEMERKLE(&bind.CallOpts{})
+		if err != nil {
+			log.Errorf("❌ getting merkle mint fee failed: %s", style.BoldAlmostWhite(err.Error()))
+
+			return
+		}
 	}
 
-	manifoldFeeMerkle, err := lazyClaimERC1155.MINTFEEMERKLE(&bind.CallOpts{})
-	if err != nil {
-		log.Errorf("❌ getting mint fee failed: %s", style.BoldAlmostWhite(err.Error()))
-
-		return
+	feeIndicator := ""
+	if !isPublicMint {
+		feeIndicator = " (merkle fee)"
 	}
 
 	log.Print("")
-	log.Printf("  fee: %s", style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())))
-	log.Printf("  fee merkle: %s", style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFeeMerkle).Ether())))
+	log.Printf("  fee%s: %s", feeIndicator, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())))
 
+	//
+	// claimInfo
 	claimInfo, err := lazyClaimERC1155.GetClaim(&bind.CallOpts{}, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
 	if err != nil {
 		log.Errorf("❌ getClaim(…) failed: %s", style.BoldAlmostWhite(err.Error()))
@@ -373,7 +386,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		go func(mintWallet *MintWallet) {
 			defer wg.Done()
 
-			mintERC1155(rpcEndpoints.Clone(), mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, manifoldFeeMerkle)
+			mintERC1155(rpcEndpoints.Clone(), mintWallet, txsPerWallet, &manifoldInstanceID, mintInfo, claimInfo, manifoldFee)
 		}(mintWallet)
 	}
 
