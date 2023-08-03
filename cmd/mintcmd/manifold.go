@@ -557,10 +557,10 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		// create the transactions
 		var sentTx *types.Transaction
 
-		merkleProofData, err := getMerkleProofFromManifoldForAddress(mintInfo.PublicData.MerkleTreeID, *mintWallet.address)
-		if err != nil {
-			return
-		}
+		// merkleProofData, err := getMerkleProofFromManifoldForAddress(mintInfo.PublicData.MerkleTreeID, *mintWallet.address)
+		// if err != nil {
+		// 	return
+		// }
 
 		// public if claimInfo.MerkleRoot is null [32]byte{}
 		// isPublic := true
@@ -568,29 +568,35 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		//	isPublic = false
 		//}
 
-		// TODO skip if public
-		mintIndices, merkleProofs := getMerkleProofContractParamater(merkleProofData)
-		if len(mintIndices) == 0 {
-			log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+		// if !isPublicMint {
+		// 	// TODO skip if public
+		// 	mintIndices, merkleProofs = getMerkleProofContractParamater(merkleProofData)
+		// 	if len(mintIndices) == 0 {
+		// 		log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
 
-			// return
-		}
-		if len(merkleProofs) == 0 {
-			log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
+		// 		// return
+		// 	}
+		// 	if len(merkleProofs) == 0 {
+		// 		log.Errorf("%s | ❌ no merkle proof data found for address: %s", mintWallet.tag, style.BoldAlmostWhite(mintWallet.address.String()))
 
-			// return
-		}
+		// 		// return
+		// 	}
+		// }
+
+		var mintIndex uint32
+		mintIndices := make([]uint32, 0)
+		merkleProofs := make([][][32]byte, 0)
 
 		if amountPerTx := viper.GetUint16("mint.manifold.amount-tx"); amountPerTx > 1 {
-			// public mint:
-			if len(merkleProofs) == 0 {
-				mintIndices = make([]uint32, 0)
-				merkleProofs = make([][][32]byte, 0)
-				for i := uint16(0); i < amountPerTx; i++ {
-					mintIndices = append(mintIndices, uint32(0))
-					merkleProofs = append(merkleProofs, [][32]byte{claimInfo.MerkleRoot})
-				}
-			}
+			// // public mint
+			// if len(merkleProofs) == 0 {
+			// 	mintIndices = make([]uint32, 0)
+			// 	merkleProofs = make([][][32]byte, 0)
+			// 	for i := uint16(0); i < amountPerTx; i++ {
+			// 		mintIndices = append(mintIndices, uint32(0))
+			// 		merkleProofs = append(merkleProofs, [][32]byte{claimInfo.MerkleRoot})
+			// 	}
+			// }
 
 			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintIndices, merkleProofs, *mintWallet.address)
 			if err != nil {
@@ -601,21 +607,21 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			// for public: mintIndex = 0, merkleProof = nil
 			// for exlusive: mintIndex = from api, merkleProof = from api
 
-			// merkleProof := [][32]byte{}
+			// // merkleProof := [][32]byte{}
 
-			log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs)
-			log.Printf("len(merkleProofs): %d", len(merkleProofs))
-			// if len(merkleProofs) > 0 {
-			// 	// merkleProof := merkleProofs[0]
+			// log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs)
+			// log.Printf("len(merkleProofs): %d", len(merkleProofs))
+			// // if len(merkleProofs) > 0 {
+			// // 	// merkleProof := merkleProofs[0]
+			// // }
+
+			// log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs[0])
+
+			// var mintIndex uint32
+			// if len(mintIndices) > 0 {
+			// 	mintIndex = mintIndices[0]
 			// }
-
-			log.Printf("%s | merkleProof: %#v", mintWallet.tag, merkleProofs[0])
-
-			var mintIndex uint32
-			if len(mintIndices) > 0 {
-				mintIndex = mintIndices[0]
-			}
-			log.Printf("%s | mintIndex: %#v", mintWallet.tag, mintIndex)
+			// log.Printf("%s | mintIndex: %#v", mintWallet.tag, mintIndex)
 
 			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, mintIndex, merkleProofs[0], *mintWallet.address)
 			if err != nil {
