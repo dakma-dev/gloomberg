@@ -193,9 +193,32 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		pretty.Println(mintInfo)
 	}
 
-	isPublicMint := mintInfo.PublicData.MerkleTreeID == 0
+	// isPublicMint := mintInfo.PublicData.MerkleTreeID == 0
+
+	// get the mint fee (once)
+	lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClients.ToSlice()[rand.Intn(len(rpcClients.ToSlice()))]) //nolint:gosec
+	if err != nil {
+		log.Error(err)
+
+		return
+	}
 
 	manifoldInstanceID = *big.NewInt(int64(mintInfo.PublicData.ClaimIndex))
+	//
+	// claimInfo
+	claimInfo, err := lazyClaimERC1155.GetClaim(&bind.CallOpts{}, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
+	if err != nil {
+		log.Errorf("❌ getClaim(…) failed: %s", style.BoldAlmostWhite(err.Error()))
+
+		return
+	}
+
+	// MerkleTreeID (API) could be still set if merkleRoot is set to 0x0 via UpdateClaim(…)
+	// empty merkleRoot = 0x0000000000000000000000000000000000000000000000000000000000000000
+	isMerkleRootEmpty := claimInfo.MerkleRoot == [32]byte{}
+	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(fmt.Sprint(isMerkleRootEmpty)))
+
+	isPublicMint := mintInfo.PublicData.MerkleTreeID == 0 || isMerkleRootEmpty
 
 	if mintInfo.PublicData.ExtensionContractAddress != internal.ManifoldLazyClaimERC1155 {
 		log.Printf("abi not implemented yet | extension contract address: %s", mintInfo.PublicData.ExtensionContractAddress)
@@ -219,7 +242,6 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	if isPublicMint {
 		log.Printf(style.LightGrayStyle.Copy().Italic(true).Render("   🕺💃  Public Mint  🕺💃  "))
 	} else {
-		// TODO skip if public phase started
 		log.Printf(style.LightGrayStyle.Copy().Italic(true).Render("   ⭐️  Exclusive Mint  ⭐️  "))
 	}
 
@@ -299,14 +321,6 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print("")
 	log.Print(style.BoldAlmostWhite("manifold info") + " (from chain)")
 
-	// get the mint fee (once)
-	lazyClaimERC1155, err := manifoldABIs.NewLazyClaimERC1155(internal.ManifoldLazyClaimERC1155, rpcClients.ToSlice()[rand.Intn(len(rpcClients.ToSlice()))]) //nolint:gosec
-	if err != nil {
-		log.Error(err)
-
-		return
-	}
-
 	//
 	// get manifold fee
 	var manifoldFee *big.Int
@@ -333,19 +347,17 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Print("")
 	log.Printf("  fee%s: %s", feeIndicator, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())))
 
-	//
-	// claimInfo
-	claimInfo, err := lazyClaimERC1155.GetClaim(&bind.CallOpts{}, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
-	if err != nil {
-		log.Errorf("❌ getClaim(…) failed: %s", style.BoldAlmostWhite(err.Error()))
-
-		return
-	}
-
 	if viper.GetBool("dev.mode") {
 		log.Infof("claimInfo:")
 		pretty.Println(claimInfo)
 	}
+
+	// MerkleTreeID (API) could be still set if merkleRoot is set to 0x0 via UpdateClaim(…)
+	// empty merkleRoot = 0x0000000000000000000000000000000000000000000000000000000000000000
+	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(fmt.Sprint(isMerkleRootEmpty)))
+
+	isPublicMint = mintInfo.PublicData.MerkleTreeID == 0 || isMerkleRootEmpty
+	log.Printf("  isPublicMint: %s", style.BoldAlmostWhite(fmt.Sprint(isPublicMint)))
 
 	startDate := time.Unix(claimInfo.StartDate.Int64(), 0)
 
@@ -356,6 +368,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Printf("  minted: %+v / %v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.Total)), style.BoldAlmostWhite(fmt.Sprint(claimInfo.TotalMax)))
 	log.Printf("  remaining: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.TotalMax-claimInfo.Total)))
 	log.Printf("  max/wallet: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.WalletMax)))
+	log.Printf("  merkleRoot: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.MerkleRoot)))
 
 	totalMints, err := lazyClaimERC1155.GetTotalMints(&bind.CallOpts{}, *mintWallets.ToSlice()[0].address, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
 	if err != nil {
