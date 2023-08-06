@@ -37,6 +37,7 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/kr/pretty"
+	"github.com/shopspring/decimal"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -577,8 +578,17 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		log.Print("")
 
 		// 💸 💸 💸
-		mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
-		totalCost := new(big.Int).Add(manifoldFee, mintCost)
+		mintPriceWei := ToWei(mintInfo.MintPrice, 18)
+		log.Printf("%s | mintPriceWei: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%+v", mintPriceWei)))
+
+		// TODO WARNING: this conversion is lossy
+		// mintCostFloat := utils.EtherToWeiFloat(big.NewFloat(mintInfo.MintPrice))
+		//  log.Printf("%s | mintCostFloat: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%+v", mintCostFloat)))
+		//  mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
+
+		totalCost := new(big.Int).Add(manifoldFee, mintPriceWei)
+		// print big.Int
+		log.Printf("%s | totalCost: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%+v", totalCost)))
 
 		//
 		// create the transaction options
@@ -590,7 +600,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s |  mint cost: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(mintCost).Ether())), fmtUnitEther)
+		log.Printf("%s |  mint cost: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(mintPriceWei).Ether())), fmtUnitEther)
 		log.Printf("%s |        fee: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())), fmtUnitEther)
 		log.Printf("%s |      total: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(totalCost).Ether())), fmtUnitEther)
 		log.Print("")
@@ -887,4 +897,29 @@ func getMintIdentifier(url string) (int64, error) {
 	}
 
 	return mintIdentifier, nil
+}
+
+// ToWei decimals to wei ,from: https://goethereumbook.org/util-go/
+func ToWei(iamount interface{}, decimals int) *big.Int {
+	amount := decimal.NewFromFloat(0)
+	switch v := iamount.(type) {
+	case string:
+		amount, _ = decimal.NewFromString(v)
+	case float64:
+		amount = decimal.NewFromFloat(v)
+	case int64:
+		amount = decimal.NewFromFloat(float64(v))
+	case decimal.Decimal:
+		amount = v
+	case *decimal.Decimal:
+		amount = *v
+	}
+
+	mul := decimal.NewFromFloat(float64(10)).Pow(decimal.NewFromFloat(float64(decimals)))
+	result := amount.Mul(mul)
+
+	wei := new(big.Int)
+	wei.SetString(result.String(), 10)
+
+	return wei
 }

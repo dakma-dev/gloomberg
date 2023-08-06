@@ -110,6 +110,8 @@ func WeiToGwei(wei *big.Int) *big.Float {
 	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.GWei))
 }
 
+//  consider using ToWei decimals to wei function, from: https://goethereumbook.org/util-go/
+
 func EtherToWeiFloat(ether *big.Float) *big.Float {
 	f := new(big.Float)
 	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
