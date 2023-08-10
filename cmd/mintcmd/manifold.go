@@ -98,6 +98,10 @@ func init() {
 	_ = viper.BindPFlag("mint.manifold.amount-tx", manifoldCmd.Flags().Lookup("amount-tx"))
 	manifoldCmd.Flags().Uint16("amount-wallet", 1, "number of tokens to mint per wallet/key")
 	_ = viper.BindPFlag("mint.manifold.amount-wallet", manifoldCmd.Flags().Lookup("amount-wallet"))
+
+	// ! amount-wallet should be 1 for now !
+	manifoldCmd.Flags().StringVar(&mintFor, "mint-for", "", "mint for delegated wallet")
+	_ = viper.BindPFlag("mint.manifold.mint-for", manifoldCmd.Flags().Lookup("mint-for"))
 }
 
 func mintManifold(_ *cobra.Command, _ []string) {
@@ -135,6 +139,14 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
 		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAddress(mintWallet.address))
+
+		if mintFor != "" {
+			log.Infof("minting for: %s", style.BoldAlmostWhite(mintFor))
+			mintForAddress := common.HexToAddress(mintFor)
+			mintWallet.mintFor = &mintForAddress
+			// TODO change naming or introduce a new variable to avoid confusion
+			mintWallet.address = &mintForAddress
+		}
 
 		mintWallet.mintIndices = make([]uint32, 0)
 		mintWallet.merkleProofs = make([][][32]byte, 0)
@@ -587,6 +599,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		//  mintCost := utils.EtherToWei(big.NewFloat(mintInfo.MintPrice))
 
 		totalCost := new(big.Int).Add(manifoldFee, mintPriceWei)
+
 		// print big.Int
 		log.Printf("%s | totalCost: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%+v", totalCost)))
 
@@ -600,9 +613,9 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s |  mint cost: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(mintPriceWei).Ether())), fmtUnitEther)
-		log.Printf("%s |        fee: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())), fmtUnitEther)
-		log.Printf("%s |      total: %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(totalCost).Ether())), fmtUnitEther)
+		log.Printf("%s |  mint cost (1x): %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(mintPriceWei).Ether())), fmtUnitEther)
+		log.Printf("%s |        fee (1x): %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(manifoldFee).Ether())), fmtUnitEther)
+		log.Printf("%s |      total (1x): %s%s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprintf("%7.5f", price.NewPrice(totalCost).Ether())), fmtUnitEther)
 		log.Print("")
 
 		txOpts.From = crypto.PubkeyToAddress(mintWallet.privateKey.PublicKey)
@@ -613,15 +626,19 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 
 		if viper.GetBool("dev.mode") {
 			txOpts.NoSend = true
+			log.Printf("%s | txOpts.NoSend: %t", mintWallet.tag, txOpts.NoSend)
 		}
-
-		log.Printf("%s | txOpts: %#v", mintWallet.tag, txOpts)
-		log.Print("")
 
 		// create the transactions
 		var sentTx *types.Transaction
 
 		if amountPerTx := viper.GetUint16("mint.manifold.amount-tx"); amountPerTx > 1 {
+			sumTotalCost := new(big.Int).Mul(totalCost, big.NewInt(int64(amountPerTx)))
+			txOpts.Value = sumTotalCost
+
+			log.Printf("%s | txOpts: %#v", mintWallet.tag, txOpts)
+			log.Print("")
+
 			sentTx, err = lazyClaimERC1155.MintBatch(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, amountPerTx, mintWallet.mintIndices, mintWallet.merkleProofs, *mintWallet.address)
 			if err != nil {
 				prErr(mintInfo, claimInfo)
@@ -637,6 +654,9 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			if len(mintWallet.mintIndices) > 0 {
 				mintIndex = mintWallet.mintIndices[0]
 			}
+
+			log.Printf("%s | txOpts: %#v", mintWallet.tag, txOpts)
+			log.Print("")
 
 			sentTx, err = lazyClaimERC1155.Mint(txOpts, mintInfo.PublicData.CreatorContractAddress, manifoldInstanceID, mintIndex, mintWallet.merkleProofs[0], *mintWallet.address)
 			if err != nil {

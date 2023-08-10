@@ -15,6 +15,9 @@ type MintWallet struct {
 	mintIndices  []uint32
 	merkleProofs [][][32]byte
 
+	// for delegated wallets, this is the wallet having a merkle proof
+	mintFor *common.Address
+
 	color lipgloss.Color
 	tag   string
 }
@@ -40,6 +43,8 @@ var (
 
 	flagPrivateKeys []string
 	flagRPCs        []string
+
+	mintFor string
 )
 
 func init() {}
