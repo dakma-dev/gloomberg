@@ -772,7 +772,6 @@ func getMintInfoWithInstanceID(identifier int64) (*manifold.DataResponse, error)
 	header := createCorrectHeadersForManifoldAPI()
 
 	response, err := utils.HTTP.GetWithTLS12AndHeader(context.TODO(), url, header)
-
 	if err != nil {
 		if os.IsTimeout(err) {
 			log.Printf("⌛️ Identifier GetMintInfo · timeout while fetching: %+v\n", err.Error())
