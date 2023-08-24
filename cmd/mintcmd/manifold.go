@@ -716,7 +716,7 @@ func getMerkleProofFromManifoldForAddress(merkleTreeID int, address common.Addre
 
 	// log.Printf("Merkle proof url: %s", url)
 
-	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
+	response, err := utils.HTTP.GetWithTLS12AndHeader(context.TODO(), url, createCorrectHeadersForManifoldAPI())
 	if err != nil {
 		if os.IsTimeout(err) {
 			log.Printf("⌛️ Merkle proof GetMerkleProofFromManifoldForAddress · timeout while fetching: %+v\n", err.Error())
@@ -769,7 +769,10 @@ func getMintInfoWithInstanceID(identifier int64) (*manifold.DataResponse, error)
 
 	log.Debugf("Identifier url: %s", url)
 
-	response, err := utils.HTTP.GetWithTLS12(context.TODO(), url)
+	header := createCorrectHeadersForManifoldAPI()
+
+	response, err := utils.HTTP.GetWithTLS12AndHeader(context.TODO(), url, header)
+
 	if err != nil {
 		if os.IsTimeout(err) {
 			log.Printf("⌛️ Identifier GetMintInfo · timeout while fetching: %+v\n", err.Error())
@@ -813,6 +816,29 @@ func getMintInfoWithInstanceID(identifier int64) (*manifold.DataResponse, error)
 	}
 
 	return decoded, nil
+}
+
+func createCorrectHeadersForManifoldAPI() http.Header {
+	// convert curl 'https://apps.api.manifoldxyz.dev/public/instance/data?id=72282352' -H 'User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0' -H 'Accept: application/json' -H 'Accept-Language: de,en-US;q=0.7,en;q=0.3' -H 'Accept-Encoding: gzip, deflate, br' -H 'Referer: https://app.manifold.xyz/' -H 'Content-Type: application/json' -H 'Origin: https://app.manifold.xyz' -H 'DNT: 1' -H 'Connection: keep-alive' -H 'Sec-Fetch-Dest: empty' -H 'Sec-Fetch-Mode: cors' -H 'Sec-Fetch-Site: cross-site' -H 'Sec-GPC: 1' -H 'Pragma: no-cache' -H 'Cache-Control: no-cache' -H 'TE: trailers'
+	header := http.Header{}
+	header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:109.0) Gecko/20100101 Firefox/116.0")
+	header.Set("Accept", "application/json")
+	header.Set("Accept-Language", "de,en-US;q=0.7,en;q=0.3")
+	header.Set("Accept-Encoding", "gzip, deflate, br")
+	header.Set("Referer", "https://app.manifold.xyz/")
+	header.Set("Content-Type", "application/json")
+	header.Set("Origin", "https://app.manifold.xyz")
+	header.Set("DNT", "1")
+	header.Set("Connection", "keep-alive")
+	header.Set("Sec-Fetch-Dest", "empty")
+	header.Set("Sec-Fetch-Mode", "cors")
+	header.Set("Sec-Fetch-Site", "cross-site")
+	header.Set("Sec-GPC", "1")
+	header.Set("Pragma", "no-cache")
+	header.Set("Cache-Control", "no-cache")
+	header.Set("TE", "trailers")
+
+	return header
 }
 
 func getMintInfoWithURL(mintURL string) (*manifold.DataResponse, error) {
