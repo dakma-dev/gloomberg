@@ -17,6 +17,7 @@ import (
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/remote"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -470,8 +471,11 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gloomberg.Prf("starting grpc client...")
 
 		// go seawa.GetEvents()
+		// gclient := remote.NewClient(fmt.Sprintf("%s:%d", viper.GetString("grpc.client.host"), viper.GetUint("grpc.client.port")))
+		// log.Printf("gclient: %+v", gclient)
+		go remote.FetchEvents(gb)
 
-		go gbgrpc.FetchEvents(gb)
+		// go gbgrpc.FetchEvents(gb)
 	}
 
 	go func() {

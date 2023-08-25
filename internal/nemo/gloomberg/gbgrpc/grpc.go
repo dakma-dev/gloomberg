@@ -9,6 +9,7 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/remote"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/style"
@@ -24,9 +25,46 @@ type GloombergGRPC struct {
 	gb *gloomberg.Gloomberg
 	sw *seawa.SeaWatcher
 
+	// server
+	*remote.ClientGRPC
+
 	gen.UnimplementedGloombergServer
 
 	// grpcServer *grpc.Server
+}
+
+// new GloombergGRPC.
+func NewGloombergGRPC(gb *gloomberg.Gloomberg, sw *seawa.SeaWatcher) *GloombergGRPC {
+	gloombergGRPC := &GloombergGRPC{
+		gb: gb,
+		sw: sw,
+	}
+
+	// get server config
+	listenHost := viper.GetString("grpc.server.listenAddress")
+	port := viper.GetUint16("grpc.server.port")
+	serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
+
+	// run grpc server
+	go func() {
+		for {
+			log.Error(listen(serverAddress, gloombergGRPC))
+
+			time.Sleep(time.Second * 2)
+		}
+	}()
+
+	if viper.GetBool("grpc.client.enabled") {
+		gloomberg.Prf("starting grpc client...")
+
+		// go seawa.GetEvents()
+
+		// clientGRPC := remote.NewClient(fmt.Sprintf("%s:%d", viper.GetString("grpc.client.host"), viper.GetUint("grpc.client.port")))
+		// log.Printf("clientGRPC: %+v", clientGRPC)
+		// clientGRPC.GetEvents()
+	}
+
+	return gloombergGRPC
 }
 
 // connect to grpc server.
