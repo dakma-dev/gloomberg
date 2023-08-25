@@ -347,14 +347,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// manifold ticker
-	if viper.GetBool("notifications.manifold.enabled") && (!viper.GetBool("notifications.disabled")) {
+	if viper.GetBool("notifications.manifold.enabled") {
 		manifoldTicker := time.NewTicker(time.Hour * 1)
 		newManifoldTicker := ticker.NewManifoldTicker(gb)
 
-		if viper.GetBool("notifications.manifold.enabled") {
-			go newManifoldTicker.ManifoldTicker(manifoldTicker, &terminalPrinterQueue)
-			fmt.Println("Manifold notifications started")
-		}
+		go newManifoldTicker.ManifoldTicker(manifoldTicker, &terminalPrinterQueue)
+		fmt.Println("Manifold notifications started")
 
 		manifoldTickerDakma := time.NewTicker(time.Minute * 1)
 		go newManifoldTicker.OneMinuteTicker(manifoldTickerDakma)
@@ -520,6 +518,9 @@ func init() { //nolint:gochecknoinits
 	// notifications
 	liveCmd.Flags().Bool("telegram", false, "send telegram notifications")
 	_ = viper.BindPFlag("notifications.telegram.enabled", liveCmd.Flags().Lookup("telegram"))
+
+	liveCmd.Flags().Bool("manifold-notifications", false, "send manifold notifications")
+	_ = viper.BindPFlag("notifications.manifold.enabled", liveCmd.Flags().Lookup("manifold-notifications"))
 
 	// no ui
 	liveCmd.Flags().Bool("headless", false, "run without terminal output")
