@@ -11,7 +11,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/g8rswimmer/go-twitter/v2 v2.1.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
-	github.com/gobwas/ws v1.2.1
+	github.com/gobwas/ws v1.3.0
 	github.com/klauspost/compress v1.16.7
 	github.com/lmittmann/flashbots v0.6.4
 	github.com/lmittmann/w3 v0.13.0
@@ -61,7 +61,6 @@ require (
 	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/gorilla/websocket v1.5.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
@@ -126,6 +125,5 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	gotest.tools v2.2.0+incompatible
 	lukechampine.com/blake3 v1.1.7 // indirect
 )
