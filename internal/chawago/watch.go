@@ -57,11 +57,19 @@ func (ww *WalletWatcher) FormattedWallets() []string {
 }
 
 func (ww *WalletWatcher) Watch() {
+	// demo/testing wallets
 	ww.Wallets[common.HexToAddress("0x1329d762e5e34e53a6c5e24bd15fa032482eb0f9")] = &wallet.Wallet{
 		Name:    "unknown",
 		Address: common.HexToAddress("0x1329d762e5e34e53a6c5e24bd15fa032482eb0f9"),
+		Color:   lipgloss.Color("#ff9900"),
+	}
+	ww.Wallets[common.HexToAddress("0xdcae87821fa6caea05dbc2811126f4bc7ff73bd1")] = &wallet.Wallet{
+		Name:    "OSF",
+		Address: common.HexToAddress("0xdcae87821fa6caea05dbc2811126f4bc7ff73bd1"),
+		Color:   lipgloss.Color("#ff0099"),
 	}
 
+	// collect wallet addresses in a set
 	ww.watchedWallets = mapset.NewSetFromMapKeys[common.Address](ww.Wallets)
 
 	ww.Prf("watching %d wallets: %+v", ww.watchedWallets.Cardinality(), strings.Join(ww.FormattedWallets(), ", "))
