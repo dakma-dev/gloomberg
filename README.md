@@ -55,6 +55,14 @@ _see the [(development) docs](<[docs/development.md](https://benleb.github.io/gl
 
 issues closed, PRs open (ping me if you want to contribute)
 
+### helpful command
+
+- create a new release tag and push it to github
+
+```bash
+export rel_tag="v0.1.2"; git tag -a ${rel_tag} -m "${rel_tag}" && git push origin ${rel_tag}
+```
+
 ### pre-commit
 
 we use [pre-commit](https://pre-commit.com) to run some checks before committing. install like described in
