@@ -113,14 +113,14 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 				// gbCache.CacheCollectionName(contractAddress, collectionName)
 				err := rueidi.StoreContractName(ctx, contractAddress, collectionName)
 				if err != nil {
-					gbl.Log.Errorf("error storing contract name: %s | %s", style.ShortenAddress(&contractAddress), err)
+					gbl.Log.Errorf("error storing contract name: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
 				}
 			}
 
 		default:
-			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAddress(&contractAddress), err)
+			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
 
-			collectionName = style.ShortenAddress(&contractAddress)
+			collectionName = style.ShortenAdressPTR(&contractAddress)
 		}
 	}
 
@@ -150,7 +150,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		go func() {
 			rawMetaDatas, err := nodes.ERC721CollectionMetadata(context.Background(), contractAddress)
 			if err != nil {
-				gbl.Log.Errorf("error getting collection metadata, using: %s | %s", style.ShortenAddress(&contractAddress), err)
+				gbl.Log.Errorf("error getting collection metadata, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
 
 				return
 			}
@@ -220,7 +220,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 }
 
 func (uc *Collection) String() string {
-	return fmt.Sprintf("%s (%s)", uc.Name, style.ShortenAddress(&uc.ContractAddress))
+	return fmt.Sprintf("%s (%s)", uc.Name, style.ShortenAdressPTR(&uc.ContractAddress))
 }
 
 // IsOwn returns true if the collection is owned by the user (= in the wallet or configured in the config file).

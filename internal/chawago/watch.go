@@ -50,7 +50,7 @@ func (ww *WalletWatcher) Prf(format string, a ...interface{}) {
 func (ww *WalletWatcher) FormattedWallets() []string {
 	names := make([]string, 0)
 	for _, w := range ww.Wallets {
-		names = append(names, lipgloss.NewStyle().Foreground(&w.Color).Render(w.Name))
+		names = append(names, lipgloss.NewStyle().Foreground(w.Color).Render(w.Name))
 	}
 
 	return names

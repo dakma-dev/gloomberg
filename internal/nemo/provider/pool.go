@@ -46,7 +46,7 @@ type methodCall string
 
 const (
 	BlockNumber        methodCall = "eth_blockNumber"
-	TransactionByHash  methodCall = "eth_getTransactionByHash"
+	TransactionByHash  methodCall = "eth_getTransactionByHash" //nolint:gosec
 	TransactionReceipt methodCall = "eth_getTransactionReceipt"
 
 	TokenImageURI methodCall = "token_image_uri" //nolint:gosec

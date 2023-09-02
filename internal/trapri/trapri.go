@@ -328,7 +328,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			numCollectionTokens += transfer.AmountTokens.Int64()
 
 			if viper.GetBool("experiments.eip6551") {
-				jobs.AddJob("eip6551", "node", gloomberg.JobCheckEIP6551TokenAccount, gb, &transfer.Token.Address, transfer.Token.ID)
+				jobs.AddJob("eip6551", "node", gloomberg.JobCheckEIP6551TokenAccount, gb, transfer.Token.Address, transfer.Token.ID)
 			}
 		}
 
@@ -541,7 +541,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			gbl.Log.Debugf(
 				"  transfer of %dx %s | %+v",
 				transfer.AmountTokens,
-				style.TerminalLink(utils.GetEtherscanTokenURL(&transfer.Token.Address), style.ShortenAddress(&transfer.Token.Address)),
+				style.TerminalLink(utils.GetEtherscanTokenURLForAddress(transfer.Token.Address), style.ShortenAddress(transfer.Token.Address)),
 				transfer.Standard,
 			)
 		}
@@ -676,7 +676,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 	// show the first collection/token on the same line
 	// and further collections/tokens on the next lines
-	out.WriteString("  " + fmtTokensTransferred[0] + " ")
+	out.WriteString("  " + fmtTokensTransferred[0] + " ") //nolint:gosec
 
 	// links blur
 	if ttx.TotalTokens == 1 {
@@ -891,7 +891,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// multi-line output for multi-collection events
 	if len(fmtTokensTransferred) > 1 {
-		for _, fmtTokenCollection := range fmtTokensTransferred[1:] {
+		for _, fmtTokenCollection := range fmtTokensTransferred[1:] { //nolint:gosec
 			out.WriteString("\n" + strings.Repeat(" ", 31))
 			out.WriteString(style.DarkGrayStyle.Render("+") + fmtTokenCollection)
 		}

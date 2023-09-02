@@ -32,7 +32,7 @@ func (ws *Wallets) StringAddresses() []string {
 func (ws *Wallets) FormattedNames() []string {
 	names := make([]string, 0)
 	for _, w := range *ws {
-		names = append(names, lipgloss.NewStyle().Foreground(&w.Color).Render(w.Name))
+		names = append(names, lipgloss.NewStyle().Foreground(w.Color).Render(w.Name))
 	}
 
 	return names
