@@ -676,7 +676,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 	// show the first collection/token on the same line
 	// and further collections/tokens on the next lines
-	out.WriteString("  " + fmtTokensTransferred[0] + " ") //nolint:gosec
+	out.WriteString("  " + fmtTokensTransferred[0] + " ")
 
 	// links blur
 	if ttx.TotalTokens == 1 {
@@ -891,7 +891,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// multi-line output for multi-collection events
 	if len(fmtTokensTransferred) > 1 {
-		for _, fmtTokenCollection := range fmtTokensTransferred[1:] { //nolint:gosec
+		for _, fmtTokenCollection := range fmtTokensTransferred[1:] {
 			out.WriteString("\n" + strings.Repeat(" ", 31))
 			out.WriteString(style.DarkGrayStyle.Render("+") + fmtTokenCollection)
 		}
