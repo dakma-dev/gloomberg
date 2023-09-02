@@ -1,8 +1,7 @@
 # gloomberg
 
-⚠️ this is a wip poc (also the docs!) so I cant provide any support, sorry! you have to know how to use this code yourself for now ⚠️
-
-
+⚠️ this is a wip poc (also the docs!) so I cant provide any support, sorry! you have to know how to use this code
+yourself for now ⚠️
 
 ## random screenshots
 
@@ -13,27 +12,13 @@
 
 ## requirements
 
-- get your wallet address or ens
-    **_yourDegenWallet.eth_** or **_0x9e7DC5307940fa170F9093Ca548bDa0EDB602767_**
-- get an account at [Infura](https://infura.io)/[Alchemy](https://www.alchemy.com)/_whatever_ to get a websockets endpoint to an ethereum node
-    **_wss://mainnet.infura.io/ws/v3/32e98f6ffb81456df24087ab5b_**
-
-## recommended ☝️
-
-‼️ use [redis](https://redis.io) as cache for collection & ENS names! it saves a lot of (limited) calls to a node and is also faster than calls to a node. you can use the [redis docker image](https://hub.docker.com/_/redis) for this or [install redis](https://redis.io/docs/getting-started/installation/) on a local machine.
-
-most simple configuration example with `redis` running on `10.0.0.2:6379` (default port, database and no password):
-
-```yaml
-# redis cache
-redis:
-    # use redis as name & sale cache
-    enabled: true
-    # redis host
-    host: 10.0.0.2
-```
-
-there is also an ultra-simple built-in cache but without any persistence and therefore empty on every new start of `gloomberg`.
+-   websocket endpoint of an own ethereum node (e.g. [geth](https://geth.ethereum.org), ...) or at least one to that you
+    can make as many calls as you want. Node providers (
+    e.g. [Infura](https://infura.io)/[Alchemy](https://www.alchemy.com)/_whatever_) also work, but as we make a lot of
+    calls to the node, you will hit the limits very fast or you will have to pay a lot of money for it.
+-   a [redis(-stack)](https://redis.io) instance. you can use the [redis docker image](https://hub.docker.com/_/redis) for
+    this or [install redis](https://redis.io/docs/getting-started/installation/) on a local machine. it is used as a cache
+    for collection & ENS names. it saves a lot of (limited) calls to a node and is also faster than calls to a node.
 
 ## lfg! or _getting started_
 
@@ -58,7 +43,9 @@ docker run --rm -it \
 
 ## gloomberg‽
 
-The name is a homage to the famous [gloomberg professional](https://opensea.io/assets/ethereum/0x495f947276749ce646f68ac8c248420045cb7b5e/99817193321473223322497783689261477808362186321335987444674465937111627333639) artwork created by [OSF](https://osf.art)
+The name is a homage to the
+famous [gloomberg professional](https://opensea.io/assets/ethereum/0x495f947276749ce646f68ac8c248420045cb7b5e/99817193321473223322497783689261477808362186321335987444674465937111627333639)
+artwork created by [OSF](https://osf.art)
 
 Thanks also to all the other testers and contributors not shown in the git history! 💰 ❌ 💤
 
@@ -70,34 +57,23 @@ issues closed, PRs open (ping me if you want to contribute)
 
 ### pre-commit
 
-we use [pre-commit](https://pre-commit.com) to run some checks before committing. install like described in the [docs](https://pre-commit.com/#install)
+we use [pre-commit](https://pre-commit.com) to run some checks before committing. install like described in
+the [docs](https://pre-commit.com/#install)
 
-see the [pre-commit config](.pre-commit-config.yaml) for the checks. you can also run them manually on your machine with `pre-commit run --all-files`. for more information see the [docs](https://pre-commit.com/#usage)
+see the [pre-commit config](.pre-commit-config.yaml) for the checks. you can also run them manually on your machine
+with `pre-commit run --all-files`. for more information see the [docs](https://pre-commit.com/#usage)
 
 ### GitHub actions
 
-we use similar checks to the pre-commit ones in the [golangci-lint](.github/workflows/golangci-lint.yml) workflow to also check this on the "server side" and do it for pull requests. you can also run them manually on your machine with `golangci-lint run`. for more information see the [docs](https://golangci-lint.run/usage/install/#local-installation)
+we use similar checks to the pre-commit ones in the [golangci-lint](.github/workflows/golangci-lint.yml) workflow to
+also check this on the "server side" and do it for pull requests. you can also run them manually on your machine
+with `golangci-lint run`. for more information see
+the [docs](https://golangci-lint.run/usage/install/#local-installation)
 
 ## docs
 
-we use [mkdocs material (insiders)](https://squidfunk.github.io/mkdocs-material/) (based on [mkdocs.org](https://www.mkdocs.org)) for documentation. install like described in the [mkdocs material docs](https://squidfunk.github.io/mkdocs-material/getting-started/)
-
-the docs will be automatically be built and deployed to [benleb.github.io/gloomberg/](https://benleb.github.io/gloomberg/) via the [docs workflow](.github/workflows/mkdocs.yml) (on every push/merge to the `main` branch)
+todo
 
 ### contribute
 
-#### local preview
-
-start a local server to preview the docs at [http://localhost:8000/](http://localhost:8000/)
-
-```shell
-mkdocs serve
-```
-
-#### build
-
-build the docs to the `site` folder
-
-```shell
-mkdocs build
-```
+todo
