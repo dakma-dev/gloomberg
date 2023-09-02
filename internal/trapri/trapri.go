@@ -15,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
@@ -198,15 +199,17 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			continue
 		}
 
-		// fetch & store the first 1k txs for this contract
-		collectionFileNamePrefix := collection.Name
-		if collection.OpenseaSlug != "" {
-			collectionFileNamePrefix = collection.OpenseaSlug
-		}
+		//
+		// fetch & store the first txs for this contract
 
-		if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= viper.GetFloat64("gloomberg.firstTxs.min_value") {
-			jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
-		}
+		// collectionFileNamePrefix := collection.Name
+		// if collection.OpenseaSlug != "" {
+		// 	collectionFileNamePrefix = collection.OpenseaSlug
+		// }
+
+		// if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= viper.GetFloat64("gloomberg.firstTxs.min_value") {
+		// 	jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
+		// }
 
 		ttxCollections[contractAddress] = collection
 
@@ -795,7 +798,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			return
 		}
 
-		if !currentCollection.Show.Mints && (ttx.Action == degendb.Mint || ttx.Action == degendb.Airdrop) && !viper.GetBool("show.mints") {
+		if !isOwnCollection && !currentCollection.Show.Mints && (ttx.Action == degendb.Mint || ttx.Action == degendb.Airdrop) && !viper.GetBool("show.mints") {
 			log.Debugf("skipping mint %s | viper.GetBool(show.mints): %v | %+v", style.Bold(txHash.String()), viper.GetBool("show.mints"), ttx)
 
 			return
@@ -850,6 +853,19 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 				if !seawa.IsSubscribed(currentCollection.OpenseaSlug) {
 					// if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
+					// gprcClient := gbgrpc.NewClient("")
+
+					if gbgrpc.GRPCClient != nil {
+						subsriptionRequest := &gen.SubscriptionRequest{EventTypes: []gen.EventType{gen.EventType_ITEM_LISTED}, Collections: []string{currentCollection.OpenseaSlug}} //nolint:nosnakecase
+
+						_, err := gbgrpc.GRPCClient.Subscribe(context.Background(), subsriptionRequest, nil)
+						if err != nil {
+							log.Errorf("failed to subscribe to events for %s: %s", currentCollection.OpenseaSlug, err)
+						}
+
+						log.Printf("subsubsubbbyyyyyyyyyyyyyyy: %+v", subsriptionRequest)
+					}
+
 					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []gen.EventType{gen.EventType_ITEM_LISTED, gen.EventType_ITEM_RECEIVED_BID, gen.EventType_COLLECTION_OFFER}) > 0 { //nolint:nosnakecase
 						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
