@@ -200,16 +200,18 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 
 		//
-		// fetch & store the first txs for this contract
+		// experiment: fetch & store the first txs for this contract
 
-		// collectionFileNamePrefix := collection.Name
-		// if collection.OpenseaSlug != "" {
-		// 	collectionFileNamePrefix = collection.OpenseaSlug
-		// }
+		if viper.GetBool("experiments.firsttxs") {
+			collectionFileNamePrefix := collection.Name
+			if collection.OpenseaSlug != "" {
+				collectionFileNamePrefix = collection.OpenseaSlug
+			}
 
-		// if viper.GetBool("experiments.firsttxs") && collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= viper.GetFloat64("gloomberg.firstTxs.min_value") {
-		// 	jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
-		// }
+			if collectionFileNamePrefix != "" && ttx.GetPrice().Ether() >= viper.GetFloat64("gloomberg.firstTxs.min_value") {
+				jobs.AddJob("firsttxs", "etherscan", gloomberg.JobFirstTxsForContract, collectionFileNamePrefix, contractAddress)
+			}
+		}
 
 		ttxCollections[contractAddress] = collection
 
