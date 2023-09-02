@@ -149,7 +149,7 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address)
+	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address) //nolint:gosec
 	if err != nil {
 		log.Fatalf("❌ getting auction info failed: %v", err)
 
