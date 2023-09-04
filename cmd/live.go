@@ -620,7 +620,7 @@ func init() { //nolint:gochecknoinits
 	// high volume mints detection
 	viper.SetDefault("stats.high_volume.check_interval", time.Second*17)
 	viper.SetDefault("stats.high_volume.min_checks_below_threshold", 2)
-	viper.SetDefault("stats.high_volume.mints.threshold", 37)
+	viper.SetDefault("stats.high_volume.mints.threshold", 47)
 }
 
 func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {

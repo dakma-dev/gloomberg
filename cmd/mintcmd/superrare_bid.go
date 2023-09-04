@@ -124,7 +124,7 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 		}
 
 		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
-		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAddress(mintWallet.address))
+		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAdressPTR(mintWallet.address))
 
 		availableWallets = append(availableWallets, mintWallet)
 	}
@@ -143,7 +143,13 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 
 	// log.Printf("  endpoints: %s", strings.Join(rpcEndpoints.ToSlice(), ", "))
 
-	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address)
+	if availableWallets == nil {
+		log.Fatalf("❌ no valid signer keys found")
+
+		return
+	}
+
+	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address) //nolint:gosec
 	if err != nil {
 		log.Fatalf("❌ getting auction info failed: %v", err)
 

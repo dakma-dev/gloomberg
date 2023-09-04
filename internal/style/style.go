@@ -251,8 +251,16 @@ func GetPriceShadeColor(txValue float64) lipgloss.Color {
 	return priceColor
 }
 
-// ShortenAddress returns a shortened address styled with colors.
-func ShortenAddress(address *common.Address) string {
+// ShortenAdressPTR returns a shortened address styled with colors.
+func ShortenAdressPTR(address *common.Address) string {
+	return fmt.Sprintf(
+		"0x%s…%s",
+		fmt.Sprintf("%0.2x%0.2x", address.Bytes()[0], address.Bytes()[1]),
+		fmt.Sprintf("%0.2x%0.2x", address.Bytes()[len(address.Bytes())-2], address.Bytes()[len(address.Bytes())-1]),
+	)
+}
+
+func ShortenAddress(address common.Address) string {
 	return fmt.Sprintf(
 		"0x%s…%s",
 		fmt.Sprintf("%0.2x%0.2x", address.Bytes()[0], address.Bytes()[1]),

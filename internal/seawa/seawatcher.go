@@ -15,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	gbgrpc "github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
+	"github.com/benleb/gloomberg/internal/nemo/gloomberg/remote"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
@@ -27,6 +28,7 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
+	"google.golang.org/grpc"
 	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
@@ -391,8 +393,29 @@ func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []gbgrpc.EventTyp
 	return sw.SubscribeForSlugs([]string{slug}, eventTypes)
 }
 
-func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.EventType) uint64 {
-	if !viper.GetBool("seawatcher.local") {
+func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes []gbgrpc.EventType) uint64 {
+	if viper.GetBool("grpc.client.enabled") {
+		// connect
+		grpcClient := remote.NewClient()
+
+		if grpcClient == nil {
+			log.Errorf("fail to connect to gRPC to subscribe for %+v", style.BoldAlmostWhite(strings.Join(slugs, ", ")))
+
+			return 0
+		}
+
+		sw.Prf("subscribing to %s...", strings.Join(slugs, ", "))
+
+		subsriptionRequest := &gbgrpc.SubscriptionRequest{EventTypes: []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED}, Collections: slugs} //nolint:nosnakecase
+		_, err := grpcClient.Subscribe(context.Background(), subsriptionRequest, grpc.WaitForReady(true))
+		if err != nil {
+			log.Errorf("getting stream failed: %v, retrying", err)
+		}
+
+		// sw.Prf("subscribing to %s...", strings.Join(slugs, ", "))
+
+		return uint64(len(slugs))
+	} else if !viper.GetBool("seawatcher.local") {
 		log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
 		log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
 
@@ -401,7 +424,7 @@ func (sw *SeaWatcher) SubscribeForSlugs(slug []string, eventTypes []gbgrpc.Event
 
 	newEventSubscriptions := uint64(0)
 
-	for _, slug := range slug {
+	for _, slug := range slugs {
 		if sw.IsSubscribed(slug) {
 			log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 

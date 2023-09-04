@@ -33,6 +33,10 @@ func GetEtherscanTokenURL(address *common.Address) string {
 	return fmt.Sprintf("https://etherscan.io/token/%s", address.Hex())
 }
 
+func GetEtherscanTokenURLForAddress(address common.Address) string {
+	return fmt.Sprintf("https://etherscan.io/token/%s", address.Hex())
+}
+
 // blur.io.
 func getBlurLink(contractAddress string, tokenID int64) string {
 	return fmt.Sprintf("https://blur.io/asset/%s/%d", strings.ToLower(contractAddress), tokenID)

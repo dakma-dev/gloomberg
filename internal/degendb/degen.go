@@ -49,7 +49,7 @@ func (d *Degen) String() string {
 	case d.Accounts.Twitter != "":
 		degenName = d.Accounts.Twitter
 	default:
-		degenName = style.ShortenAddress(&d.Addresses[0].Address)
+		degenName = style.ShortenAdressPTR(&d.Addresses[0].Address)
 		// degenName = d.Addresses[0].Address.Hex()
 	}
 

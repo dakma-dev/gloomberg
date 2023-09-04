@@ -138,7 +138,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 		}
 
 		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
-		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAddress(mintWallet.address))
+		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAdressPTR(mintWallet.address))
 
 		if mintFor != "" {
 			log.Infof("minting for: %s", style.BoldAlmostWhite(mintFor))

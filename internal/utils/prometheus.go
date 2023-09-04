@@ -9,7 +9,7 @@ import (
 func GetMetricValue(col prometheus.Collector) float64 {
 	var total float64
 
-	collect(col, func(m dto.Metric) {
+	collect(col, func(m dto.Metric) { //nolint:govet
 		if h := m.GetHistogram(); h != nil {
 			total += float64(h.GetSampleCount())
 		} else {
@@ -32,6 +32,6 @@ func collect(col prometheus.Collector, do func(dto.Metric)) {
 	for x := range c { // eg range across distinct label vector values
 		m := dto.Metric{}
 		_ = x.Write(&m)
-		do(m)
+		do(m) //nolint:govet
 	}
 }

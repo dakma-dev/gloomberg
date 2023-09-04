@@ -204,7 +204,7 @@ func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.Token
 	msgTelegram.WriteString(" *" + style.FormatTokenInfo(transfer.Token.ID, collection.Name, collection.Style(), collection.StyleSecondary(), false, false) + "*")
 	msgTelegram.WriteString(" for *" + fmt.Sprintf("%.3f", tokenPrice.Ether()) + "*Ξ")
 	msgTelegram.WriteString("\n")
-	msgTelegram.WriteString(" " + style.ShortenAddress(&triggerAddress) + " |")
+	msgTelegram.WriteString(" " + style.ShortenAdressPTR(&triggerAddress) + " |")
 	msgTelegram.WriteString(" [Tx](" + etherscanURL + ")")
 	msgTelegram.WriteString(" · [Blur](" + blurURL + ")")
 	msgTelegram.WriteString(" · [Opensea](" + openseaURL + ")")
