@@ -36,7 +36,7 @@ jobs:
               with: { cache: true, check-latest: true, go-version-file: "go.mod" }
 
             - name: Run GoReleaser (snapshot)
-              uses: goreleaser/goreleaser-action@v4
+              uses: goreleaser/goreleaser-action@v5
               if: "!startsWith(github.ref, 'refs/tags/')"
               with:
                   version: latest
@@ -46,7 +46,7 @@ jobs:
                   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Run GoReleaser (release)
-              uses: goreleaser/goreleaser-action@v4
+              uses: goreleaser/goreleaser-action@v5
               if: startsWith(github.ref, 'refs/tags/')
               with:
                   version: latest
