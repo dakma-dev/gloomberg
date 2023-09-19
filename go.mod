@@ -22,7 +22,7 @@ require (
 	github.com/prometheus/client_golang v1.16.0
 	github.com/prometheus/client_model v0.4.0
 	github.com/r3labs/sse/v2 v2.10.0
-	github.com/redis/rueidis v1.0.16
+	github.com/redis/rueidis v1.0.18
 	github.com/rs/xid v1.5.0
 	github.com/shopspring/decimal v1.3.1
 	github.com/spf13/cobra v1.7.0
@@ -37,7 +37,6 @@ require (
 	gonum.org/v1/gonum v0.14.0
 	google.golang.org/grpc v1.57.0
 	google.golang.org/protobuf v1.31.0
-	gotest.tools v2.2.0+incompatible
 )
 
 require (
