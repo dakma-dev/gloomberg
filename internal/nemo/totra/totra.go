@@ -352,6 +352,69 @@ func (ttx *TokenTransaction) discoverItemPrices() {
 	}
 }
 
+// GetPurchaseOrBidIndicator returns a string indicating if the tx is a purchase
+// or if someone dumped into bids
+func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
+	indicatorString := "・"
+
+	var purchaseOrBidStyle lipgloss.Style
+
+	switch {
+	case ttx.IsItemBid():
+		purchaseOrBidStyle = style.TrendRedStyle
+
+	case ttx.IsListing():
+		purchaseOrBidStyle = lipgloss.NewStyle().Foreground(style.OpenseaToneBlue)
+
+	case ttx.IsCollectionOffer():
+		purchaseOrBidStyle = style.PurplePower
+
+	case ttx.IsTransfer():
+		purchaseOrBidStyle = style.DarkGrayStyle
+
+	default:
+		purchaseOrBidStyle = style.TrendLightGreenStyle
+
+	}
+
+	return purchaseOrBidStyle.Render(indicatorString)
+}
+
+func (ttx *TokenTransaction) Is() map[string]bool {
+	isFunctions := map[string]bool{
+		"IsAirdrop":         ttx.IsAirdrop(),
+		"IsBurn":            ttx.IsBurn(),
+		"IsCollectionOffer": ttx.IsCollectionOffer(),
+		"IsItemBid":         ttx.IsItemBid(),
+		"IsListing":         ttx.IsListing(),
+		"IsLoan":            ttx.IsLoan(),
+		"IsMint":            ttx.IsMint(),
+		"IsMovingNFTs":      ttx.IsMovingNFTs(),
+		"IsReBurn":          ttx.IsReBurn(),
+		"IsTransfer":        ttx.IsTransfer(),
+	}
+
+	return isFunctions
+}
+
+func (ttx *TokenTransaction) FormattedIs() []string {
+	fmtIsFunctions := make([]string, 0)
+
+	for k, v := range ttx.Is() {
+		var fmtVal string
+
+		if v {
+			fmtVal = style.TrendGreenStyle.Render(fmt.Sprint(v))
+		} else {
+			fmtVal = style.TrendRedStyle.Render(fmt.Sprint(v))
+		}
+
+		fmtIsFunctions = append(fmtIsFunctions, fmt.Sprintf("%s(): %s", k, fmtVal))
+	}
+
+	return fmtIsFunctions
+}
+
 func (ttx *TokenTransaction) IsMovingNFTs() bool {
 	return len(ttx.logsByStandard[standard.ERC721]) > 0 || len(ttx.logsByStandard[standard.ERC1155]) > 0
 }
@@ -361,7 +424,7 @@ func (ttx *TokenTransaction) IsListing() bool {
 }
 
 func (ttx *TokenTransaction) IsItemBid() bool {
-	return ttx.Action == degendb.Bid
+	return ttx.GetNFTSenderAddresses().Cardinality() > 0 && ttx.GetNFTSenderAddresses().Contains(ttx.From)
 }
 
 func (ttx *TokenTransaction) IsCollectionOffer() bool {

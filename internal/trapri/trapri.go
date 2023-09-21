@@ -84,8 +84,9 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	isOwnCollection := false
 
 	// a watched wallet is involved
-	isOwnWallet := gb.OwnWallets.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
-	isWatchUsersWallet := gb.Watcher.ContainsAddressFromSlice(ttx.GetNFTSenderAndReceiverAddresses()) != internal.ZeroAddress
+	nftTransactors := ttx.GetNFTSenderAndReceiverAddresses()
+	isOwnWallet := gb.OwnWallets.ContainsAddressFromSlice(nftTransactors.ToSlice()) != internal.ZeroAddress
+	isWatchUsersWallet := gb.Watcher.ContainsAddressFromSlice(nftTransactors.ToSlice()) != internal.ZeroAddress
 
 	// is this an intentional purchase or a dump into bids?
 	// isBidDump := false
@@ -600,6 +601,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 	}
 
+	out.WriteString(ttx.GetPurchaseOrBidIndicator())
+
 	// average price per item
 	pricePerItemStyle := style.DarkerGrayStyle
 	if averagePrice.Wei().Cmp(ttx.GetPrice().Wei()) < 0 {
@@ -744,7 +747,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	if ttx.IsReBurn() && len(ttx.Transfers) > 1 && buyer == internal.ZeroAddress {
 		buyer = ttx.Transfers[1].To
 	} else if ttx.IsBurn() {
-		for _, fromAddresses := range ttx.GetNFTSenderAddresses() {
+		for _, fromAddresses := range ttx.GetNFTSenderAddresses().ToSlice() {
 			if fromAddresses != internal.ZeroAddress {
 				buyer = fromAddresses
 
@@ -892,7 +895,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// multi-line output for multi-collection events
 	if len(fmtTokensTransferred) > 1 {
 		for _, fmtTokenCollection := range fmtTokensTransferred[1:] { //nolint:gosec
-			out.WriteString("\n" + strings.Repeat(" ", 31))
+			out.WriteString("\n" + strings.Repeat(" ", 32))
 			out.WriteString(style.DarkGrayStyle.Render("+") + fmtTokenCollection)
 		}
 	}
@@ -1000,6 +1003,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			parsedEvent.IsOwnWallet = isOwnWallet
 			parsedEvent.IsOwnCollection = isOwnCollection
 			parsedEvent.IsWatchUsersWallet = isWatchUsersWallet
+			parsedEvent.PurchaseOrBidIndicator = ttx.GetPurchaseOrBidIndicator()
 
 			// ...and actually use this!!
 			gb.RecentOwnEvents.Add(&parsedEvent)

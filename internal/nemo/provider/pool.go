@@ -12,8 +12,10 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/abis/erc20"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
+	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
@@ -230,6 +232,35 @@ func (pp *Pool) GetLogsByBlockNumber(blockNumber int64) []types.Log {
 	}
 
 	return nil
+}
+
+// IsContract returns true if the given address is a contract address.
+// to resource intensive to check this for every address we encounter, so we cache the result.
+func (pp *Pool) IsContract(address common.Address) bool {
+	// if its a marketplace address, its a contract
+	if marketplace.MarketplaceAddresses().Contains(address) {
+		return true
+	}
+
+	// check if we have a cached the account type already
+	if accountType, err := pp.Rueidi.GetCachedAccountType(context.Background(), address); err == nil {
+		return degendb.AccountType(accountType) == degendb.Contract
+	} else {
+		gbl.Log.Debugf("❕ error getting cached account type: %s", err)
+	}
+
+	// ok 🙄 seems we really need to check via a node if its a eoa or contract
+	codeAt, err := pp.GetCodeAt(context.Background(), address)
+	if err != nil {
+		gbl.Log.Errorf("❗️ failed to get codeAt for %s: %s", address.String(), err)
+
+		return false
+	}
+
+	log.Debugf("codeAt(%s): %+v", address.Hex(), codeAt)
+
+	// if there is deployed code at the address, it's a contract
+	return len(codeAt) > 0
 }
 
 func (pp *Pool) Subscribe(queueLogs chan types.Log) (uint64, error) {
@@ -564,7 +595,7 @@ func (pp *Pool) callMethod(ctx context.Context, method methodCall, params method
 
 		case CodeAt:
 			if params.Address == (common.Address{}) {
-				return nil, errors.New("invalid contract address")
+				return nil, errors.New("invalid contract address: " + params.Address.Hex())
 			}
 
 			if codeAt, err := provider.codeAt(ctx, params.Address); err == nil {
@@ -741,9 +772,13 @@ func (pp *Pool) GetCurrentGasInfo() (*nemo.GasInfo, error) {
 
 // get bytecode of address to check if its a EOA or contract.
 func (pp *Pool) GetCodeAt(ctx context.Context, address common.Address) ([]byte, error) {
+	if address == internal.ZeroAddress {
+		return []byte{}, errors.New("address is zero address")
+	}
+
 	codeAt, err := pp.callMethod(ctx, CodeAt, methodCallParams{Address: address})
 	if err != nil {
-		log.Fatal(err)
+		log.Errorf("failed to get code at %s: %s", address.String(), err)
 	}
 
 	byteCode, ok := codeAt.([]byte)

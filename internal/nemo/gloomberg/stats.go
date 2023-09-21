@@ -439,7 +439,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	}
 
 	// cleanup (maybe replace this by not inserting events that are not shown anyways)
-	historyEvents := make([]*degendb.ParsedEvent, 0)
+	historyEvents := make([]*degendb.PreformattedEvent, 0)
 
 	// for idx, event := range s.EventHistory {
 	for idx, event := range s.gb.RecentOwnEvents.ToSlice() {
@@ -519,6 +519,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		historyLine.WriteString(" " + event.Typemoji)
 		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", pricePerItem.Ether())))
 		historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
+		historyLine.WriteString(event.PurchaseOrBidIndicator)
 		// historyLine.WriteString(" " + event.TransferredCollections[0].CollectionName)
 		historyLine.WriteString(" " + tokenInfo)
 

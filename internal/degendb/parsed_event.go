@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type ParsedEvent struct {
+type PreformattedEvent struct {
 	TxHash                 common.Hash
 	Action                 string
 	ReceivedAt             time.Time
@@ -22,6 +22,8 @@ type ParsedEvent struct {
 	// "attributes"
 	IsOwnWallet     bool
 	IsOwnCollection bool
+
+	PurchaseOrBidIndicator string
 
 	// fix this with new chawago watcher
 	IsWatchUsersWallet bool
