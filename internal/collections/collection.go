@@ -15,6 +15,7 @@ import (
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
+	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
@@ -78,6 +79,8 @@ type Collection struct {
 	FloorPrice             *ewma.MovingAverage `mapstructure:"floorPrice"`
 	PreviousFloorPrice     float64             `mapstructure:"previousFloorPrice"`
 	HighestCollectionOffer float64
+
+	Raw *osmodels.AssetCollection
 }
 
 func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source CollectionSource, rueidi *rueidica.Rueidica) *Collection {
@@ -144,6 +147,8 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		FloorPrice:             &floorPrice,
 		PreviousFloorPrice:     0,
 		HighestCollectionOffer: 0,
+
+		Raw: &osmodels.AssetCollection{},
 	}
 
 	if nodes != nil {
@@ -301,10 +306,7 @@ func (uc *Collection) GetPrettySaLiRas() []string {
 			saliraStyle = saliraStyle.Faint(true)
 		}
 
-		// only add the salira if it is > 0
-		// if current := salira.Value(); current > 0 {
-		fmtSaLiRas = append(fmtSaLiRas, timeframeStyle.Render(fmt.Sprintf("%.0f", salira.Timeframe.Minutes())+"|"+saliraStyle.Render(salira.Pretty())))
-		// }
+		fmtSaLiRas = append(fmtSaLiRas, timeframeStyle.Render(saliraStyle.Render(salira.Pretty(idx > 0))))
 	}
 
 	return fmtSaLiRas

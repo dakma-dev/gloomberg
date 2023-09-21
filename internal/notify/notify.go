@@ -109,7 +109,7 @@ func SendNotification(gb *gloomberg.Gloomberg, ttx *totra.TokenTransaction) {
 
 			gbl.Log.Debugf("📸 imageURI: %s", imageURI)
 
-			gbl.Log.Infof("ttx: %+v | transfer: %+v | collection: %+v | userName: %s | triggerAddress: %s", ttx, transfer, collection, userName, triggerAddress.String())
+			gbl.Log.Debugf("ttx: %+v | transfer: %+v | collection: %+v | userName: %s | triggerAddress: %s", ttx, transfer, collection, userName, triggerAddress.String())
 
 			// collect telegram messages per user
 			msgTelegram := buildNotificationMessage(ttx, transfer, collection, userName, triggerAddress)
@@ -160,9 +160,14 @@ func SendMessageViaTelegram(message string, chatID int64, imageURI string, reply
 	// send telegram message
 	msg, err := sendTelegramMessageWithMarkup(chatID, message, imageURI, replyToMessageID, replyMarkup)
 	if err != nil {
-		gbl.Log.Warnf("❌ failed to send telegram message: %s | chatID: '%d' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
+		gbl.Log.Warnf("❔ failed to send telegram message | trying again without picture: %s | chatID: '%d' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
 
-		return
+		msg, err = sendTelegramMessageWithMarkup(chatID, message, "", replyToMessageID, replyMarkup)
+		if err != nil {
+			gbl.Log.Warnf("❌ failed to send telegram message: %s | chatID: '%d' | imageURI: '%s' | msgTelegram: '%s'", err, chatID, imageURI, message)
+
+			return
+		}
 	}
 
 	// inform about sent message

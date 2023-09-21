@@ -114,7 +114,7 @@ func (e *ItemListedEvent) GetTokenID() *big.Int {
 }
 
 func (e *ItemListedEvent) GetPrice() *price.Price {
-	priceWeiRaw, _, err := big.ParseFloat(e.Payload.BasePrice, 10, 64, big.ToNearestEven)
+	priceWeiRaw, _, err := big.ParseFloat(e.Payload.BasePrice.String(), 10, 64, big.ToNearestEven)
 	if err != nil {
 		log.Infof("⚓️❌ xerror parsing price: %+v | %s", err.Error(), e.Payload.BasePrice)
 
@@ -149,16 +149,17 @@ func (e *ItemListedEvent) GetMakerAddress() common.Address {
 
 type ItemListedEventPayload struct {
 	PayloadItemAndColl `json:"payload_item_and_coll" mapstructure:",squash"`
-	Quantity           int          `json:"quantity"              mapstructure:"quantity"`
-	ListingType        string       `json:"listing_type"          mapstructure:"listing_type"`
-	ListingDate        string       `json:"listing_date"          mapstructure:"listing_date"`
-	ExpirationDate     string       `json:"expiration_date"       mapstructure:"expiration_date"`
-	Maker              Account      `json:"maker"                 mapstructure:"maker"`
-	Taker              Account      `json:"taker"                 mapstructure:"taker"`
-	BasePrice          string       `json:"base_price"            mapstructure:"base_price"`
-	PaymentToken       PaymentToken `json:"payment_token"         mapstructure:"payment_token"`
-	IsPrivate          bool         `json:"is_private"            mapstructure:"is_private"`
-	EventTimestamp     string       `json:"event_timestamp"       mapstructure:"event_timestamp"`
+	Quantity           int      `json:"quantity"              mapstructure:"quantity"`
+	ListingType        string   `json:"listing_type"          mapstructure:"listing_type"`
+	ListingDate        string   `json:"listing_date"          mapstructure:"listing_date"`
+	ExpirationDate     string   `json:"expiration_date"       mapstructure:"expiration_date"`
+	Maker              Account  `json:"maker"                 mapstructure:"maker"`
+	Taker              Account  `json:"taker"                 mapstructure:"taker"`
+	BasePrice          *big.Int `json:"base_price"            mapstructure:"base_price"`
+	// BasePrice          string       `json:"base_price"            mapstructure:"base_price"`
+	PaymentToken   PaymentToken `json:"payment_token"   mapstructure:"payment_token"`
+	IsPrivate      bool         `json:"is_private"      mapstructure:"is_private"`
+	EventTimestamp string       `json:"event_timestamp" mapstructure:"event_timestamp"`
 }
 
 // offer
@@ -222,14 +223,14 @@ type Account struct {
 }
 
 type PaymentToken struct {
-	ID       int     `json:"id"        mapstructure:"id"`
-	Symbol   string  `json:"symbol"    mapstructure:"symbol"`
-	Address  string  `json:"address"   mapstructure:"address"`
-	ImageURL string  `json:"image_url" mapstructure:"image_url"`
-	Name     string  `json:"name"      mapstructure:"name"`
-	Decimals int     `json:"decimals"  mapstructure:"decimals"`
-	EthPrice float64 `json:"eth_price" mapstructure:"eth_price"`
-	UsdPrice float64 `json:"usd_price" mapstructure:"usd_price"`
+	ID       int    `json:"id"        mapstructure:"id"`
+	Symbol   string `json:"symbol"    mapstructure:"symbol"`
+	Address  string `json:"address"   mapstructure:"address"`
+	ImageURL string `json:"image_url" mapstructure:"image_url"`
+	Name     string `json:"name"      mapstructure:"name"`
+	Decimals int    `json:"decimals"  mapstructure:"decimals"`
+	EthPrice string `json:"eth_price" mapstructure:"eth_price"`
+	UsdPrice string `json:"usd_price" mapstructure:"usd_price"`
 }
 
 // bid

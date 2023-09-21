@@ -101,7 +101,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			msg.ReplyToMessageID = replyToMessageID
 		}
 
-		gbl.Log.Infof("🔔 📸 sending photo | msg: %+v", msg)
+		gbl.Log.Info("🔔 📸 sending photo") // | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 

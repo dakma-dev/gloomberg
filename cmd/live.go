@@ -130,7 +130,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// queue for everything to print to the console
-	terminalPrinterQueue := make(chan string, 256)
+	terminalPrinterQueue := make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
 
 	if viper.GetBool("notifications.smart_wallets.enabled") {
 		alphaTicker := ticker.NewAlphaScore(gb)
@@ -138,7 +138,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	}
 
 	// nepa
-	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, 256)
+	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
 	nePa := nepa.NewNePa(gb)
 
 	//
@@ -374,12 +374,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.local") || viper.GetBool("grpc.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("listings.enabled") {
+	if viper.GetBool("seawatcher.local") || viper.GetBool("grpc.client.enabled") || viper.GetBool("pubsub.client.enabled") {
 		go trapri.SeaWatcherEventsHandler(gb)
-
-		if viper.GetBool("seawatcher.pubsub") {
-			go gb.SendSlugsToServer()
-		}
 	}
 
 	if viper.GetBool("grpc.server.enabled") {
@@ -388,7 +384,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to redis pubsub channel to receive events from gloomberg central
-	if viper.GetBool("seawatcher.pubsub") || viper.GetBool("pubsub.listings.subscribe") {
+	if viper.GetBool("pubsub.client.enabled") {
+		gloomberg.Prf("starting redis pubsub client...")
+
 		// subscribe to redis pubsub channel
 		go pusu.SubscribeToListingsViaRedis(gb)
 
@@ -397,7 +395,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 		// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
 		go func() {
-			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
+			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
 				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Message))
 
 				var mgmtEvent *seawaModels.MgmtEvent
@@ -412,7 +410,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				}
 			})
 			if err != nil {
-				gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", internal.TopicSeaWatcherMgmt, err.Error())
+				gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", internal.PubSubSeaWatcherMgmt, err.Error())
 
 				return
 			}
@@ -568,7 +566,7 @@ func init() { //nolint:gochecknoinits
 	// eventhub
 	viper.SetDefault("gloomberg.terminalPrinter.numWorker", 1)
 	viper.SetDefault("gloomberg.eventhub.numHandler", 1)
-	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 256)
+	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 512)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
 	// first txs

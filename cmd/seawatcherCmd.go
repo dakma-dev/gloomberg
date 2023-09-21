@@ -5,6 +5,7 @@ import (
 
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
 	"github.com/benleb/gloomberg/internal/seawa"
+	"github.com/benleb/gloomberg/internal/trapri"
 	"github.com/benleb/gloomberg/internal/web"
 	"github.com/charmbracelet/log"
 	"github.com/spf13/cobra"
@@ -56,7 +57,9 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 
 	sw.Pr("⚓️ seawatcher started... 🌊 👀")
 
-	if viper.GetBool("seawatcher.pubsub") {
+	go trapri.SeaWatcherEventsHandler(gb)
+
+	if viper.GetBool("pubsub.server.enabled") {
 		go sw.SubscribeToPubsubMgmt()
 		sw.Pr("subscribed to mgmt channel…")
 

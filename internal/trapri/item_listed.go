@@ -56,7 +56,9 @@ func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 	gb.In.TokenTransactions <- ttxListing
 
 	// collection
-	collection := tokencollections.GetCollection(gb, nftID.ContractAddress(), nftID.TokenID().Int64())
-	// counting for salira and more...
-	collection.AddListing(uint64(event.Payload.Quantity))
+	if gb.ProviderPool != nil {
+		collection := tokencollections.GetCollection(gb, nftID.ContractAddress(), nftID.TokenID().Int64())
+		// counting for salira and more...
+		collection.AddListing(uint64(event.Payload.Quantity))
+	}
 }

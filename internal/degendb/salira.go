@@ -35,7 +35,7 @@ type SaLiRa struct {
 	Previous      float64
 }
 
-func (s *SaLiRa) Pretty() string {
+func (s *SaLiRa) Pretty(faint bool) string {
 	// coloring moving average salira
 	saLiRaStyle := style.TrendGreenStyle
 
@@ -47,6 +47,6 @@ func (s *SaLiRa) Pretty() string {
 
 	return fmt.Sprint(
 		style.CreateTrendIndicator(s.Previous, current),
-		saLiRaStyle.Render(fmt.Sprintf("%4.2f", current)),
+		saLiRaStyle.Faint(faint).Render(fmt.Sprintf("%4.2f", current)),
 	)
 }

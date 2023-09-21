@@ -54,8 +54,8 @@ type eventChannelsIn struct {
 	TxWithLogs        chan *chawagoModels.TxWithLogs
 	TokenTransactions chan *totra.TokenTransaction
 
-	ParsedEvents    chan *degendb.ParsedEvent
-	RecentOwnEvents chan []*degendb.ParsedEvent
+	ParsedEvents    chan *degendb.PreformattedEvent
+	RecentOwnEvents chan []*degendb.PreformattedEvent
 
 	SeawatcherMgmt chan *models.MgmtEvent
 
@@ -72,8 +72,8 @@ type eventChannelsOut struct {
 	TxWithLogs        []chan *chawagoModels.TxWithLogs
 	TokenTransactions []chan *totra.TokenTransaction
 
-	ParsedEvents    []chan *degendb.ParsedEvent
-	RecentOwnEvents []chan []*degendb.ParsedEvent
+	ParsedEvents    []chan *degendb.PreformattedEvent
+	RecentOwnEvents []chan []*degendb.PreformattedEvent
 
 	SeawatcherMgmt []chan *models.MgmtEvent
 
@@ -109,8 +109,8 @@ func newEventHub() *eventHub {
 			TxWithLogs:        make(chan *chawagoModels.TxWithLogs, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			TokenTransactions: make(chan *totra.TokenTransaction, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
-			ParsedEvents:    make(chan *degendb.ParsedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
-			RecentOwnEvents: make(chan []*degendb.ParsedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			ParsedEvents:    make(chan *degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			RecentOwnEvents: make(chan []*degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
 			SeawatcherMgmt: make(chan *models.MgmtEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
@@ -127,8 +127,8 @@ func newEventHub() *eventHub {
 			TxWithLogs:        make([]chan *chawagoModels.TxWithLogs, 0),
 			TokenTransactions: make([]chan *totra.TokenTransaction, 0),
 
-			ParsedEvents:    make([]chan *degendb.ParsedEvent, 0),
-			RecentOwnEvents: make([]chan []*degendb.ParsedEvent, 0),
+			ParsedEvents:    make([]chan *degendb.PreformattedEvent, 0),
+			RecentOwnEvents: make([]chan []*degendb.PreformattedEvent, 0),
 
 			SeawatcherMgmt: make([]chan *models.MgmtEvent, 0),
 
@@ -282,15 +282,15 @@ func (eh *eventHub) SubscribeTokenTransactions() chan *totra.TokenTransaction {
 	return outChannel
 }
 
-func (eh *eventHub) SubscribeParsedEvents() chan *degendb.ParsedEvent {
-	outChannel := make(chan *degendb.ParsedEvent, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
+func (eh *eventHub) SubscribeParsedEvents() chan *degendb.PreformattedEvent {
+	outChannel := make(chan *degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
 	eh.out.ParsedEvents = append(eh.out.ParsedEvents, outChannel)
 
 	return outChannel
 }
 
-func (eh *eventHub) SubscribeRecentOwnEvents() chan []*degendb.ParsedEvent {
-	outChannel := make(chan []*degendb.ParsedEvent, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
+func (eh *eventHub) SubscribeRecentOwnEvents() chan []*degendb.PreformattedEvent {
+	outChannel := make(chan []*degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
 	eh.out.RecentOwnEvents = append(eh.out.RecentOwnEvents, outChannel)
 
 	return outChannel

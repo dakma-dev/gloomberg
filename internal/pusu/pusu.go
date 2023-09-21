@@ -7,10 +7,8 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
-	"github.com/benleb/gloomberg/internal/trapri"
-	"github.com/charmbracelet/log"
+	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/redis/rueidis"
 )
@@ -57,7 +55,7 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 	channels := make([]string, 0)
 
 	for _, collectionAddress := range slugAddresses {
-		channelPattern := internal.TopicSeaWatcher + "/" + collectionAddress.String() + "/*"
+		channelPattern := internal.PubSubSeaWatcherListings + "/" + collectionAddress.Hex() + "/*"
 
 		channels = append(channels, channelPattern)
 	}
@@ -65,7 +63,7 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
 		gbl.Log.Debugf("🚇 received msg on channel %s: %s", msg.Channel, msg.Message)
 
-		var itemListedEvent osmodels.ItemListedEvent
+		var itemListedEvent seawaModels.ItemListed
 
 		// validate json
 		if !json.Valid([]byte(msg.Message)) {
@@ -82,11 +80,7 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 		}
 
 		// nftID is a string in the format <chain>/<contract>/<tokenID>
-		nftID := itemListedEvent.GetNftID()
-
-		log.Printf("itemListedEvent: %+v", itemListedEvent)
-		log.Printf("nftID: %+v", nftID)
-
+		nftID := itemListedEvent.Payload.Item.NftID
 		//
 		// discard listings for ignored collections
 		if collection, ok := gb.CollectionDB.Collections[common.HexToAddress(nftID[1])]; ok && collection.IgnorePrinting {
@@ -96,7 +90,7 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 		}
 
 		// print
-		trapri.FormatListing(gb, &itemListedEvent)
+		gb.In.ItemListed <- &itemListedEvent
 	})
 	if err != nil {
 		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())

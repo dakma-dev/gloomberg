@@ -67,7 +67,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	ctx := context.Background()
 
 	// parsed event to be used for the web-ui
-	parsedEvent := degendb.ParsedEvent{Other: make(map[string]interface{})}
+	parsedEvent := degendb.PreformattedEvent{Other: make(map[string]interface{})}
 
 	// fake a txHash for listings
 	txHash := common.Hash{}
@@ -610,7 +610,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// print average per-item price (does not make sense anymore in multi-collection tx)
-	out.WriteString(" " + pricePerItemStyle.Render(formattedAveragePriceEther))
+	out.WriteString("" + pricePerItemStyle.Render(formattedAveragePriceEther))
 	out.WriteString(formattedFaintCurrencySymbol)
 
 	// // floor price TODO fix this
@@ -883,7 +883,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		//
 		// SaLiRas
 		if timeframedSaLiRas := currentCollection.GetPrettySaLiRas(); len(timeframedSaLiRas) > 0 {
-			out.WriteString(style.DarkGrayStyle.Render(" ~ ") + strings.Join(timeframedSaLiRas, " "))
+			out.WriteString(style.DarkGrayStyle.Render(" ~ ") + strings.Join(timeframedSaLiRas, "|"))
 
 			// add collection symbol ad the end for easier matching between salira and collection
 			if currentCollection.Metadata != nil && currentCollection.Metadata.Symbol != "" {

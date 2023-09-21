@@ -39,7 +39,7 @@ func FormatListing(gb *gloomberg.Gloomberg, event *osmodels.ItemListedEvent) {
 	sellerAddress := common.HexToAddress(event.Payload.Maker.Address)
 
 	// parse amountPaid
-	priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice, 10, 64, big.ToNearestEven)
+	priceWeiRaw, _, err := big.ParseFloat(event.Payload.BasePrice.String(), 10, 64, big.ToNearestEven)
 	if err != nil {
 		gbl.Log.Errorf("❌ error parsing amountPaid: %s", err.Error())
 

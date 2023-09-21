@@ -34,7 +34,7 @@ type Gloomberg struct {
 	OwnWallets   *wallet.Wallets
 	Stats        *Stats
 
-	RecentOwnEvents mapset.Set[*degendb.ParsedEvent]
+	RecentOwnEvents mapset.Set[*degendb.PreformattedEvent]
 
 	Ranks map[common.Address]map[int64]degendb.TokenRank
 
@@ -132,7 +132,7 @@ func New() *Gloomberg {
 
 		CollectionDB: collections.New(),
 
-		RecentOwnEvents: mapset.NewSet[*degendb.ParsedEvent](),
+		RecentOwnEvents: mapset.NewSet[*degendb.PreformattedEvent](),
 
 		Ranks: make(map[common.Address]map[int64]degendb.TokenRank),
 
@@ -187,6 +187,12 @@ func (gb *Gloomberg) SendSlugsToServer() {
 	// the central gloomberg instance then creates a subscription on the opensea
 	// api and publishes upcoming incoming events to the pubsub channel
 	// marshal event to json
+	if !viper.GetBool("pubsub.client.enabled") {
+		gbl.Log.Warn("❌ not sending slugs to server - pubsub client is not enabled")
+
+		return
+	}
+
 	slugs := gb.CollectionDB.OpenseaSlugs()
 	if len(slugs) == 0 {
 		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
@@ -198,9 +204,11 @@ func (gb *Gloomberg) SendSlugsToServer() {
 
 	mgmtEvent := &models.MgmtEvent{Action: models.Subscribe, Slugs: slugs}
 
-	gb.In.SeawatcherMgmt <- mgmtEvent
-
-	if viper.GetBool("seawatcher.pubsub") {
+	switch {
+	case viper.GetBool("seawatcher.local"):
+		// for local seawatcher
+		gb.In.SeawatcherMgmt <- mgmtEvent
+	case viper.GetBool("pubsub.client.enabled"):
 		jsonMgmtEvent, err := json.Marshal(mgmtEvent)
 		if err != nil {
 			gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
@@ -208,10 +216,10 @@ func (gb *Gloomberg) SendSlugsToServer() {
 			return
 		}
 
-		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
+		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 		} else {
-			gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.TopicSeaWatcherMgmt))
+			gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
 		}
 	}
 }

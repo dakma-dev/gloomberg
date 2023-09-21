@@ -9,10 +9,12 @@ import (
 )
 
 const (
-	PubSubChannelSales = "sales"
+	PubSubChannelSales    = "sales"
+	PubSubChannelListings = "listings"
 
-	TopicSeaWatcher     = "seawatcher"
-	TopicSeaWatcherMgmt = TopicSeaWatcher + "/mgmt"
+	PubSubSeaWatcher         = "seawatcher"
+	PubSubSeaWatcherMgmt     = PubSubSeaWatcher + "/mgmt"
+	PubSubSeaWatcherListings = PubSubSeaWatcher + "/" + PubSubChannelListings
 
 	BlockTime = 12 * time.Second
 
