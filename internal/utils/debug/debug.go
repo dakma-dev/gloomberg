@@ -85,6 +85,9 @@ func DebugIt[T interface{}](debugObject T) {
 		log.Printf("ttx.GetNFTSenderAddresses().Cardinality(): %+v", debugee.GetNFTSenderAddresses().Cardinality())
 		log.Printf("ttx.GetNFTSenderAddresses().Contains(ttx.From): %+v", debugee.GetNFTSenderAddresses().Contains(debugee.From))
 		log.Printf("ttx.GetNFTSenderAddresses(): %+v", debugee.GetNFTSenderAddresses())
+
+	case *totra.TokenTransfer:
+		log.Printf("transfer.Token.ShortID(): %s", debugee.Token.ShortID())
 	}
 
 	log.Print("")

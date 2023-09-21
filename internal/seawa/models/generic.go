@@ -18,7 +18,7 @@ type ItemGenericPayload struct {
 	ContractCriteria   `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria,omitempty"`
 	TraitCriteria      `json:"trait_criteria"          mapstructure:"trait_criteria,omitempty"`
 
-	EventPayload `mapstructure:",squash"`
+	EventPayload `json:"payload" mapstructure:",squash"`
 
 	IsPrivate   bool        `json:"is_private"   mapstructure:"is_private"`
 	ListingDate time.Time   `json:"listing_date" mapstructure:"listing_date"`

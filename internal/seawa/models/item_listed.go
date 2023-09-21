@@ -11,12 +11,11 @@ type ItemListed struct {
 }
 
 type ItemListedPayload struct {
-	Item         Item `json:"item"            mapstructure:"item"`
-	EventPayload `mapstructure:",squash"`
-
-	IsPrivate   bool        `json:"is_private"   mapstructure:"is_private"`
-	ListingDate time.Time   `json:"listing_date" mapstructure:"listing_date"`
-	ListingType interface{} `json:"listing_type" mapstructure:"listing_type"`
+	EventPayload `json:"payload"      mapstructure:",squash"`
+	Item         Item        `json:"item"         mapstructure:"item"`
+	IsPrivate    bool        `json:"is_private"   mapstructure:"is_private"`
+	ListingDate  time.Time   `json:"listing_date" mapstructure:"listing_date"`
+	ListingType  interface{} `json:"listing_type" mapstructure:"listing_type"`
 
 	Other map[string]interface{} `mapstructure:",remain"`
 }

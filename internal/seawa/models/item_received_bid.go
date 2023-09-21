@@ -12,8 +12,8 @@ type ItemReceivedBid struct {
 }
 
 type ItemReceivedBidPayload struct {
-	Item         `json:"item"            mapstructure:"item"`
-	EventPayload `mapstructure:",squash"`
+	Item         `json:"item"    mapstructure:"item"`
+	EventPayload `json:"payload" mapstructure:",squash"`
 
 	CreatedDate time.Time `json:"created_date" mapstructure:"created_date"`
 
