@@ -36,6 +36,8 @@ var (
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#77A077"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))
 	TrendLightRedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#997777"))
+	ReddishPurple        = lipgloss.NewStyle().Foreground(lipgloss.Color("#9F2B68"))
+	PurplePower          = lipgloss.NewStyle().Foreground(lipgloss.Color("#5D3FD3"))
 	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeeee"))
 	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
 	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
