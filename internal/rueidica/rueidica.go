@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
@@ -20,6 +21,7 @@ import (
 
 const (
 	keywordContractName string = "contractName"
+	keywordAccountType  string = "accountType"
 	keywordENS          string = "ensDomain"
 	keywordFloorOS      string = "floorOS"
 	keywordOSSlug       string = "osslug"
@@ -51,6 +53,19 @@ func (r *Rueidica) StoreContractName(ctx context.Context, address common.Address
 	log.Debugf("rueidica.StoreContractName | %+v ⇄ %+v", address.Hex(), name)
 
 	return r.cacheName(ctx, address, name, keyContract, viper.GetDuration("cache.names_ttl"))
+}
+
+// Account type.
+func (r *Rueidica) GetCachedAccountType(ctx context.Context, address common.Address) (string, error) {
+	log.Debugf("rueidica.GetCachedAccountType | %+v", address)
+
+	return r.getCachedName(ctx, address, keyAccountType)
+}
+
+func (r *Rueidica) StoreAccountType(ctx context.Context, address common.Address, accountType degendb.AccountType) error {
+	log.Debugf("rueidica.StoreAccountType | %+v ⇄ %+v", address.Hex(), accountType)
+
+	return r.cacheName(ctx, address, string(accountType), keyAccountType, viper.GetDuration("cache.names_ttl"))
 }
 
 // ENS.
@@ -285,6 +300,10 @@ func (r *Rueidica) NotificationLockWtihDuration(txHash common.Hash, duration tim
 
 //
 // keys
+
+func keyAccountType(address common.Address) string {
+	return fmt.Sprint(address.Hex(), keyDelimiter, keywordAccountType)
+}
 
 func keyContract(address common.Address) string {
 	return fmt.Sprint(address.Hex(), keyDelimiter, keywordContractName)

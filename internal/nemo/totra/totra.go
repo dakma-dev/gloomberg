@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
@@ -15,6 +14,10 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/topic"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 )
@@ -64,6 +67,9 @@ type TokenTransaction struct {
 // 	{0x32, 0x38, 0x9b, 0x71}: "bulkTransfer(((uint8,address,uint256,uint256)[],address,bool)[],bytes32)",
 // }
 
+// marketplaceAddresses is a map of marketplace contract addresses to their respective marketplace.
+var marketplaceAddresses = marketplace.AddressToMarketplace()
+
 func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, providerPool *provider.Pool) *TokenTransaction {
 	tfLogsByStandard := make(map[standard.Standard][]*types.Log)
 
@@ -99,14 +105,10 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 
 	// marketplace
 	switch {
-	case tx.To() == nil:
+	case tx.To() == nil: // || marketplaceAddresses[*tx.To()] == nil:
 		ttx.Marketplace = &marketplace.Unknown
-	case marketplace.OpenSea.ContractAddresses[*tx.To()]:
-		ttx.Marketplace = &marketplace.OpenSea
-	case marketplace.Blur.ContractAddresses[*tx.To()]:
-		ttx.Marketplace = &marketplace.Blur
-	case marketplace.X2Y2.ContractAddresses[*tx.To()]:
-		ttx.Marketplace = &marketplace.X2Y2
+	case marketplaceAddresses[*tx.To()] != nil:
+		ttx.Marketplace = marketplaceAddresses[*tx.To()]
 	default:
 		ttx.Marketplace = &marketplace.Unknown
 	}
@@ -115,7 +117,7 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 	ttx.parseTransfersFromReceipt(providerPool)
 
 	// erc20
-	ttx.parseERC20Transfers()
+	ttx.parseERC20Transfers(providerPool)
 
 	// connect nft transfers and erc20 transfers
 	ttx.discoverItemPrices()
@@ -166,16 +168,8 @@ func (ttx *TokenTransaction) GetNFTReceivers() map[common.Address][]*TokenTransf
 	return nftReceivers
 }
 
-func (ttx *TokenTransaction) GetNFTReceiverAddresses() []common.Address {
-	nftReceivers := ttx.GetNFTReceivers()
-
-	receivers := make([]common.Address, 0)
-
-	for receiver := range nftReceivers {
-		receivers = append(receivers, receiver)
-	}
-
-	return receivers
+func (ttx *TokenTransaction) GetNFTReceiverAddresses() mapset.Set[common.Address] {
+	return mapset.NewSetFromMapKeys[common.Address](ttx.GetNFTReceivers())
 }
 
 func (ttx *TokenTransaction) GetNFTSenders() map[common.Address][]*TokenTransfer {
@@ -206,24 +200,12 @@ func (ttx *TokenTransaction) GetNonZeroNFTSenders() map[common.Address][]*TokenT
 	return nonZeroSenders
 }
 
-func (ttx *TokenTransaction) GetNFTSenderAddresses() []common.Address {
-	nftSenders := ttx.GetNFTSenders()
-
-	senders := make([]common.Address, 0)
-
-	for sender := range nftSenders {
-		senders = append(senders, sender)
-	}
-
-	return senders
+func (ttx *TokenTransaction) GetNFTSenderAddresses() mapset.Set[common.Address] {
+	return mapset.NewSetFromMapKeys[common.Address](ttx.GetNFTSenders())
 }
 
-func (ttx *TokenTransaction) GetNFTSenderAndReceiverAddresses() []common.Address {
-	addresses := make([]common.Address, 0)
-	addresses = append(addresses, ttx.GetNFTSenderAddresses()...)
-	addresses = append(addresses, ttx.GetNFTReceiverAddresses()...)
-
-	return addresses
+func (ttx *TokenTransaction) GetNFTSenderAndReceiverAddresses() mapset.Set[common.Address] {
+	return ttx.GetNFTSenderAddresses().Union(ttx.GetNFTReceiverAddresses())
 }
 
 func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Pool) {
@@ -302,7 +284,7 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 // 	ttx.parseERC20Transfers()
 // }
 
-func (ttx *TokenTransaction) parseERC20Transfers() {
+func (ttx *TokenTransaction) parseERC20Transfers(providerPool *provider.Pool) {
 	ttx.sentMoney = make(map[common.Address]*big.Int)
 	ttx.sentToken = make(map[common.Address][]*token.Token)
 
@@ -310,6 +292,12 @@ func (ttx *TokenTransaction) parseERC20Transfers() {
 
 	for _, transfer := range ttx.Transfers {
 		if transfer.Standard == standard.ERC20 {
+			log.Debugf("providerPool.IsContract(%s): %+v ", transfer.From.Hex(), providerPool.IsContract(transfer.From))
+
+			if providerPool.IsContract(transfer.From) || marketplace.Blur.ContractAddresses.Contains(transfer.From) {
+				continue
+			}
+
 			if _, ok := ttx.sentMoney[transfer.From]; !ok {
 				ttx.sentMoney[transfer.From] = big.NewInt(0)
 			}
@@ -353,7 +341,7 @@ func (ttx *TokenTransaction) discoverItemPrices() {
 }
 
 // GetPurchaseOrBidIndicator returns a string indicating if the tx is a purchase
-// or if someone dumped into bids
+// or if someone dumped into bids.
 func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
 	indicatorString := "・"
 
@@ -374,7 +362,6 @@ func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
 
 	default:
 		purchaseOrBidStyle = style.TrendLightGreenStyle
-
 	}
 
 	return purchaseOrBidStyle.Render(indicatorString)
@@ -472,12 +459,12 @@ func (ttx *TokenTransaction) IsAirdrop() bool {
 	receivers := ttx.GetNFTReceiverAddresses()
 
 	// airdrops come from the zeroAddress
-	if len(senders) != 1 || senders[0] != internal.ZeroAddress {
+	if senders.Cardinality() != 1 || senders.Contains(internal.ZeroAddress) {
 		return false
 	}
 
 	// airdrops are sent to multiple addresses
-	if len(receivers) < 2 {
+	if receivers.Cardinality() < 2 {
 		return false
 	}
 
@@ -602,18 +589,6 @@ func (ttx *TokenTransaction) getAction() *degendb.GBEventType {
 		return degendb.Transfer
 	default:
 		return degendb.Unknown
-	}
-}
-
-func (ttx *TokenTransaction) AsHistoryTokenTransaction(collection *collections.Collection, fmtTokensTransferred []string) *HistoryTokenTransaction {
-	return &HistoryTokenTransaction{
-		ReceivedAt: ttx.ReceivedAt,
-		AmountPaid: ttx.AmountPaid,
-		// TxType:               ttx.GetTxType(),
-		FmtTokensTransferred: fmtTokensTransferred,
-		Collection:           collection,
-
-		TokenTransaction: ttx,
 	}
 }
 
