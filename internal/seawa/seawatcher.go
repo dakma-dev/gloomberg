@@ -245,7 +245,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		Metadata: metadata,
 	}
 
-	// log.Printf("⚓️ received %s event: %+v", itemEventType, rawEvent)
+	// sw.Prf("⚓️ received %s event: %+v", itemEventType, rawEvent)
 
 	switch osmodels.EventType(itemEventType) {
 	// item listed
@@ -415,9 +415,9 @@ func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes []gbgrpc.Even
 		// sw.Prf("subscribing to %s...", strings.Join(slugs, ", "))
 
 		return uint64(len(slugs))
-	} else if !viper.GetBool("seawatcher.local") {
-		log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
-		log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
+	} else if !viper.GetBool("seawatcher.pubsub") && !viper.GetBool("seawatcher.local") {
+		gbl.Log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
+		gbl.Log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
 
 		return 0
 	}
@@ -438,6 +438,7 @@ func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes []gbgrpc.Even
 		sw.subscriptions[slug] = make(map[gbgrpc.EventType]func())
 
 		for _, eventType := range eventTypes {
+			gloomberg.PrModf("seawa", "subscribing to %s events for %s", eventType, slug)
 			sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
 
 			time.Sleep(time.Millisecond * 37)
@@ -575,7 +576,7 @@ func (sw *SeaWatcher) on(eventType gbgrpc.EventType, collectionSlug string, even
 }
 
 func (sw *SeaWatcher) WorkerMgmtChannel() {
-	log.Debugf("subscribing to mgmt channel %s", internal.TopicSeaWatcherMgmt)
+	log.Debugf("subscribing to mgmt channel %s", internal.PubSubSeaWatcherMgmt)
 
 	mgmtChannel := sw.gb.SubscribeSeawatcherMgmt()
 
@@ -588,9 +589,9 @@ func (sw *SeaWatcher) WorkerMgmtChannel() {
 
 // SubscribeToPubsubMgmt starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
 func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
-	sw.Prf("subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt))
+	sw.Prf("subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 
-	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.TopicSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
+	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
 		log.Infof("⚓️ received msg on channel %s: %s", msg.Channel, msg.Message)
 
 		var mgmtEvent *models.MgmtEvent
@@ -604,12 +605,12 @@ func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
 		sw.handleMgmtEvent(mgmtEvent)
 	})
 	if err != nil {
-		log.Errorf("❌ error subscribing to redis channels %s: %s", internal.TopicSeaWatcherMgmt, err.Error())
+		log.Errorf("❌ error subscribing to redis channels %s: %s", internal.PubSubSeaWatcherMgmt, err.Error())
 
 		return
 	}
 
-	sw.Prf("📣 subscribed to %s", style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt))
+	sw.Prf("📣 subscribed to %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 }
 
 func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
@@ -619,6 +620,12 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 		return
 
 	case models.Subscribe, models.Unsubscribe:
+		if !viper.GetBool("seawatcher.local") {
+			sw.Prf("⚓️❌ can't subscribe to mgmt events, not running local OpenSea client")
+
+			return
+		}
+
 		sw.Prf("received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(mgmtEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))))
 		if len(mgmtEvent.Slugs) == 0 {
 			log.Error("⚓️❌ incoming collection slugs msg is empty")
@@ -670,10 +677,10 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 		return
 	}
 
-	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(internal.TopicSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
+	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 		log.Errorf("⚓️❌ error publishing %s to redis: %s", sendSlugsEvent.Action.String(), err.Error())
 	} else {
-		sw.Prf("📣 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.TopicSeaWatcherMgmt))
+		sw.Prf("📣 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 	}
 }
 
