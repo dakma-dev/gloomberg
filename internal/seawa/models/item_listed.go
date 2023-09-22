@@ -11,7 +11,7 @@ type ItemListed struct {
 }
 
 type ItemListedPayload struct {
-	EventPayload `json:"payload"      mapstructure:",squash"`
+	EventPayload `mapstructure:",squash"`
 	Item         Item        `json:"item"         mapstructure:"item"`
 	IsPrivate    bool        `json:"is_private"   mapstructure:"is_private"`
 	ListingDate  time.Time   `json:"listing_date" mapstructure:"listing_date"`
