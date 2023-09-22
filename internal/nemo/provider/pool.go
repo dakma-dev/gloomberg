@@ -252,7 +252,7 @@ func (pp *Pool) IsContract(address common.Address) bool {
 	// ok 🙄 seems we really need to check via a node if its a eoa or contract
 	codeAt, err := pp.GetCodeAt(context.Background(), address)
 	if err != nil {
-		gbl.Log.Errorf("❗️ failed to get codeAt for %s: %s", address.String(), err)
+		gbl.Log.Debugf("❕ failed to get codeAt for %s: %s", address.String(), err)
 
 		return false
 	}

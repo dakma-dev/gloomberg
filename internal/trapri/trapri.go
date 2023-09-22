@@ -974,7 +974,6 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	//
 	// 🌈 finally print the sale/listing/whatever 🌈
 	if !viper.GetBool("ui.headless") {
-		// terminalPrinterQueue <- out.String()
 		if ttx.IsListing() && !isOwnCollection {
 			return
 		}
@@ -986,17 +985,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 
 		// print to terminal
-		// gb.In.PrintToTerminal <- printLine
 		gloomberg.TerminalPrinterQueue <- printLine
 
 		gb.In.ParsedEvents <- &parsedEvent
 	}
 
 	// add to history
-	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid()) { // && ttx.Action != degendb.ItemBid && ttx.Action != degendb.CollectionOffer {
-		if (!ttx.IsListing() || (ttx.IsListing() && isOwnWallet)) && currentCollection.Source != collections.FromConfiguration && gb.Stats != nil {
-			// gb.Stats.EventHistory = append(gb.Stats.EventHistory, ttx.AsHistoryTokenTransaction(currentCollection, fmtTokensHistory))
-
+	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid() && !ttx.IsCollectionOffer()) {
+		if !ttx.IsListing() || (isOwnWallet && currentCollection.Source != collections.FromConfiguration) { // && gb.Stats != nil {
 			// TODO: fix/remove this...
 			parsedEvent.Other["fmtTokensHistory"] = fmtTokensHistory
 
@@ -1014,6 +1010,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			}
 
 			gbl.Log.Debugf("trapri added event to history: %+v", gb.RecentOwnEvents.Cardinality())
+		} else {
+			gbl.Log.Debugf("trapri not adding event to history: %+v", ttx)
 		}
 	}
 }

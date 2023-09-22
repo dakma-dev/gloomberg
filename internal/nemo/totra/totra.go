@@ -348,7 +348,7 @@ func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
 	var purchaseOrBidStyle lipgloss.Style
 
 	switch {
-	case ttx.IsItemBid():
+	case ttx.IsAcceptedOffer():
 		purchaseOrBidStyle = style.TrendRedStyle
 
 	case ttx.IsListing():
@@ -369,6 +369,7 @@ func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
 
 func (ttx *TokenTransaction) Is() map[string]bool {
 	isFunctions := map[string]bool{
+		"IsAcceptedOffer":   ttx.IsAcceptedOffer(),
 		"IsAirdrop":         ttx.IsAirdrop(),
 		"IsBurn":            ttx.IsBurn(),
 		"IsCollectionOffer": ttx.IsCollectionOffer(),
@@ -411,6 +412,10 @@ func (ttx *TokenTransaction) IsListing() bool {
 }
 
 func (ttx *TokenTransaction) IsItemBid() bool {
+	return ttx.Action == degendb.Bid
+}
+
+func (ttx *TokenTransaction) IsAcceptedOffer() bool {
 	return ttx.GetNFTSenderAddresses().Cardinality() > 0 && ttx.GetNFTSenderAddresses().Contains(ttx.From)
 }
 
