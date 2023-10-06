@@ -20,7 +20,7 @@ require (
 	github.com/muesli/termenv v0.15.2
 	github.com/nshafer/phx v0.2.0
 	github.com/prometheus/client_golang v1.16.0
-	github.com/prometheus/client_model v0.4.0
+	github.com/prometheus/client_model v0.5.0
 	github.com/r3labs/sse/v2 v2.10.0
 	github.com/redis/rueidis v1.0.19
 	github.com/rs/xid v1.5.0
