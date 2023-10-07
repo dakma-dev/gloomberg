@@ -546,6 +546,14 @@ func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan s
 	go func() {
 		for range tickerPrintStats.C {
 			s.Print(queueOutput)
+
+			if newInterval := viper.GetDuration("ticker.statsbox"); newInterval != intervalPrintStats {
+				intervalPrintStats = newInterval
+
+				tickerPrintStats.Reset(intervalPrintStats)
+
+				log.Printf("👀 stats ticker interval changed to %s", intervalPrintStats)
+			}
 		}
 	}()
 }

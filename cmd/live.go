@@ -11,7 +11,6 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/chawago"
 	"github.com/benleb/gloomberg/internal/config"
-	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/degendb/degendata"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
@@ -22,6 +21,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/nepa"
+	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/opensea"
 	"github.com/benleb/gloomberg/internal/pusu"
 	seawatcher "github.com/benleb/gloomberg/internal/seawa"
@@ -154,6 +154,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	// start subscribing
 	go nePa.Run()
+
+	go notify.GetBot()
 
 	// if viper.GetBool("websockets.server.enabled") {
 	// 	// queueWS := make(chan *collections.Event, 1024)
@@ -364,8 +366,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// statsbox
 	gb.Stats = gloomberg.NewStats(gb, gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
 
-	if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
-		go gb.Stats.StartTicker(statsInterval, terminalPrinterQueue)
+	// if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
+	if viper.GetBool("stats.enabled") {
+		go gb.Stats.StartTicker(viper.GetDuration("ticker.statsbox"), terminalPrinterQueue)
 	}
 
 	//

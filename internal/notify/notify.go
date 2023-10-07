@@ -183,7 +183,11 @@ func SendMessageViaTelegram(message string, chatID int64, imageURI string, reply
 
 func buildNotificationMessage(ttx *totra.TokenTransaction, transfer *totra.TokenTransfer, collection *collections.Collection, userName string, triggerAddress common.Address) strings.Builder {
 	// prepare links
-	etherscanURL, openseaURL, blurURL := utils.GetLinks(ttx.Tx.Hash(), transfer.Token.Address, transfer.Token.ID.Int64())
+	tokenID := int64(0)
+	if transfer.Token.ID != nil {
+		tokenID = transfer.Token.ID.Int64()
+	}
+	etherscanURL, openseaURL, blurURL := utils.GetLinks(ttx.TxHash, transfer.Token.Address, tokenID)
 
 	action := ttx.Action
 
@@ -229,19 +233,8 @@ func getImageURI(gb *gloomberg.Gloomberg, collection *collections.Collection, to
 }
 
 func DecodeBase64Image(data string) {
-	// // decode base64 image
-	// decoded, err := base64.StdEncoding.DecodeString(data)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// fileBytes := tgbotapi.FileBytes{
-	// 	Name:  "image.jpg",
-	// 	Bytes: decoded,
-	// }
-
 	if tgBot == nil {
-		tgBot, err := getBot()
+		tgBot, err := GetBot()
 
 		if err != nil || tgBot == nil {
 			return
@@ -285,12 +278,4 @@ func DecodeBase64Image(data string) {
 	}
 
 	gbl.Log.Infof("📫 msgSent | %+v\n", msgSent)
-
-	// // decode image
-	// img, _, err := image.Decode(bytes.NewReader(decoded))
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	// return img, nil
 }

@@ -25,7 +25,7 @@ import (
 
 func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, replyToMessageID int, replyMarkup interface{}) (tgbotapi.Message, error) {
 	if tgBot == nil {
-		tgBot, err := getBot()
+		tgBot, err := GetBot()
 
 		if err != nil || tgBot == nil {
 			return tgbotapi.Message{}, err
