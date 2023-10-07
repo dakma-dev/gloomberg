@@ -74,118 +74,123 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
 		gbl.Log.Debugf("🚇 received msg on channel %s", msg.Channel)
 
-		var rawEvent map[string]interface{}
-
-		// validate json
-		if !json.Valid([]byte(msg.Message)) {
-			gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
-
-			return
-		}
-
-		// unmarshal json
-		if err := json.Unmarshal([]byte(msg.Message), &rawEvent); err != nil {
-			gbl.Log.Errorf("❌ error json.Unmarshal: %+v\n", err.Error())
-
-			return
-		}
-
-		// decode event to general event
-		var generalEvent models.GeneralEvent
-
-		// decode event
-		rawDecoderConfig := models.GetEventDecoderConfig()
-		rawDecoderConfig.Result = &generalEvent
-		decoder, _ := mapstructure.NewDecoder(&rawDecoderConfig)
-
-		err := decoder.Decode(rawEvent)
-		if err != nil {
-			log.Infof("⚓️❌ decoding incoming event failed: %+v | %+v", msg.Message, err)
-
-			return
-		}
-
-		// decoder config
-		decoderConfig := models.GetEventDecoderConfig()
-
-		switch degendb.GetEventType(generalEvent.EventType) {
-		case degendb.Listing:
-			var itemListed models.ItemListed
-
-			decoderConfig.Result = &itemListed
-			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
-
-			err := decoder.Decode(rawEvent)
-			if err != nil {
-				log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
-
-				return
-			}
-
-			// push to event hub
-			gb.In.ItemListed <- &itemListed
-
-		case degendb.Bid:
-			var itemReceivedBid models.ItemReceivedBid
-
-			decoderConfig.Result = &itemReceivedBid
-			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
-
-			err := decoder.Decode(rawEvent)
-			if err != nil {
-				log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
-
-				return
-			}
-
-			// push to event hub
-			gb.In.ItemReceivedBid <- &itemReceivedBid
-
-		case degendb.CollectionOffer:
-			var collectionOffer models.CollectionOffer
-
-			// decoderConfig := models.GetEventDecoderConfig()
-			decoderConfig.Result = &collectionOffer
-			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
-
-			err := decoder.Decode(rawEvent)
-			if err != nil {
-				log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", collectionOffer, err)
-
-				return
-			}
-
-			// push to event hub
-			gb.In.CollectionOffer <- &collectionOffer
-
-		case degendb.MetadataUpdated:
-			var itemMetadataUpdated models.ItemMetadataUpdated
-
-			decoderConfig.Result = &itemMetadataUpdated
-			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
-
-			err := decoder.Decode(rawEvent)
-			if err != nil {
-				log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", itemMetadataUpdated, err)
-
-				return
-			}
-
-			// push to event hub
-			gb.In.ItemMetadataUpdated <- &itemMetadataUpdated
-
-		default:
-			gbl.Log.Warnf("❗️ unknown event type: %s", generalEvent.EventType)
-			gbl.Log.Warnf("❗️         %#v", generalEvent)
-		}
-
-		logEvent(generalEvent)
+		// handle event
+		go handleEvent(gb, msg)
 	})
 	if err != nil {
 		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())
 
 		return
 	}
+}
+
+func handleEvent(gb *gloomberg.Gloomberg, msg rueidis.PubSubMessage) {
+	var rawEvent map[string]interface{}
+
+	// validate json
+	if !json.Valid([]byte(msg.Message)) {
+		gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
+
+		return
+	}
+
+	// unmarshal json
+	if err := json.Unmarshal([]byte(msg.Message), &rawEvent); err != nil {
+		gbl.Log.Errorf("❌ error json.Unmarshal: %+v\n", err.Error())
+
+		return
+	}
+
+	// decode event to general event
+	var generalEvent models.GeneralEvent
+
+	// decode event
+	rawDecoderConfig := models.GetEventDecoderConfig()
+	rawDecoderConfig.Result = &generalEvent
+	decoder, _ := mapstructure.NewDecoder(&rawDecoderConfig)
+
+	err := decoder.Decode(rawEvent)
+	if err != nil {
+		log.Infof("⚓️❌ decoding incoming event failed: %+v | %+v", msg.Message, err)
+
+		return
+	}
+
+	// decoder config
+	decoderConfig := models.GetEventDecoderConfig()
+
+	switch degendb.GetEventType(generalEvent.EventType) {
+	case degendb.Listing:
+		var itemListed models.ItemListed
+
+		decoderConfig.Result = &itemListed
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+
+			return
+		}
+
+		// push to event hub
+		gb.In.ItemListed <- &itemListed
+
+	case degendb.Bid:
+		var itemReceivedBid models.ItemReceivedBid
+
+		decoderConfig.Result = &itemReceivedBid
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+
+			return
+		}
+
+		// push to event hub
+		gb.In.ItemReceivedBid <- &itemReceivedBid
+
+	case degendb.CollectionOffer:
+		var collectionOffer models.CollectionOffer
+
+		// decoderConfig := models.GetEventDecoderConfig()
+		decoderConfig.Result = &collectionOffer
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", collectionOffer, err)
+
+			return
+		}
+
+		// push to event hub
+		gb.In.CollectionOffer <- &collectionOffer
+
+	case degendb.MetadataUpdated:
+		var itemMetadataUpdated models.ItemMetadataUpdated
+
+		decoderConfig.Result = &itemMetadataUpdated
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", itemMetadataUpdated, err)
+
+			return
+		}
+
+		// push to event hub
+		gb.In.ItemMetadataUpdated <- &itemMetadataUpdated
+
+	default:
+		gbl.Log.Warnf("❗️ unknown event type: %s", generalEvent.EventType)
+		gbl.Log.Warnf("❗️         %#v", generalEvent)
+	}
+
+	logEvent(generalEvent)
 }
 
 func Publish(gb *gloomberg.Gloomberg, channel string, event any) {

@@ -57,7 +57,7 @@ type WGroup struct {
 
 // Contains returns true if the given string is in the slice.
 func (wu *Watcher) Contains(address common.Address) bool {
-	return wu.UserAddresses[address] != nil
+	return wu.UserAddresses != nil && wu.UserAddresses[address] != nil
 }
 
 func (wu *Watcher) ContainsOneOf(addresses map[common.Address]bool) common.Address {
