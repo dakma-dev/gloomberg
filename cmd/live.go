@@ -432,43 +432,6 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gloomberg.PrMod("web", "web-ui started")
 	}
 
-	// // prometheus metrics
-	// if viper.GetBool("metrics.enabled") {
-	// 	go func() {
-	// 		listenHost := net.ParseIP(viper.GetString("metrics.host"))
-	// 		listenPort := viper.GetUint("metrics.port")
-	// 		listenAddress := net.JoinHostPort(listenHost.String(), strconv.Itoa(int(listenPort)))
-
-	// 		http.Handle("/metrics", promhttp.Handler())
-
-	// 		gbl.Log.Infof("prometheus metrics: http://%s", listenAddress)
-
-	// 		if err := http.ListenAndServe(listenAddress, nil); err != nil { //nolint:gosec
-	// 			gbl.Log.Error(err)
-	// 		}
-	// 	}()
-	// }
-
-	// marmot tasks
-	// gb.CreatePeriodicTask("testing", 5*time.Second, func(gb *gloomberg.Gloomberg) {
-	// 	log.Printf("testing tasks lol! %+v", len(gb.Ranks))
-	// })
-	// gb.CreateScheduledTask("testing", time.Now().Add(17*time.Second), func(gb *gloomberg.Gloomberg) {
-	// 	log.Printf("testing scheduled tasks lol! %+v", len(gb.Ranks))
-	// })
-
-	// grpc client
-	if viper.GetBool("grpc.client.enabled") {
-		gloomberg.Prf("starting grpc client...")
-
-		// go seawa.GetEvents()
-		// gclient := remote.NewClient(fmt.Sprintf("%s:%d", viper.GetString("grpc.client.host"), viper.GetUint("grpc.client.port")))
-		// log.Printf("gclient: %+v", gclient)
-		go remote.FetchEvents(gb)
-
-		// go gbgrpc.FetchEvents(gb)
-	}
-
 	go func() {
 		wawa := chawago.NewWalletWatcher(gb)
 		wawa.Watch()

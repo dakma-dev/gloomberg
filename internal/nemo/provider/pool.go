@@ -41,6 +41,10 @@ type Pool struct {
 }
 
 func (pp *Pool) GetProviders() []*Provider {
+	if pp.providers == nil || len(pp.providers) == 0 {
+		return []*Provider{}
+	}
+
 	return pp.providers
 }
 
@@ -441,6 +445,10 @@ func (pp *Pool) getProviders() []*Provider {
 	providers := make([]*Provider, 0)
 
 	// get all provider
+	if pp.providers == nil || len(pp.providers) == 0 {
+		return providers
+	}
+
 	providers = append(providers, pp.providers...)
 
 	// shuffle provider to avoid hitting the same node over and over again

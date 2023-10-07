@@ -314,7 +314,7 @@ func (uc *Collection) GetPrettySaLiRas() []string {
 
 func (uc *Collection) Style() lipgloss.Style {
 	if uc.Colors.Primary == "" {
-		gbl.Log.Infof("🎨 primary collection color missing for %s", uc.Name)
+		gbl.Log.Debugf("🎨 primary collection color missing for %+v", uc)
 		uc.generateColorsFromAddress()
 	}
 
@@ -323,7 +323,7 @@ func (uc *Collection) Style() lipgloss.Style {
 
 func (uc *Collection) StyleSecondary() lipgloss.Style {
 	if uc.Colors.Secondary == "" {
-		gbl.Log.Infof("🎨 secondary collection color missing for %s", uc.Name)
+		gbl.Log.Debugf("🎨 secondary collection color missing for %+v", uc)
 		uc.generateColorsFromAddress()
 	}
 

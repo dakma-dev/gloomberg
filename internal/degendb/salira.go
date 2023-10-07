@@ -47,6 +47,6 @@ func (s *SaLiRa) Pretty(faint bool) string {
 
 	return fmt.Sprint(
 		style.CreateTrendIndicator(s.Previous, current),
-		saLiRaStyle.Faint(faint).Render(fmt.Sprintf("%4.2f", current)),
+		saLiRaStyle.Copy().Faint(faint).Render(fmt.Sprintf("%4.2f", current)),
 	)
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
@@ -32,7 +33,8 @@ func NewDegenDB() *DegenDB {
 
 	mongoClient, err := ddb.connect()
 	if err != nil {
-		log.Errorf("❌ could not connect to mongoDB at %s: %s", ddb.uri, err)
+		log.Debugf("mongoDB not configured or not reachable... %s: %s", ddb.uri, err)
+		gbl.Log.Infof("❕ could not connect to mongoDB at %s: %s", ddb.uri, err)
 
 		return nil
 	}

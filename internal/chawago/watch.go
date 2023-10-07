@@ -7,11 +7,13 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
+	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/viper"
 )
 
 type WalletWatcher struct {
@@ -58,15 +60,15 @@ func (ww *WalletWatcher) FormattedWallets() []string {
 
 func (ww *WalletWatcher) Watch() {
 	// demo/testing wallets
-	ww.Wallets[common.HexToAddress("0x1329d762e5e34e53a6c5e24bd15fa032482eb0f9")] = &wallet.Wallet{
-		Name:    "unknown",
-		Address: common.HexToAddress("0x1329d762e5e34e53a6c5e24bd15fa032482eb0f9"),
-		Color:   lipgloss.Color("#ff9900"),
+	ww.Wallets[common.HexToAddress("0x34d3119a6b983af8eec6bcebd79bc5a235671b5b")] = &wallet.Wallet{
+		Name:    "scammy",
+		Address: common.HexToAddress("0x34d3119a6b983af8eec6bcebd79bc5a235671b5b"),
+		Color:   lipgloss.Color("#ff0099"),
 	}
 	ww.Wallets[common.HexToAddress("0xdcae87821fa6caea05dbc2811126f4bc7ff73bd1")] = &wallet.Wallet{
 		Name:    "OSF",
 		Address: common.HexToAddress("0xdcae87821fa6caea05dbc2811126f4bc7ff73bd1"),
-		Color:   lipgloss.Color("#ff0099"),
+		Color:   lipgloss.Color("#031099"),
 	}
 
 	// collect wallet addresses in a set
@@ -98,19 +100,21 @@ func (ww *WalletWatcher) Watch() {
 
 		// check if any of the addresses in the tx are in the watchedWallets
 		if addressesInTx.Intersect(ww.watchedWallets).Cardinality() == 0 {
-			gbl.Log.Debugf("no watched wallet in tx %s", tx.Hash().Hex())
+			gbl.Log.Debugf("no watched wallet (%s) in tx %s", ww.watchedWallets, tx.Hash().Hex())
 
 			continue
 		}
 
-		// go notify.SendMessageViaTelegram(fmt.Sprintf("👀  %s", "https://etherscan.io/tx/"+tx.Hash().Hex()), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil)
+		go notify.SendMessageViaTelegram(fmt.Sprintf("👀  %s", "https://etherscan.io/tx/"+tx.Hash().Hex()), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil)
 
 		log.Debugf(" | %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 
 		// do something with the transaction
 		if tx.Sender() != nil && ww.watchedWallets.Contains(*tx.Sender()) {
 			// do something
-			log.Debugf("Transaction from wallet %s: %s", ww.Wallets[*tx.Sender()].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
+			log.Printf("")
+			log.Printf("Transaction from wallet %s: %s", ww.Wallets[*tx.Sender()].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
+			log.Printf("")
 		}
 
 		for _, txLog := range tx.Logs {

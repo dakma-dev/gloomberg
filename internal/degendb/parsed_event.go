@@ -23,7 +23,8 @@ type PreformattedEvent struct {
 	IsOwnWallet     bool
 	IsOwnCollection bool
 
-	PurchaseOrBidIndicator string
+	// Purchase or Accepted Offer Indicator
+	PAOI string
 
 	// fix this with new chawago watcher
 	IsWatchUsersWallet bool

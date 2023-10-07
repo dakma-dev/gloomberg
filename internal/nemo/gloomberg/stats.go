@@ -515,12 +515,15 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 		}
 
 		historyLine := strings.Builder{}
+
 		historyLine.WriteString(timeNow)
 		historyLine.WriteString(" " + event.Typemoji)
+
 		historyLine.WriteString(" " + rowStyle.Render(fmt.Sprintf("%6.3f", pricePerItem.Ether())))
 		historyLine.WriteString(collectionStyle.Faint(printFaint).Render("Ξ"))
-		historyLine.WriteString(event.PurchaseOrBidIndicator)
-		// historyLine.WriteString(" " + event.TransferredCollections[0].CollectionName)
+
+		historyLine.WriteString(event.PAOI)
+
 		historyLine.WriteString(" " + tokenInfo)
 
 		if viper.GetBool("log.debug") {

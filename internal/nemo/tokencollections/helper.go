@@ -16,7 +16,7 @@ func GetCollection(gb *gloomberg.Gloomberg, contractAddress common.Address, toke
 	collection := gb.CollectionDB.Collections[contractAddress]
 	gb.CollectionDB.RWMu.RUnlock()
 
-	if collection == nil {
+	if collection == nil && gb.ProviderPool != nil {
 		name := ""
 
 		// if tokenName, err := gb.Nodes.GetERC1155TokenName(contractAddress, big.NewInt(tokenID)); err == nil && tokenName != "" {
