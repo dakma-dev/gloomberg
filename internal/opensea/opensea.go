@@ -160,11 +160,6 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 		for _, contract := range collection.PrimaryAssetContracts {
 			contractAddress := common.HexToAddress(contract.Address)
 
-			// if userCollections.Collections[contractAddress] != nil || contractAddress == external.ENSContract || collection.Name == "MegaCryptoPolis" {
-			if collection.Stats.AveragePrice <= 0.001 {
-				continue
-			}
-
 			if userCollections.Collections[contractAddress] == nil {
 				userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collections.FromWallet, nil)
 				userCollection.OpenseaSlug = collection.Slug
