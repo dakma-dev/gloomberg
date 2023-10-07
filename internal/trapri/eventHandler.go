@@ -12,7 +12,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// SeaWatcherEventsHandler handles events coming from the SeaWatcher and processes
+// SeaWatcherEventsHandler handles events coming from the SeaWatcher and processes.
 func SeaWatcherEventsHandler(gb *gloomberg.Gloomberg) {
 	chanItemListed := gb.SubscribeItemListed()
 	chanItemReceivedBid := gb.SubscribeItemReceivedBid()

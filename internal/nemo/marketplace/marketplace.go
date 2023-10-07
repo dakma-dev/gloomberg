@@ -16,7 +16,7 @@ type MarketPlace struct {
 	Tag               string                     `json:"tag"`
 }
 
-func MarketplaceAddresses() mapset.Set[common.Address] {
+func Addresses() mapset.Set[common.Address] {
 	return mapset.NewSetFromMapKeys[common.Address](AddressToMarketplace())
 }
 

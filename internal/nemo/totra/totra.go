@@ -366,7 +366,7 @@ func (ttx *TokenTransaction) GetPAOI() string {
 	return ttx.getPAOIStyle().Render(indicatorString)
 }
 
-// getPAOIStyle returns a lipgloss style for the "purchase or accepted offer indicator"
+// getPAOIStyle returns a lipgloss style for the "purchase or accepted offer indicator".
 func (ttx *TokenTransaction) getPAOIStyle() lipgloss.Style {
 	var purchaseOrBidStyle lipgloss.Style
 

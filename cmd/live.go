@@ -155,7 +155,11 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// start subscribing
 	go nePa.Run()
 
-	go notify.GetBot()
+	go func() {
+		if _, err := notify.GetBot(); err != nil {
+			gbl.Log.Errorf("❌ error getting telegram bot: %s", err.Error())
+		}
+	}()
 
 	// if viper.GetBool("websockets.server.enabled") {
 	// 	// queueWS := make(chan *collections.Event, 1024)

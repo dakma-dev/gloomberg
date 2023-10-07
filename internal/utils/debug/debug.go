@@ -19,8 +19,8 @@ import (
 // 	debug.DebugIt(ttx)
 // }
 
-// DebugIt prints information about a object for debugging purposes.
-func DebugIt[T interface{}](debugObject T) {
+// PrintIt prints information about a object for debugging purposes.
+func PrintIt[T interface{}](debugObject T) {
 	log.Print("")
 
 	// pretty print the whole object.

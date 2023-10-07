@@ -468,6 +468,7 @@ func (sw *SeaWatcher) IsSubscribedToAllEvents(slug string) bool {
 
 		if !ok {
 			log.Errorf("⚓️❌ error while checking existing eventtype subscriptions for %s / %+v", slug, eventType)
+
 			return false
 		}
 

@@ -874,7 +874,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				}
 
 				if !alreadySubscribed.Contains(currentCollection.OpenseaSlug) && !seawa.IsSubscribedToAllEvents(currentCollection.OpenseaSlug) {
-					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []degendb.EventType{degendb.Listing, degendb.CollectionOffer, degendb.Bid}) > 0 { //nolint:nosnakecase
+					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []degendb.EventType{degendb.Listing, degendb.CollectionOffer, degendb.Bid}) > 0 {
 						alreadySubscribed.Add(currentCollection.OpenseaSlug)
 						pusu.SubscribeToListingsViaRedis(gb)
 

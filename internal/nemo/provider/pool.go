@@ -242,16 +242,17 @@ func (pp *Pool) GetLogsByBlockNumber(blockNumber int64) []types.Log {
 // to resource intensive to check this for every address we encounter, so we cache the result.
 func (pp *Pool) IsContract(address common.Address) bool {
 	// if its a marketplace address, its a contract
-	if marketplace.MarketplaceAddresses().Contains(address) {
+	if marketplace.Addresses().Contains(address) {
 		return true
 	}
 
 	// check if we have a cached the account type already
-	if accountType, err := pp.Rueidi.GetCachedAccountType(context.Background(), address); err == nil {
+	accountType, err := pp.Rueidi.GetCachedAccountType(context.Background(), address)
+	if err == nil {
 		return degendb.AccountType(accountType) == degendb.Contract
-	} else {
-		gbl.Log.Debugf("❕ error getting cached account type: %s", err)
 	}
+
+	gbl.Log.Debugf("❕ error getting cached account type: %s", err)
 
 	// ok 🙄 seems we really need to check via a node if its a eoa or contract
 	codeAt, err := pp.GetCodeAt(context.Background(), address)
