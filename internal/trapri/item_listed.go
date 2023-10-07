@@ -16,6 +16,8 @@ import (
 func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 	nftID := event.Payload.Item.NftID
 
+	contractAddress := nftID.ContractAddress()
+
 	// seller address
 	sellerAddress := event.Payload.Maker.Address
 
@@ -44,7 +46,7 @@ func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 				To:           sellerAddress,
 				AmountTokens: big.NewInt(int64(event.Payload.Quantity)),
 				Token: &token.Token{
-					Address: nftID.ContractAddress(),
+					Address: contractAddress,
 					ID:      big.NewInt(nftID.TokenID().Int64()),
 					Name:    itemName,
 				},
@@ -52,13 +54,20 @@ func HandleItemListed(gb *gloomberg.Gloomberg, event *models.ItemListed) {
 		},
 	}
 
-	// format and print
+	// format and print in stream
 	gb.In.TokenTransactions <- ttxListing
 
+	// // 💄 style
+	// primaryColor, _ := style.GenerateAddressColors(&contractAddress)
+	// collectionStyle := lipgloss.NewStyle().Foreground(primaryColor)
+	// fmtItemName := collectionStyle.Bold(true).Render(event.Payload.Item.Name)
+	// LogOpenSeaEvent(degendb.GetEventType(event.EventType), &contractAddress, price.NewPrice(event.Payload.BasePrice), fmtItemName, &event.Payload.Maker.Address)
+
 	// collection
-	if gb.ProviderPool != nil {
-		collection := tokencollections.GetCollection(gb, nftID.ContractAddress(), nftID.TokenID().Int64())
+	if collection := tokencollections.GetCollection(gb, contractAddress, nftID.TokenID().Int64()); collection != nil {
 		// counting for salira and more...
 		collection.AddListing(uint64(event.Payload.Quantity))
+
+		return
 	}
 }

@@ -3,7 +3,6 @@ package cmd
 import (
 	"net"
 
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
 	"github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/trapri"
 	"github.com/benleb/gloomberg/internal/web"
@@ -28,16 +27,6 @@ func init() {
 	viper.SetDefault("manifoldSNS.enabled", false)
 	viper.SetDefault("manifoldSNS.host", net.IPv4(127, 0, 0, 1))
 	viper.SetDefault("manifoldSNS.port", viper.GetUint16("web.port")-1)
-
-	// grpc
-	seaWatcherCmd.Flags().Uint16("grpc-port", 31337, "gRPC server port")
-	_ = viper.BindPFlag("grpc.port", seaWatcherCmd.Flags().Lookup("grpc-port"))
-	// grpc server
-	seaWatcherCmd.Flags().IPVar(&grpcServerListen, "grpc-listen", nil, "gRPC server listen address")
-	_ = viper.BindPFlag("grpc.listen", seaWatcherCmd.Flags().Lookup("grpc-listen"))
-	// grpc client
-	seaWatcherCmd.Flags().IPVar(&grpcClientHost, "grpc", nil, "server gRPC client connects to")
-	_ = viper.BindPFlag("grpc.client.host", seaWatcherCmd.Flags().Lookup("grpc"))
 }
 
 func runSeawatcher(_ *cobra.Command, _ []string) {
@@ -66,11 +55,6 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 		// publish a "SendSlugs" event to the management channel to request the slugs/events to subscribe to from the clients
 		go sw.PublishSendSlugs()
 		sw.Pr("requested slugs from clients…")
-	}
-
-	// sw.Prf("seaWatcherCmd.CalledAs(): %+v", cmd.CalledAs())
-	if viper.GetBool("grpc.server.enabled") {
-		gbgrpc.StartServer(gb, sw)
 	}
 
 	//

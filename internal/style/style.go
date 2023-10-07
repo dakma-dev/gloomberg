@@ -290,6 +290,23 @@ func ShortenedTokenIDStyled(tokenID *big.Int, primaryStyle lipgloss.Style, secon
 	return prefix + id
 }
 
+func FormatAddress(address *common.Address) string {
+	style := lipgloss.NewStyle().Foreground(GenerateColorWithSeed(address.Big().Int64()))
+
+	return ShortenAddressStyled(address, style)
+}
+
+// GenerateColors generates two colors based on contract address of the collection.
+func GenerateAddressColors(address *common.Address) (lipgloss.Color, lipgloss.Color) {
+	return GenerateColorWithSeed(address.Hash().Big().Int64()), GenerateColorWithSeed(address.Big().Int64() ^ 2)
+}
+
+func GenerateAddressStyles(address *common.Address) (lipgloss.Style, lipgloss.Style) {
+	primaryColor, secondaryColor := GenerateAddressColors(address)
+
+	return lipgloss.NewStyle().Foreground(primaryColor), lipgloss.NewStyle().Foreground(secondaryColor)
+}
+
 // ShortenAddressStyled returns a shortened address styled with colors.
 func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string {
 	// gray out zero address

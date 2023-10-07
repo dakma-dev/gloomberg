@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 	"time"
@@ -25,10 +24,6 @@ var (
 	// tls.
 	certPath string
 	keyPath  string
-
-	// grpc.
-	grpcServerListen net.IP
-	grpcClientHost   net.IP
 
 	gb *gloomberg.Gloomberg
 )
@@ -138,15 +133,6 @@ func init() {
 	viper.SetDefault("cache.salira_ttl", 1*time.Hour)
 	viper.SetDefault("cache.slug_ttl", 3*24*time.Hour)
 	viper.SetDefault("cache.notifications_lock_ttl", time.Millisecond*1337)
-
-	// grpc server
-	viper.SetDefault("grpc.server.enabled", false)
-	viper.SetDefault("grpc.server.listenAddress", net.IPv4(127, 0, 0, 1))
-	viper.SetDefault("grpc.server.port", 31337)
-	// grpc client
-	viper.SetDefault("grpc.client.enabled", false)
-	viper.SetDefault("grpc.client.host", net.IPv4(127, 0, 0, 1))
-	viper.SetDefault("grpc.client.port", 31337)
 }
 
 // initConfig reads in config file and ENV variables if set.

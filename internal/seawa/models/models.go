@@ -1,7 +1,11 @@
 package models
 
 import (
+	"time"
+
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
+	"github.com/benleb/gloomberg/internal/utils/hooks"
+	"github.com/mitchellh/mapstructure"
 )
 
 type MgmtAction int64
@@ -34,4 +38,19 @@ type MgmtEvent struct {
 	Action MgmtAction           `json:"action"`
 	Events []osmodels.EventType `json:"events"`
 	Slugs  []string             `json:"slugs"`
+}
+
+func GetEventDecoderConfig() mapstructure.DecoderConfig {
+	return mapstructure.DecoderConfig{
+		DecodeHook: mapstructure.ComposeDecodeHookFunc(
+			hooks.StringToAddressHookFunc(),
+			hooks.StringToHashHookFunc(),
+			hooks.StringToBigIntHookFunc(),
+			StringToNftIDHookFunc(),
+			mapstructure.OrComposeDecodeHookFunc(
+				hooks.StringToUnixTimeHookFunc(),
+				mapstructure.StringToTimeHookFunc(time.RFC3339),
+			),
+		),
+	}
 }

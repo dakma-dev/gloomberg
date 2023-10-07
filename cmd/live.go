@@ -16,8 +16,6 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/remote"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/token"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
@@ -95,12 +93,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	gloomberg.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
 
-	go func() {
-		gb.DegenDB = degendb.NewDegenDB()
-	}()
-
-	// cleanup for redis db/cache
-	// defer gb.Rdb.Close()
+	// disabled for now
+	// go func() {
+	// 	gb.DegenDB = degendb.NewDegenDB()
+	// }()
 
 	// compatibility with old config key
 	var providerConfig interface{}
@@ -374,12 +370,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 	//
 	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.local") || viper.GetBool("grpc.client.enabled") || viper.GetBool("pubsub.client.enabled") {
+	if viper.GetBool("seawatcher.local") || viper.GetBool("pubsub.client.enabled") {
 		go trapri.SeaWatcherEventsHandler(gb)
-	}
-
-	if viper.GetBool("grpc.server.enabled") {
-		gbgrpc.StartServer(gb, seawa)
 	}
 
 	//
@@ -391,12 +383,12 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		go pusu.SubscribeToListingsViaRedis(gb)
 
 		// initially send all our slugs & events to subscribe to
-		go gb.SendSlugsToServer()
+		go gb.PublishOwnCollectionsSlugs()
 
 		// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
 		go func() {
 			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
-				gbl.Log.Debug(fmt.Sprintf("🚇 received msg on %s: %s", msg.Channel, msg.Message))
+				gbl.Log.Debug(fmt.Sprintf("👔 received msg on %s: %s", msg.Channel, msg.Message))
 
 				var mgmtEvent *seawaModels.MgmtEvent
 
@@ -405,8 +397,8 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 				}
 
 				if mgmtEvent.Action == seawaModels.SendSlugs {
-					gbl.Log.Info(fmt.Sprintf("🚇 SendSlugs received on channel %s", msg.Channel))
-					gb.SendSlugsToServer()
+					gbl.Log.Info(fmt.Sprintf("👔 SendSlugs received on channel %s", msg.Channel))
+					gb.PublishOwnCollectionsSlugs()
 				}
 			})
 			if err != nil {

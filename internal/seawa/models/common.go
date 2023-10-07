@@ -82,6 +82,10 @@ type EventPayload struct {
 }
 
 func (ep EventPayload) GetPrice() *price.Price {
+	if ep.BasePrice == nil {
+		return price.NewPrice(big.NewInt(0))
+	}
+
 	return price.NewPrice(ep.BasePrice)
 }
 

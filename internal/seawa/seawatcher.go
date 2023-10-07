@@ -12,15 +12,18 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	gbgrpc "github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/remote"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
+	"github.com/benleb/gloomberg/internal/nemo/price"
+	"github.com/benleb/gloomberg/internal/pusu"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 	"github.com/nshafer/phx"
 	"github.com/prometheus/client_golang/prometheus"
@@ -28,8 +31,6 @@ import (
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
 	"go.uber.org/zap"
-	"google.golang.org/grpc"
-	emptypb "google.golang.org/protobuf/types/known/emptypb"
 )
 
 type SeaWatcher struct {
@@ -45,25 +46,20 @@ type SeaWatcher struct {
 	channels map[string]*phx.Channel
 
 	// subscribed slugs/events
-	// subscriptions map[osmodels.EventType]map[string]func()
-	// subscriptions map[string]map[osmodels.EventType]func()
-	subscriptions map[string]map[gbgrpc.EventType]func()
+	subscriptions map[string]map[degendb.EventType]func()
 
 	runLocal        bool
 	runPubsubServer bool
-	runGRPCServer   bool
 
 	// redis client
 	rdb rueidis.Client
 
 	gb *gloomberg.Gloomberg
 
-	mu *sync.Mutex
+	mu *sync.RWMutex
 }
 
-// availableEventTypes = []osmodels.EventType{osmodels.ItemListed, osmodels.ItemMetadataUpdated, osmodels.ItemReceivedBid, osmodels.CollectionOffer} // , osmodels.ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled.
-var availableEventTypes = []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED} //nolint:nosnakecase
-// , gbgrpc.EventType_METADATA_UPDATED, gbgrpc.EventType_ITEM_RECEIVED_BID, gbgrpc.EventType_COLLECTION_OFFER} // ItemMetadataUpdated} // ItemMetadataUpdated, ItemCancelled
+var availableEventTypes = mapset.NewSet[degendb.EventType](degendb.Listing, degendb.CollectionOffer, degendb.Bid)
 
 var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 	Name: "gloomberg_seawatcher_events_received_count_total",
@@ -72,7 +68,7 @@ var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
 func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
-	// we might not connect to the stream api locally if we use grpc or other ways to get the events
+	// we might not connect to the stream api locally if we use other ways to get the events
 	runLocalAPIClient := viper.GetBool("seawatcher.local")
 
 	if runLocalAPIClient && apiToken == "" {
@@ -92,19 +88,17 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 
 	sw := &SeaWatcher{
 		receivedEvents: make(chan map[string]interface{}, 1024),
-		// subscriptions:  make(map[string]map[osmodels.EventType]func()),
-		subscriptions: make(map[string]map[gbgrpc.EventType]func()),
+		subscriptions:  make(map[string]map[degendb.EventType]func()),
 
 		channels: make(map[string]*phx.Channel),
 
 		runLocal:        runLocalAPIClient,
 		runPubsubServer: viper.GetBool("seawatcher.pubsub"),
-		runGRPCServer:   viper.IsSet("seawatcher.grpc.listen"),
 
 		gb:  gb,
 		rdb: gb.Rdb,
 
-		mu: &sync.Mutex{},
+		mu: &sync.RWMutex{},
 	}
 
 	// create phoenix socket
@@ -154,38 +148,9 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 	}
 
 	// start worker for managing subscriptions
-	if viper.GetBool("pubsub.client.enabled") || viper.GetBool("seawatcher.pubsub") || viper.GetBool("grpc.client.enabled") {
+	if viper.GetBool("pubsub.client.enabled") || viper.GetBool("seawatcher.pubsub") {
 		go sw.WorkerMgmtChannel()
 	}
-
-	// if viper.GetBool("seawatcher.grpc.server.enabled") {
-	// 	sw.Prf("starting grpc server...")
-
-	// 	listenHost := viper.GetString("seawatcher.grpc.listen")
-	// 	port := viper.GetUint16("seawatcher.grpc.port")
-	// 	serverAddress := fmt.Sprintf("%s:%d", listenHost, port)
-
-	// 	// configure grpc server
-	// 	go func() {
-	// 		grpcListener, err := net.Listen("tcp", serverAddress)
-	// 		if err != nil {
-	// 			log.Errorf("failed to listen: %v", err)
-	// 		}
-
-	// 		var opts []grpc.ServerOption
-	// 		if creds, err := gloomberg.GetTLSCredentialsWithoutClientAuth(); err == nil {
-	// 			opts = []grpc.ServerOption{grpc.Creds(creds)}
-	// 		}
-
-	// 		// start grpc server
-	// 		grpcServer := grpc.NewServer(opts...)
-	// 		RegisterSeaWatcherServer(grpcServer, sw)
-
-	// 		go log.Error(grpcServer.Serve(grpcListener))
-	// 	}()
-
-	// 	sw.Prf("grpc server started on %+v", style.BoldAlmostWhite(serverAddress))
-	// }
 
 	return sw
 }
@@ -205,8 +170,18 @@ func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
 }
 
 // func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[osmodels.EventType]func() {.
-func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[gbgrpc.EventType]func() {
-	return sw.subscriptions
+func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[degendb.EventType]func() {
+	totalSubscriptions := 0
+
+	sw.mu.Lock()
+	slugSubscriptions := sw.subscriptions
+	sw.mu.Unlock()
+
+	for _, eventSubscriptions := range slugSubscriptions {
+		totalSubscriptions += len(eventSubscriptions)
+	}
+
+	return slugSubscriptions
 }
 
 // eventHandler handles incoming stream api events and forwards them as map.
@@ -228,32 +203,34 @@ func (sw *SeaWatcher) eventHandler(response any) {
 	}
 
 	// decode event
-	var metadata *mapstructure.Metadata
+	var generalEvent models.GeneralEvent
 
 	// decoder config
-	decoderConfig := &mapstructure.DecoderConfig{
-		DecodeHook: mapstructure.ComposeDecodeHookFunc(
-			hooks.StringToAddressHookFunc(),
-			hooks.StringToHashHookFunc(),
-			hooks.StringToBigIntHookFunc(),
-			models.StringToNftIDHookFunc(),
-			mapstructure.OrComposeDecodeHookFunc(
-				hooks.StringToUnixTimeHookFunc(),
-				mapstructure.StringToTimeHookFunc(time.RFC3339),
-			),
-		),
-		Metadata: metadata,
+	decoderConfig := models.GetEventDecoderConfig()
+	decoderConfig.Result = &generalEvent
+	decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+	err := decoder.Decode(rawEvent)
+	if err != nil {
+		log.Info("⚓️❌ decoding incoming %s event failed: %s", style.Bold(itemEventType), err)
+
+		return
 	}
 
-	// sw.Prf("⚓️ received %s event: %+v", itemEventType, rawEvent)
+	contractAddress := generalEvent.ContractAddress()
+	collectionStyle, _ := style.GenerateAddressStyles(contractAddress)
+	collectionStyle = collectionStyle.Bold(true)
+	fmtItemName := collectionStyle.Render(generalEvent.ItemName())
 
-	switch osmodels.EventType(itemEventType) {
+	// sw.Prf("⚓️ mapstructure generalEvent %s event: %+v", generalEvent.EventType, collectionStyle.Render(contractAddress.Hex()))
+
+	switch osmodels.EventType(generalEvent.EventType) {
 	// item listed
 	case osmodels.ItemListed:
-		var event *models.ItemListed
+		var itemListed *models.ItemListed
 
-		decoderConfig.Result = &event
-		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+		decoderConfig.Result = &itemListed
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
@@ -263,17 +240,13 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		}
 
 		// push to eventHub for further processing
-		sw.gb.In.ItemListed <- event
-
-		// sw.Prf("📢 %s #%s listed for %sΞ", style.BoldAlmostWhite(event.Payload.Item.Name), style.BoldAlmostWhite(event.Payload.Item.NftID.TokenID().String()), event.Payload.EventPayload.GetPrice())
-
-		// sw.gb.GloomHub.Publish(channel.ItemListed, event)
+		sw.gb.In.ItemListed <- itemListed
 
 	case osmodels.ItemReceivedBid:
-		var event *models.ItemReceivedBid
+		var itemReceivedBid *models.ItemReceivedBid
 
-		decoderConfig.Result = &event
-		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+		decoderConfig.Result = &itemReceivedBid
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
@@ -283,15 +256,13 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		}
 
 		// push to eventHub for further processing
-		sw.gb.In.ItemReceivedBid <- event
-
-		// sw.Prf("💦 %s #%s received bid: %sΞ", style.BoldAlmostWhite(event.Payload.Item.Metadata.Name), style.BoldAlmostWhite(event.Payload.Item.NftID.TokenID().String()), style.BoldAlmostWhite(fmt.Sprint(event.Payload.EventPayload.GetPrice())))
+		sw.gb.In.ItemReceivedBid <- itemReceivedBid
 
 	case osmodels.CollectionOffer:
-		var event *models.CollectionOffer
+		var collectionOffer *models.CollectionOffer
 
-		decoderConfig.Result = &event
-		decoder, _ := mapstructure.NewDecoder(decoderConfig)
+		decoderConfig.Result = &collectionOffer
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
@@ -301,34 +272,15 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		}
 
 		// push to eventHub for further processing
-		sw.gb.In.CollectionOffer <- event
+		sw.gb.In.CollectionOffer <- collectionOffer
 
-		// name := event.Payload.CollectionCriteria.Slug
-		// if collection := sw.gb.CollectionDB.GetCollectionForSlug(event.Payload.CollectionCriteria.Slug); collection != nil {
-		// 	name = collection.Name
-		// }
-
-		// // parse tokenPrice
-		// var tokenPrice *price.Price
-		// if event.Payload.BasePrice != nil {
-		// 	tokenPrice = price.NewPrice(event.Payload.BasePrice)
-		// } else {
-		// 	tokenPrice = price.NewPrice(big.NewInt(0))
-
-		// 	gbl.Log.Warnf("🤷‍♀️ error parsing tokenPrice: %+v", event.Payload.BasePrice)
-		// }
-
-		// sw.Prf("🦕 %s collection offer: %sΞ", style.BoldAlmostWhite(name), style.BoldAlmostWhite(fmt.Sprintf("%5.3f", tokenPrice.Ether())))
+		// pretty.Println(collectionOffer)
 
 	case osmodels.ItemMetadataUpdated:
-		var event *models.ItemMetadataUpdated
+		var itemMetadataUpdated *models.ItemMetadataUpdated
 
-		decoderConfig.Result = &event
-		decoder, _ := mapstructure.NewDecoder(decoderConfig)
-
-		// gbl.Log.Info("\n\n")
-		// gbl.Log.Infof(fmt.Sprintf("raw: %# v", pretty.Formatter(rawEvent)))
-		// gbl.Log.Info("")
+		decoderConfig.Result = &itemMetadataUpdated
+		decoder, _ := mapstructure.NewDecoder(&decoderConfig)
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
@@ -337,12 +289,17 @@ func (sw *SeaWatcher) eventHandler(response any) {
 			return
 		}
 
-		// gbl.Log.Infof(fmt.Sprintf("event: %# v", pretty.Formatter(event)))
-		// gbl.Log.Info("\n\n")
-
 		// push to eventHub for further processing
-		sw.gb.In.ItemMetadataUpdated <- event
+		sw.gb.In.ItemMetadataUpdated <- itemMetadataUpdated
 	}
+
+	if viper.GetBool("pubsub.server.enabled") {
+		publishChannel := internal.PubSubSeaWatcher + "/" + generalEvent.EventType + "/" + contractAddress.Hex()
+		pusu.Publish(sw.gb, publishChannel, rawEvent)
+	}
+
+	// 💄 styled log
+	go logEvent(sw, degendb.GetEventType(generalEvent.EventType), contractAddress, generalEvent.BasePrice(), fmtItemName, &generalEvent.Payload.Maker.Address)
 }
 
 func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{}) (osmodels.ItemReceivedBidEvent, error) {
@@ -389,70 +346,69 @@ func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{
 	return collectionOfferEvent, err
 }
 
-func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []gbgrpc.EventType) uint64 {
-	return sw.SubscribeForSlugs([]string{slug}, eventTypes)
+func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []degendb.EventType) uint64 {
+	eventTypesSet := mapset.NewSet[degendb.EventType]()
+	for _, eventType := range eventTypes {
+		eventTypesSet.Add(eventType)
+	}
+
+	return sw.SubscribeForSlugs([]string{slug}, eventTypesSet)
 }
 
-func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes []gbgrpc.EventType) uint64 {
-	if viper.GetBool("grpc.client.enabled") {
-		// connect
-		grpcClient := remote.NewClient()
-
-		if grpcClient == nil {
-			log.Errorf("fail to connect to gRPC to subscribe for %+v", style.BoldAlmostWhite(strings.Join(slugs, ", ")))
-
-			return 0
-		}
-
-		sw.Prf("subscribing to %s...", strings.Join(slugs, ", "))
-
-		subsriptionRequest := &gbgrpc.SubscriptionRequest{EventTypes: []gbgrpc.EventType{gbgrpc.EventType_ITEM_LISTED}, Collections: slugs} //nolint:nosnakecase
-		_, err := grpcClient.Subscribe(context.Background(), subsriptionRequest, grpc.WaitForReady(true))
-		if err != nil {
-			log.Errorf("getting stream failed: %v, retrying", err)
-		}
-
-		// sw.Prf("subscribing to %s...", strings.Join(slugs, ", "))
+func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes mapset.Set[degendb.EventType]) uint64 {
+	if !viper.GetBool("pubsub.server.enabled") && !viper.GetBool("seawatcher.pubsub") && !viper.GetBool("seawatcher.local") {
+		gbl.Log.Infof("⚓️ subscribeing to: %+v", style.BoldAlmostWhite(strings.Join(slugs, ", ")))
+		sw.gb.PublishCollectionsSlugs(slugs)
 
 		return uint64(len(slugs))
-	} else if !viper.GetBool("seawatcher.pubsub") && !viper.GetBool("seawatcher.local") {
-		gbl.Log.Warn("⚓️ subscribe discarded - no local OpenSea clients")
-		gbl.Log.Warn("⚓️ TODO implement subscribe via grpc (and maybe pubsub)")
-
-		return 0
 	}
 
 	newEventSubscriptions := uint64(0)
 
 	for _, slug := range slugs {
-		if sw.IsSubscribed(slug) {
+		if sw.IsSubscribedToAllEvents(slug) {
 			log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
 
 			return 0
 		}
 
-		sw.Prf("subscribing to %s...", slug)
+		slugSubscriptions := make(map[degendb.EventType]func())
+		slugEventSubscriptions := mapset.NewSet[string]()
 
-		sw.mu.Lock()
+		for _, eventType := range eventTypes.ToSlice() {
+			if slugSubscriptions[eventType] != nil {
+				log.Debugf("⚓️ ☕️ already subscribed to %s events for %s", eventType, slug)
 
-		sw.subscriptions[slug] = make(map[gbgrpc.EventType]func())
+				continue
+			}
 
-		for _, eventType := range eventTypes {
-			gloomberg.PrModf("seawa", "subscribing to %s events for %s", eventType, slug)
-			sw.subscriptions[slug][eventType] = sw.on(eventType, slug, sw.eventHandler)
+			slugSubscriptions[eventType] = sw.on(eventType, slug, sw.eventHandler)
+
+			newEventSubscriptions++
+			slugEventSubscriptions.Add(eventType.String())
 
 			time.Sleep(time.Millisecond * 37)
 		}
 
+		sw.mu.Lock()
+		sw.subscriptions[slug] = slugSubscriptions
 		sw.mu.Unlock()
 
-		newEventSubscriptions++
+		fmtSlug := style.BoldAlmostWhite(slug)
+		fmtDivider := style.GrayStyle.Render("|")
 
+		// no collection db -> no addresses -> no colors 😢 fix me!
 		if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
 			log.Debugf("⏮️ resetting stats for %s", slug)
 
 			collection.ResetStats()
+
+			// use collection colors
+			fmtSlug = collection.Render(slug)
+			fmtDivider = collection.Style().Copy().Faint(true).Render("|")
 		}
+
+		sw.Prf("%s: %s", fmtSlug, strings.Join(slugEventSubscriptions.ToSlice(), fmtDivider))
 
 		time.Sleep(time.Millisecond * 137)
 	}
@@ -460,15 +416,15 @@ func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes []gbgrpc.Even
 	return newEventSubscriptions
 }
 
-func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ []gbgrpc.EventType) uint64 {
+func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ mapset.Set[degendb.EventType]) uint64 {
 	return sw.UnubscribeForSlugs([]string{slug}, nil)
 }
 
-func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ []gbgrpc.EventType) uint64 {
+func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ mapset.Set[degendb.EventType]) uint64 {
 	numUnsubscribed := uint64(0)
 
 	for _, slug := range slugs {
-		if sw.IsSubscribed(slug) {
+		if sw.IsSubscribedToAllEvents(slug) {
 			log.Debugf("⚓️ ☕️ not subscribed to events for %s", slug)
 
 			return 0
@@ -488,8 +444,6 @@ func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ []gbgrpc.EventType) u
 			sw.mu.Lock()
 			sw.subscriptions[slug] = nil
 			sw.mu.Unlock()
-
-			// return true
 		}
 
 		numUnsubscribed++
@@ -500,16 +454,29 @@ func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ []gbgrpc.EventType) u
 	return numUnsubscribed
 }
 
-func (sw *SeaWatcher) IsSubscribed(slug string) bool {
+func (sw *SeaWatcher) IsSubscribedToAllEvents(slug string) bool {
 	sw.mu.Lock()
-	alreadySubscribed, ok := sw.subscriptions[slug]
+	slugSubscriptions, ok := sw.subscriptions[slug]
 	sw.mu.Unlock()
 
-	if ok && alreadySubscribed != nil {
-		return true
+	if !ok || len(slugSubscriptions) < availableEventTypes.Cardinality() {
+		return false
 	}
 
-	return false
+	for _, eventType := range availableEventTypes.ToSlice() {
+		cancelSubscriptionFunc, ok := slugSubscriptions[eventType]
+
+		if !ok {
+			log.Errorf("⚓️❌ error while checking existing eventtype subscriptions for %s / %+v", slug, eventType)
+			return false
+		}
+
+		if cancelSubscriptionFunc == nil {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (sw *SeaWatcher) createChannel(topic string) *phx.Channel {
@@ -544,24 +511,24 @@ func (sw *SeaWatcher) getChannel(topic string) *phx.Channel {
 	return channel
 }
 
-func (sw *SeaWatcher) on(eventType gbgrpc.EventType, collectionSlug string, eventHandler func(response any)) func() {
+func (sw *SeaWatcher) on(eventType degendb.EventType, collectionSlug string, eventHandler func(response any)) func() {
 	topic := fmt.Sprintf("collection:%s", collectionSlug)
-	evType := strings.ToLower(eventType.String())
+	openseaEvent := strings.ToLower(eventType.OpenseaEventName())
 
 	log.Debugf("Fetching channel %s", topic)
 	channel := sw.getChannel(topic)
 
-	log.Debugf("subscribing to %s events on %s", evType, topic)
-	channel.On(evType, eventHandler)
+	log.Debugf("subscribing to %s events on %s", openseaEvent, topic)
+	channel.On(openseaEvent, eventHandler)
 
 	channel.OnClose(func(payload any) {
 		sw.Prf("⚠️ Channel %s closed: %s", topic, payload)
 	})
 
-	log.Debugf("␚ subscribed to %s for %s", evType, collectionSlug)
+	log.Debugf("␚ subscribed to %s for %s", openseaEvent, collectionSlug)
 
 	return func() {
-		sw.Prf("Unsubscribing from %s events on %s", evType, topic)
+		sw.Prf("Unsubscribing from %s events on %s", openseaEvent, topic)
 
 		leave, err := channel.Leave()
 		if err != nil {
@@ -570,7 +537,7 @@ func (sw *SeaWatcher) on(eventType gbgrpc.EventType, collectionSlug string, even
 
 		leave.Receive("ok", func(_ any) {
 			delete(sw.channels, collectionSlug)
-			sw.Prf("Successfully left channel %s listening for %s", topic, evType)
+			sw.Prf("Successfully left channel %s listening for %s", topic, openseaEvent)
 		})
 	}
 }
@@ -589,10 +556,10 @@ func (sw *SeaWatcher) WorkerMgmtChannel() {
 
 // SubscribeToPubsubMgmt starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
 func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
-	sw.Prf("subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
+	sw.Prf("👔 subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 
 	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
-		log.Infof("⚓️ received msg on channel %s: %s", msg.Channel, msg.Message)
+		log.Infof("👔 received msg on channel %s: %s", msg.Channel, msg.Message)
 
 		var mgmtEvent *models.MgmtEvent
 
@@ -610,7 +577,7 @@ func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
 		return
 	}
 
-	sw.Prf("📣 subscribed to %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
+	sw.Prf("👔 subscribed to %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 }
 
 func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
@@ -639,7 +606,7 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 			return
 		}
 
-		var action func(slug []string, eventTypes []gbgrpc.EventType) uint64
+		var action func(slug []string, eventTypes mapset.Set[degendb.EventType]) uint64
 
 		switch mgmtEvent.Action {
 		case models.Subscribe:
@@ -651,13 +618,13 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 		newEventSubscriptions := action(mgmtEvent.Slugs, availableEventTypes)
 
 		sw.Prf(
-			"successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
+			"👔 successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
 			style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
 			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
 		)
 
 	default:
-		sw.Prf("⚓️ 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
+		sw.Prf("👔 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
 
 		return
 	}
@@ -680,10 +647,24 @@ func (sw *SeaWatcher) PublishSendSlugs() {
 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 		log.Errorf("⚓️❌ error publishing %s to redis: %s", sendSlugsEvent.Action.String(), err.Error())
 	} else {
-		sw.Prf("📣 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
+		sw.Prf("👔 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 	}
 }
 
-func (sw *SeaWatcher) Subscribe(context.Context, *gbgrpc.SubscriptionRequest) (*emptypb.Empty, error) {
-	return &emptypb.Empty{}, nil
+func logEvent(sw *SeaWatcher, eventType *degendb.GBEventType, address *common.Address, price *price.Price, fmtItem string, from *common.Address) {
+	primaryStyle, _ := style.GenerateAddressStyles(address)
+
+	fmtCurrencySymbol := primaryStyle.Bold(false).Render("Ξ")
+	fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%7.4f", price.Ether())) + fmtCurrencySymbol
+
+	fmtFrom := style.FormatAddress(from)
+
+	out := strings.Builder{}
+	out.WriteString(eventType.Icon())
+	out.WriteString(" " + fmtPrice)
+	out.WriteString(" " + fmtItem)
+	out.WriteString(" " + style.DividerArrowLeft.String())
+	out.WriteString(fmtFrom)
+
+	sw.Pr(out.String())
 }

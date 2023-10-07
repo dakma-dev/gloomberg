@@ -15,14 +15,13 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc"
-	"github.com/benleb/gloomberg/internal/nemo/gloomberg/gbgrpc/gen"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/opensea"
+	"github.com/benleb/gloomberg/internal/pusu"
 	seawatcher "github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
@@ -30,10 +29,13 @@ import (
 	"github.com/benleb/gloomberg/internal/utils/wwatcher"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kr/pretty"
 	"github.com/spf13/viper"
 )
+
+var alreadySubscribed = mapset.NewSet[string]()
 
 // func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher, queueWsOutTokenTransactions chan *totra.TokenTransaction, queueWsInTokenTransactions chan *totra.TokenTransaction) {.
 func TokenTransactionFormatter(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatcher) {
@@ -254,8 +256,29 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 					transferredToken.Rank = rank
 					transferredToken.RankSymbol = rankSymbol
 
-					// fmtRank := style.TrendLightGreenStyle.Copy().Bold(false).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
-					fmtRank := lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
+					// get total supply of the collection
+					totalSupply := uint64(0)
+					if collection.Metadata.TotalSupply > 0.0 {
+						totalSupply = collection.Metadata.TotalSupply
+					} else if collection.Raw.Stats.TotalSupply > 0.0 {
+						totalSupply = uint64(collection.Raw.Stats.TotalSupply)
+					}
+
+					// calculate relative ranking if total supply is available
+					relativeRanking := 1.0
+					if totalSupply > 0 {
+						relativeRanking = float64(rank) / float64(totalSupply)
+					}
+
+					// format rank information
+					var fmtRank string
+					if relativeRanking < 0.337 {
+						// show the rank (and optional symbol) if it's in the top 33.7%
+						fmtRank = lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Render(fmt.Sprintf("%d%s", rank, rankSymbol))
+					} else {
+						// otherwise we do not show any rank information but just a symbol (to indicate that it's a ranked token)
+						fmtRank = lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render("⊖")
+					}
 
 					fmtTokenID.WriteString(fmtRank)
 				}
@@ -312,9 +335,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			var fmtTotalSupply string
 
 			if transfer.Standard == standard.ERC1155 && (isOwnWallet || isOwnCollection || isWatchUsersWallet) {
-				// if supply, err := gb.Nodes.TotalSupplyERC1155(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
 				if supply, err := gb.ProviderPool.ERC1155TotalSupply(ctx, transfer.Token.Address, transfer.Token.ID); err == nil {
-					// fmtTokenID.WriteString(style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(supply.String()))
 					fmtTotalSupply = style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(supply.String())
 				}
 			}
@@ -343,21 +364,14 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		if numCollectionTokens > 1 {
 			numberStyle, _ := getNumberStyles(int(numCollectionTokens))
 
-			//
-			// check if this was sweep or someone just dumped a lot of tokens into (blur) bids
-			if tfFrom := ttx.GetNonZeroNFTSenders(); len(tfFrom) > 0 {
-				for sender, transfers := range tfFrom {
-					if numCollectionTokens == int64(len(transfers)) && ttx.From == sender {
-						// all tokens sold by the same address -> dumped into bids
-						// isBidDump = true
-						if numCollectionTokens > 5 || ttx.GetPrice().Ether() > 3.0 {
-							// if it's a significant amount of tokens or ether we use a reddish style
-							numberStyle = style.TrendRedStyle
-						} else {
-							// otherwise we use a light red style
-							numberStyle = style.TrendLightRedStyle
-						}
-					}
+			// real purchase or accepted offers/dump into bids?
+			if ttx.IsAcceptedOffer() {
+				if numCollectionTokens > 7 || ttx.GetPrice().Ether() > 3.37 {
+					// if it's a significant amount of tokens or ether we use a reddish style
+					numberStyle = style.TrendRedStyle
+				} else {
+					// otherwise we use a light red style
+					numberStyle = style.TrendLightRedStyle
 				}
 			}
 
@@ -402,8 +416,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		// use a variant without a link for the history
 		// needed due to a bug causing unnecessary line breaks
-		fmtEvent.WriteString(name + " " + strings.Join(fmtTokenIds[contractAddress][:idsShown], collection.StyleSecondary().Copy().Faint(true).Render(", ")))
-		fmtHistoryEvent.WriteString(name + " " + strings.Join(fmtHistoryTokenIds[contractAddress][:idsShown], collection.StyleSecondary().Copy().Faint(true).Render(", ")))
+
+		fmtEvent.WriteString(name)
+		if !ttx.IsCollectionOffer() {
+			fmtEvent.WriteString(" " + strings.Join(fmtTokenIds[contractAddress][:idsShown], collection.StyleSecondary().Copy().Faint(true).Render(", ")))
+			fmtHistoryEvent.WriteString(name + " " + strings.Join(fmtHistoryTokenIds[contractAddress][:idsShown], collection.StyleSecondary().Copy().Faint(true).Render(", ")))
+		}
 
 		if len(fmtTokenIds[contractAddress]) > maxShown && collection != nil {
 			fmtEvent.WriteString(collection.StyleSecondary().Render("…"))
@@ -471,19 +489,29 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	parsedEvent.Colors.Time = style.DarkGray
 
-	if ttx.IsListing() {
+	switch {
+	case ttx.IsListing():
 		timeNow = style.Gray7Style.Render(currentTime)
 		parsedEvent.Colors.Time = style.Gray7
-	} else if isOwnCollection {
+
+	case ttx.IsCollectionOffer() || ttx.IsItemBid():
+		timeNow = currentCollection.Style().Copy().Faint(true).Render(currentTime)
+		parsedEvent.Colors.Time = currentCollection.Colors.Primary
+
+	case isOwnWallet:
+		timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
+		parsedEvent.Colors.Time = lipgloss.Color(style.Pink.Dark)
+
+	case isOwnCollection:
 		timeNow = currentCollection.Style().Copy().Bold(true).Render(currentTime)
 		parsedEvent.Colors.Time = currentCollection.Colors.Primary
 	}
 
-	// highlight line if the seller or buyer is a wallet from the configured wallets
-	if isOwnWallet {
-		timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
-		parsedEvent.Colors.Time = lipgloss.Color(style.Pink.Dark)
-	}
+	// // highlight line if the seller or buyer is a wallet from the configured wallets
+	// if isOwnWallet {
+	// 	timeNow = lipgloss.NewStyle().Foreground(style.Pink).Bold(true).Render(currentTime)
+	// 	parsedEvent.Colors.Time = lipgloss.Color(style.Pink.Dark)
+	// }
 
 	// is our own wallet or collection
 	isOwn := isOwnWallet || isOwnCollection
@@ -570,7 +598,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	// average price (makes no sense for multi-collections tx)
 	averagePrice := ttx.GetPrice()
 	if ttx.TotalTokens > 1 {
-		averagePrice = price.NewPrice(big.NewInt(0).Div(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
+		if ttx.IsCollectionOffer() {
+			averagePrice = price.NewPrice(big.NewInt(0).Mul(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
+		} else {
+			averagePrice = price.NewPrice(big.NewInt(0).Div(ttx.AmountPaid, big.NewInt(ttx.TotalTokens)))
+		}
 	}
 
 	priceWidth := "%6.3f"
@@ -601,7 +633,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 	}
 
-	out.WriteString(ttx.GetPurchaseOrBidIndicator())
+	out.WriteString(ttx.GetPAOI())
 
 	// average price per item
 	pricePerItemStyle := style.DarkerGrayStyle
@@ -613,22 +645,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	out.WriteString("" + pricePerItemStyle.Render(formattedAveragePriceEther))
 	out.WriteString(formattedFaintCurrencySymbol)
 
-	// // floor price TODO fix this
-	// var trendIndicatorStyle lipgloss.Style
-	// if currentCollection != nil {
-	// 	trendIndicatorStyle = style.CreateTrendIndicator(currentCollection.PreviousFloorPrice, currentFloorPrice)
-	// } else {
-	// 	trendIndicatorStyle = style.CreateTrendIndicator(0.0, currentFloorPrice)
-	// }
-
 	currentFloorPriceStyle := style.DarkerGrayStyle
-
-	// if currentFloorPrice > 0.0 {
-	// 	currentFloorPriceStyle = style.GrayStyle.Copy().Faint(true)
-	// }
-
-	// trendIndicatorFaintStyle := trendIndicatorStyle.Copy().Faint(true)
-	// out.WriteString(" " + currentFloorPriceStyle.Render(fmt.Sprintf("%6.3f", currentFloorPrice)) + trendIndicatorFaintStyle.Render("Ξ"))
 
 	// print sales for collection
 	if viper.GetBool("show.sales") {
@@ -780,7 +797,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	arrow := style.DividerArrowRight
-	if ttx.IsListing() || ttx.IsBurn() {
+	if ttx.IsListing() || ttx.IsItemBid() || ttx.IsCollectionOffer() || ttx.IsBurn() {
 		arrow = style.DividerArrowLeft
 	}
 
@@ -856,22 +873,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
 				}
 
-				if !seawa.IsSubscribed(currentCollection.OpenseaSlug) {
-					// if seawa.SubscribeForSlug(currentCollection.OpenseaSlug) {
-					// gprcClient := gbgrpc.NewClient("")
+				if !alreadySubscribed.Contains(currentCollection.OpenseaSlug) && !seawa.IsSubscribedToAllEvents(currentCollection.OpenseaSlug) {
+					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []degendb.EventType{degendb.Listing, degendb.CollectionOffer, degendb.Bid}) > 0 { //nolint:nosnakecase
+						alreadySubscribed.Add(currentCollection.OpenseaSlug)
+						pusu.SubscribeToListingsViaRedis(gb)
 
-					if gbgrpc.GRPCClient != nil {
-						subsriptionRequest := &gen.SubscriptionRequest{EventTypes: []gen.EventType{gen.EventType_ITEM_LISTED}, Collections: []string{currentCollection.OpenseaSlug}} //nolint:nosnakecase
-
-						_, err := gbgrpc.GRPCClient.Subscribe(context.Background(), subsriptionRequest, nil)
-						if err != nil {
-							log.Errorf("failed to subscribe to events for %s: %s", currentCollection.OpenseaSlug, err)
-						}
-
-						log.Printf("subsubsubbbyyyyyyyyyyyyyyy: %+v", subsriptionRequest)
-					}
-
-					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []gen.EventType{gen.EventType_ITEM_LISTED, gen.EventType_ITEM_RECEIVED_BID, gen.EventType_COLLECTION_OFFER}) > 0 { //nolint:nosnakecase
 						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
 				}
@@ -999,7 +1005,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			parsedEvent.IsOwnWallet = isOwnWallet
 			parsedEvent.IsOwnCollection = isOwnCollection
 			parsedEvent.IsWatchUsersWallet = isWatchUsersWallet
-			parsedEvent.PurchaseOrBidIndicator = ttx.GetPurchaseOrBidIndicator()
+			parsedEvent.PAOI = ttx.GetPAOI()
 
 			// ...and actually use this!!
 			gb.RecentOwnEvents.Add(&parsedEvent)

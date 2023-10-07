@@ -3,13 +3,18 @@ package pusu
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"strings"
 
+	"github.com/apex/log"
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
-	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/benleb/gloomberg/internal/seawa/models"
+	"github.com/benleb/gloomberg/internal/style"
+	"github.com/mitchellh/mapstructure"
 	"github.com/redis/rueidis"
 )
 
@@ -54,16 +59,22 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 	// create a list of channels to subscribe to
 	channels := make([]string, 0)
 
-	for _, collectionAddress := range slugAddresses {
-		channelPattern := internal.PubSubSeaWatcherListings + "/" + collectionAddress.Hex() + "/*"
+	// TODO investigate why this seems not to work in go (but in the redis cli) 🤨
+	// for _, collectionAddress := range slugAddresses {
+	// 	// channelPattern := internal.PubSubSeaWatcherListings + "/" + collectionAddress.Hex() + "/*"
+	// 	// channelPattern := internal.PubSubSeaWatcher + "/*/" + collectionAddress.Hex()
+	// 	// channelPattern := internal.PubSubSeaWatcher + "/" + collectionAddress.Hex() + "/*"
+	// 	channels = append(channels, channelPattern)
+	// }
 
-		channels = append(channels, channelPattern)
-	}
+	channels = append(channels, internal.PubSubSeaWatcher+"/*/*")
+
+	gbl.Log.Infof("🚇 subscribing to redis channels %s", channels)
 
 	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
-		gbl.Log.Debugf("🚇 received msg on channel %s: %s", msg.Channel, msg.Message)
+		gbl.Log.Debugf("🚇 received msg on channel %s", msg.Channel)
 
-		var itemListedEvent seawaModels.ItemListed
+		var rawEvent map[string]interface{}
 
 		// validate json
 		if !json.Valid([]byte(msg.Message)) {
@@ -72,25 +83,103 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 			return
 		}
 
-		// unmarshal
-		if err := json.Unmarshal([]byte(msg.Message), &itemListedEvent); err != nil {
+		// unmarshal json
+		if err := json.Unmarshal([]byte(msg.Message), &rawEvent); err != nil {
 			gbl.Log.Errorf("❌ error json.Unmarshal: %+v\n", err.Error())
 
 			return
 		}
 
-		// nftID is a string in the format <chain>/<contract>/<tokenID>
-		nftID := itemListedEvent.Payload.Item.NftID
-		//
-		// discard listings for ignored collections
-		if collection, ok := gb.CollectionDB.Collections[common.HexToAddress(nftID[1])]; ok && collection.IgnorePrinting {
-			gbl.Log.Debugf("🗑️ ignoring printing for collection %s", collection.Name)
+		// decode event to general event
+		var generalEvent models.GeneralEvent
+
+		// decode event
+		rawDecoderConfig := models.GetEventDecoderConfig()
+		rawDecoderConfig.Result = &generalEvent
+		decoder, _ := mapstructure.NewDecoder(&rawDecoderConfig)
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming event failed: %+v | %+v", msg.Message, err)
 
 			return
 		}
 
-		// print
-		gb.In.ItemListed <- &itemListedEvent
+		// decoder config
+		decoderConfig := models.GetEventDecoderConfig()
+
+		switch degendb.GetEventType(generalEvent.EventType) {
+		case degendb.Listing:
+			var itemListed models.ItemListed
+
+			decoderConfig.Result = &itemListed
+			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+			err := decoder.Decode(rawEvent)
+			if err != nil {
+				log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+
+				return
+			}
+
+			// push to event hub
+			gb.In.ItemListed <- &itemListed
+
+		case degendb.Bid:
+			var itemReceivedBid models.ItemReceivedBid
+
+			decoderConfig.Result = &itemReceivedBid
+			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+			err := decoder.Decode(rawEvent)
+			if err != nil {
+				log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+
+				return
+			}
+
+			// push to event hub
+			gb.In.ItemReceivedBid <- &itemReceivedBid
+
+		case degendb.CollectionOffer:
+			var collectionOffer models.CollectionOffer
+
+			// decoderConfig := models.GetEventDecoderConfig()
+			decoderConfig.Result = &collectionOffer
+			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+			err := decoder.Decode(rawEvent)
+			if err != nil {
+				log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", collectionOffer, err)
+
+				return
+			}
+
+			// push to event hub
+			gb.In.CollectionOffer <- &collectionOffer
+
+		case degendb.MetadataUpdated:
+			var itemMetadataUpdated models.ItemMetadataUpdated
+
+			decoderConfig.Result = &itemMetadataUpdated
+			decoder, _ := mapstructure.NewDecoder(&decoderConfig)
+
+			err := decoder.Decode(rawEvent)
+			if err != nil {
+				log.Infof("⚓️❌ decoding incoming event failed: %+v %+v", itemMetadataUpdated, err)
+
+				return
+			}
+
+			// push to event hub
+			gb.In.ItemMetadataUpdated <- &itemMetadataUpdated
+
+		default:
+			gbl.Log.Warnf("❗️ unknown event type: %s", generalEvent.EventType)
+			gbl.Log.Warnf("❗️         %#v", generalEvent)
+		}
+
+		logEvent(generalEvent)
 	})
 	if err != nil {
 		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())
@@ -114,4 +203,24 @@ func Publish(gb *gloomberg.Gloomberg, channel string, event any) {
 	} else {
 		gbl.Log.Debug("published event to redis")
 	}
+}
+
+func logEvent(generalEvent models.GeneralEvent) {
+	primaryStyle, _ := style.GenerateAddressStyles(generalEvent.ContractAddress())
+
+	fmtCurrencySymbol := primaryStyle.Bold(false).Render("Ξ")
+	fmtPrice := style.BoldAlmostWhite(fmt.Sprintf("%7.4f", generalEvent.BasePrice().Ether())) + fmtCurrencySymbol
+
+	fmtItem := primaryStyle.Bold(true).Render(generalEvent.ItemName())
+
+	fmtFrom := style.FormatAddress(&generalEvent.Payload.Maker.Address)
+
+	out := strings.Builder{}
+	out.WriteString(degendb.GetEventType(generalEvent.EventType).Icon())
+	out.WriteString(" " + fmtPrice)
+	out.WriteString(" " + fmtItem)
+	out.WriteString(" " + style.DividerArrowLeft.String())
+	out.WriteString(fmtFrom)
+
+	gbl.Log.Info(out.String())
 }

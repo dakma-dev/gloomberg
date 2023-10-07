@@ -46,9 +46,6 @@ type Gloomberg struct {
 	CurrentGasPriceGwei   uint64
 	CurrentOnlineWebUsers uint64
 
-	// grpc
-	// grpcClient *remote.ClientGRPC
-
 	*eventHub
 	// GloomHub *gloomhub
 	Jobs *jobs.Runner
@@ -181,7 +178,15 @@ func New() *Gloomberg {
 	return gb
 }
 
-func (gb *Gloomberg) SendSlugsToServer() {
+func (gb *Gloomberg) PublishOwnCollectionsSlugs() {
+	gb.publisheCollectionSlugsViaRedis(gb.CollectionDB.OpenseaSlugs())
+}
+
+func (gb *Gloomberg) PublishCollectionsSlugs(slugs []string) {
+	gb.publisheCollectionSlugsViaRedis(slugs)
+}
+
+func (gb *Gloomberg) publisheCollectionSlugsViaRedis(slugs []string) {
 	// to enable multiple users to use the central gloomberg instance for events from opensea,
 	// we first send the slugs of 'our' collections to the events-subscriptions channel.
 	// the central gloomberg instance then creates a subscription on the opensea
@@ -193,14 +198,13 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		return
 	}
 
-	slugs := gb.CollectionDB.OpenseaSlugs()
 	if len(slugs) == 0 {
 		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
 
 		return
 	}
 
-	log.Debugf("📢 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
+	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
 
 	mgmtEvent := &models.MgmtEvent{Action: models.Subscribe, Slugs: slugs}
 
@@ -219,7 +223,7 @@ func (gb *Gloomberg) SendSlugsToServer() {
 		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
 			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 		} else {
-			gbl.Log.Infof("📢 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
+			gbl.Log.Infof("👔 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
 		}
 	}
 }

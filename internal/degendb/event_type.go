@@ -47,7 +47,7 @@ var (
 	Unknown                 = &GBEventType{name: "Unknown", actionName: "did something", icon: "❓", openseaEventName: ""}
 	Transfer                = &GBEventType{name: "Transfer", actionName: "transferred", icon: "📦", openseaEventName: "item_transferred"}
 	Sale                    = &GBEventType{name: "Sale", actionName: "sold", icon: "💰", openseaEventName: "item_sold"}
-	Purchase                = &GBEventType{name: "Purchase", actionName: "purchased", icon: "💰", openseaEventName: "item_sold"}
+	Purchase                = &GBEventType{name: "Purchase", actionName: "purchased", icon: "🛍️", openseaEventName: "item_sold"}
 	Mint                    = &GBEventType{name: "Mint", actionName: "minted", icon: "Ⓜ️", openseaEventName: ""}
 	Airdrop                 = &GBEventType{name: "Airdrop", actionName: "got airdropped", icon: "🎁", openseaEventName: ""}
 	Burn                    = &GBEventType{name: "Burn", actionName: "burned", icon: "🔥", openseaEventName: ""}
@@ -57,11 +57,10 @@ var (
 	Listing                 = &GBEventType{name: "Listing", actionName: "listed", icon: "📢", openseaEventName: "item_listed"}
 	Bid                     = &GBEventType{name: "Bid", actionName: "(got) bid", icon: "💦", openseaEventName: "item_received_bid"}
 	OwnBid                  = &GBEventType{name: "OwnBid", actionName: "bid", icon: "🤑", openseaEventName: ""}
-	Offer                   = &GBEventType{name: "Offer", actionName: "(got) offered", icon: "💦", openseaEventName: "item_received_offer"}
 	AcceptedOffer           = &GBEventType{name: "AcceptedOffer", actionName: "accepted offer", icon: "🤝", openseaEventName: ""}
-	CollectionOffer         = &GBEventType{name: "CollectionOffer", actionName: "(got) collection-offered", icon: "🧊", openseaEventName: "collection_offer"}
+	CollectionOffer         = &GBEventType{name: "CollectionOffer", actionName: "(got) collection-offered", icon: "☂️", openseaEventName: "collection_offer"} // 🧊
 	AcceptedCollectionOffer = &GBEventType{name: "AcceptedCollectionOffer", actionName: "accepted collection offer", icon: "🤝", openseaEventName: ""}
-	MetadataUpdate          = &GBEventType{name: "MetadataUpdate", actionName: "metadata updated", icon: "♻️", openseaEventName: "item_metadata_updated"}
+	MetadataUpdated         = &GBEventType{name: "MetadataUpdated", actionName: "metadata updated", icon: "♻️", openseaEventName: "item_metadata_updated"}
 	Cancelled               = &GBEventType{name: "Cancelled", actionName: "cancelled", icon: "❌", openseaEventName: "item_cancelled"}
 
 	// event type sets.
@@ -73,8 +72,7 @@ var (
 		"item_sold":             Sale,
 		"item_listed":           Listing,
 		"item_received_bid":     Bid,
-		"item_received_offer":   Offer,
-		"item_metadata_updated": MetadataUpdate,
+		"item_metadata_updated": MetadataUpdated,
 		"item_cancelled":        Cancelled,
 		"collection_offer":      CollectionOffer,
 	}
