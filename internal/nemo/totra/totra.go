@@ -38,6 +38,9 @@ type TokenTransaction struct {
 	// the sender of the tx
 	From common.Address `json:"from"`
 
+	// signature of the called contract function
+	MethodID [4]byte `json:"function_signature"`
+
 	// the amount of eth/weth transferred in the tx
 	AmountPaid *big.Int `json:"amount_paid"`
 
@@ -95,13 +98,25 @@ func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, provider
 		From:           sender,
 		logsByStandard: tfLogsByStandard,
 		Transfers:      make([]*TokenTransfer, 0),
-		AmountPaid:     tx.Value(),
+
+		AmountPaid: tx.Value(),
 
 		ReceivedAt: time.Now(),
 
 		// print all tx by default
 		DoNotPrint: false,
 	}
+
+	// method id/signature of the called contract function
+	if tx.Data() != nil && len(tx.Data()) > 3 {
+		ttx.MethodID = [4]byte(tx.Data()[0:4])
+	}
+
+	// get method name (disabled as currently not used)
+	// method, err := external.GetMethodSignature(hexutil.Encode(tx.Data()[0:4]))
+	// if err != nil {
+	// 	log.Warnf("could not get method signature for tx %s: %s", tx.Hash().Hex(), err)
+	// }
 
 	// marketplace
 	switch {
@@ -340,11 +355,19 @@ func (ttx *TokenTransaction) discoverItemPrices() {
 	}
 }
 
-// GetPurchaseOrBidIndicator returns a string indicating if the tx is a purchase
-// or if someone dumped into bids.
-func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
+//
+// PAOI = Purchase or Accepted Offer Indicator
+//
+
+// GetPAOI returns a string indicating if the tx is a purchase or someone dumped into bids.
+func (ttx *TokenTransaction) GetPAOI() string {
 	indicatorString := "・"
 
+	return ttx.getPAOIStyle().Render(indicatorString)
+}
+
+// getPAOIStyle returns a lipgloss style for the "purchase or accepted offer indicator"
+func (ttx *TokenTransaction) getPAOIStyle() lipgloss.Style {
 	var purchaseOrBidStyle lipgloss.Style
 
 	switch {
@@ -364,7 +387,7 @@ func (ttx *TokenTransaction) GetPurchaseOrBidIndicator() string {
 		purchaseOrBidStyle = style.TrendLightGreenStyle
 	}
 
-	return purchaseOrBidStyle.Render(indicatorString)
+	return purchaseOrBidStyle
 }
 
 func (ttx *TokenTransaction) Is() map[string]bool {
@@ -376,6 +399,7 @@ func (ttx *TokenTransaction) Is() map[string]bool {
 		"IsItemBid":         ttx.IsItemBid(),
 		"IsListing":         ttx.IsListing(),
 		"IsLoan":            ttx.IsLoan(),
+		"IsLoanPayback":     ttx.IsLoanPayback(),
 		"IsMint":            ttx.IsMint(),
 		"IsMovingNFTs":      ttx.IsMovingNFTs(),
 		"IsReBurn":          ttx.IsReBurn(),
@@ -533,9 +557,24 @@ func (ttx *TokenTransaction) IsLoan() bool {
 	return false
 }
 
+func (ttx *TokenTransaction) IsLoanPayback() bool {
+	// if no nfts are moved, this is not a mint
+	if !ttx.IsMovingNFTs() {
+		return false
+	}
+
+	for tokenAddress := range ttx.GetTransfersByContract() {
+		if internal.LoanContracts[tokenAddress] != "" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (ttx *TokenTransaction) IsTransfer() bool {
 	// opensea transfer helper contract
-	if *ttx.Tx.To() == common.HexToAddress("0x0000000000c2d145a2526bd8c716263bfebe1a72") {
+	if ttx.Tx == nil || ttx.Tx.To() == nil || (*ttx.Tx.To() == common.HexToAddress("0x0000000000c2d145a2526bd8c716263bfebe1a72")) {
 		return true
 	}
 
