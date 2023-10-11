@@ -5,7 +5,7 @@ go 1.21
 require (
 	github.com/VividCortex/ewma v1.2.0
 	github.com/apex/log v1.9.0
-	github.com/charmbracelet/lipgloss v0.8.0
+	github.com/charmbracelet/lipgloss v0.9.0
 	github.com/charmbracelet/log v0.2.5
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/dghubble/oauth1 v0.7.2
@@ -85,7 +85,7 @@ require (
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
-	github.com/mattn/go-runewidth v0.0.14 // indirect
+	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
 	github.com/minio/sha256-simd v1.0.1 // indirect
 	github.com/mmcloughlin/addchain v0.4.0 // indirect
