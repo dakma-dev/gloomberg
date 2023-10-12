@@ -9,7 +9,7 @@ require (
 	github.com/charmbracelet/log v0.2.5
 	github.com/deckarep/golang-set/v2 v2.3.1
 	github.com/dghubble/oauth1 v0.7.2
-	github.com/ethereum/go-ethereum v1.13.2
+	github.com/ethereum/go-ethereum v1.13.3
 	github.com/g8rswimmer/go-twitter/v2 v2.1.5
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/gobwas/ws v1.3.0
@@ -51,8 +51,9 @@ require (
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/cockroachdb/errors v1.9.1 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20230118201751-21c54148d20b // indirect
-	github.com/cockroachdb/pebble v0.0.0-20230906160148-46873a6a7a06 // indirect
+	github.com/cockroachdb/pebble v0.0.0-20230928194634-aa077af62593 // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
+	github.com/cockroachdb/tokenbucket v0.0.0-20230807174530-cc333fc44b06 // indirect
 	github.com/consensys/bavard v0.1.13 // indirect
 	github.com/consensys/gnark-crypto v0.12.0 // indirect
 	github.com/crate-crypto/go-kzg-4844 v0.3.0 // indirect
