@@ -199,14 +199,14 @@ func (pp *Pool) ReconnectProviders() {
 	// store the current queueLogs channel
 	queueLogs := pp.queueLogs
 
-	gbl.Log.Infof("🔌 trying to re-connect: %+v", providerConfig)
+	gbl.Log.Infof("🔌 trying to re-connect to %s at %s", providerConfig)
 
-	//// reconnect to the providers
-	// if pool, err := FromConfig(providerConfig); err != nil {
-	//	gbl.Log.Fatal("❌ running provider failed, exiting")
-	// } else if pool != nil {
-	//	pp = pool
-	//}
+	// reconnect to the providers
+	if pool, err := FromConfig(providerConfig); err != nil {
+		gbl.Log.Fatal("❌ running provider failed, exiting")
+	} else if pool != nil {
+		pp = pool
+	}
 
 	// restore the queueLogs channel
 	pp.queueLogs = queueLogs
