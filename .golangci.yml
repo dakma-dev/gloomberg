@@ -7,8 +7,8 @@ run:
         # used for testing/experiments
         - "cmd/oncecmd"
         # testing
+        - degendata/
         - "internal/ddb"
-        - ".*degendata.*"
         - "ignored"
 
 linters-settings:
