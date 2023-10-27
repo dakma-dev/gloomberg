@@ -123,7 +123,7 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 			log.Errorf("❌ getting address from public key failed | key: %v", mintWallet.privateKey.PublicKey)
 		}
 
-		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Hash().Big().Int64())
+		mintWallet.color = style.GenerateColorWithSeed(mintWallet.address.Big().Int64())
 		mintWallet.tag = lipgloss.NewStyle().Foreground(mintWallet.color).Render(style.ShortenAdressPTR(mintWallet.address))
 
 		availableWallets = append(availableWallets, mintWallet)
