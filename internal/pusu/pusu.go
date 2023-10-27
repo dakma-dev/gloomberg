@@ -16,6 +16,7 @@ import (
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/mitchellh/mapstructure"
 	"github.com/redis/rueidis"
+	"github.com/spf13/viper"
 )
 
 func SubscribeToSales(gb *gloomberg.Gloomberg, channel string, queueTokenTransactions chan *totra.TokenTransaction) {
@@ -71,16 +72,30 @@ func SubscribeToListingsViaRedis(gb *gloomberg.Gloomberg) {
 
 	gbl.Log.Infof("🚇 subscribing to redis channels %s", channels)
 
+	eventMessages := make(chan rueidis.PubSubMessage, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
+
+	for i := 0; i < viper.GetInt("gloomberg.eventhub.numHandler"); i++ {
+		go eventHandler(gb, &eventMessages)
+	}
+
 	err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Psubscribe().Pattern(channels...).Build(), func(msg rueidis.PubSubMessage) {
+		eventMessages <- msg
+
 		gbl.Log.Debugf("🚇 received msg on channel %s", msg.Channel)
 
 		// handle event
-		go handleEvent(gb, msg)
+		// go handleEvent(gb, msg)
 	})
 	if err != nil {
 		gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", channels, err.Error())
 
 		return
+	}
+}
+
+func eventHandler(gb *gloomberg.Gloomberg, eventMessages *chan rueidis.PubSubMessage) {
+	for msg := range *eventMessages {
+		handleEvent(gb, msg)
 	}
 }
 
@@ -227,5 +242,5 @@ func logEvent(generalEvent models.GeneralEvent) {
 	out.WriteString(" " + style.DividerArrowLeft.String())
 	out.WriteString(fmtFrom)
 
-	gbl.Log.Info(out.String())
+	gbl.Log.Debugf(out.String())
 }

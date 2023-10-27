@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
@@ -57,6 +58,26 @@ func StringToHashHookFunc() mapstructure.DecodeHookFunc {
 
 		// Convert it by parsing
 		return common.HexToHash(data.(string)), nil
+	}
+}
+
+// StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
+func StringToEventTypeHookFunc() mapstructure.DecodeHookFunc {
+	return func(
+		f reflect.Type,
+		t reflect.Type,
+		data any,
+	) (any, error) {
+		if f.Kind() != reflect.String {
+			return data, nil
+		}
+
+		if t.Kind() != reflect.Interface { // TypeOf((degendb.GBEventType{})).K {
+			return data, nil
+		}
+
+		// Convert it by parsing
+		return degendb.GetEventType(data.(string)), nil
 	}
 }
 

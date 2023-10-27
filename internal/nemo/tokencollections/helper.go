@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/ethereum/go-ethereum/common"
@@ -27,7 +28,7 @@ func GetCollection(gb *gloomberg.Gloomberg, contractAddress common.Address, toke
 			gbl.Log.Debugf("failed to get collection name: %s", err)
 		}
 
-		collection = collections.NewCollection(contractAddress, name, gb.ProviderPool, collections.FromStream, gb.Rueidi)
+		collection = collections.NewCollection(contractAddress, name, gb.ProviderPool, degendb.FromStream, gb.Rueidi)
 
 		if collection != nil {
 			gb.CollectionDB.RWMu.Lock()

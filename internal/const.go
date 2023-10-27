@@ -46,13 +46,6 @@ var (
 	NFTLoanTicketV2ContractAddress = common.HexToAddress("0x0E258c84Df0f8728ae4A6426EA5FD163Eb6b9D1B")
 	BorrowerNoteTicket             = common.HexToAddress("0xbD85BF4C970b91984e6A2b8Ba9C577A58A8C20f9")
 
-	LoanContracts = map[common.Address]string{
-		BlurBlendContractAddress:       "Blur Blend",
-		NFTfiContractAddress:           "NFTfi",
-		NFTLoanTicketV2ContractAddress: "NFT Loan Ticket V2",
-		BorrowerNoteTicket:             "Borrower Note Ticket",
-	}
-
 	// uniswapv2.
 
 	UniswapV2FactoryContractAddress  = common.HexToAddress("0x5C69bEe701ef814a2B6a3EDD4B1652CB9cc5aA6f")

@@ -390,7 +390,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		go pusu.SubscribeToListingsViaRedis(gb)
 
 		// initially send all our slugs & events to subscribe to
-		go gb.PublishOwnCollectionsSlugs()
+		go gb.PublishOwnSlubSubscription()
 
 		// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
 		go func() {
@@ -405,7 +405,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 
 				if mgmtEvent.Action == seawaModels.SendSlugs {
 					gbl.Log.Info(fmt.Sprintf("👔 SendSlugs received on channel %s", msg.Channel))
-					gb.PublishOwnCollectionsSlugs()
+					gb.PublishOwnSlubSubscription()
 				}
 			})
 			if err != nil {

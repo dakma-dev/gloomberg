@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
@@ -160,14 +161,18 @@ func GetCollectionsFor(walletAddress common.Address, userCollections *collection
 		for _, contract := range collection.PrimaryAssetContracts {
 			contractAddress := common.HexToAddress(contract.Address)
 
+			if collection.Stats.AveragePrice <= 0.001 {
+				continue
+			}
+
 			if userCollections.Collections[contractAddress] == nil {
-				userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, collections.FromWallet, nil)
+				userCollection := collections.NewCollection(contractAddress, collection.Name, providerPool, degendb.FromWallet, nil)
 				userCollection.OpenseaSlug = collection.Slug
 
 				receivedCollections = append(receivedCollections, userCollection)
 			} else {
 				userCollections.Collections[contractAddress].OpenseaSlug = collection.Slug
-				userCollections.Collections[contractAddress].Source = collections.FromWallet
+				userCollections.Collections[contractAddress].Source = degendb.FromWallet
 
 				if userCollections.Collections[contractAddress].Name == "" {
 					userCollections.Collections[contractAddress].Name = collection.Name

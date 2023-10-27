@@ -19,15 +19,16 @@ import (
 var (
 	TerminalPrinterQueue = make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
 
-	counterItemListed          int64
-	counterItemReceivedBid     int64
-	counterItemMetadataUpdated int64
-	counterCollectionOffer     int64
-	counterTxWithLogs          int64
-	counterTokenTransactions   int64
-	counterParsedEvents        int64
-	counterRecentOwnEvents     int64
-	counterSeawatcherMgmt      int64
+	counterItemListed              int64
+	counterItemReceivedBid         int64
+	counterItemMetadataUpdated     int64
+	counterCollectionOffer         int64
+	counterTxWithLogs              int64
+	counterTokenTransactions       int64
+	counterParsedEvents            int64
+	counterRecentOwnEvents         int64
+	counterSeawatcherMgmt          int64
+	counterSeawatcherSubscriptions int64
 	// counterPrintToTerminal      int64.
 	counterTerminalPrinterQueue int64
 	counterNewBlock             int64
@@ -57,7 +58,8 @@ type eventChannelsIn struct {
 	ParsedEvents    chan *degendb.PreformattedEvent
 	RecentOwnEvents chan []*degendb.PreformattedEvent
 
-	SeawatcherMgmt chan *models.MgmtEvent
+	SeawatcherMgmt          chan *models.MgmtEvent
+	SeawatcherSubscriptions chan *models.SubscriptionEvent
 
 	// PrintToTerminal chan string
 	NewBlock chan uint64
@@ -75,7 +77,8 @@ type eventChannelsOut struct {
 	ParsedEvents    []chan *degendb.PreformattedEvent
 	RecentOwnEvents []chan []*degendb.PreformattedEvent
 
-	SeawatcherMgmt []chan *models.MgmtEvent
+	SeawatcherMgmt          []chan *models.MgmtEvent
+	SeawatcherSubscriptions []chan *models.SubscriptionEvent
 
 	// PrintToTerminal []chan string
 	NewBlock []chan uint64
@@ -86,15 +89,16 @@ func newEventHub() *eventHub {
 		CurrentBlock: 0,
 
 		counters: map[string]*int64{
-			"ItemListed":          &counterItemListed,
-			"ItemReceivedBid":     &counterItemReceivedBid,
-			"ItemMetadataUpdated": &counterItemMetadataUpdated,
-			"CollectionOffer":     &counterCollectionOffer,
-			"TxWithLogs":          &counterTxWithLogs,
-			"TokenTransactions":   &counterTokenTransactions,
-			"ParsedEvents":        &counterParsedEvents,
-			"RecentOwnEvents":     &counterRecentOwnEvents,
-			"SeawatcherMgmt":      &counterSeawatcherMgmt,
+			"ItemListed":             &counterItemListed,
+			"ItemReceivedBid":        &counterItemReceivedBid,
+			"ItemMetadataUpdated":    &counterItemMetadataUpdated,
+			"CollectionOffer":        &counterCollectionOffer,
+			"TxWithLogs":             &counterTxWithLogs,
+			"TokenTransactions":      &counterTokenTransactions,
+			"ParsedEvents":           &counterParsedEvents,
+			"RecentOwnEvents":        &counterRecentOwnEvents,
+			"SeawatcherMgmt":         &counterSeawatcherMgmt,
+			"SewatcherSubscriptions": &counterSeawatcherSubscriptions, // TODO: add counter
 			// "PrintToTerminal":     &counterPrintToTerminal,
 			"TerminalPrinterQueue": &counterTerminalPrinterQueue,
 			"NewBlock":             &counterNewBlock,
@@ -112,7 +116,8 @@ func newEventHub() *eventHub {
 			ParsedEvents:    make(chan *degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			RecentOwnEvents: make(chan []*degendb.PreformattedEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
-			SeawatcherMgmt: make(chan *models.MgmtEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			SeawatcherMgmt:          make(chan *models.MgmtEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
+			SeawatcherSubscriptions: make(chan *models.SubscriptionEvent, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 
 			// PrintToTerminal: make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
 			NewBlock: make(chan uint64, viper.GetInt("gloomberg.eventhub.inQueuesSize")),
@@ -130,7 +135,8 @@ func newEventHub() *eventHub {
 			ParsedEvents:    make([]chan *degendb.PreformattedEvent, 0),
 			RecentOwnEvents: make([]chan []*degendb.PreformattedEvent, 0),
 
-			SeawatcherMgmt: make([]chan *models.MgmtEvent, 0),
+			SeawatcherMgmt:          make([]chan *models.MgmtEvent, 0),
+			SeawatcherSubscriptions: make([]chan *models.SubscriptionEvent, 0),
 
 			// PrintToTerminal: make([]chan string, 0),
 			NewBlock: make([]chan uint64, 0),
@@ -159,15 +165,16 @@ func newEventHub() *eventHub {
 
 			// pretty.Println(eh.counters)
 			chans := map[string]int{
-				"ItemListed":          len(eh.In.ItemListed),
-				"ItemReceivedBid":     len(eh.In.ItemReceivedBid),
-				"ItemMetadataUpdated": len(eh.In.ItemMetadataUpdated),
-				"CollectionOffer":     len(eh.In.CollectionOffer),
-				"TxWithLogs":          len(eh.In.TxWithLogs),
-				"TokenTransactions":   len(eh.In.TokenTransactions),
-				"ParsedEvents":        len(eh.In.ParsedEvents),
-				"RecentOwnEvents":     len(eh.In.RecentOwnEvents),
-				"SeawatcherMgmt":      len(eh.In.SeawatcherMgmt),
+				"ItemListed":              len(eh.In.ItemListed),
+				"ItemReceivedBid":         len(eh.In.ItemReceivedBid),
+				"ItemMetadataUpdated":     len(eh.In.ItemMetadataUpdated),
+				"CollectionOffer":         len(eh.In.CollectionOffer),
+				"TxWithLogs":              len(eh.In.TxWithLogs),
+				"TokenTransactions":       len(eh.In.TokenTransactions),
+				"ParsedEvents":            len(eh.In.ParsedEvents),
+				"RecentOwnEvents":         len(eh.In.RecentOwnEvents),
+				"SeawatcherMgmt":          len(eh.In.SeawatcherMgmt),
+				"SeawatcherSubscriptions": len(eh.In.SeawatcherSubscriptions),
 				// "PrintToTerminal":     len(eh.In.PrintToTerminal),
 				"TerminalPrinterQueue": len(TerminalPrinterQueue),
 				"NewBlock":             len(eh.In.NewBlock),
@@ -175,15 +182,16 @@ func newEventHub() *eventHub {
 
 			outChans := map[string]int{
 				// "outItemListed":          len(eh.out.ItemListed),
-				"outItemListed":          eh.out.ItemListed.Cardinality(),
-				"outItemReceivedBid":     eh.out.ItemReceivedBid.Cardinality(),
-				"outItemMetadataUpdated": eh.out.ItemMetadataUpdated.Cardinality(),
-				"outCollectionOffer":     eh.out.CollectionOffer.Cardinality(),
-				"outTxWithLogs":          len(eh.out.TxWithLogs),
-				"outTokenTransactions":   len(eh.out.TokenTransactions),
-				"outParsedEvents":        len(eh.out.ParsedEvents),
-				"outRecentOwnEvents":     len(eh.out.RecentOwnEvents),
-				"outSeawatcherMgmt":      len(eh.out.SeawatcherMgmt),
+				"outItemListed":              eh.out.ItemListed.Cardinality(),
+				"outItemReceivedBid":         eh.out.ItemReceivedBid.Cardinality(),
+				"outItemMetadataUpdated":     eh.out.ItemMetadataUpdated.Cardinality(),
+				"outCollectionOffer":         eh.out.CollectionOffer.Cardinality(),
+				"outTxWithLogs":              len(eh.out.TxWithLogs),
+				"outTokenTransactions":       len(eh.out.TokenTransactions),
+				"outParsedEvents":            len(eh.out.ParsedEvents),
+				"outRecentOwnEvents":         len(eh.out.RecentOwnEvents),
+				"outSeawatcherMgmt":          len(eh.out.SeawatcherMgmt),
+				"outSeawatcherSubscriptions": len(eh.out.SeawatcherSubscriptions),
 				// "outPrintToTerminal":     len(eh.out.PrintToTerminal),
 				"outNewBlock": len(eh.out.NewBlock),
 			}
@@ -303,6 +311,13 @@ func (eh *eventHub) SubscribeSeawatcherMgmt() chan *models.MgmtEvent {
 	return outChannel
 }
 
+func (eh *eventHub) SubscribeSeawatcherSubscriptions() chan *models.SubscriptionEvent {
+	outChannel := make(chan *models.SubscriptionEvent, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
+	eh.out.SeawatcherSubscriptions = append(eh.out.SeawatcherSubscriptions, outChannel)
+
+	return outChannel
+}
+
 // func (eh *eventHub) SubscribePrintToTerminal() chan string {
 // 	outChannel := make(chan string, viper.GetInt("gloomberg.eventhub.outQueuesSize"))
 // 	eh.out.PrintToTerminal = append(eh.out.PrintToTerminal, outChannel)
@@ -391,6 +406,14 @@ func (eh *eventHub) worker(workerID int) {
 			atomic.AddInt64(eh.counters["SeawatcherMgmt"], 1)
 
 			for _, ch := range eh.out.SeawatcherMgmt {
+				ch <- event
+			}
+		case event := <-eh.In.SeawatcherSubscriptions:
+			log.Debugf("SeawatcherSubscriptions event | %d | pushing to %d receivers", workerID, len(eh.out.SeawatcherSubscriptions))
+
+			atomic.AddInt64(eh.counters["SeawatcherSubscriptions"], 1)
+
+			for _, ch := range eh.out.SeawatcherSubscriptions {
 				ch <- event
 			}
 		// case event := <-eh.In.PrintToTerminal:

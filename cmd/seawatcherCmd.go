@@ -49,11 +49,11 @@ func runSeawatcher(_ *cobra.Command, _ []string) {
 	go trapri.SeaWatcherEventsHandler(gb)
 
 	if viper.GetBool("pubsub.server.enabled") {
-		go sw.SubscribeToPubsubMgmt()
+		go sw.ServerSubscribeToPubsubMgmt()
 		sw.Pr("subscribed to mgmt channel…")
 
 		// publish a "SendSlugs" event to the management channel to request the slugs/events to subscribe to from the clients
-		go sw.PublishSendSlugs()
+		go sw.ServerRequestSlugSubscriptions()
 		sw.Pr("requested slugs from clients…")
 	}
 

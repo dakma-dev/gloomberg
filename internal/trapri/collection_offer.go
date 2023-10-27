@@ -64,11 +64,15 @@ func HandleCollectionOffer(gb *gloomberg.Gloomberg, event *models.CollectionOffe
 		// to prevent printing a lot of backrunned (=doubled) offers all the time
 		// amountToAdd := big.NewInt(13370000000000001) // ≈0.01337....Ξ
 		// amountToAdd := big.NewInt(10370000000000001) // ≈0.01037....Ξ
-		amountToAdd := big.NewInt(7370000000000001) // ≈0.00737....Ξ
+		// amountToAdd := big.NewInt(7370000000000001) // ≈0.00737....Ξ
+		amountToAdd := big.NewInt(6666666666666666) // ≈0.00666....Ξ
+		// amountToAdd := big.NewInt(3370000000000001) // ≈0.00337....Ξ
 
 		currentTopOfferWithBuffer := big.NewInt(0).Add(currentTopOffer.Payload.GetPrice().Wei(), amountToAdd)
 
-		if event.Payload.GetPrice().Wei().Cmp(currentTopOfferWithBuffer) < 0 {
+		eventPrice := big.NewInt(0).Div(event.Payload.GetPrice().Wei(), big.NewInt(int64(event.Payload.Quantity)))
+
+		if eventPrice.Cmp(currentTopOfferWithBuffer) < 0 {
 			gbl.Log.Debugf("🍭 current top offer (+buffer) higher than incoming bid: %+v > %+v", currentTopOfferWithBuffer, event.Payload.GetPrice().Wei())
 
 			return
@@ -79,6 +83,12 @@ func HandleCollectionOffer(gb *gloomberg.Gloomberg, event *models.CollectionOffe
 	collectionOffersMutex.Lock()
 	collectionOffers[contractAddress] = event
 	collectionOffersMutex.Unlock()
+
+	// get the item name as it is not
+	itemName := event.Payload.CollectionCriteria.Slug
+	if collection := gb.CollectionDB.GetCollectionForSlug(event.Payload.CollectionCriteria.Slug); collection != nil {
+		itemName = collection.Name
+	}
 
 	// create a TokenTransaction
 	ttxCollectionOffer := &totra.TokenTransaction{
@@ -99,7 +109,7 @@ func HandleCollectionOffer(gb *gloomberg.Gloomberg, event *models.CollectionOffe
 				Token: &token.Token{
 					Address: contractAddress,
 					ID:      big.NewInt(0),
-					Name:    event.Payload.CollectionCriteria.Slug,
+					Name:    itemName,
 				},
 			},
 		},

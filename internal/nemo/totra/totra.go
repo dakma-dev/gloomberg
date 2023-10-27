@@ -375,7 +375,7 @@ func (ttx *TokenTransaction) getPAOIStyle() lipgloss.Style {
 		purchaseOrBidStyle = style.TrendRedStyle
 
 	case ttx.IsListing():
-		purchaseOrBidStyle = lipgloss.NewStyle().Foreground(style.OpenseaToneBlue)
+		purchaseOrBidStyle = style.OpenSea
 
 	case ttx.IsCollectionOffer():
 		purchaseOrBidStyle = style.PurplePower

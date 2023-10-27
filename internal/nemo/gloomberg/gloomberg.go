@@ -178,15 +178,34 @@ func New() *Gloomberg {
 	return gb
 }
 
-func (gb *Gloomberg) PublishOwnCollectionsSlugs() {
-	gb.publisheCollectionSlugsViaRedis(gb.CollectionDB.OpenseaSlugs())
+func (gb *Gloomberg) PublishOwnSlubSubscription() {
+	slugSubscriptions := make([]degendb.SlugSubscription, 0)
+	for _, slug := range gb.CollectionDB.OpenseaSlugs() {
+		// always subscribe to these events
+		eventTypes := []degendb.EventType{degendb.Listing, degendb.CollectionOffer}
+
+		// for collections from config or waller, we also want to subscribe to bids
+		if collection := gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
+			if collection.Source != degendb.FromStream {
+				eventTypes = append(eventTypes, degendb.Bid)
+			}
+		}
+
+		slugSubscriptions = append(slugSubscriptions, degendb.SlugSubscription{Slug: slug, Events: eventTypes})
+	}
+
+	gb.publishSlugSubscriptions(slugSubscriptions)
 }
 
-func (gb *Gloomberg) PublishCollectionsSlugs(slugs []string) {
-	gb.publisheCollectionSlugsViaRedis(slugs)
+func (gb *Gloomberg) PublishSlubSubscription(slugSubscription degendb.SlugSubscription) {
+	gb.publishSlugSubscriptions(degendb.SlugSubscriptions{slugSubscription})
 }
 
-func (gb *Gloomberg) publisheCollectionSlugsViaRedis(slugs []string) {
+func (gb *Gloomberg) PublishSlubSubscriptions(slugSubscriptions degendb.SlugSubscriptions) {
+	gb.publishSlugSubscriptions(slugSubscriptions)
+}
+
+func (gb *Gloomberg) publishSlugSubscriptions(slugSubscriptions degendb.SlugSubscriptions) {
 	// to enable multiple users to use the central gloomberg instance for events from opensea,
 	// we first send the slugs of 'our' collections to the events-subscriptions channel.
 	// the central gloomberg instance then creates a subscription on the opensea
@@ -198,55 +217,40 @@ func (gb *Gloomberg) publisheCollectionSlugsViaRedis(slugs []string) {
 		return
 	}
 
-	if len(slugs) == 0 {
+	if len(slugSubscriptions) == 0 {
 		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
 
 		return
 	}
 
-	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugs))))
+	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugSubscriptions))))
 
-	mgmtEvent := &models.MgmtEvent{Action: models.Subscribe, Slugs: slugs}
+	subscriptionEvent := &models.SubscriptionEvent{Action: models.Subscribe, Collections: slugSubscriptions}
 
 	switch {
 	case viper.GetBool("seawatcher.local"):
-		// for local seawatcher
-		gb.In.SeawatcherMgmt <- mgmtEvent
+		// runs on pubsub server side
+		gb.In.SeawatcherSubscriptions <- subscriptionEvent
+
 	case viper.GetBool("pubsub.client.enabled"):
-		jsonMgmtEvent, err := json.Marshal(mgmtEvent)
+		// runs on pubsub client side
+		jsonSubscriptionEvent, err := json.Marshal(subscriptionEvent)
 		if err != nil {
 			gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
 
 			return
 		}
 
-		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
+		// publish to redis
+		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonSubscriptionEvent)).Build()).Error() != nil {
 			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 		} else {
-			gbl.Log.Infof("👔 sent %s collection slugs to %s", style.BoldStyle.Render(fmt.Sprint(len(slugs))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
+			gbl.Log.Infof("👔 sent %s collection subscriptions to %s", style.BoldStyle.Render(fmt.Sprint(len(slugSubscriptions))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
 		}
 	}
 }
 
 func getRedisClient(redisClientOptions rueidis.ClientOption) rueidis.Client {
-	// // use hostname as client name
-	// hostname, err := os.Hostname()
-	// if err != nil {
-	// 	log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
-
-	// 	hostname = "unknown"
-	// }
-
-	// // rueidis / new redis library
-	// var connectAddr string
-
-	// if viper.IsSet("redis.address") {
-	// 	connectAddr = viper.GetString("redis.address")
-	// } else {
-	// 	// fallback to old config
-	// 	connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
-	// }
-
 	rdb, err := rueidis.NewClient(redisClientOptions)
 	if err != nil {
 		log.Fatal(err)

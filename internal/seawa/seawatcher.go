@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"net/url"
 	"strings"
 	"sync"
@@ -147,41 +148,22 @@ func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
 		}
 	}
 
-	// start worker for managing subscriptions
-	if viper.GetBool("pubsub.client.enabled") || viper.GetBool("seawatcher.pubsub") {
-		go sw.WorkerMgmtChannel()
-	}
+	// // subscribe to mgmt channel
+	// if viper.GetBool("pubsub.server.enabled") {
+	// 	go sw.subscribeToMgmt()
+	// }
 
 	return sw
 }
 
 // Pr prints messages from seawatcher to the terminal.
 func (sw *SeaWatcher) Pr(message string) {
-	gloomberg.PrWithKeywordAndIcon("🌊", style.OpenSea("seawa"), message)
+	gloomberg.PrWithKeywordAndIcon("🌊", style.OpenSea.Render("seawa"), message)
 }
 
 // Prf formats and prints messages from seawatcher to the terminal.
 func (sw *SeaWatcher) Prf(format string, a ...interface{}) {
 	sw.Pr(fmt.Sprintf(format, a...))
-}
-
-func (sw *SeaWatcher) EventChannel() chan map[string]interface{} {
-	return sw.receivedEvents
-}
-
-// func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[osmodels.EventType]func() {.
-func (sw *SeaWatcher) ActiveSubscriptions() map[string]map[degendb.EventType]func() {
-	totalSubscriptions := 0
-
-	sw.mu.Lock()
-	slugSubscriptions := sw.subscriptions
-	sw.mu.Unlock()
-
-	for _, eventSubscriptions := range slugSubscriptions {
-		totalSubscriptions += len(eventSubscriptions)
-	}
-
-	return slugSubscriptions
 }
 
 // eventHandler handles incoming stream api events and forwards them as map.
@@ -220,13 +202,14 @@ func (sw *SeaWatcher) eventHandler(response any) {
 	contractAddress := generalEvent.ContractAddress()
 	collectionStyle, _ := style.GenerateAddressStyles(contractAddress)
 	collectionStyle = collectionStyle.Bold(true)
-	fmtItemName := collectionStyle.Render(generalEvent.ItemName())
+	fmtItemName := collectionStyle.Render(generalEvent.ItemNameLink())
 
 	// sw.Prf("⚓️ mapstructure generalEvent %s event: %+v", generalEvent.EventType, collectionStyle.Render(contractAddress.Hex()))
 
-	switch osmodels.EventType(generalEvent.EventType) {
+	// switch osmodels.OpenSeaEventType(generalEvent.EventType) {
+	switch degendb.GetEventType(generalEvent.EventType) {
 	// item listed
-	case osmodels.ItemListed:
+	case degendb.Listing:
 		var itemListed *models.ItemListed
 
 		decoderConfig.Result = &itemListed
@@ -242,7 +225,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		// push to eventHub for further processing
 		sw.gb.In.ItemListed <- itemListed
 
-	case osmodels.ItemReceivedBid:
+	case degendb.Bid:
 		var itemReceivedBid *models.ItemReceivedBid
 
 		decoderConfig.Result = &itemReceivedBid
@@ -258,7 +241,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		// push to eventHub for further processing
 		sw.gb.In.ItemReceivedBid <- itemReceivedBid
 
-	case osmodels.CollectionOffer:
+	case degendb.CollectionOffer:
 		var collectionOffer *models.CollectionOffer
 
 		decoderConfig.Result = &collectionOffer
@@ -276,7 +259,7 @@ func (sw *SeaWatcher) eventHandler(response any) {
 
 		// pretty.Println(collectionOffer)
 
-	case osmodels.ItemMetadataUpdated:
+	case degendb.MetadataUpdated:
 		var itemMetadataUpdated *models.ItemMetadataUpdated
 
 		decoderConfig.Result = &itemMetadataUpdated
@@ -299,139 +282,98 @@ func (sw *SeaWatcher) eventHandler(response any) {
 	}
 
 	// 💄 styled log
-	go logEvent(sw, degendb.GetEventType(generalEvent.EventType), contractAddress, generalEvent.BasePrice(), fmtItemName, &generalEvent.Payload.Maker.Address)
+	perItemPrice := price.NewPrice(big.NewInt(0).Div(generalEvent.Payload.GetPrice().Wei(), big.NewInt(int64(generalEvent.Payload.Quantity))))
+
+	// go logEvent(sw, degendb.GetEventType(generalEvent.EventType), contractAddress, generalEvent.BasePrice(), fmtItemName, &generalEvent.Payload.Maker.Address)
+	go logEvent(sw, degendb.GetEventType(generalEvent.EventType), contractAddress, perItemPrice, fmtItemName, &generalEvent.Payload.Maker.Address)
 }
 
-func (sw *SeaWatcher) DecodeItemReceivedBidEvent(itemEvent map[string]interface{}) (osmodels.ItemReceivedBidEvent, error) {
-	var collectionOfferEvent osmodels.ItemReceivedBidEvent
-
-	decodeHooks := mapstructure.ComposeDecodeHookFunc(
-		hooks.StringToAddressHookFunc(),
-	)
-
-	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: decodeHooks,
-		Result:     &collectionOfferEvent,
-	})
-
-	err := decoder.Decode(itemEvent)
-	if err != nil {
-		sw.Prf("⚓️❌ decoding incoming OpenSea stream api ItemReceivedBidEvent failed: %s", err)
-
-		return osmodels.ItemReceivedBidEvent{}, err
-	}
-
-	return collectionOfferEvent, err
-}
-
-func (sw *SeaWatcher) DecodeCollectionOfferEvent(itemEvent map[string]interface{}) (osmodels.CollectionOfferEvent, error) {
-	var collectionOfferEvent osmodels.CollectionOfferEvent
-
-	decodeHooks := mapstructure.ComposeDecodeHookFunc(
-		hooks.StringToAddressHookFunc(),
-	)
-
-	decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
-		DecodeHook: decodeHooks,
-		Result:     &collectionOfferEvent,
-	})
-
-	err := decoder.Decode(itemEvent)
-	if err != nil {
-		sw.Prf("⚓️❌ decoding incoming OpenSea stream api collection offer event failed: %s", err)
-
-		return osmodels.CollectionOfferEvent{}, err
-	}
-
-	return collectionOfferEvent, err
-}
-
-func (sw *SeaWatcher) SubscribeForSlug(slug string, eventTypes []degendb.EventType) uint64 {
-	eventTypesSet := mapset.NewSet[degendb.EventType]()
-	for _, eventType := range eventTypes {
-		eventTypesSet.Add(eventType)
-	}
-
-	return sw.SubscribeForSlugs([]string{slug}, eventTypesSet)
-}
-
-func (sw *SeaWatcher) SubscribeForSlugs(slugs []string, eventTypes mapset.Set[degendb.EventType]) uint64 {
+func (sw *SeaWatcher) Subscribe(subscriptions degendb.SlugSubscriptions) uint64 {
 	if !viper.GetBool("pubsub.server.enabled") && !viper.GetBool("seawatcher.pubsub") && !viper.GetBool("seawatcher.local") {
-		gbl.Log.Infof("⚓️ subscribeing to: %+v", style.BoldAlmostWhite(strings.Join(slugs, ", ")))
-		sw.gb.PublishCollectionsSlugs(slugs)
+		// runs on the pubsub client side
+		gbl.Log.Infof("⚓️ subscribing to: %+v", subscriptions)
 
-		return uint64(len(slugs))
-	}
-
-	newEventSubscriptions := uint64(0)
-
-	for _, slug := range slugs {
-		if sw.IsSubscribedToAllEvents(slug) {
-			log.Debugf("⚓️ ☕️ already subscribed to OpenSea events for %s", slug)
-
-			return 0
+		if len(subscriptions) > 0 {
+			sw.gb.PublishSlubSubscriptions(subscriptions)
+		} else {
+			sw.gb.PublishOwnSlubSubscription()
 		}
 
-		slugSubscriptions := make(map[degendb.EventType]func())
-		slugEventSubscriptions := mapset.NewSet[string]()
+		return uint64(len(subscriptions))
+	}
 
-		for _, eventType := range eventTypes.ToSlice() {
-			if slugSubscriptions[eventType] != nil {
-				log.Debugf("⚓️ ☕️ already subscribed to %s events for %s", eventType, slug)
+	// runs on the pubsub server side
+	newCollectionSubscriptions := uint64(0)
 
-				continue
-			}
+	for _, slugSubscription := range subscriptions {
+		if sw.IsSubscribedToEvents(slugSubscription.Slug, slugSubscription.Events) {
+			log.Debugf("⚓️ ☕️ already subscribed events for %s", style.BoldAlmostWhite(slugSubscription.Slug))
 
-			slugSubscriptions[eventType] = sw.on(eventType, slug, sw.eventHandler)
+			continue
+		}
 
-			newEventSubscriptions++
-			slugEventSubscriptions.Add(eventType.String())
+		subscribedEvents := make(map[degendb.EventType]func())
+		slugEventSubscriptions := mapset.NewSet[degendb.EventType]()
+
+		for _, eventType := range slugSubscription.Events {
+			// if subscribedEvents[eventType] != nil {
+			// 	log.Debugf("⚓️ ☕️ already subscribed to %s events for %s", eventType, slugSubscription.Slug)
+
+			// 	continue
+			// }
+
+			subscribedEvents[eventType] = sw.on(eventType, slugSubscription.Slug, sw.eventHandler)
+
+			// newEventSubscriptions++
+			slugEventSubscriptions.Add(eventType)
 
 			time.Sleep(time.Millisecond * 37)
 		}
 
+		newCollectionSubscriptions++
+
 		sw.mu.Lock()
-		sw.subscriptions[slug] = slugSubscriptions
+		sw.subscriptions[slugSubscription.Slug] = subscribedEvents
 		sw.mu.Unlock()
 
-		fmtSlug := style.BoldAlmostWhite(slug)
+		fmtSlug := style.BoldAlmostWhite(slugSubscription.Slug)
 		fmtDivider := style.GrayStyle.Render("|")
 
 		// no collection db -> no addresses -> no colors 😢 fix me!
-		if collection := sw.gb.CollectionDB.GetCollectionForSlug(slug); collection != nil {
-			log.Debugf("⏮️ resetting stats for %s", slug)
+		if collection := sw.gb.CollectionDB.GetCollectionForSlug(slugSubscription.Slug); collection != nil {
+			log.Debugf("⏮️ resetting stats for %s", slugSubscription.Slug)
 
 			collection.ResetStats()
 
 			// use collection colors
-			fmtSlug = collection.Render(slug)
+			fmtSlug = collection.Render(slugSubscription.Slug)
 			fmtDivider = collection.Style().Copy().Faint(true).Render("|")
 		}
 
-		sw.Prf("%s: %s", fmtSlug, strings.Join(slugEventSubscriptions.ToSlice(), fmtDivider))
+		sw.Prf("%s: %s", fmtSlug, strings.Join(slugSubscription.ToStringSlice(), fmtDivider))
 
 		time.Sleep(time.Millisecond * 137)
 	}
 
-	return newEventSubscriptions
+	return newCollectionSubscriptions // newEventSubscriptions
 }
 
-func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ mapset.Set[degendb.EventType]) uint64 {
-	return sw.UnubscribeForSlugs([]string{slug}, nil)
-}
+// func (sw *SeaWatcher) UnubscribeForSlug(slug string, _ mapset.Set[degendb.EventType]) uint64 {
+// 	return sw.Unsubscribe([]string{slug}, nil)
+// }
 
-func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ mapset.Set[degendb.EventType]) uint64 {
+func (sw *SeaWatcher) Unsubscribe(subscriptions degendb.SlugSubscriptions) uint64 {
 	numUnsubscribed := uint64(0)
 
-	for _, slug := range slugs {
-		if sw.IsSubscribedToAllEvents(slug) {
-			log.Debugf("⚓️ ☕️ not subscribed to events for %s", slug)
+	for _, slugSubscription := range subscriptions {
+		if sw.IsSubscribedToEvents(slugSubscription.Slug, slugSubscription.Events) {
+			log.Debugf("⚓️ ☕️ not subscribed to events for %s", slugSubscription)
 
 			return 0
 		}
 
 		sw.mu.Lock()
-		slugSubscriptions := sw.subscriptions[slug]
+		slugSubscriptions := sw.subscriptions[slugSubscription.Slug]
 		sw.mu.Unlock()
 
 		if slugSubscriptions != nil {
@@ -442,29 +384,65 @@ func (sw *SeaWatcher) UnubscribeForSlugs(slugs []string, _ mapset.Set[degendb.Ev
 
 			// remove slug
 			sw.mu.Lock()
-			sw.subscriptions[slug] = nil
+			sw.subscriptions[slugSubscription.Slug] = nil
 			sw.mu.Unlock()
 		}
 
 		numUnsubscribed++
 	}
 
-	log.Debugf("unsubscribed %d from opensea events", numUnsubscribed)
+	log.Debugf("unsubscribed from %d collections/slugs", numUnsubscribed)
 
 	return numUnsubscribed
 }
+
+// func (sw *SeaWatcher) UnubscribeForSlugs(subscriptions degendb.SlugSubscriptions) uint64 {
+// 	numUnsubscribed := uint64(0)
+
+// 	for _, slug := range slugs {
+// 		if sw.IsSubscribedToAllEvents(slug) {
+// 			log.Debugf("⚓️ ☕️ not subscribed to events for %s", slug)
+
+// 			return 0
+// 		}
+
+// 		sw.mu.Lock()
+// 		slugSubscriptions := sw.subscriptions[slug]
+// 		sw.mu.Unlock()
+
+// 		if slugSubscriptions != nil {
+// 			// unsubscribe
+// 			for _, unsubscribe := range slugSubscriptions {
+// 				unsubscribe()
+// 			}
+
+// 			// remove slug
+// 			sw.mu.Lock()
+// 			sw.subscriptions[slug] = nil
+// 			sw.mu.Unlock()
+// 		}
+
+// 		numUnsubscribed++
+// 	}
+
+// 	log.Debugf("unsubscribed %d from opensea events", numUnsubscribed)
+
+// 	return numUnsubscribed
+// }
 
 func (sw *SeaWatcher) IsSubscribedToAllEvents(slug string) bool {
 	sw.mu.Lock()
 	slugSubscriptions, ok := sw.subscriptions[slug]
 	sw.mu.Unlock()
 
-	if !ok || len(slugSubscriptions) < availableEventTypes.Cardinality() {
+	if !ok { // || len(slugSubscriptions) < availableEventTypes.Cardinality() {
 		return false
 	}
 
 	for _, eventType := range availableEventTypes.ToSlice() {
+		sw.mu.Lock()
 		cancelSubscriptionFunc, ok := slugSubscriptions[eventType]
+		sw.mu.Unlock()
 
 		if !ok {
 			log.Errorf("⚓️❌ error while checking existing eventtype subscriptions for %s / %+v", slug, eventType)
@@ -473,6 +451,24 @@ func (sw *SeaWatcher) IsSubscribedToAllEvents(slug string) bool {
 		}
 
 		if cancelSubscriptionFunc == nil {
+			return false
+		}
+	}
+
+	return true
+}
+
+func (sw *SeaWatcher) IsSubscribedToEvents(slug string, subscriptionEventTypes []degendb.EventType) bool {
+	sw.mu.Lock()
+	slugSubscriptions, ok := sw.subscriptions[slug]
+	sw.mu.Unlock()
+
+	if !ok { // || len(slugSubscriptions) < availableEventTypes.Cardinality() {
+		return false
+	}
+
+	for _, eventType := range subscriptionEventTypes {
+		if _, ok := slugSubscriptions[eventType]; !ok {
 			return false
 		}
 	}
@@ -498,7 +494,9 @@ func (sw *SeaWatcher) createChannel(topic string) *phx.Channel {
 		log.Warn("failed to joined channel:", channel.Topic(), response)
 	})
 
+	sw.mu.Lock()
 	sw.channels[topic] = channel
+	sw.mu.Unlock()
 
 	return channel
 }
@@ -543,46 +541,64 @@ func (sw *SeaWatcher) on(eventType degendb.EventType, collectionSlug string, eve
 	}
 }
 
-func (sw *SeaWatcher) WorkerMgmtChannel() {
-	log.Debugf("subscribing to mgmt channel %s", internal.PubSubSeaWatcherMgmt)
+// func (sw *SeaWatcher) subscribeToMgmt() {
+// 	log.Debugf("subscribing to mgmt channel %s", internal.PubSubSeaWatcherMgmt)
 
-	mgmtChannel := sw.gb.SubscribeSeawatcherMgmt()
+// 	subscriptionsChannel := sw.gb.SubscribeSeawatcherSubscriptions()
 
-	for {
-		mgmtEvent := <-mgmtChannel
+// 	for {
+// 		subscriptionEvent := <-subscriptionsChannel
+// 		sw.serverHandleMgmtEvent(subscriptionEvent)
+// 	}
+// }
 
-		sw.handleMgmtEvent(mgmtEvent)
-	}
-}
-
-// SubscribeToPubsubMgmt starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
-func (sw *SeaWatcher) SubscribeToPubsubMgmt() {
+// ServerSubscribeToPubsubMgmt starts the seawatcher by subscribing to the mgmt channel and listening for new slugs to subscribe to.
+func (sw *SeaWatcher) ServerSubscribeToPubsubMgmt() {
 	sw.Prf("👔 subscribing to mgmt channel %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 
 	err := sw.rdb.Receive(context.Background(), sw.rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
-		log.Infof("👔 received msg on channel %s: %s", msg.Channel, msg.Message)
+		log.Debugf("👔 received msg on channel %s: %s", msg.Channel, msg.Message)
 
-		var mgmtEvent *models.MgmtEvent
-
-		if err := json.Unmarshal([]byte(msg.Message), &mgmtEvent); err != nil {
-			log.Errorf("⚓️❌ error json.Unmarshal: %+v", err)
+		// validate json
+		if !json.Valid([]byte(msg.Message)) {
+			gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
 
 			return
 		}
 
-		sw.handleMgmtEvent(mgmtEvent)
+		// unmarshal json to map
+		var rawEvent map[string]interface{}
+		if err := json.Unmarshal([]byte(msg.Message), &rawEvent); err != nil {
+			log.Errorf("⚓️❌ error json.Unmarshal to map: %+v", err)
+
+			return
+		}
+
+		// decode to event
+		var subscriptionEvent *models.SubscriptionEvent
+		decoder, _ := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
+			DecodeHook: mapstructure.ComposeDecodeHookFunc(hooks.StringToEventTypeHookFunc()),
+			Result:     &subscriptionEvent,
+		})
+
+		err := decoder.Decode(rawEvent)
+		if err != nil {
+			log.Infof("⚓️❌ decoding incoming event failed: %+v | %+v", msg.Message, err)
+
+			return
+		}
+
+		go sw.serverHandleMgmtEvent(subscriptionEvent)
 	})
 	if err != nil {
 		log.Errorf("❌ error subscribing to redis channels %s: %s", internal.PubSubSeaWatcherMgmt, err.Error())
 
 		return
 	}
-
-	sw.Prf("👔 subscribed to %s", style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 }
 
-func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
-	switch mgmtEvent.Action {
+func (sw *SeaWatcher) serverHandleMgmtEvent(subscriptionEvent *models.SubscriptionEvent) {
+	switch subscriptionEvent.Action {
 	case models.SendSlugs:
 		// SendSlugs can be ignored on server side for now
 		return
@@ -594,8 +610,8 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 			return
 		}
 
-		sw.Prf("received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(mgmtEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(mgmtEvent.Slugs))))
-		if len(mgmtEvent.Slugs) == 0 {
+		sw.Prf("👔 received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(subscriptionEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(subscriptionEvent.Collections))))
+		if len(subscriptionEvent.Collections) == 0 {
 			log.Error("⚓️❌ incoming collection slugs msg is empty")
 
 			return
@@ -607,48 +623,48 @@ func (sw *SeaWatcher) handleMgmtEvent(mgmtEvent *models.MgmtEvent) {
 			return
 		}
 
-		var action func(slug []string, eventTypes mapset.Set[degendb.EventType]) uint64
+		var action func(subscriptions degendb.SlugSubscriptions) uint64
 
-		switch mgmtEvent.Action {
+		switch subscriptionEvent.Action {
 		case models.Subscribe:
-			action = sw.SubscribeForSlugs
+			action = sw.Subscribe
 		case models.Unsubscribe:
-			action = sw.UnubscribeForSlugs
+			action = sw.Unsubscribe
 		}
 
-		newEventSubscriptions := action(mgmtEvent.Slugs, availableEventTypes)
+		newEventSubscriptions := action(subscriptionEvent.Collections)
 
 		sw.Prf(
-			"👔 successfully subscribed to %s new collections/slugs | total subscribed collections: %s",
+			"👔 subscribed for %s new collections/slugs | total subscribed collections: %s",
 			style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
-			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.ActiveSubscriptions()))),
+			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.subscriptions))),
 		)
 
 	default:
-		sw.Prf("👔 👀 received unknown mgmt event: %s", mgmtEvent.Action.String())
+		sw.Prf("👔 👀 received unknown mgmt event: %s", subscriptionEvent.Action.String())
 
 		return
 	}
 }
 
-func (sw *SeaWatcher) PublishSendSlugs() {
+func (sw *SeaWatcher) ServerRequestSlugSubscriptions() {
 	// build "SendSlugs" event
-	sendSlugsEvent := &models.MgmtEvent{
+	requestSlugsEvent := &models.MgmtEvent{
 		Action: models.SendSlugs,
 	}
 
 	// marshal event
-	jsonMgmtEvent, err := json.Marshal(sendSlugsEvent)
+	jsonMgmtEvent, err := json.Marshal(requestSlugsEvent)
 	if err != nil {
-		log.Error("⚓️❌ marshal failed for SendSlugs action: %s | %v", err, sendSlugsEvent)
+		log.Error("⚓️❌ marshal failed for SendSlugs action: %s | %v", err, requestSlugsEvent)
 
 		return
 	}
 
 	if sw.rdb.Do(context.Background(), sw.rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonMgmtEvent)).Build()).Error() != nil {
-		log.Errorf("⚓️❌ error publishing %s to redis: %s", sendSlugsEvent.Action.String(), err.Error())
+		log.Errorf("⚓️❌ error publishing %s to redis: %s", requestSlugsEvent.Action.String(), err.Error())
 	} else {
-		sw.Prf("👔 published %s event to %s", style.AlmostWhiteStyle.Render(sendSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
+		sw.Prf("👔 published %s event to %s", style.AlmostWhiteStyle.Render(requestSlugsEvent.Action.String()), style.AlmostWhiteStyle.Render(internal.PubSubSeaWatcherMgmt))
 	}
 }
 

@@ -25,7 +25,7 @@ var (
 
 	LightGrayForeground = lipgloss.Color("#BBB")
 
-	OpenSea         = lipgloss.NewStyle().Foreground(OpenseaToneBlue).Render
+	OpenSea         = lipgloss.NewStyle().Foreground(OpenseaToneBlue)
 	Blur            = lipgloss.NewStyle().Foreground(BlurOrange).Render
 	BoldAlmostWhite = AlmostWhiteStyle.Copy().Bold(true).Render
 
