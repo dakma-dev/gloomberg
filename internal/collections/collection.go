@@ -58,7 +58,7 @@ type Collection struct {
 	// calculated/generated fields
 	Metadata *nemo.CollectionMetadata `mapstructure:"metadata"`
 
-	Source CollectionSource `mapstructure:"source"`
+	Source degendb.CollectionSource `mapstructure:"source"`
 
 	Colors struct {
 		Primary   lipgloss.Color `mapstructure:"primary"`
@@ -83,7 +83,7 @@ type Collection struct {
 	Raw *osmodels.AssetCollection
 }
 
-func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source CollectionSource, rueidi *rueidica.Rueidica) *Collection {
+func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source degendb.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
 	var collectionName string
 
 	ctx := context.Background()
@@ -194,22 +194,22 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		}()
 	}
 
-	if source == FromWallet || source == FromConfiguration {
+	if source == degendb.FromWallet || source == degendb.FromConfiguration {
 		collection.Show.History = true
 	}
 
-	if source == FromWallet || source == FromStream {
+	if source == degendb.FromWallet || source == degendb.FromStream {
 		collection.Show.Sales = viper.GetBool("show.sales")
 		collection.Show.Mints = viper.GetBool("show.mints")
 		collection.Show.Transfers = viper.GetBool("show.transfers")
 
-		if source == FromWallet {
+		if source == degendb.FromWallet {
 			if viper.IsSet("api_keys.opensea") {
 				collection.Show.Listings = viper.GetBool("listings.enabled")
 			}
 		}
 
-		if source == FromStream {
+		if source == degendb.FromStream {
 			collection.Show.Listings = false
 			collection.Show.History = false
 		}
@@ -230,7 +230,7 @@ func (uc *Collection) String() string {
 
 // IsOwn returns true if the collection is owned by the user (= in the wallet or configured in the config file).
 func (uc *Collection) IsOwn() bool {
-	return uc.Source == FromWallet || uc.Source == FromConfiguration
+	return uc.Source == degendb.FromWallet || uc.Source == degendb.FromConfiguration
 }
 
 func (uc *Collection) prettyOpenseaSlug() string {

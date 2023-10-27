@@ -220,6 +220,32 @@ func (ddb *DegenDB) initializeDegensCollection() {
 	}
 }
 
+func (ddb *DegenDB) AddCollections(collections interface{}) {
+	collectionsColl := ddb.mongo.Database(mongoDB).Collection(collCollections)
+
+	mongoCollections := make([]interface{}, 0)
+
+	collectionList, ok := collections.([]Collection)
+	if !ok {
+		log.Printf("type asserting collections error")
+
+		return
+	}
+	for _, collection := range collectionList {
+		mongoCollections = append(mongoCollections, collection)
+	}
+
+	// result, err := degensColl.UpdateMany(context.TODO(), bson.D{{}}, ogDegens, &options.UpdateOptions{
+	result, err := collectionsColl.InsertMany(context.TODO(), mongoCollections)
+	if err != nil {
+		log.Printf("add collections error: %+v", err)
+
+		return
+	}
+
+	log.Printf("add collections result: %+v", result)
+}
+
 func (ddb *DegenDB) AddCollectionToken(collections interface{}, tokens interface{}) {
 	collectionsColl := ddb.mongo.Database(mongoDB).Collection(collCollections)
 

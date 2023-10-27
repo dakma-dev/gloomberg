@@ -11,16 +11,16 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 )
 
-type EventType string
+type OpenSeaEventType string
 
 const (
-	ItemListed      EventType = "item_listed"
-	ItemSold        EventType = "item_sold"
-	ItemReceivedBid EventType = "item_received_bid"
+	ItemListed      OpenSeaEventType = "item_listed"
+	ItemSold        OpenSeaEventType = "item_sold"
+	ItemReceivedBid OpenSeaEventType = "item_received_bid"
 	// ItemReceivedOffer   EventType = "item_received_offer".
-	ItemMetadataUpdated EventType = "item_metadata_updated"
+	ItemMetadataUpdated OpenSeaEventType = "item_metadata_updated"
 
-	CollectionOffer EventType = "collection_offer"
+	CollectionOffer OpenSeaEventType = "collection_offer"
 
 	// ItemCancelled       EventType = "item_cancelled".
 	// ItemTransferred     EventType = "item_transferred".
@@ -28,23 +28,39 @@ const (
 	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
 
-var TxType = map[EventType]degendb.EventType{
+var TxType = map[OpenSeaEventType]degendb.EventType{
 	ItemListed:      degendb.Listing,
 	ItemSold:        degendb.Sale,
 	CollectionOffer: degendb.CollectionOffer,
 	ItemReceivedBid: degendb.Bid,
 }
 
+// type EventType string
+
+// func (e *EventType) String() string {
+// 	return string(e)
+// }
+
+// func (e EventType) MarshalJSON() ([]byte, error) {
+// 	return []byte(`"` + e + `"`), nil
+// }
+
+// func (e EventType) UnmarshalJSON(b []byte) error {
+// 	e = EventType(strings.Trim(string(b), `"`))
+
+// 	return nil
+// }
+
 type ItemEvent interface {
-	StreamEventType() EventType
+	StreamEventType() OpenSeaEventType
 }
 
 type BaseStreamMessage struct {
-	StreamEvent EventType `json:"event_type" mapstructure:"event_type"`
-	SentAt      string    `json:"sent_at"    mapstructure:"sent_at"`
+	StreamEvent OpenSeaEventType `json:"event_type" mapstructure:"event_type"`
+	SentAt      string           `json:"sent_at"    mapstructure:"sent_at"`
 }
 
-func (m *BaseStreamMessage) StreamEventType() EventType {
+func (m *BaseStreamMessage) StreamEventType() OpenSeaEventType {
 	return m.StreamEvent
 }
 

@@ -26,11 +26,11 @@ type Chain struct {
 // criteria structs
 //
 
-type CollectionCriteria struct {
+type CollectionSlug struct {
 	Slug string `json:"slug" mapstructure:"slug"`
 }
 
-func (c *CollectionCriteria) String() string {
+func (c *CollectionSlug) String() string {
 	return c.Slug
 }
 
@@ -63,7 +63,7 @@ type EventPayload struct {
 	EventTimestamp time.Time `json:"event_timestamp" mapstructure:"event_timestamp"`
 	ExpirationDate time.Time `json:"expiration_date" mapstructure:"expiration_date"`
 
-	CollectionCriteria `json:"collection" mapstructure:"collection"`
+	CollectionSlug `json:"collection" mapstructure:"collection"`
 
 	Maker Account `json:"maker,omitempty" mapstructure:"maker,omitempty"`
 	Taker Account `json:"taker,omitempty" mapstructure:"taker,omitempty"`

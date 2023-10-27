@@ -1,4 +1,4 @@
-package collections
+package degendb
 
 // CollectionSource represents the source of a collection.
 type CollectionSource int64

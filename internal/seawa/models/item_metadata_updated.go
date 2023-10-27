@@ -11,8 +11,8 @@ type ItemMetadataUpdated struct {
 }
 
 type itemMetadataUpdatedPayload struct {
-	Item               `json:"item"       mapstructure:"item"`
-	CollectionCriteria `json:"collection" mapstructure:"collection"`
+	Item           `json:"item"       mapstructure:"item"`
+	CollectionSlug `json:"collection" mapstructure:"collection"`
 
 	CreatedDate time.Time `json:"created_date" mapstructure:"created_date"`
 

@@ -15,13 +15,13 @@ import (
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
+	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/tokencollections"
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/notify"
 	"github.com/benleb/gloomberg/internal/opensea"
-	"github.com/benleb/gloomberg/internal/pusu"
 	seawatcher "github.com/benleb/gloomberg/internal/seawa"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/ticker"
@@ -181,7 +181,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			continue
 
 		// NFTfi and so on...
-		case internal.LoanContracts[contractAddress] != "":
+		case marketplace.LoanContracts.Contains(contractAddress):
 			continue
 
 		// Uniswap V3: Positions NFT
@@ -321,7 +321,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				}
 			}
 
-			isOwnCollection = collection.Source == collections.FromWallet || collection.Source == collections.FromConfiguration
+			isOwnCollection = collection.Source == degendb.FromWallet || collection.Source == degendb.FromConfiguration
 
 			// link each token id to opensea
 			_, openseaURL, _ := utils.GetLinks(txHash, transfer.Token.Address, transfer.Token.ID.Int64())
@@ -867,19 +867,26 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			salesAndListings = fmt.Sprint(style.TrendLightGreenStyle.Render(fmt.Sprint(numLastSales)))
 
 			//
-			// auto-subscribe to opensea events after X sales
+			// auto-subscribe to opensea events after X sales (to calculate the salira of the collection)
 			if autoSubscribeAfterSales := viper.GetUint64("seawatcher.auto_subscribe_after_sales"); uint64(numLastSales) >= autoSubscribeAfterSales {
 				if currentCollection.OpenseaSlug == "" {
 					currentCollection.OpenseaSlug = opensea.GetCollectionSlug(currentCollection.ContractAddress)
 				}
 
-				if !alreadySubscribed.Contains(currentCollection.OpenseaSlug) && !seawa.IsSubscribedToAllEvents(currentCollection.OpenseaSlug) {
-					if seawa.SubscribeForSlug(currentCollection.OpenseaSlug, []degendb.EventType{degendb.Listing, degendb.CollectionOffer, degendb.Bid}) > 0 {
+				// if !alreadySubscribed.Contains(currentCollection.OpenseaSlug) && !seawa.IsSubscribedToAllEvents(currentCollection.OpenseaSlug) {
+				if !alreadySubscribed.Contains(currentCollection.OpenseaSlug) && !seawa.IsSubscribedToEvents(currentCollection.OpenseaSlug, []degendb.EventType{degendb.Listing}) {
+					if seawa.Subscribe(degendb.SlugSubscriptions{{
+						Slug:   currentCollection.OpenseaSlug,
+						Events: []degendb.EventType{degendb.Listing},
+					}}) > 0 {
 						alreadySubscribed.Add(currentCollection.OpenseaSlug)
-						pusu.SubscribeToListingsViaRedis(gb)
+						// TODO FIX GENERAL SUBSCRIBE
+						// pusu.SubscribeToListingsViaRedis(gb)
 
-						seawa.Pr(fmt.Sprintf("auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
+						seawa.Pr(fmt.Sprintf("new ❕ auto-subscribed to events for %s (after %d sales) | stats resetted", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 					}
+				} else {
+					seawa.Pr(fmt.Sprintf("already subscribed to events for %s (after %d sales)", style.AlmostWhiteStyle.Render(currentCollection.OpenseaSlug), autoSubscribeAfterSales))
 				}
 			}
 		}
@@ -997,8 +1004,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 
 	// add to history
-	if isOwn && (!ttx.IsLoan() && !ttx.IsItemBid() && !ttx.IsCollectionOffer()) {
-		if !ttx.IsListing() || (isOwnWallet && currentCollection.Source != collections.FromConfiguration) { // && gb.Stats != nil {
+	if isOwnWallet || (isOwn && (!ttx.IsLoan() && !ttx.IsLoanPayback() && !ttx.IsItemBid() && !ttx.IsCollectionOffer())) {
+		if !ttx.IsListing() || (isOwnWallet && currentCollection.Source != degendb.FromConfiguration) { // && gb.Stats != nil {
 			// TODO: fix/remove this...
 			parsedEvent.Other["fmtTokensHistory"] = fmtTokensHistory
 

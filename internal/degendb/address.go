@@ -44,9 +44,9 @@ type Address struct {
 	// ExternalURL is the URL of the collection
 	ExternalURL string `bson:"external_url,omitempty" json:"external_url,omitempty"`
 
-	// CreatedAt is the time this collection was created in our db
+	// CreatedAt is the time this address was created in the db
 	CreatedAt time.Time `bson:"created_at,omitempty" json:"created_at,omitempty"`
-	// UpdatedAt is the time this collection was last updated in our db
+	// UpdatedAt is the time this address was last updated in the db
 	UpdatedAt time.Time `bson:"updated_at,omitempty" json:"updated_at,omitempty"`
 
 	// creates to many writes probably

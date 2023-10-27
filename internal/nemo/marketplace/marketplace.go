@@ -12,12 +12,17 @@ type MarketPlace struct {
 	Name  string         `json:"name"`
 	Color lipgloss.Color `json:"color"`
 	// OldContractAddresses map[common.Address]bool    `json:"contractAddresses"`
-	ContractAddresses mapset.Set[common.Address] `json:"-"`
-	Tag               string                     `json:"tag"`
+	ContractAddresses      mapset.Set[common.Address] `json:"-"`
+	TokenContractAddresses mapset.Set[common.Address] `json:"-"`
+	Tag                    string                     `json:"tag"`
 }
 
 func Addresses() mapset.Set[common.Address] {
 	return mapset.NewSetFromMapKeys[common.Address](AddressToMarketplace())
+}
+
+func TokenAddresses() mapset.Set[common.Address] {
+	return mapset.NewSetFromMapKeys[common.Address](TokenAddressToMarketplace())
 }
 
 func AddressToMarketplace() map[common.Address]*MarketPlace {
@@ -35,6 +40,29 @@ func AddressToMarketplace() map[common.Address]*MarketPlace {
 	for _, mp := range marketplaces {
 		for _, addr := range mp.ContractAddresses.ToSlice() {
 			marketplaceAddresses[addr] = mp
+		}
+	}
+
+	return marketplaceAddresses
+}
+
+func TokenAddressToMarketplace() map[common.Address]*MarketPlace {
+	marketplaces := []*MarketPlace{
+		&OpenSea,
+		&Blur,
+		&X2Y2,
+		&LooksRare,
+		&SuperRare,
+		&NFTfi,
+	}
+
+	marketplaceAddresses := make(map[common.Address]*MarketPlace, len(marketplaces))
+
+	for _, mp := range marketplaces {
+		if mp.TokenContractAddresses != nil {
+			for _, addr := range mp.TokenContractAddresses.ToSlice() {
+				marketplaceAddresses[addr] = mp
+			}
 		}
 	}
 
@@ -148,11 +176,11 @@ var NFTfi = MarketPlace{
 		common.HexToAddress("0xaDDE73498902F61BfCB702e94C31c13C534879AC"),
 		common.HexToAddress("0x5A42d72372858E10Edc03B26bF449F78fF3c0e6F"),
 		common.HexToAddress("0x0C90C8B4aa8549656851964d5fB787F0e4F54082"),
-		common.HexToAddress("0x5660E206496808F7b5cDB8C56A696a96AE5E9b23"),
 		common.HexToAddress("0xe73ECe5988FfF33a012CEA8BB6Fd5B27679fC481"),
 		common.HexToAddress("0xE52Cec0E90115AbeB3304BaA36bc2655731f7934"),
 	),
-	Tag: "↩︎",
+	TokenContractAddresses: mapset.NewSet[common.Address](common.HexToAddress("0x5660E206496808F7b5cDB8C56A696a96AE5E9b23")),
+	Tag:                    "↩︎",
 }
 
 var Unknown = MarketPlace{
@@ -164,3 +192,10 @@ var Unknown = MarketPlace{
 	),
 	Tag: "¦",
 }
+
+var LoanContracts = mapset.NewSet[common.Address](
+	internal.BlurBlendContractAddress,
+	internal.NFTfiContractAddress,
+	internal.NFTLoanTicketV2ContractAddress,
+	internal.BorrowerNoteTicket,
+)

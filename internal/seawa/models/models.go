@@ -3,6 +3,7 @@ package models
 import (
 	"time"
 
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
 	"github.com/mitchellh/mapstructure"
@@ -35,9 +36,14 @@ func (a MgmtAction) String() string {
 }
 
 type MgmtEvent struct {
-	Action MgmtAction           `json:"action"`
-	Events []osmodels.EventType `json:"events"`
-	Slugs  []string             `json:"slugs"`
+	Action MgmtAction                  `json:"action"`
+	Events []osmodels.OpenSeaEventType `json:"events"`
+	Slugs  []string                    `json:"slugs"`
+}
+
+type SubscriptionEvent struct {
+	Action      MgmtAction                `json:"action"      mapstructure:"action"`
+	Collections degendb.SlugSubscriptions `json:"collections" mapstructure:"collections"`
 }
 
 func GetEventDecoderConfig() mapstructure.DecoderConfig {

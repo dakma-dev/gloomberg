@@ -1,11 +1,13 @@
 package models
 
 import (
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/price"
+	"github.com/benleb/gloomberg/internal/style"
 	"github.com/ethereum/go-ethereum/common"
 )
 
@@ -20,11 +22,28 @@ type GeneralEvent struct {
 }
 
 func (e *GeneralEvent) ItemName() string {
-	if degendb.GetEventType(e.EventType) == degendb.CollectionOffer {
-		return e.Payload.CollectionCriteria.Slug
+	var name string
+
+	switch {
+	case e.Payload.Item.Name != "":
+		name = e.Payload.Item.Name
+	case degendb.GetEventType(e.EventType) == degendb.CollectionOffer:
+		name = e.Payload.Slug
+	case e.Payload.NftID != nil:
+		name = e.Payload.NftID.String()
+	default:
+		name = fmt.Sprintf("%+v", e.Payload)
 	}
 
-	return e.Payload.Item.Metadata.Name
+	return name
+}
+
+func (e *GeneralEvent) ItemNameLink() string {
+	if e.Payload.Item.Permalink != "" {
+		return style.TerminalLink(e.Payload.Permalink, e.ItemName())
+	}
+
+	return e.ItemName()
 }
 
 func (e *GeneralEvent) ContractAddress() *common.Address {
@@ -54,9 +73,9 @@ type ItemGenericPayload struct {
 	Item        `json:"item"         mapstructure:"item,omitempty"`
 	CreatedDate time.Time `json:"created_date" mapstructure:"created_date,omitempty"`
 
-	CollectionCriteria `json:"collection_criteria"     mapstructure:"collection_criteria,omitempty"`
-	ContractCriteria   `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria,omitempty"`
-	TraitCriteria      `json:"trait_criteria"          mapstructure:"trait_criteria,omitempty"`
+	CollectionSlug   `json:"collection_criteria"     mapstructure:"collection_criteria,omitempty"`
+	ContractCriteria `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria,omitempty"`
+	TraitCriteria    `json:"trait_criteria"          mapstructure:"trait_criteria,omitempty"`
 
 	EventPayload `json:"payload" mapstructure:",squash,omitempty"`
 

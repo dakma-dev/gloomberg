@@ -9,6 +9,8 @@ type EventType interface {
 	ActionName() string
 	Icon() string
 	OpenseaEventName() string
+	MarshalJSON() ([]byte, error)
+	UnmarshalJSON([]byte) error
 }
 
 type GBEventType struct {
@@ -40,6 +42,16 @@ func (et *GBEventType) Icon() string {
 
 func (et *GBEventType) OpenseaEventName() string {
 	return et.openseaEventName
+}
+
+func (et *GBEventType) MarshalJSON() ([]byte, error) {
+	return []byte(`"` + et.openseaEventName + `"`), nil
+}
+
+func (et *GBEventType) UnmarshalJSON(b []byte) error {
+	*et = *GetEventType(string(b))
+
+	return nil
 }
 
 var (

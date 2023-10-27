@@ -11,8 +11,9 @@ type CollectionOffer struct {
 }
 
 type collectionOfferPayload struct {
-	CollectionCriteria CollectionCriteria `json:"collection_criteria"     mapstructure:"collection_criteria"`
-	ContractCriteria   ContractCriteria   `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
+	Collection         CollectionSlug   `json:"collection"              mapstructure:"collection"`
+	CollectionCriteria CollectionSlug   `json:"collection_criteria"     mapstructure:"collection_criteria"`
+	ContractCriteria   ContractCriteria `json:"asset_contract_criteria" mapstructure:"asset_contract_criteria"`
 	EventPayload       `json:"payload"                 mapstructure:",squash"`
 
 	CreatedDate time.Time `json:"created_date" mapstructure:"created_date"`

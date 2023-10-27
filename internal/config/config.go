@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/benleb/gloomberg/internal/collections"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
 	"github.com/benleb/gloomberg/internal/nemo/provider"
@@ -136,12 +137,18 @@ func GetCollectionsFromConfiguration(providerPool *provider.Pool, rueidica *ruei
 
 	for address, collection := range viper.GetStringMap("collections") {
 		contractAddress := common.HexToAddress(address)
-		currentCollection := collections.NewCollection(contractAddress, "", providerPool, collections.FromConfiguration, rueidica)
+		currentCollection := collections.NewCollection(contractAddress, "", providerPool, degendb.FromConfiguration, rueidica)
 
 		if collection == nil && common.IsHexAddress(address) {
 			gbl.Log.Infof("reading collection without details: %+v", address)
 
-			currentCollection = collections.NewCollection(contractAddress, "", providerPool, collections.FromConfiguration, rueidica)
+			currentCollection = collections.NewCollection(contractAddress, "", providerPool, degendb.FromConfiguration, rueidica)
+
+			if n, ok := collection.(map[string]interface{})["name"]; ok {
+				if name, ok := n.(string); ok && name != "" {
+					currentCollection.Metadata.ContractName = name
+				}
+			}
 
 			// general settings
 			if viper.Sub("collections."+currentCollection.ContractAddress.String()+".buy") != nil && !viper.IsSet("show.listings") {
