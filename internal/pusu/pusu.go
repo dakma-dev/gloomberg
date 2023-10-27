@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/apex/log"
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/gbl"
@@ -14,6 +13,7 @@ import (
 	"github.com/benleb/gloomberg/internal/nemo/totra"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/log"
 	"github.com/mitchellh/mapstructure"
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
@@ -143,7 +143,7 @@ func handleEvent(gb *gloomberg.Gloomberg, msg rueidis.PubSubMessage) {
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
-			log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+			log.Infof("⚓️❌ decoding incoming %v event failed: %s", generalEvent, err)
 
 			return
 		}
@@ -159,7 +159,7 @@ func handleEvent(gb *gloomberg.Gloomberg, msg rueidis.PubSubMessage) {
 
 		err := decoder.Decode(rawEvent)
 		if err != nil {
-			log.Infof("⚓️❌ decoding incoming %s event failed: %s", generalEvent, err)
+			log.Infof("⚓️❌ decoding incoming %v event failed: %s", generalEvent, err)
 
 			return
 		}
