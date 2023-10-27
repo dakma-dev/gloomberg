@@ -321,7 +321,7 @@ package oldweb
 // 			CollectionName:      event.Collection.Name,
 // 			TokenID:             event.TokenID,
 // 			To:                  to,
-// 			ToColor:             string(style.GenerateColorWithSeed(event.To.Address.Hash().Big().Int64())),
+// 			ToColor:             string(style.GenerateColorWithSeed(event.To.Address.Big().Int64())),
 // 			ColorPrimary:        string(event.Collection.Colors.Primary),
 // 			ColorPrimaryFaint:   string(event.Collection.Colors.Primary),
 // 			ColorSecondary:      string(event.Collection.Colors.Secondary),

@@ -298,7 +298,7 @@ func FormatAddress(address *common.Address) string {
 
 // GenerateColors generates two colors based on contract address of the collection.
 func GenerateAddressColors(address *common.Address) (lipgloss.Color, lipgloss.Color) {
-	return GenerateColorWithSeed(address.Hash().Big().Int64()), GenerateColorWithSeed(address.Big().Int64() ^ 2)
+	return GenerateColorWithSeed(address.Big().Int64()), GenerateColorWithSeed(address.Big().Int64() ^ 2)
 }
 
 func GenerateAddressStyles(address *common.Address) (lipgloss.Style, lipgloss.Style) {

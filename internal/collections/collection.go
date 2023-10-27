@@ -414,7 +414,7 @@ func (uc *Collection) ResetStats() {
 // GenerateColors generates two colors based on contract address of the collection.
 func (uc *Collection) generateColorsFromAddress() {
 	if uc.Colors.Primary == "" {
-		uc.Colors.Primary = style.GenerateColorWithSeed(uc.ContractAddress.Hash().Big().Int64())
+		uc.Colors.Primary = style.GenerateColorWithSeed(uc.ContractAddress.Big().Int64())
 	}
 
 	if uc.Colors.Secondary == "" {

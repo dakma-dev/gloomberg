@@ -117,7 +117,7 @@ func CheckEIP6551TokenAccount(gb *Gloomberg, tokenContract *common.Address, toke
 
 	PrModf(
 		"e6551", "💥  %s  →  %+v (nonce: %d)",
-		style.TerminalLink(utils.GetEtherscanAddressURL(tokenContract), style.ShortenAddressStyled(tokenContract, lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(tokenContract.Hash().Big().Int64())))),
+		style.TerminalLink(utils.GetEtherscanAddressURL(tokenContract), style.ShortenAddressStyled(tokenContract, lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(tokenContract.Big().Int64())))),
 		style.TerminalLink(utils.GetEtherscanAddressURL(&eip6551AccountAddress), eip6551AccountAddress.String()),
 		nonceAt,
 	)

@@ -67,7 +67,7 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 			}
 
 			if newWallet.Color == "" {
-				newWallet.Color = style.GenerateColorWithSeed(newWallet.Address.Hash().Big().Int64())
+				newWallet.Color = style.GenerateColorWithSeed(newWallet.Address.Big().Int64())
 			}
 
 			if newWallet.Name == "" {

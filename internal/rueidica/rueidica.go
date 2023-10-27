@@ -246,11 +246,11 @@ func (r *Rueidica) cacheAddressWithKey(ctx context.Context, rKey string, rValue 
 //
 // [redis SET doc]: https://redis.io/commands/set/#patterns
 func (r *Rueidica) NotificationLock(txHash common.Hash) (context.CancelFunc, error) {
-	return r.NotificationLockWtihDuration(txHash, viper.GetDuration("cache.notifications_lock_ttl"))
+	return r.NotificationLockWtihDuration(txHash.Hex(), viper.GetDuration("cache.notifications_lock_ttl"))
 }
 
 // NotificationLockWtihDuration implements a lock to prevent sending multiple notifications for the same event.
-func (r *Rueidica) NotificationLockWtihDuration(txHash common.Hash, duration time.Duration) (context.CancelFunc, error) {
+func (r *Rueidica) NotificationLockWtihDuration(identifier string, duration time.Duration) (context.CancelFunc, error) {
 	var connectAddr string
 
 	if viper.IsSet("redis.address") {
@@ -281,14 +281,14 @@ func (r *Rueidica) NotificationLockWtihDuration(txHash common.Hash, duration tim
 	defer locker.Close()
 
 	// acquire the lock
-	_, cancel, err := locker.WithContext(context.Background(), txHash.Hex())
+	_, cancel, err := locker.WithContext(context.Background(), identifier)
 	if err != nil {
 		if errors.Is(err, rueidislock.ErrLockerClosed) {
 			panic(err)
 		}
 	}
 	// "my_lock" is acquired. use the ctx as normal.
-	log.Debugf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenHashStyled(txHash), duration.Seconds())
+	log.Debugf("🔒 %s | notification lock acquired (%.0fsec)", style.ShortenAddress(common.HexToAddress(identifier)), duration.Seconds())
 	// doSomething(ctx)
 
 	// invoke cancel() to release the lock.

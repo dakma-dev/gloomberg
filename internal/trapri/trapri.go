@@ -733,7 +733,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 			transferFrom = ttx.From
 		}
 
-		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Hash().Big().Int64()))
+		fromStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(transferFrom.Big().Int64()))
 		parsedEvent.Colors.From, ok = fromStyle.GetForeground().(lipgloss.Color)
 		if !ok {
 			parsedEvent.Colors.From = style.DarkGray
@@ -773,7 +773,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 	}
 
-	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Hash().Big().Int64()))
+	buyerStyle := lipgloss.NewStyle().Foreground(style.GenerateColorWithSeed(buyer.Big().Int64()))
 
 	parsedEvent.Colors.To, ok = buyerStyle.GetForeground().(lipgloss.Color)
 	if !ok {
