@@ -153,6 +153,10 @@ func (ttx *TokenTransaction) GetEtherscanTxURL() string {
 	return fmt.Sprintf("https://etherscan.io/tx/%s", ttx.TxHash)
 }
 
+func (ttx *TokenTransaction) GetTransferredTokenContractAdresses() mapset.Set[common.Address] {
+	return mapset.NewSetFromMapKeys[common.Address](ttx.GetTransfersByContract())
+}
+
 func (ttx *TokenTransaction) GetTransfersByContract() map[common.Address][]*TokenTransfer {
 	transfersByContract := make(map[common.Address][]*TokenTransfer)
 
@@ -549,7 +553,7 @@ func (ttx *TokenTransaction) IsLoan() bool {
 	}
 
 	for tokenAddress := range ttx.GetTransfersByContract() {
-		if internal.LoanContracts[tokenAddress] != "" {
+		if marketplace.LoanContracts.Contains(tokenAddress) {
 			return true
 		}
 	}
@@ -564,7 +568,7 @@ func (ttx *TokenTransaction) IsLoanPayback() bool {
 	}
 
 	for tokenAddress := range ttx.GetTransfersByContract() {
-		if internal.LoanContracts[tokenAddress] != "" {
+		if marketplace.LoanContracts.Contains(tokenAddress) {
 			return true
 		}
 	}
