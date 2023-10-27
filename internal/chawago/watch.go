@@ -20,7 +20,7 @@ type WalletWatcher struct {
 	gb *gloomberg.Gloomberg
 
 	Wallets        map[common.Address]*wallet.Wallet
-	watchedWallets mapset.Set[common.Address]
+	watchAddresses mapset.Set[common.Address]
 }
 
 // NewWalletWatcher returns a new walletWatcher.
@@ -29,7 +29,7 @@ func NewWalletWatcher(gb *gloomberg.Gloomberg) *WalletWatcher {
 		gb: gb,
 
 		Wallets:        make(map[common.Address]*wallet.Wallet),
-		watchedWallets: mapset.NewSet[common.Address](),
+		watchAddresses: mapset.NewSet[common.Address](),
 	}
 }
 
@@ -72,9 +72,9 @@ func (ww *WalletWatcher) Watch() {
 	}
 
 	// collect wallet addresses in a set
-	ww.watchedWallets = mapset.NewSetFromMapKeys[common.Address](ww.Wallets)
+	ww.watchAddresses = mapset.NewSetFromMapKeys[common.Address](ww.Wallets)
 
-	ww.Prf("watching %d wallets: %+v", ww.watchedWallets.Cardinality(), strings.Join(ww.FormattedWallets(), ", "))
+	ww.Prf("watching %d addresses: %+v", ww.watchAddresses.Cardinality(), strings.Join(ww.FormattedWallets(), ", "))
 
 	// watch for new transactions
 	txsWithLogs := ww.gb.SubscribeTxWithLogs()
@@ -99,38 +99,64 @@ func (ww *WalletWatcher) Watch() {
 		}
 
 		// check if any of the addresses in the tx are in the watchedWallets
-		if addressesInTx.Intersect(ww.watchedWallets).Cardinality() == 0 {
-			gbl.Log.Debugf("no watched wallet (%s) in tx %s", ww.watchedWallets, tx.Hash().Hex())
+		watchedAddressesInTx := addressesInTx.Intersect(ww.watchAddresses)
+
+		if watchedAddressesInTx.Cardinality() == 0 {
+			gbl.Log.Debugf("no watched wallet (%s) in tx %s", ww.watchAddresses, tx.Hash().Hex())
 
 			continue
 		}
 
-		go notify.SendMessageViaTelegram(fmt.Sprintf("👀  %s", "https://etherscan.io/tx/"+tx.Hash().Hex()), viper.GetInt64("notifications.telegram.chat_id"), "", 0, nil)
+		fmtStalkees := make([]string, 0)
+		for _, address := range watchedAddressesInTx.ToSlice() {
+			fmtStalkees = append(fmtStalkees, lipgloss.NewStyle().Foreground(ww.Wallets[address].Color).Render(ww.Wallets[address].Name))
+		}
 
-		log.Debugf(" | %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
+		notifyMsg := fmt.Sprintf(
+			"  👀  %s  👀  → %s",
+			strings.Join(fmtStalkees, ", "),
+			style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.ShortenHashStyled(tx.TxHash)),
+		)
+
+		if viper.GetInt64("notifications.telegram.my_chat_id") != 0 {
+			fmtStalkees := make([]string, 0)
+			for _, address := range watchedAddressesInTx.ToSlice() {
+				fmtStalkees = append(fmtStalkees, ww.Wallets[address].Name)
+			}
+
+			notifyMsg := fmt.Sprintf(
+				"  👀  %s  👀  → %s",
+				strings.Join(fmtStalkees, ", "),
+				"https://etherscan.io/tx/"+tx.Hash().Hex(),
+			)
+
+			go notify.SendMessageViaTelegram(notifyMsg, viper.GetInt64("notifications.telegram.my_chat_id"), "", 0, nil)
+		}
 
 		// do something with the transaction
-		if tx.Sender() != nil && ww.watchedWallets.Contains(*tx.Sender()) {
+		txSentFromWatchedAddress := tx.Sender() != nil && ww.watchAddresses.Contains(*tx.Sender())
+
+		if txSentFromWatchedAddress {
 			// do something
 			log.Printf("")
-			log.Printf("Transaction from wallet %s: %s", ww.Wallets[*tx.Sender()].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
+			log.Printf(notifyMsg)
 			log.Printf("")
 		}
 
 		for _, txLog := range tx.Logs {
-			if len(txLog.Topics) > 0 && ww.watchedWallets.Contains(common.HexToAddress(txLog.Topics[0].Hex())) {
+			if len(txLog.Topics) > 0 && ww.watchAddresses.Contains(common.HexToAddress(txLog.Topics[0].Hex())) {
 				// do something
 				log.Debugf("wallet %s in topic0: %s", ww.Wallets[common.HexToAddress(txLog.Topics[0].Hex())].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 			}
-			if len(txLog.Topics) > 1 && ww.watchedWallets.Contains(common.HexToAddress(txLog.Topics[1].Hex())) {
+			if len(txLog.Topics) > 1 && ww.watchAddresses.Contains(common.HexToAddress(txLog.Topics[1].Hex())) {
 				// do something
 				log.Debugf("wallet %s in topic1: %s", ww.Wallets[common.HexToAddress(txLog.Topics[1].Hex())].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 			}
-			if len(txLog.Topics) > 2 && ww.watchedWallets.Contains(common.HexToAddress(txLog.Topics[2].Hex())) {
+			if len(txLog.Topics) > 2 && ww.watchAddresses.Contains(common.HexToAddress(txLog.Topics[2].Hex())) {
 				// do something
 				log.Debugf("wallet %s in topic2: %s:", ww.Wallets[common.HexToAddress(txLog.Topics[2].Hex())].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 			}
-			if len(txLog.Topics) > 3 && ww.watchedWallets.Contains(common.HexToAddress(txLog.Topics[3].Hex())) {
+			if len(txLog.Topics) > 3 && ww.watchAddresses.Contains(common.HexToAddress(txLog.Topics[3].Hex())) {
 				// do something
 				log.Debugf("wallet %s in topic3: %s", ww.Wallets[common.HexToAddress(txLog.Topics[3].Hex())].Name, style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().Hex(), style.AlmostWhiteStyle.Render(tx.Hash().Hex())))
 			}
