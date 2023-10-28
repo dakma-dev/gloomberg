@@ -38,6 +38,7 @@ linters:
         - gochecknoglobals
         - gochecknoinits
         - gocognit
+        - goconst
         - gocyclo
         - godox
         - goerr113
