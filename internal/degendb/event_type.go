@@ -10,7 +10,7 @@ type EventType interface {
 	Icon() string
 	OpenseaEventName() string
 	MarshalJSON() ([]byte, error)
-	UnmarshalJSON([]byte) error
+	UnmarshalJSON(b []byte) error
 }
 
 type GBEventType struct {
