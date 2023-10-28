@@ -69,8 +69,8 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 
 		// cache
 		if slug != "" && address != (common.Address{}) {
-			gb.Rueidi.StoreAddressForOSSlug(context.Background(), slug, address)
-			gb.Rueidi.StoreOSSlugForAddress(context.Background(), address, slug)
+			_ = gb.Rueidi.StoreAddressForOSSlug(context.Background(), slug, address)
+			_ = gb.Rueidi.StoreOSSlugForAddress(context.Background(), address, slug)
 
 			gloomberg.PrDModf("ddb", "stored address %s for slug %s in cache", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(slug))
 		}
@@ -100,17 +100,17 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 		}
 
 		// validate
-		for tokenId, rank := range ranksOpensea {
+		for tokenID, rank := range ranksOpensea {
 			if rank.Rank <= 0 {
-				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
-				gloomberg.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
+				gloomberg.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
 
 				continue
 			}
 
 			if rank.Score <= 0 {
-				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
-				gloomberg.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenId)))
+				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
+				gloomberg.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
 
 				continue
 			}
