@@ -527,7 +527,7 @@ func init() { //nolint:gochecknoinits
 
 	// eventhub
 	viper.SetDefault("gloomberg.terminalPrinter.numWorker", 1)
-	viper.SetDefault("gloomberg.eventhub.numHandler", 1)
+	viper.SetDefault("gloomberg.eventhub.numHandler", 3)
 	viper.SetDefault("gloomberg.eventhub.inQueuesSize", 512)
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
@@ -549,6 +549,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("server.workers.ttxFormatter", 6)
 	viper.SetDefault("server.workers.subscription_logs", 2)
 	viper.SetDefault("server.workers.listings", 2)
+
 	viper.SetDefault("server.pubsub.listings", 3)
 	viper.SetDefault("server.workers.pubsub.listings", 2)
 
