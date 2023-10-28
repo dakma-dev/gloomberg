@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -52,7 +53,7 @@ type methodCall string
 
 const (
 	BlockNumber        methodCall = "eth_blockNumber"
-	TransactionByHash  methodCall = "eth_getTransactionByHash" //nolint:gosec
+	TransactionByHash  methodCall = "eth_getTransactionByHash"
 	TransactionReceipt methodCall = "eth_getTransactionReceipt"
 
 	TokenImageURI methodCall = "token_image_uri" //nolint:gosec
@@ -149,7 +150,7 @@ func FromConfig(config interface{}) (*Pool, error) {
 			if !providerPool.LastLogReceivedAt.IsZero() && providerPool.LastLogReceivedAt.Add(maxDelay).Before(time.Now()) {
 				infoMsg := fmt.Sprintf(
 					" ❗️ no logs received since %s blocks / %s 🤔 trying to reconnect...",
-					style.Bold(fmt.Sprint(waitForBlocks)),
+					style.Bold(strconv.Itoa(waitForBlocks)),
 					style.Bold(fmt.Sprintf("%.0fsec", maxDelay.Seconds())),
 				)
 
@@ -171,7 +172,7 @@ func FromConfig(config interface{}) (*Pool, error) {
 
 	// // spinner
 	// providerSpinner.StopMessage(
-	// 	fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(providerPool.providers))), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
+	// 	fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(providerPool.providers))), " nodes connected: ", strings.Join(nodeNames, ", ")) + "\n",
 	// )
 	// _ = providerSpinner.Stop()
 

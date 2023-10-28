@@ -8,6 +8,7 @@ import (
 	"math"
 	"math/big"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -610,7 +611,7 @@ func (sw *SeaWatcher) serverHandleMgmtEvent(subscriptionEvent *models.Subscripti
 			return
 		}
 
-		sw.Prf("👔 received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(subscriptionEvent.Action.String()), style.AlmostWhiteStyle.Render(fmt.Sprint(len(subscriptionEvent.Collections))))
+		sw.Prf("👔 received %s for %s collections/slugs...", style.AlmostWhiteStyle.Render(subscriptionEvent.Action.String()), style.AlmostWhiteStyle.Render(strconv.Itoa(len(subscriptionEvent.Collections))))
 		if len(subscriptionEvent.Collections) == 0 {
 			log.Error("⚓️❌ incoming collection slugs msg is empty")
 
@@ -636,8 +637,8 @@ func (sw *SeaWatcher) serverHandleMgmtEvent(subscriptionEvent *models.Subscripti
 
 		sw.Prf(
 			"👔 subscribed for %s new collections/slugs | total subscribed collections: %s",
-			style.AlmostWhiteStyle.Render(fmt.Sprint(newEventSubscriptions)),
-			style.AlmostWhiteStyle.Render(fmt.Sprint(len(sw.subscriptions))),
+			style.AlmostWhiteStyle.Render(strconv.FormatUint(newEventSubscriptions, 10)),
+			style.AlmostWhiteStyle.Render(strconv.Itoa(len(sw.subscriptions))),
 		)
 
 	default:

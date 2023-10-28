@@ -6,6 +6,7 @@ import (
 	"math/big"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -316,7 +317,7 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 	readBlueChipWalltesFromJSON("wallets/0x8821bee2ba0df28761afff119d66390d594cd280.json", DeGods)
 
 	if len(BlueChips.WalletMap) > 0 {
-		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(BlueChips.WalletMap))), " blue chip wallets loaded", "\n")))
+		miwSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(BlueChips.WalletMap))), " blue chip wallets loaded", "\n"))
 	} else {
 		_ = miwSpinner.StopFail()
 	}

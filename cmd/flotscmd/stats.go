@@ -5,6 +5,7 @@ package flotscmd
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/benleb/gloomberg/internal/flots"
 	"github.com/benleb/gloomberg/internal/style"
@@ -39,7 +40,7 @@ var statsCmd = &cobra.Command{
 		// print user statistics
 		fmt.Printf("  user: %s\n\n", style.Bold(flots.UserAddress().String()))
 
-		fmt.Printf("    high priority: %s\n", prioStyle.Render(fmt.Sprint(userStats.IsHighPriority)))
+		fmt.Printf("    high priority: %s\n", prioStyle.Render(strconv.FormatBool(userStats.IsHighPriority)))
 		fmt.Printf("    7 day fees: %sΞ\n", style.Bold(w3.FromWei(userStats.Last7dValidatorPayments, 18)))
 		fmt.Printf("    total fees: %sΞ\n", style.Bold(w3.FromWei(userStats.AllTimeValidatorPayments, 18)))
 
@@ -59,12 +60,12 @@ var statsCmd = &cobra.Command{
 			fmt.Printf("  bundle: %s\n\n", style.Bold(bundleHash.String()))
 
 			fmt.Printf("    receivedAt: %s\n", style.Bold(fmt.Sprint(bundleStats.ReceivedAt)))
-			fmt.Printf("    isSimulated: %s\n", style.Bold(fmt.Sprint(bundleStats.IsSimulated)))
+			fmt.Printf("    isSimulated: %s\n", style.Bold(strconv.FormatBool(bundleStats.IsSimulated)))
 			if bundleStats.IsSimulated {
 				fmt.Printf("    simulatedAt: %s\n", style.Bold(fmt.Sprint(bundleStats.SimulatedAt)))
 			}
-			fmt.Printf("    isHighPriority: %s\n", prioStyle.Render(fmt.Sprint(bundleStats.IsHighPriority)))
-			fmt.Printf("    consideredByBuildersAt: %s\n", style.Bold(fmt.Sprint(len(bundleStats.ConsideredByBuildersAt))))
+			fmt.Printf("    isHighPriority: %s\n", prioStyle.Render(strconv.FormatBool(bundleStats.IsHighPriority)))
+			fmt.Printf("    consideredByBuildersAt: %s\n", style.Bold(strconv.Itoa(len(bundleStats.ConsideredByBuildersAt))))
 			fmt.Printf("    sealedByBuildersAt: %s\n", style.Bold(fmt.Sprint(bundleStats.SealedByBuildersAt)))
 		}
 

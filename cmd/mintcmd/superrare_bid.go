@@ -11,6 +11,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -149,7 +150,7 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 		return
 	}
 
-	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address) //nolint:gosec
+	tokenInfo, err := GetAuctionInfo(common.HexToAddress(flagOriginContract), viper.GetUint64("mint.superrare.token-id"), *availableWallets[0].address)
 	if err != nil {
 		log.Fatalf("❌ getting auction info failed: %v", err)
 
@@ -239,13 +240,13 @@ func bidSuperRare(_ *cobra.Command, _ []string) {
 
 	log.Print("")
 	log.Printf("  auction start: %+v", style.BoldAlmostWhite(tokenInfo.Auction.StartingTime.Format("15:04:05")))
-	log.Printf("            → in %+v", style.BoldAlmostWhite(fmt.Sprint(time.Until(tokenInfo.Auction.StartingTime).Truncate(time.Second).String())))
+	log.Printf("            → in %+v", style.BoldAlmostWhite(time.Until(tokenInfo.Auction.StartingTime).Truncate(time.Second).String()))
 	log.Print("")
 
 	if tokenInfo.Auction.StartingTime.After(time.Now()) && waitForStart {
 		log.Print("")
 		log.Print("")
-		log.Printf(" 💤 💤 💤  waiting for auction start in %s  💤 💤 💤", style.BoldAlmostWhite(fmt.Sprint(time.Until(tokenInfo.Auction.StartingTime).Truncate(time.Second).String())))
+		log.Printf(" 💤 💤 💤  waiting for auction start in %s  💤 💤 💤", style.BoldAlmostWhite(time.Until(tokenInfo.Auction.StartingTime).Truncate(time.Second).String()))
 		log.Print("")
 		log.Printf(style.GrayStyle.Render("    (use --no-wait to skip waiting)"))
 
@@ -347,7 +348,7 @@ func placeBid(rpcEndpoint string, mintWallet *MintWallet, bidAmount *big.Int, to
 			continue
 		}
 
-		log.Printf("%s | nonce: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(nonce)))
+		log.Printf("%s | nonce: %+v", mintWallet.tag, style.BoldAlmostWhite(strconv.FormatUint(nonce, 10)))
 
 		// get the current gas price
 		gasPrice, err := rpcClient.SuggestGasPrice(context.Background())

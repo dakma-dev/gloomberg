@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -102,27 +103,27 @@ func LoadOpenseaRanks(gb *gloomberg.Gloomberg) error {
 		// validate
 		for tokenID, rank := range ranksOpensea {
 			if rank.Rank <= 0 {
-				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
-				gloomberg.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
+				gbl.Log.Debugf("%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(strconv.FormatInt(tokenID, 10)))
+				gloomberg.PrDModf("ddb", "%s | rank is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(strconv.FormatInt(tokenID, 10)))
 
 				continue
 			}
 
 			if rank.Score <= 0 {
-				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
-				gloomberg.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(fmt.Sprint(tokenID)))
+				gbl.Log.Debugf("%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(strconv.FormatInt(tokenID, 10)))
+				gloomberg.PrDModf("ddb", "%s | score is <=0 for %s", style.AlmostWhiteStyle.Render(slug), style.AlmostWhiteStyle.Render(strconv.FormatInt(tokenID, 10)))
 
 				continue
 			}
 		}
 
-		gloomberg.PrDModf("ddb", "added %s ranks for %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug))
+		gloomberg.PrDModf("ddb", "added %s ranks for %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(ranksOpensea))), style.AlmostWhiteStyle.Render(slug))
 
 		gb.Ranks[address] = ranksOpensea
 		totalRanks += len(ranksOpensea)
 	}
 
-	gloomberg.PrMod("ddb", fmt.Sprintf("%s collections with %s ranks in total (opensea)", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.Ranks))), style.AlmostWhiteStyle.Render(fmt.Sprint(totalRanks))))
+	gloomberg.PrMod("ddb", fmt.Sprintf("%s collections with %s ranks in total (opensea)", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gb.Ranks))), style.AlmostWhiteStyle.Render(strconv.Itoa(totalRanks))))
 
 	return nil
 }

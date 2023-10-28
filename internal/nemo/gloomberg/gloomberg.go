@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/collections"
@@ -223,7 +224,7 @@ func (gb *Gloomberg) publishSlugSubscriptions(slugSubscriptions degendb.SlugSubs
 		return
 	}
 
-	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(fmt.Sprint(len(slugSubscriptions))))
+	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(strconv.Itoa(len(slugSubscriptions))))
 
 	subscriptionEvent := &models.SubscriptionEvent{Action: models.Subscribe, Collections: slugSubscriptions}
 
@@ -245,7 +246,7 @@ func (gb *Gloomberg) publishSlugSubscriptions(slugSubscriptions degendb.SlugSubs
 		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonSubscriptionEvent)).Build()).Error() != nil {
 			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
 		} else {
-			gbl.Log.Infof("👔 sent %s collection subscriptions to %s", style.BoldStyle.Render(fmt.Sprint(len(slugSubscriptions))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
+			gbl.Log.Infof("👔 sent %s collection subscriptions to %s", style.BoldStyle.Render(strconv.Itoa(len(slugSubscriptions))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
 		}
 	}
 }

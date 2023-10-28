@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"time"
 
@@ -375,8 +376,8 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 				}
 			}
 
-			fmtEvent.WriteString(numberStyle.Render(fmt.Sprintf("%d", numCollectionTokens)) + "x ")
-			fmtHistoryEvent.WriteString(numberStyle.Render(fmt.Sprintf("%d", numCollectionTokens)) + "x ")
+			fmtEvent.WriteString(numberStyle.Render(strconv.FormatInt(numCollectionTokens, 10)) + "x ")
+			fmtHistoryEvent.WriteString(numberStyle.Render(strconv.FormatInt(numCollectionTokens, 10)) + "x ")
 		}
 
 		// handle special cases
@@ -430,11 +431,11 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		// total supply
 		if currentCollection.Metadata.TotalSupply > 0 && currentCollection.Metadata.TotalSupply < 99999 {
-			fmtTotalSupply := fmt.Sprint(currentCollection.Metadata.TotalSupply)
+			fmtTotalSupply := strconv.FormatUint(currentCollection.Metadata.TotalSupply, 10)
 
 			if currentCollection.Metadata.TotalSupply > 999 {
 				shortTotalSupply := int(currentCollection.Metadata.TotalSupply / 1000)
-				fmtTotalSupply = fmt.Sprint(shortTotalSupply) + "k"
+				fmtTotalSupply = strconv.Itoa(shortTotalSupply) + "k"
 			}
 
 			fmtEvent.WriteString(style.DarkGrayStyle.Render(" /") + collection.StyleSecondary().Copy().Faint(true).Render(fmtTotalSupply))
@@ -661,7 +662,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 		}
 		// print bluechip collection sales
 		if ticker.BlueChips != nil && ticker.BlueChips.GetStats(currentCollection.ContractAddress) != nil {
-			out.WriteString("/" + lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render(fmt.Sprintf("%d", ticker.BlueChips.GetStats(currentCollection.ContractAddress).GetTXCount())))
+			out.WriteString("/" + lipgloss.NewStyle().Foreground(style.OpenseaToneBlue).Faint(true).Render(strconv.FormatUint(ticker.BlueChips.GetStats(currentCollection.ContractAddress).GetTXCount(), 10)))
 		} else {
 			out.WriteString(" ")
 		}
@@ -696,7 +697,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	}
 	// show the first collection/token on the same line
 	// and further collections/tokens on the next lines
-	out.WriteString("  " + fmtTokensTransferred[0] + " ") //nolint:gosec
+	out.WriteString("  " + fmtTokensTransferred[0] + " ")
 
 	// links blur
 	if ttx.TotalTokens == 1 {
@@ -859,12 +860,12 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		if numLastListings > 0 {
 			salesAndListings = fmt.Sprint(
-				style.TrendLightGreenStyle.Render(fmt.Sprint(numLastSales)),
+				style.TrendLightGreenStyle.Render(strconv.Itoa(numLastSales)),
 				currentCollection.Render("/"),
-				style.TrendLightRedStyle.Render(fmt.Sprint(numLastListings)),
+				style.TrendLightRedStyle.Render(strconv.Itoa(numLastListings)),
 			)
 		} else {
-			salesAndListings = fmt.Sprint(style.TrendLightGreenStyle.Render(fmt.Sprint(numLastSales)))
+			salesAndListings = style.TrendLightGreenStyle.Render(strconv.Itoa(numLastSales))
 
 			//
 			// auto-subscribe to opensea events after X sales (to calculate the salira of the collection)
@@ -907,7 +908,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 	// multi-line output for multi-collection events
 	if len(fmtTokensTransferred) > 1 {
-		for _, fmtTokenCollection := range fmtTokensTransferred[1:] { //nolint:gosec
+		for _, fmtTokenCollection := range fmtTokensTransferred[1:] {
 			out.WriteString("\n" + strings.Repeat(" ", 32))
 			out.WriteString(style.DarkGrayStyle.Render("+") + fmtTokenCollection)
 		}
@@ -917,7 +918,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	if viper.GetBool("notifications.bluechip.enabled") {
 		if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != degendb.Burn {
 			if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
-				out.WriteString(" | " + fmt.Sprintf("%d", ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales) + style.BoldStyle.Render("🔵"))
+				out.WriteString(" | " + strconv.FormatUint(ticker.BlueChips.CollectionStats[currentCollection.ContractAddress].Sales, 10) + style.BoldStyle.Render("🔵"))
 			}
 
 			for i, blueChipTypes := range ticker.BlueChips.WalletMap[buyer].Types {

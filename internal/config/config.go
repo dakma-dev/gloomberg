@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -122,7 +123,7 @@ func GetOwnWalletsFromConfig(providerPool *provider.Pool) *wallet.Wallets {
 
 	// // build spinner stop msg with all wallet names
 	// nodesSpinner.StopMessage(fmt.Sprint(
-	// 	style.BoldStyle.Render(fmt.Sprint(len(ownWallets))),
+	// 	style.BoldStyle.Render(strconv.Itoa(len(ownWallets))),
 	// 	" wallets: ",
 	// 	strings.Join((*wallet.Wallets)(&ownWallets).FormattedNames(), ", "),
 	// ) + "\n")
@@ -375,14 +376,14 @@ func GetWatchRulesFromConfig() *watch.Watcher {
 
 	// // build spinner stop msg with all wallet names
 	// watchSpinner.StopMessage(fmt.Sprint(
-	// 	style.BoldStyle.Render(fmt.Sprint(len(userNames))),
-	// 	fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(fmt.Sprint(len(userWallets)))),
+	// 	style.BoldStyle.Render(strconv.Itoa(len(userNames))),
+	// 	fmt.Sprintf(" watched users with %s wallets in total: ", style.BoldStyle.Render(strconv.Itoa(len(userWallets)))),
 	// 	strings.Join(userNames, ", "),
 	// ) + "\n")
 
 	// _ = watchSpinner.Stop()
 
-	gloomberg.PrMod("wawa", fmt.Sprintf("watching %s users with %s wallets in total: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(userNames))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(userWallets))), strings.Join(userNames, ", ")))
+	gloomberg.PrMod("wawa", fmt.Sprintf("watching %s users with %s wallets in total: %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(userNames))), style.AlmostWhiteStyle.Render(strconv.Itoa(len(userWallets))), strings.Join(userNames, ", ")))
 
 	return &watcher
 }

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strconv"
 	"strings"
 	"time"
 
@@ -121,7 +122,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 			nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
 		}
 
-		gloomberg.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
+		gloomberg.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
 	}
 
 	//
@@ -214,10 +215,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// print collections from config & wallet holdings
 	// if len(gb.CollectionDB.Collections) > 0 {
 	// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
-	// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
+	// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
 	// }
 
-	gloomberg.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+	gloomberg.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gb.CollectionDB.Collections)))))
 
 	// // stop spinner
 	// _ = collectionsSpinner.Stop()
@@ -228,9 +229,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		gb.OwnWallets = config.GetOwnWalletsFromConfig(gb.ProviderPool)
 
 		if len(*gb.OwnWallets) > 0 {
-			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
+			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
 			// _ = miwSpinner.Stop()
-			gloomberg.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
+			gloomberg.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
 		}
 	}
 
@@ -263,10 +264,10 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		// // print collections from config & wallet holdings
 		// if len(gb.CollectionDB.Collections) > 0 {
 		// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
-		// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
+		// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
 		// }
 
-		gloomberg.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gb.CollectionDB.Collections)))))
+		gloomberg.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gb.CollectionDB.Collections)))))
 
 		// _ = collectionsSpinner.Stop()
 	}
@@ -307,9 +308,9 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		wwatcher.LoadMIWs()
 
 		if len(wwatcher.MIWC.WeightedMIWs) > 0 {
-			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
+			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
 			// _ = miwSpinner.Stop()
-			gloomberg.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(fmt.Sprint(len(wwatcher.MIWC.WeightedMIWs)))))
+			gloomberg.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs)))))
 		}
 		//  else {
 		// 	_ = miwSpinner.StopFail()
@@ -608,7 +609,7 @@ func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
 		time.Sleep(time.Millisecond * 337)
 	}
 
-	gloomberg.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(fmt.Sprint(len(gbTokens))), style.AlmostWhiteStyle.Render(fmt.Sprint(len(*gb.OwnWallets)))))
+	gloomberg.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gbTokens))), style.AlmostWhiteStyle.Render(strconv.Itoa(len(*gb.OwnWallets)))))
 
 	// create map
 	gbTokensMap := make(map[common.Address]*token.Token)

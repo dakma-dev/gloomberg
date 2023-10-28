@@ -229,7 +229,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	// MerkleTreeID (API) could be still set if merkleRoot is set to 0x0 via UpdateClaim(…)
 	// empty merkleRoot = 0x0000000000000000000000000000000000000000000000000000000000000000
 	isMerkleRootEmpty := claimInfo.MerkleRoot == [32]byte{}
-	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(fmt.Sprint(isMerkleRootEmpty)))
+	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(strconv.FormatBool(isMerkleRootEmpty)))
 
 	isPublicMint := mintInfo.PublicData.MerkleTreeID == 0 || isMerkleRootEmpty
 
@@ -294,12 +294,12 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	totalTxs := txsPerWallet * uint16(mintWallets.Cardinality())
 
 	log.Print("")
-	log.Printf("  amount per tx: %s", style.BoldAlmostWhite(fmt.Sprint(amountPerTx)))
-	log.Printf("  amount per wallet: %s", style.BoldAlmostWhite(fmt.Sprint(amountPerWallet)))
+	log.Printf("  amount per tx: %s", style.BoldAlmostWhite(strconv.FormatUint(uint64(amountPerTx), 10)))
+	log.Printf("  amount per wallet: %s", style.BoldAlmostWhite(strconv.FormatUint(uint64(amountPerWallet), 10)))
 
 	log.Print("")
-	log.Printf("  → txs per wallet: %s", style.BoldAlmostWhite(fmt.Sprint(txsPerWallet)))
-	log.Printf("  → total txs: %s", style.BoldAlmostWhite(fmt.Sprint(totalTxs)))
+	log.Printf("  → txs per wallet: %s", style.BoldAlmostWhite(strconv.FormatUint(uint64(txsPerWallet), 10)))
+	log.Printf("  → total txs: %s", style.BoldAlmostWhite(strconv.FormatUint(uint64(totalTxs), 10)))
 
 	//
 	// manifold api info
@@ -313,7 +313,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	log.Printf("  price: %s%s", style.BoldAlmostWhite(fmt.Sprintf("%5.4f", mintInfo.MintPrice)), fmtUnitEther)
 
 	log.Print("")
-	log.Printf("  merkleTreeID: %s", style.BoldAlmostWhite(fmt.Sprintf("%d", mintInfo.PublicData.MerkleTreeID)))
+	log.Printf("  merkleTreeID: %s", style.BoldAlmostWhite(strconv.Itoa(mintInfo.PublicData.MerkleTreeID)))
 
 	log.Print("")
 	log.Printf("  collection/creator contract: %s", style.TerminalLink(utils.GetEtherscanTokenURL(&mintInfo.PublicData.CreatorContractAddress), style.BoldAlmostWhite(mintInfo.PublicData.CreatorContractAddress.Hex())))
@@ -324,7 +324,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	}
 
 	// log.Printf("  mintIdentifier: %s", style.BoldAlmostWhite(fmt.Sprint(mintIdentifier)))
-	log.Printf("  manifoldInstanceID: %+v", style.BoldAlmostWhite(fmt.Sprint(manifoldInstanceID.Int64())))
+	log.Printf("  manifoldInstanceID: %+v", style.BoldAlmostWhite(strconv.FormatInt(manifoldInstanceID.Int64(), 10)))
 
 	//
 	// manifold chain info
@@ -367,20 +367,20 @@ func mintManifold(_ *cobra.Command, _ []string) {
 
 	// MerkleTreeID (API) could be still set if merkleRoot is set to 0x0 via UpdateClaim(…)
 	// empty merkleRoot = 0x0000000000000000000000000000000000000000000000000000000000000000
-	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(fmt.Sprint(isMerkleRootEmpty)))
+	log.Printf("  isMerkleRootEmpty: %s", style.BoldAlmostWhite(strconv.FormatBool(isMerkleRootEmpty)))
 
 	isPublicMint = mintInfo.PublicData.MerkleTreeID == 0 || isMerkleRootEmpty
-	log.Printf("  isPublicMint: %s", style.BoldAlmostWhite(fmt.Sprint(isPublicMint)))
+	log.Printf("  isPublicMint: %s", style.BoldAlmostWhite(strconv.FormatBool(isPublicMint)))
 
 	startDate := time.Unix(claimInfo.StartDate.Int64(), 0)
 
 	log.Print("")
-	log.Printf("  mint start: %+v", style.BoldAlmostWhite(fmt.Sprint(startDate.Format("2006-01-02 15:04:05"))))
-	log.Printf("            → in %+v", style.BoldAlmostWhite(fmt.Sprint(time.Until(startDate).Truncate(time.Second).String())))
+	log.Printf("  mint start: %+v", style.BoldAlmostWhite(startDate.Format("2006-01-02 15:04:05")))
+	log.Printf("            → in %+v", style.BoldAlmostWhite(time.Until(startDate).Truncate(time.Second).String()))
 	log.Print("")
-	log.Printf("  minted: %+v / %v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.Total)), style.BoldAlmostWhite(fmt.Sprint(claimInfo.TotalMax)))
-	log.Printf("  remaining: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.TotalMax-claimInfo.Total)))
-	log.Printf("  max/wallet: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.WalletMax)))
+	log.Printf("  minted: %+v / %v", style.BoldAlmostWhite(strconv.FormatUint(uint64(claimInfo.Total), 10)), style.BoldAlmostWhite(strconv.FormatUint(uint64(claimInfo.TotalMax), 10)))
+	log.Printf("  remaining: %+v", style.BoldAlmostWhite(strconv.FormatUint(uint64(claimInfo.TotalMax-claimInfo.Total), 10)))
+	log.Printf("  max/wallet: %+v", style.BoldAlmostWhite(strconv.FormatUint(uint64(claimInfo.WalletMax), 10)))
 	log.Printf("  merkleRoot: %+v", style.BoldAlmostWhite(fmt.Sprint(claimInfo.MerkleRoot)))
 
 	totalMints, err := lazyClaimERC1155.GetTotalMints(&bind.CallOpts{}, *mintWallets.ToSlice()[0].address, mintInfo.PublicData.CreatorContractAddress, &manifoldInstanceID)
@@ -426,7 +426,7 @@ func mintManifold(_ *cobra.Command, _ []string) {
 	if startDate.After(time.Now()) && waitForStart {
 		log.Print("")
 		log.Print("")
-		log.Printf(" 💤 💤 💤  waiting for mint start in %s  💤 💤 💤", style.BoldAlmostWhite(fmt.Sprint(time.Until(startDate).Truncate(time.Second).String())))
+		log.Printf(" 💤 💤 💤  waiting for mint start in %s  💤 💤 💤", style.BoldAlmostWhite(time.Until(startDate).Truncate(time.Second).String()))
 		log.Print("")
 		log.Printf(style.GrayStyle.Render("    (use --no-wait to skip waiting)"))
 		log.Print("")
@@ -516,7 +516,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 		rpcEndpoint := rpcEndpoints.ToSlice()[rpcIdx]
 
 		log.Debugf("%s | 📑 rpc endpoints (%d): %s", mintWallet.tag, rpcEndpoints.Cardinality(), style.BoldAlmostWhite(fmt.Sprintf("%+v", rpcEndpoints)))
-		log.Debugf("%s | 🎯 selected rpc endpoint: %s", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(rpcIdx)))
+		log.Debugf("%s | 🎯 selected rpc endpoint: %s", mintWallet.tag, style.BoldAlmostWhite(strconv.Itoa(rpcIdx)))
 
 		// connect to rpc endpoint
 		rpcClient, err := ethclient.Dial(rpcEndpoint)
@@ -549,7 +549,7 @@ func mintERC1155(rpcEndpoints mapset.Set[string], mintWallet *MintWallet, txsPer
 			continue
 		}
 
-		log.Printf("%s | current nonce: %+v", mintWallet.tag, style.BoldAlmostWhite(fmt.Sprint(nonce)))
+		log.Printf("%s | current nonce: %+v", mintWallet.tag, style.BoldAlmostWhite(strconv.FormatUint(nonce, 10)))
 		log.Print("")
 
 		// get the current gas price

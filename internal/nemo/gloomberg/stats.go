@@ -397,7 +397,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 
 	// connected web users
 	labelConnectedUsers := style.DarkGrayStyle.Render("users")
-	valueConnectedUsers := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(fmt.Sprintf("%d", atomic.LoadUint64(&s.gb.CurrentOnlineWebUsers)))
+	valueConnectedUsers := style.GrayStyle.Copy().Width(9).Align(lipgloss.Right).Render(strconv.FormatUint(atomic.LoadUint64(&s.gb.CurrentOnlineWebUsers), 10))
 
 	secondcolumn = append(secondcolumn, []string{listItem(fmt.Sprintf("%s %s", labelConnectedUsers, valueConnectedUsers))}...)
 
@@ -528,7 +528,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 		if viper.GetBool("log.debug") {
 			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetForeground()))
-			historyLine.WriteString(" " + fmt.Sprint(rowStyle.GetFaint()))
+			historyLine.WriteString(" " + strconv.FormatBool(rowStyle.GetFaint()))
 		}
 
 		eventsList = append(eventsList, listItem(historyLine.String()))
@@ -666,7 +666,7 @@ func GasTicker(gb *Gloomberg, gasTicker *time.Ticker, providerPool *provider.Poo
 				outro := style.DarkerGrayStyle.Render("   ~   ~")
 				divider := style.DarkerGrayStyle.Render("   ~   ~   ~   ~   ~   ~   ")
 
-				formattedGas := style.GrayStyle.Render(fmt.Sprintf("%d", gasPrice)) + style.DarkGrayStyle.Render("gw")
+				formattedGas := style.GrayStyle.Render(strconv.FormatUint(gasPrice, 10)) + style.DarkGrayStyle.Render("gw")
 				formattedGasAndTip := formattedGas
 
 				// if gasTip > 0 {

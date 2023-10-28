@@ -3,6 +3,7 @@ package totra
 import (
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
@@ -420,9 +421,9 @@ func (ttx *TokenTransaction) FormattedIs() []string {
 		var fmtVal string
 
 		if v {
-			fmtVal = style.TrendGreenStyle.Render(fmt.Sprint(v))
+			fmtVal = style.TrendGreenStyle.Render(strconv.FormatBool(v))
 		} else {
-			fmtVal = style.TrendRedStyle.Render(fmt.Sprint(v))
+			fmtVal = style.TrendRedStyle.Render(strconv.FormatBool(v))
 		}
 
 		fmtIsFunctions = append(fmtIsFunctions, fmt.Sprintf("%s(): %s", k, fmtVal))

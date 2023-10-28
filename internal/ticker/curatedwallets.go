@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -222,7 +223,7 @@ func NewAlphaScore(gb *gloomberg.Gloomberg) *AlphaScore {
 	}
 
 	if len(fromJSON.Addresses) > 0 {
-		miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(fmt.Sprint(len(AlphaCaller.WalletMap))), " curated wallets with scores loaded", "\n")))
+		miwSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(AlphaCaller.WalletMap))), " curated wallets with scores loaded", "\n"))
 		_ = miwSpinner.Stop()
 	} else {
 		_ = miwSpinner.StopFail()

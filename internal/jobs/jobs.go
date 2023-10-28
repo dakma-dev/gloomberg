@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -99,16 +100,16 @@ func (m *Runner) run() {
 				"✔️ %s | %v %s",
 				style.TrendGreenStyle.Render("done"),
 				job,
-				style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(*m.jobs))))),
+				style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(strconv.Itoa(len(*m.jobs))))),
 			)
 
 			if jobsProcessed := int64(utils.GetMetricValue(jobsCounter)); jobsProcessed%viper.GetInt64("jobs.status_every") == 0 {
 				msg := fmt.Sprintf(
 					"✔️ %s jobs %s | %s jobs/min %s",
-					style.BoldAlmostWhite(fmt.Sprint(jobsProcessed)),
+					style.BoldAlmostWhite(strconv.FormatInt(jobsProcessed, 10)),
 					style.TrendGreenStyle.Render("processed"),
 					style.BoldAlmostWhite(fmt.Sprintf("%.2f", float64(jobsProcessed)/time.Since(internal.RunningSince).Minutes())),
-					style.DarkGrayStyle.Render(fmt.Sprintf("|🔜  queue: %s", style.GrayStyle.Render(fmt.Sprint(len(*m.jobs))))),
+					style.DarkGrayStyle.Render(fmt.Sprintf("|🔜  queue: %s", style.GrayStyle.Render(strconv.Itoa(len(*m.jobs))))),
 				)
 
 				gbl.Log.Info(msg)
@@ -121,7 +122,7 @@ func (m *Runner) run() {
 				"🔙 re-enqued | %s | next run in %ss %s",
 				style.BoldAlmostWhite(job.key),
 				style.BoldAlmostWhite(fmt.Sprint(time.Until(keyWaitUntil).Seconds())),
-				style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(*m.jobs))))),
+				style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(strconv.Itoa(len(*m.jobs))))),
 			)
 
 			time.Sleep(time.Millisecond * 137)
@@ -161,5 +162,5 @@ func AddJob(name string, key string, run func(...any), params ...any) {
 
 	jobQueue <- job
 
-	gbl.Log.Debugf("🔜 %s | %+v %s", style.LightGrayStyle.Render("new"), job, style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(fmt.Sprint(len(jobQueue))))))
+	gbl.Log.Debugf("🔜 %s | %+v %s", style.LightGrayStyle.Render("new"), job, style.DarkGrayStyle.Render(fmt.Sprintf("| queue: %s", style.GrayStyle.Render(strconv.Itoa(len(jobQueue))))))
 }

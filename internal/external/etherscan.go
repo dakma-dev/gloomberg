@@ -94,7 +94,7 @@ func GetGasOracle() *GasOracle {
 		log.Fatal("api_keys.etherscan not set")
 	}
 
-	url := withAPIKey(fmt.Sprint(apiBaseURL + "?module=gastracker&action=gasoracle"))
+	url := withAPIKey(apiBaseURL + "?module=gastracker&action=gasoracle")
 
 	// // client, _ := createEtherscanHTTPClient()
 	// client, _ := utils.DefaultHTTPClient()

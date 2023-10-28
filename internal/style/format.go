@@ -30,7 +30,7 @@ func FormatTokenInfo(tokenID *big.Int, collectionName string, primaryStyle lipgl
 
 	if color {
 		collectionName = primaryStyle.Faint(faint).Render(collectionName)
-		id = primaryStyle.Faint(faint).Render(fmt.Sprint(id))
+		id = primaryStyle.Faint(faint).Render(id)
 		prefix = secondaryStyle.Faint(faint).Render(prefix)
 	}
 

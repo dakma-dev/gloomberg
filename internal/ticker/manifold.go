@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -157,9 +158,9 @@ func (s *ManifoldStats) ManifoldTicker(manifoldTicker *time.Ticker, queueOutput 
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 
-			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(fmt.Sprint(collection.Counters.Mints)))
+			manifoldLine.WriteString(" | " + style.TrendLightGreenStyle.Render(strconv.FormatUint(collection.Counters.Mints, 10)))
 
-			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
+			telegramMessage.WriteString(" | " + strconv.FormatUint(collection.Counters.Mints, 10) + "x")
 
 			if collection.Counters.Mints > 200 {
 				telegramMessage.WriteString(" " + "🚀")
@@ -242,7 +243,7 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 			telegramMessage.WriteString(" · [" + collection.Name + "](" + openseaURL + ")")
 			// telegramMessage.WriteString(" " + collection.Name)
-			telegramMessage.WriteString(" | " + fmt.Sprint(collection.Counters.Mints) + "x")
+			telegramMessage.WriteString(" | " + strconv.FormatUint(collection.Counters.Mints, 10) + "x")
 
 			if collection.Counters.Mints >= 200 {
 				telegramMessage.WriteString(" " + "🚀")
