@@ -418,6 +418,13 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 
 	walletsList := make([]string, 0)
 
+	// get sum of wallet balances
+	sumWalletBalances := big.NewInt(0)
+	for _, w := range *s.wallets {
+		sumWalletBalances.Add(sumWalletBalances, w.Balance)
+	}
+	walletsList = append(walletsList, listItem(fmt.Sprintf("%s %s%s", style.DarkGrayStyle.Render("Total"), style.GrayStyle.Render(fmt.Sprintf("%15.2f", utils.WeiToEther(sumWalletBalances))), style.GrayStyle.Render("Ξ"))))
+
 	for _, w := range wallets[:numberOfWalletsToShow] {
 		balanceEther, _ := utils.WeiToEther(w.Balance).Float64()
 		balanceRounded := math.Floor(balanceEther*100.0) / 100.0
