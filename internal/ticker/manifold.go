@@ -234,10 +234,12 @@ func (s *ManifoldStats) OneMinuteTicker(manifoldTicker *time.Ticker) {
 
 			aggregrateEvents[collection.ContractAddress] = true
 
-			pricePerItem := big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TotalTokens))
-			priceEtherPerItem, _ := utils.WeiToEther(pricePerItem).Float64()
-			telegramMessage.WriteString(fmt.Sprintf("%6.3f", priceEtherPerItem))
-			telegramMessage.WriteString("Ξ")
+			if event.TotalTokens > 0 {
+				pricePerItem := big.NewInt(0).Div(event.AmountPaid, big.NewInt(event.TotalTokens))
+				priceEtherPerItem, _ := utils.WeiToEther(pricePerItem).Float64()
+				telegramMessage.WriteString(fmt.Sprintf("%6.3f", priceEtherPerItem))
+				telegramMessage.WriteString("Ξ")
+			}
 
 			openseaURL := utils.GetOpenseaItemLink(collection.ContractAddress.String(), event.Transfers[0].Token.ID.Int64())
 

@@ -49,6 +49,9 @@ const (
 	CYBERKONGZ
 	Captainz
 	DeGods
+	SKULLSOFLUCI
+	MILADY
+	NOUNS
 )
 
 func ReadWalletsFromJSON(filePath string) *GetOwnersForCollectionResponse {

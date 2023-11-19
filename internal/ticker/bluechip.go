@@ -29,6 +29,8 @@ var (
 	knownTX                    = make(map[common.Hash]bool)
 	knownTXMu                  = &sync.RWMutex{}
 	amountOfBlueChipsToBeShown = 3
+
+	readMutex = &sync.RWMutex{}
 )
 
 type BlueChipStats struct {
@@ -39,6 +41,14 @@ type BlueChipStats struct {
 	gb *gloomberg.Gloomberg
 
 	sync.RWMutex
+}
+
+func (s *BlueChipStats) GetCounterByAddress(address common.Address) *Counters {
+	readMutex.RLock()
+	counter := BlueChips.CollectionStats[address]
+	readMutex.RUnlock()
+
+	return counter
 }
 
 type Counters struct {
@@ -72,10 +82,23 @@ func (s *BlueChipStats) BlueChipTicker(ticker *time.Ticker, queueOutput *chan st
 		}
 	}()
 
+	if !viper.GetBool("notifications.bluechip.enabled") {
+		return
+	}
+
 	for range ticker.C {
 		// iterate over Counters
 		for address, counters := range BlueChips.CollectionStats {
-			if len(counters.GroupByWallets) >= viper.GetInt("notifications.bluechip.threshold") {
+			customThreshold := false
+			// skull of luci
+			if address == common.HexToAddress("0xc9041f80dce73721a5f6a779672ec57ef255d27c") {
+				// custom thresholds
+				if len(counters.GroupByWallets) >= 1 {
+					customThreshold = true
+				}
+			}
+
+			if len(counters.GroupByWallets) >= viper.GetInt("notifications.bluechip.threshold") || customThreshold {
 				line := strings.Builder{}
 
 				line.WriteString(rowStyle.Faint(true).Render(fmt.Sprintf("%s ", counters.gbCollection.Name)))
@@ -251,6 +274,12 @@ func GetEmojiMapping(holderType HolderTypes) string {
 		return "👟"
 	case DeGods:
 		return "⬜"
+	case SKULLSOFLUCI:
+		return "💀"
+	case MILADY:
+		return "👩"
+	case NOUNS:
+		return "🈁"
 	}
 
 	return ""
@@ -315,6 +344,22 @@ func NewBlueChipTicker(gb *gloomberg.Gloomberg) *BlueChipStats {
 	readBlueChipWalltesFromJSON("wallets/0x49cf6f5d44e70224e2e23fdcdd2c053f30ada28b.json", CloneX)
 	readBlueChipWalltesFromJSON("wallets/0x57a204aa1042f6e66dd7730813f4024114d74f37.json", CYBERKONGZ)
 	readBlueChipWalltesFromJSON("wallets/0x8821bee2ba0df28761afff119d66390d594cd280.json", DeGods)
+	readBlueChipWalltesFromJSON("wallets/0xc9041f80dce73721a5f6a779672ec57ef255d27c.json", SKULLSOFLUCI)
+	readBlueChipWalltesFromJSON("wallets/0x5af0d9827e0c53e4799bb226655a1de152a425a5.json", MILADY)
+	readBlueChipWalltesFromJSON("wallets/0x9c8ff314c9bc7f6e59a9d9225fb22946427edc03.json", NOUNS)
+
+	/**
+	  bluechip art feature:
+	  fidenza:         0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270 projectID 78
+	  ringers:         0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270 projectID 13
+	  The Eternal Pump 0xa7d8d9ef8d8ce8992df33d8b8cf4aebabd5bd270 projectID 22
+	  squiggle 0x059edd72cd353df5106d2b9cc5ab83a52287ac3a projectID 0
+	  autoglyphs: 0xd4e4078ca3495de5b1d4db434bebc5a986197782 (own contract)
+	  sam spratt editions: 0xda6558fa1c2452938168ef79dfd29c45aba8a32b
+	  skull of luci 0xc9041f80dce73721a5f6a779672ec57ef255d27c
+	  twin flames 0x3c28de567d1412b06f43b15e9f75129625fa6e8c
+	   qql 0x845dd2a7ee2a92a0518ab2135365ed63fdba0c88 ???
+	*/
 
 	if len(BlueChips.WalletMap) > 0 {
 		miwSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(BlueChips.WalletMap))), " blue chip wallets loaded", "\n"))

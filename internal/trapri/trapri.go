@@ -695,6 +695,13 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 
 		return
 	}
+
+	if IsAddressArtblocksContract(currentCollection.ContractAddress) {
+		tokenID := ttx.Transfers[0].Token.ID // e.g. 456000001
+		projectName, projectID := getProjectNameByContract(tokenID, currentCollection.ContractAddress, gb.ProviderPool.GetProviders()[0].Client)
+		out.WriteString("  " + currentCollection.Style().Copy().Render(style.TerminalLink(fmt.Sprintf("https://www.artblocks.io/project/%s", projectID), projectName), "-"))
+	}
+
 	// show the first collection/token on the same line
 	// and further collections/tokens on the next lines
 	out.WriteString("  " + fmtTokensTransferred[0] + " ")
