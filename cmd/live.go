@@ -361,8 +361,7 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 		go newManifoldTicker.OneMinuteTicker(manifoldTickerDakma)
 	}
 
-	if viper.GetBool("notifications.bluechip.enabled") {
-		// blue chip ticker
+	if viper.GetBool("print.bluechip") {
 		newBluechipTicker := ticker.NewBlueChipTicker(gb)
 		go newBluechipTicker.BlueChipTicker(time.NewTicker(time.Minute*5), &terminalPrinterQueue)
 	}

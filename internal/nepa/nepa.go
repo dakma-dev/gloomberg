@@ -24,7 +24,7 @@ type (
 	NePa struct {
 		// channels to receive new blocks or logs from the chain/subscriptions
 		newHeads        chan *types.Header
-		newLogs         chan types.Log
+		newLogs         chan types.Log // unused? remove?
 		newTransactions chan *chawagoModels.TxWithLogs
 		// workQueue chan any
 
