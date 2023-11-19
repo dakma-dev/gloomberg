@@ -925,7 +925,7 @@ func formatTokenTransaction(gb *gloomberg.Gloomberg, seawa *seawatcher.SeaWatche
 	if viper.GetBool("print.bluechip") && ticker.BlueChips != nil {
 		counter := ticker.BlueChips.GetCounterByAddress(currentCollection.ContractAddress)
 		if counter != nil {
-			out.WriteString(" | " + fmt.Sprintf("%d", counter.Sales) + style.BoldStyle.Render("🔵"))
+			out.WriteString(" | " + strconv.FormatUint(counter.Sales, 10) + style.BoldStyle.Render("🔵"))
 		}
 		if ticker.BlueChips.ContainsWallet(buyer) && ttx.Action != degendb.Burn {
 			if ticker.BlueChips.CollectionStats[currentCollection.ContractAddress] != nil {
