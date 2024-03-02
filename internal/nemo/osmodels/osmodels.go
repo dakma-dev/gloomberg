@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/nemo/price"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
@@ -14,26 +13,12 @@ import (
 type OpenSeaEventType string
 
 const (
-	ItemListed      OpenSeaEventType = "item_listed"
-	ItemSold        OpenSeaEventType = "item_sold"
-	ItemReceivedBid OpenSeaEventType = "item_received_bid"
-	// ItemReceivedOffer   EventType = "item_received_offer".
-	ItemMetadataUpdated OpenSeaEventType = "item_metadata_updated"
-
-	CollectionOffer OpenSeaEventType = "collection_offer"
+	ItemListed OpenSeaEventType = "item_listed"
 
 	// ItemCancelled       EventType = "item_cancelled".
 	// ItemTransferred     EventType = "item_transferred".
 
-	StreamAPIEndpoint string = "wss://stream.openseabeta.com/socket"
 )
-
-var TxType = map[OpenSeaEventType]degendb.EventType{
-	ItemListed:      degendb.Listing,
-	ItemSold:        degendb.Sale,
-	CollectionOffer: degendb.CollectionOffer,
-	ItemReceivedBid: degendb.Bid,
-}
 
 // type EventType string
 

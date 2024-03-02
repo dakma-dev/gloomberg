@@ -12,7 +12,7 @@ import (
 type MgmtAction int64
 
 const (
-	// client actions.
+	// Subscribe client actions.
 	Subscribe MgmtAction = iota
 	Unsubscribe
 

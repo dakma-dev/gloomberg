@@ -11,8 +11,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 )
 
 type IPInfo struct {
@@ -63,22 +63,22 @@ func GetIPInfo(ctx context.Context, ipAddr net.Addr) (*IPInfo, error) {
 	header := http.Header{}
 	header.Add("User-Agent", "ipapi.co/#go-v1.5")
 
-	gbl.Log.Debugf("🩲 getting IPInfo fron ipapi.co for %+v", addrWithoutPort)
+	log.Debugf("🩲 getting IPInfo fron ipapi.co for %+v", addrWithoutPort)
 
 	response, err := utils.HTTP.GetWithTLS12AndHeader(ctx, url, header)
 	if err != nil && os.IsTimeout(err) {
-		gbl.Log.Debugf("⌛️ timeout while fetching ipapi.co IPInfo: %+v", err.Error())
+		log.Debugf("⌛️ timeout while fetching ipapi.co IPInfo: %+v", err.Error())
 
 		return nil, err
 	} else if err != nil {
-		gbl.Log.Debugf("❌ ipapi.co IPInfo error: %+v", err.Error())
+		log.Debugf("❌ ipapi.co IPInfo error: %+v", err.Error())
 
 		return nil, err
 	}
 
 	defer response.Body.Close()
 
-	gbl.Log.Debugf("ipapi.co IPInfo response status: %s", response.Status)
+	log.Debugf("ipapi.co IPInfo response status: %s", response.Status)
 
 	// map to EventSignatures
 	var ipInfo IPInfo
@@ -86,21 +86,21 @@ func GetIPInfo(ctx context.Context, ipAddr net.Addr) (*IPInfo, error) {
 	// read response body
 	bodyBytes, err := io.ReadAll(response.Body)
 	if err != nil {
-		gbl.Log.Debugf("❌ error reading ipapi.co IPInfo response: %+v", err.Error())
+		log.Debugf("❌ error reading ipapi.co IPInfo response: %+v", err.Error())
 
 		return nil, err
 	}
 
-	gbl.Log.Debugf("ipapi.co IPInfo response body: %s", string(bodyBytes))
+	log.Debugf("ipapi.co IPInfo response body: %s", string(bodyBytes))
 
 	// unmarshal body
 	err = json.Unmarshal(bodyBytes, &ipInfo)
 	if err != nil {
-		gbl.Log.Debugf("❌ error decoding ipapi.co IPInfo response: %+v", err.Error())
+		log.Debugf("❌ error decoding ipapi.co IPInfo response: %+v", err.Error())
 
 		return nil, err
 	} else if ipInfo.Error {
-		gbl.Log.Debugf("❌ ipapi.co IPInfo error: %+v", ipInfo.Reason)
+		log.Debugf("❌ ipapi.co IPInfo error: %+v", ipInfo.Reason)
 
 		ipInfo.CountryCode = "00"
 

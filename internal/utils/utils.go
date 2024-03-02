@@ -12,6 +12,8 @@ import (
 )
 
 // GetLinks returns the links to etherscan, opensea and blur.
+//
+//goland:noinspection GoUnusedExportedFunction
 func GetLinks(txHash common.Hash, contractAddress common.Address, tokenID int64) (string, string, string) {
 	etherscanURL := GetEtherscanTxURL(txHash.String())
 	openseaURL := GetOpenseaItemLink(contractAddress.String(), tokenID)
@@ -25,18 +27,6 @@ func GetEtherscanTxURL(txHash string) string {
 	return fmt.Sprintf("https://etherscan.io/tx/%s", txHash)
 }
 
-func GetEtherscanAddressURL(address *common.Address) string {
-	return fmt.Sprintf("https://etherscan.io/address/%s", address.Hex())
-}
-
-func GetEtherscanTokenURL(address *common.Address) string {
-	return fmt.Sprintf("https://etherscan.io/token/%s", address.Hex())
-}
-
-func GetEtherscanTokenURLForAddress(address common.Address) string {
-	return fmt.Sprintf("https://etherscan.io/token/%s", address.Hex())
-}
-
 // blur.io.
 func getBlurLink(contractAddress string, tokenID int64) string {
 	return fmt.Sprintf("https://blur.io/asset/%s/%d", strings.ToLower(contractAddress), tokenID)
@@ -45,21 +35,6 @@ func getBlurLink(contractAddress string, tokenID int64) string {
 // opensea.io.
 func GetOpenseaItemLink(contractAddress string, tokenID int64) string {
 	return fmt.Sprintf("https://opensea.io/assets/ethereum/%s/%d", contractAddress, tokenID)
-}
-
-func GetOpenseaCollectionLink(slug string) string {
-	return fmt.Sprintf("https://opensea.io/collection/%s", slug)
-}
-
-func WalletShortAddress(address common.Address) string {
-	addressBytes := address.Bytes()
-
-	return fmt.Sprint(
-		"0x",
-		fmt.Sprintf("%0.2x%0.2x", addressBytes[0], addressBytes[1]),
-		"…",
-		fmt.Sprintf("%0.2x%0.2x", addressBytes[len(addressBytes)-2], addressBytes[len(addressBytes)-1]),
-	)
 }
 
 //
@@ -116,25 +91,4 @@ func WeiToGwei(wei *big.Int) *big.Float {
 
 //  consider using ToWei decimals to wei function, from: https://goethereumbook.org/util-go/
 
-func EtherToWeiFloat(ether *big.Float) *big.Float {
-	f := new(big.Float)
-	f.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-	f.SetMode(big.ToNearestEven)
-	fWei := new(big.Float)
-	fWei.SetPrec(236) //  IEEE 754 octuple-precision binary floating-point format: binary256
-	fWei.SetMode(big.ToNearestEven)
-
-	return f.Quo(fWei.Set(ether), big.NewFloat(params.Wei))
-}
-
 // EtherToWei converts an ether value to wei. (https://github.com/ethereum/go-ethereum/issues/21221#issuecomment-802092592)
-func EtherToWei(eth *big.Float) *big.Int {
-	truncInt, _ := eth.Int(nil)
-	truncInt = new(big.Int).Mul(truncInt, big.NewInt(params.Ether))
-	fracStr := strings.Split(fmt.Sprintf("%.18f", eth), ".")[1]
-	fracStr += strings.Repeat("0", 18-len(fracStr))
-	fracInt, _ := new(big.Int).SetString(fracStr, 10)
-	wei := new(big.Int).Add(truncInt, fracInt)
-
-	return wei
-}

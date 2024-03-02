@@ -6,8 +6,8 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
 )
@@ -45,7 +45,7 @@ func ParseNftID(combinedNftID string) *NftID {
 		rawTokenID = nftID[1]
 
 	default:
-		gbl.Log.Errorf("Invalid NFT ID: %s", combinedNftID)
+		log.Errorf("Invalid NFT ID: %s", combinedNftID)
 
 		empty := []string{"", "", ""}
 
@@ -55,7 +55,7 @@ func ParseNftID(combinedNftID string) *NftID {
 	var ok bool
 	tokenID, ok = new(big.Int).SetString(rawTokenID, 10)
 	if !ok {
-		gbl.Log.Errorf("Invalid NFT ID - error parsing tokenID: %s", combinedNftID)
+		log.Errorf("Invalid NFT ID - error parsing tokenID: %s", combinedNftID)
 
 		empty := []string{"", "", ""}
 
@@ -73,7 +73,7 @@ func (n *NftID) Chain() string {
 // ContractAddress returns the contract address of the token.
 func (n *NftID) ContractAddress() common.Address {
 	if len(*n) < 2 {
-		gbl.Log.Error("Invalid NFT ID: %s", n)
+		log.Error("Invalid NFT ID: %s", n)
 
 		return common.Address{}
 	}
@@ -85,7 +85,7 @@ func (n *NftID) ContractAddress() common.Address {
 func (n *NftID) TokenID() *big.Int {
 	tokenID, ok := new(big.Int).SetString((*n)[2], 10)
 	if !ok {
-		gbl.Log.Error("Invalid NFT ID: %s", n)
+		log.Error("Invalid NFT ID: %s", n)
 
 		return nil
 	}

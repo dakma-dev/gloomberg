@@ -1,58 +1,53 @@
 package cmd
 
+//  go:generate go run github.com/deepmap/oapi-codegen/v2/cmd/oapi-codegen --config=../assets/openapi/opensea.oapi-codegen.yaml ../assets/openapi/opensea.json
+
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"net"
-	"strconv"
-	"strings"
+	"sort"
+	"sync/atomic"
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/chawago"
-	"github.com/benleb/gloomberg/internal/config"
-	"github.com/benleb/gloomberg/internal/degendb/degendata"
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/jobs"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/provider"
-	"github.com/benleb/gloomberg/internal/nemo/token"
-	"github.com/benleb/gloomberg/internal/nemo/totra"
-	"github.com/benleb/gloomberg/internal/nemo/wallet"
-	"github.com/benleb/gloomberg/internal/nemo/watch"
-	"github.com/benleb/gloomberg/internal/nepa"
-	"github.com/benleb/gloomberg/internal/notify"
-	"github.com/benleb/gloomberg/internal/opensea"
-	"github.com/benleb/gloomberg/internal/pusu"
-	seawatcher "github.com/benleb/gloomberg/internal/seawa"
-	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
-	"github.com/benleb/gloomberg/internal/ticker"
-	"github.com/benleb/gloomberg/internal/trapri"
-	"github.com/benleb/gloomberg/internal/utils/wwatcher"
-	"github.com/benleb/gloomberg/internal/web"
-	"github.com/benleb/gloomberg/internal/ws"
 	"github.com/charmbracelet/log"
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/muesli/termenv"
-	"github.com/redis/rueidis"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
+func countTopics(logs []*types.Log) (counts map[common.Hash]uint64) {
+	counts = make(map[common.Hash]uint64)
+
+	for _, l := range logs {
+		for _, t := range l.Topics {
+			counts[t]++
+		}
+	}
+
+	return counts
+}
+
 // liveCmd represents the live command.
 var liveCmd = &cobra.Command{
 	Use:   "live",
-	Short: "watch the chain stream",
-	// 	Long: `A longer description that spans multiple lines and likely contains examples
-	// and usage of using your command. For example:
+	Short: "watch the chain live",
 
-	// Cobra is a CLI library for Go that empowers applications.
-	// This application is a tool to generate the needed files
-	// to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		// configure logging
+		switch {
+		case viper.GetBool("log.debug"):
+			log.SetLevel(log.DebugLevel)
+		case viper.GetBool("log.verbose"):
+			log.SetLevel(log.InfoLevel)
+		default:
+			log.SetLevel(log.WarnLevel)
+		}
+
 		runGloomberg(cmd, args)
 	},
 }
@@ -63,385 +58,181 @@ func runGloomberg(_ *cobra.Command, _ []string) {
 	// print header
 	header := style.GetHeader(internal.GloombergVersion)
 	fmt.Println(header)
-	gbl.Log.Info(header)
 
-	// global defaults
-	viper.Set("http.timeout", 27*time.Second)
+	// TODO print loaded configuration etc...
+	log.Printf("  log level: %+v", log.DefaultStyles().Levels[log.GetLevel()].Render(log.GetPrefix()))
 
-	// // show listings for own collections if an opensea api key is set
-	// // if viper.IsSet("api_keys.opensea") && !viper.IsSet("listings.enabled") {
-	// if apiKey := viper.GetString("api_keys.opensea"); apiKey != "" && !viper.IsSet("listings.enabled") {
-	// 	viper.Set("listings.enabled", true)
-	// 	gbl.Log.Infof("listings from opensea: %v", viper.GetBool("listings.enabled"))
-	// }
+	gb := gloomberg.New()
+	showBlockStats := false
 
-	// initialize
-	gb.OwnWallets = &wallet.Wallets{}
-	gb.Watcher = &watch.Watcher{}
-	// initialize marmot the task runner/scheduler
-	gb.Jobs = jobs.NewJobRunner()
+	log.Printf("  gb: %+v", gb)
 
-	// (TODO: MOVE THIS TO WHERE IT BELONGS...?^^)
-	// experiments (feature flags)
-	activeExperiments := mapset.NewSet[string]()
-	for experiment, active := range viper.GetStringMap("experiments") {
-		if active == true {
-			gbl.Log.Debugf("🧪 experiment %s is active", style.BoldStyle.Render(experiment))
-
-			activeExperiments.Add(style.BoldAlmostWhite(experiment))
-		}
+	newTransactions, err := gb.ChaWa.SubscribeToNFTTransfers()
+	if err != nil {
+		log.Errorf("❌ error subscribing to transfer logs: %s", err)
 	}
 
-	gloomberg.PrModf("exp", "active experiments 🧪 %s", style.BoldAlmostWhite(strings.Join(activeExperiments.ToSlice(), style.GrayStyle.Render(" · "))))
-
-	// disabled for now
-	// go func() {
-	// 	gb.DegenDB = degendb.NewDegenDB()
-	// }()
-
-	// compatibility with old config key
-	var providerConfig interface{}
-	if cfg := viper.Get("provider"); cfg != nil {
-		providerConfig = cfg
-	} else {
-		providerConfig = viper.Get("nodes")
-	}
-
-	//
-	// init provider pool
-	if pool, err := provider.FromConfig(providerConfig); err != nil {
-		gbl.Log.Fatal("❌ running provider failed, exiting")
-	} else if pool != nil {
-		gb.ProviderPool = pool
-		gb.ProviderPool.Rueidi = gb.Rueidi
-
-		// get all node names to be shown as a list of connected nodes
-		providers := gb.ProviderPool.GetProviders()
-		nodeNames := make([]string, 0)
-		for _, n := range providers {
-			nodeNames = append(nodeNames, style.BoldStyle.Render(n.Name))
-		}
-
-		gloomberg.Pr(fmt.Sprintf("connected to %s providers: %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(providers))), style.AlmostWhiteStyle.Render(strings.Join(nodeNames, ", "))))
-	}
+	log.Printf("  newTransactions: %+v", newTransactions)
 
 	//
 	// queue for everything to print to the console
-	terminalPrinterQueue := make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
-
-	if viper.GetBool("notifications.smart_wallets.enabled") {
-		alphaTicker := ticker.NewAlphaScore(gb)
-		go alphaTicker.AlphaCallerTicker(gb, time.NewTicker(time.Minute*1))
-	}
-
-	// nepa
-	queueWsInTokenTransactions := make(chan *totra.TokenTransaction, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
-	nePa := nepa.NewNePa(gb)
-
-	//
-	var seawa *seawatcher.SeaWatcher
-	if viper.GetBool("seawatcher.enabled") || viper.GetBool("listings.enabled") {
-		var openseaAPIKey string
-		if key := viper.GetString("api_keys.opensea"); key != "" {
-			openseaAPIKey = viper.GetString("api_keys.opensea")
-		} else if key := viper.GetString("seawatcher.api_key"); key != "" {
-			openseaAPIKey = viper.GetString("seawatcher.api_key")
-		}
-		seawa = seawatcher.NewSeaWatcher(openseaAPIKey, gb)
-	}
-
-	// trapri | ttx printer to process and format the token transactions
-	go trapri.TokenTransactionFormatter(gb, seawa)
-
-	// start subscribing
-	go nePa.Run()
+	// terminalPrinterQueue := make(chan string, viper.GetInt("gloomberg.eventhub.inQueuesSize"))
 
 	go func() {
-		if _, err := notify.GetBot(); err != nil {
-			gbl.Log.Errorf("❌ error getting telegram bot: %s", err.Error())
-		}
-	}()
+		var blockNumber atomic.Uint64
 
-	// if viper.GetBool("websockets.server.enabled") {
-	// 	// queueWS := make(chan *collections.Event, 1024)
-	// 	// gb.OutputQueues["websockets"] = queueWS
+		allBlockTopics := make([]*types.Log, 0)
 
-	// 	wsServer := ws.New(viper.GetString("websockets.server.host"), viper.GetUint("websockets.server.port"), &queueWsOutTokenTransactions)
-	// 	go wsServer.Start()
+		for tx := range newTransactions {
+			txBlockNumber := tx.BlockNumber.Uint64()
 
-	// 	gbl.Log.Infof("📡 websockets server started on %s:%d\n", viper.GetString("websockets.server.host"), viper.GetUint("websockets.server.port"))
-	// }
+			//
+			// block stats
+			if showBlockStats {
+				if currentBlockNumber := blockNumber.Load(); txBlockNumber > currentBlockNumber {
+					blockNumber.Store(txBlockNumber)
 
-	//
-	// websockets client
-	if viper.GetBool("websockets.client.enabled") {
-		ws.StartWsClient(viper.GetString("websockets.client.url"), &queueWsInTokenTransactions)
-	}
+					if currentBlockNumber > 0 {
+						// sort allBlockTopics map by Value
+						countedTopics := countTopics(allBlockTopics)
+						// create a slice of keys
+						topics := make([]common.Hash, 0, len(allBlockTopics))
+						for k := range countedTopics {
+							topics = append(topics, k)
+						}
 
-	// //
-	// // websockets client to get events from a server instead directly from the chain (nodes)
-	// if viper.GetBool("client") {
-	// 	gloomclient.ConnectToServer("ws://10.0.0.99:42068/", &queueEvents)
-	// }
+						// sort the slice of keys
+						sort.Slice(topics, func(i, j int) bool {
+							return countedTopics[topics[i]] > countedTopics[topics[j]]
+						})
 
-	//
-	// get collections from config file
-	// collectionsSpinner := style.GetSpinner("setting up collections...")
-	// _ = collectionsSpinner.Start()
+						// print sorted topics
+						for _, topic := range topics {
+							topicName := topic.Hex()
+							// if eventSignature, err := external.GetEventSignature(topic); err == nil && eventSignature != nil {
+							// 	// pretty.Println(eventSignature)
+							// 	topicName = eventSignature.TextSignature
+							// }
 
-	// collection from config file
-	// collectionsSpinner.Message("setting up config collections...")
+							log.Infof("  %s | %d", topicName, countedTopics[topic])
+						}
 
-	for _, collection := range config.GetCollectionsFromConfiguration(gb.ProviderPool, gb.Rueidi) {
-		gb.CollectionDB.RWMu.Lock()
-		gb.CollectionDB.Collections[collection.ContractAddress] = collection
-		gb.CollectionDB.RWMu.Unlock()
+						// previous block stats
+						log.Infof("🧱 block %d | ...\n", currentBlockNumber)
+					}
 
-		// // buy rules
-		// if buyRule := collection.BuyRule; buyRule != nil {
-		// 	gbl.Log.Debugf("🛍️ buy rule for %s: %v", collection.ContractAddress.Hex(), buyRule)
-		// 	gb.BuyRules.Rules[collection.ContractAddress] = buyRule
-		// } else {
-		// 	gbl.Log.Debugf("🛍️ no buy rule for %s", collection.ContractAddress.Hex())
-		// }
-	}
+					allBlockTopics = make([]*types.Log, 0)
 
-	// //
-	// // general buy rule
-	// if buyRule := config.GetGeneralBuyRuleFromConfiguration(); buyRule != nil {
-	// 	gb.BuyRules.Rules[utils.ZeroAddress] = buyRule
-	// }
-
-	// print collections from config & wallet holdings
-	// if len(gb.CollectionDB.Collections) > 0 {
-	// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
-	// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(collectionNames))), " collections from config: ", strings.Join(collectionNames, ", "), "\n"))
-	// }
-
-	gloomberg.Pr(fmt.Sprintf("%s collections loaded from config", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gb.CollectionDB.Collections)))))
-
-	// // stop spinner
-	// _ = collectionsSpinner.Stop()
-
-	//
-	// get own wallets from config file
-	if viper.GetBool("sales.enabled") {
-		gb.OwnWallets = config.GetOwnWalletsFromConfig(gb.ProviderPool)
-
-		if len(*gb.OwnWallets) > 0 {
-			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
-			// _ = miwSpinner.Stop()
-			gloomberg.PrMod("wawa", fmt.Sprintf("%s own wallets: %s", style.AlmostWhiteStyle.Render(strconv.Itoa(len(*gb.OwnWallets))), strings.Join(gb.OwnWallets.FormattedNames(), ", ")))
-		}
-	}
-
-	//
-	// initialize collections database
-	if viper.GetBool("sales.enabled") {
-		// collectionsSpinner := style.GetSpinner("setting up collections...")
-		// _ = collectionsSpinner.Start()
-
-		if len(*gb.OwnWallets) > 0 {
-			// collections from wallet holdings
-			// collectionsSpinner.Message("setting up wallet collections...")
-
-			// read collections hold in wallets from opensea and store in currentCollections
-			gbl.Log.Debugf("gb.OwnWallets: %v | gb.CollectionDB: %+v | gb.ProviderPool: %+v", gb.OwnWallets, gb.CollectionDB, gb.ProviderPool)
-			// walletCollections := opensea.GetWalletCollections(gb.OwnWallets, gb.CollectionDB, gb.Nodes)
-			walletCollections := opensea.GetWalletCollections(gb)
-
-			for _, collection := range walletCollections {
-				if gb.CollectionDB.Collections[collection.ContractAddress] == nil {
-					gb.CollectionDB.Collections[collection.ContractAddress] = collection
+					// // new block
+					// log.Infof("🧱 new block: %+v", txBlockNumber)
 				}
+
+				allBlockTopics = append(allBlockTopics, tx.Receipt.Logs...)
 			}
 
-			gbl.Log.Infof("collections from wallets: %d", len(walletCollections))
+			log.Debugf("📝 %s", style.TerminalLink("https://etherscan.io/tx/"+tx.Hash().String(), tx.Hash().String()))
+			log.Infof("📝 %s | %s", tx.GetFunctionSignature().TerminalLinkShortAndStyled(), tx.TerminalLinkShortAndStyled())
 
-			GetWalletTokens(gb)
-		}
+			if tx.To().Hex() == common.HexToAddress("0x00000000000000adc04c56bf30ac9d3c0aaf14dc").Hex() {
+				log.Infof("📝 OS!! %s", tx.Value().String())
 
-		// // print collections from config & wallet holdings
-		// if len(gb.CollectionDB.Collections) > 0 {
-		// 	collectionNames := gb.CollectionDB.SortedAndColoredNames()
-		// 	collectionsSpinner.StopMessage(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(collectionNames))), " collections from config & wallets: ", strings.Join(collectionNames, ", "), "\n"))
-		// }
+				// contractABI, err := abi.JSON(strings.NewReader(chainwatcher.GetLocalABI("abis/0x00000000000000adc04c56bf30ac9d3c0aaf14dc.json")))
+				// if err != nil {
+				//	log.Fatal(err)
+				//}
 
-		gloomberg.Pr(fmt.Sprintf("%s collections from config & wallets: ", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gb.CollectionDB.Collections)))))
-
-		// _ = collectionsSpinner.Stop()
-	}
-
-	// for _, buyRule := range gb.BuyRules.Rules {
-	// 	percentageOfFloor := fmt.Sprintf("<=%.0f%%", buyRule.Threshold*100)
-
-	// 	out := strings.Builder{}
-
-	// 	// single line
-	// 	out.WriteString(fmt.Sprintf("rule %s:", style.BoldStyle.Render(buyRule.Name)))
-
-	// 	if buyRule.MaxPrice > 0.0 {
-	// 		out.WriteString(fmt.Sprintf(" max: %sΞ", style.BoldStyle.Render(fmt.Sprintf("%4.2f", buyRule.MaxPrice))))
-	// 	}
-
-	// 	if buyRule.MaxPrice == 0.0 && buyRule.Threshold > 0.0 {
-	// 		out.WriteString(fmt.Sprintf(" | threshold: %s%% of floor", style.BoldStyle.Render(percentageOfFloor)))
-	// 	}
-
-	// 	out.WriteString(fmt.Sprintf(" | min: %ss / %sl", style.BoldStyle.Render(fmt.Sprint(buyRule.MinSales)), style.BoldStyle.Render(fmt.Sprint(buyRule.MinListings))))
-
-	// 	// print buy rules
-	// 	gbl.Log.Infof(out.String())
-	// }
-
-	//
-	// wallet watcher (todo) & MIWs
-	if viper.GetBool("sales.enabled") {
-		watcher := config.GetWatchRulesFromConfig()
-		gb.Watcher = watcher
-
-		//
-		// MIWs
-		// miwSpinner := style.GetSpinner("setting up MIWs...")
-		// _ = miwSpinner.Start()
-
-		wwatcher.LoadMIWs()
-
-		if len(wwatcher.MIWC.WeightedMIWs) > 0 {
-			// miwSpinner.StopMessage(fmt.Sprint(fmt.Sprint(style.BoldStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs))), " MIWs loaded", "\n")))
-			// _ = miwSpinner.Stop()
-			gloomberg.Pr(fmt.Sprintf("%s MIWs loaded", style.AlmostWhiteStyle.Render(strconv.Itoa(len(wwatcher.MIWC.WeightedMIWs)))))
-		}
-		//  else {
-		// 	_ = miwSpinner.StopFail()
-		// }
-	}
-
-	// old printer active until fully migrated
-	go func() {
-		gbl.Log.Debug("starting OLD terminal printer...")
-
-		for eventLine := range terminalPrinterQueue {
-			gbl.Log.Debugf("OLD terminal printer eventLine: %s", eventLine)
-
-			if viper.GetBool("log.debug") {
-				debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
-				eventLine = fmt.Sprint(debugPrefix, eventLine)
+				// chainwatcher.DecodeTransactionInputData(&contractABI, tx.Data())
 			}
+			// //
+			// // create a TokenTransaction
+			// if ttx := totra.NewTokenTransaction(tx.Transaction, tx.Receipt, chaWa.Node(), gb.Rueidica()); ttx != nil && ttx.IsMovingNFTs() {
+			// 	// np.QueueTokenTransactions <- ttx
 
-			fmt.Println(eventLine)
+			// 	gb.In.TokenTransactions <- ttx
+
+			// 	// // publish ttx via redis
+			// 	// if viper.GetBool("pubsub.sales.publish") {
+			// 	// 	go pusu.Publish(np.gb, internal.PubSubChannelSales, ttx)
+			// 	// }
+			// }
+
+			// chaWa.Node().LastLogReceivedAt = time.Now()
 		}
 	}()
 
-	// slugTicker := time.NewTicker(7 * time.Second)
-	// go slugs.SlugWorker(slugTicker, &gb.QueueSlugs, gb.Rueidi)
+	// // old printer active until fully migrated
+	// go func() {
+	// 	log.Debug("starting OLD terminal printer...")
+
+	// 	for eventLine := range terminalPrinterQueue {
+	// 		log.Debugf("OLD terminal printer eventLine: %s", eventLine)
+
+	// 		if viper.GetBool("log.debug") {
+	// 			debugPrefix := fmt.Sprintf("%d | ", len(terminalPrinterQueue))
+	// 			eventLine = fmt.Sprint(debugPrefix, eventLine)
+	// 		}
+
+	// 		fmt.Println(eventLine)
+	// 	}
+	// }()
 
 	//
 	// gasline ticker
-	var gasTicker *time.Ticker
+	var gasLineTicker *time.Ticker
 
-	if tickerInterval := viper.GetDuration("ticker.gasline"); gb.ProviderPool != nil && gb.ProviderPool.PreferredProviderAvailable() && tickerInterval > 0 {
+	// if tickerInterval := viper.GetDuration("ticker.gasline"); gb.ProviderPool != nil && gb.ProviderPool.PreferredProviderAvailable() && tickerInterval > 0 {
+	if tickerInterval := viper.GetDuration("ticker.gasline"); gb.Node() != nil && tickerInterval > 0 {
 		// initial startup delay
 		time.Sleep(tickerInterval / 5)
 
 		// start gasline ticker
-		gasTicker = time.NewTicker(tickerInterval)
-		go gloomberg.GasTicker(gb, gasTicker, gb.ProviderPool, terminalPrinterQueue)
-	}
-
-	// manifold ticker
-	if viper.GetBool("notifications.manifold.enabled") {
-		manifoldTicker := time.NewTicker(time.Hour * 1)
-		newManifoldTicker := ticker.NewManifoldTicker(gb)
-
-		go newManifoldTicker.ManifoldTicker(manifoldTicker, &terminalPrinterQueue)
-		fmt.Println("Manifold notifications started")
-
-		manifoldTickerDakma := time.NewTicker(time.Minute * 1)
-		go newManifoldTicker.OneMinuteTicker(manifoldTickerDakma)
-	}
-
-	if viper.GetBool("print.bluechip") {
-		newBluechipTicker := ticker.NewBlueChipTicker(gb)
-		go newBluechipTicker.BlueChipTicker(time.NewTicker(time.Minute*5), &terminalPrinterQueue)
+		gasLineTicker = time.NewTicker(tickerInterval)
+		go gloomberg.GasLineTicker(gb, gasLineTicker, gb.PrintToTerminal)
 	}
 
 	//
 	// statsbox
-	gb.Stats = gloomberg.NewStats(gb, gasTicker, gb.OwnWallets, gb.ProviderPool, gb.Rdb)
+	gb.Stats = gloomberg.NewStats(gb, gasLineTicker, gb.OwnWallets, gb.GetRueidica().Rueidis())
 
 	// if statsInterval := viper.GetDuration("ticker.statsbox"); viper.GetBool("stats.enabled") {
 	if viper.GetBool("stats.enabled") {
-		go gb.Stats.StartTicker(viper.GetDuration("ticker.statsbox"), terminalPrinterQueue)
+		go gb.Stats.StartTicker(viper.GetDuration("ticker.statsbox"), gb.PrintToTerminal)
 	}
 
-	//
-	// subscribe to OpenSea API
-	if viper.GetBool("seawatcher.local") || viper.GetBool("pubsub.client.enabled") {
-		go trapri.SeaWatcherEventsHandler(gb)
-	}
+	// //
+	// // subscribe to redis pubsub channel to receive events from gloomberg central
+	// if viper.GetBool("pubsub.client.enabled") {
+	// 	gloomberg.Prf("starting redis pubsub client...")
 
-	//
-	// subscribe to redis pubsub channel to receive events from gloomberg central
-	if viper.GetBool("pubsub.client.enabled") {
-		gloomberg.Prf("starting redis pubsub client...")
+	// 	// subscribe to redis pubsub channel
+	// 	go pusu.SubscribeToListingsViaRedis(gb)
 
-		// subscribe to redis pubsub channel
-		go pusu.SubscribeToListingsViaRedis(gb)
+	// 	// initially send all our slugs & events to subscribe to
+	// 	go gb.PublishOwnSlubSubscription()
 
-		// initially send all our slugs & events to subscribe to
-		go gb.PublishOwnSlubSubscription()
+	// 	// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
+	// 	go func() {
+	// 		err := gb.Rueidica().Rueidis().Receive(context.Background(), gb.Rueidica().Rueidis().B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
+	// 			log.Debug(fmt.Sprintf("👔 received msg on %s: %s", msg.Channel, msg.Message))
 
-		// subscribe to redis pubsub mgmt channel to listen for "SendSlugs" events
-		go func() {
-			err := gb.Rdb.Receive(context.Background(), gb.Rdb.B().Subscribe().Channel(internal.PubSubSeaWatcherMgmt).Build(), func(msg rueidis.PubSubMessage) {
-				gbl.Log.Debug(fmt.Sprintf("👔 received msg on %s: %s", msg.Channel, msg.Message))
+	// 			var mgmtEvent *seawaModels.MgmtEvent
 
-				var mgmtEvent *seawaModels.MgmtEvent
+	// 			if err := json.Unmarshal([]byte(msg.Message), &mgmtEvent); err != nil {
+	// 				log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
+	// 			}
 
-				if err := json.Unmarshal([]byte(msg.Message), &mgmtEvent); err != nil {
-					gbl.Log.Fatal(fmt.Sprintf("❌ error json.Unmarshal: %+v", err))
-				}
+	// 			if mgmtEvent.Action == seawaModels.SendSlugs {
+	// 				log.Info(fmt.Sprintf("👔 SendSlugs received on channel %s", msg.Channel))
+	// 				gb.PublishOwnSlubSubscription()
+	// 			}
+	// 		})
+	// 		if err != nil {
+	// 			log.Errorf("❌ error subscribing to redis channels %s: %s", internal.PubSubSeaWatcherMgmt, err.Error())
 
-				if mgmtEvent.Action == seawaModels.SendSlugs {
-					gbl.Log.Info(fmt.Sprintf("👔 SendSlugs received on channel %s", msg.Channel))
-					gb.PublishOwnSlubSubscription()
-				}
-			})
-			if err != nil {
-				gbl.Log.Errorf("❌ error subscribing to redis channels %s: %s", internal.PubSubSeaWatcherMgmt, err.Error())
-
-				return
-			}
-		}()
-	}
-
-	//
-	// degendata - ranks
-	// ❕ placed on the end to have the least interference with the calls
-	//    to opensea that fetch the wallet collections at the beginning
-	// ❗️ probably doesn't matter anymore since we're using the redis cache now
-	//    waiting for more feedback from the community before moving it up
-	go func() {
-		if err := degendata.LoadOpenseaRanks(gb); err != nil {
-			gbl.Log.Errorf("error loading opensea ranks: %v", err)
-		}
-	}()
-
-	//
-	// web ui
-	if viper.GetBool("web.enabled") {
-		go web.StartWebUI(gb) //nolint:errcheck
-
-		gloomberg.PrMod("web", "web-ui started")
-	}
-
-	go func() {
-		wawa := chawago.NewWalletWatcher(gb)
-		wawa.Watch()
-
-		gloomberg.Prf("wallet watcher started: %+v", wawa)
-	}()
+	// 			return
+	// 		}
+	// 	}()
+	// }
 
 	// loop forever
 	select {}
@@ -494,9 +285,9 @@ func init() { //nolint:gochecknoinits
 	liveCmd.Flags().Uint16("web-ui-port", 42069, "web ui port")
 	_ = viper.BindPFlag("web.port", liveCmd.Flags().Lookup("web-ui-port"))
 
-	// wallets
-	liveCmd.Flags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
-	_ = viper.BindPFlag("wallets", liveCmd.Flags().Lookup("wallets"))
+	// // wallets
+	// liveCmd.Flags().StringSliceVarP(&ownWallets, "wallets", "w", []string{}, "Own wallet addresses")
+	// _ = viper.BindPFlag("wallets", liveCmd.Flags().Lookup("wallets"))
 
 	// min value for sales to be shown (single item price)
 	liveCmd.Flags().Float64("min-value", 0.0, "minimum value to show sales")
@@ -532,7 +323,7 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("gloomberg.eventhub.outQueuesSize", 32)
 
 	// first txs
-	viper.SetDefault("gloomberg.firstTxs.min_value", 0.5)
+	viper.SetDefault("gloomberg.firstTxs.min_value", 0.337)
 
 	// job runner
 	viper.SetDefault("jobs.numRunner", 3)
@@ -584,37 +375,37 @@ func init() { //nolint:gochecknoinits
 	viper.SetDefault("stats.high_volume.mints.threshold", 47)
 }
 
-func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
-	gbTokens := make([]*token.Token, 0)
+// func GetWalletTokens(gb *gloomberg.Gloomberg) map[common.Address]*token.Token {
+// 	gbTokens := make([]*token.Token, 0)
 
-	for _, w := range *gb.OwnWallets {
-		tokensForWallet := opensea.GetTokensFor(w.Address, 2, "")
-		gbTokens = append(gbTokens, tokensForWallet...)
+// 	for _, w := range *gb.OwnWallets {
+// 		tokensForWallet := opensea.GetTokensFor(w.Address, 2, "")
+// 		gbTokens = append(gbTokens, tokensForWallet...)
 
-		log.Debugf("Wallet %s has %d tokens: %+v", w.Address.String(), len(tokensForWallet), tokensForWallet)
+// 		log.Debugf("Wallet %s has %d tokens: %+v", w.Address.String(), len(tokensForWallet), tokensForWallet)
 
-		tokenMapForWallet := make(map[common.Address]map[string]*token.Token)
-		for _, t := range tokensForWallet {
-			if _, ok := tokenMapForWallet[t.Address]; !ok {
-				tokenMapForWallet[t.Address] = make(map[string]*token.Token)
-			}
+// 		tokenMapForWallet := make(map[common.Address]map[string]*token.Token)
+// 		for _, t := range tokensForWallet {
+// 			if _, ok := tokenMapForWallet[t.Address]; !ok {
+// 				tokenMapForWallet[t.Address] = make(map[string]*token.Token)
+// 			}
 
-			tokenMapForWallet[t.Address][t.ID.String()] = t
-		}
+// 			tokenMapForWallet[t.Address][t.ID.String()] = t
+// 		}
 
-		w.Tokens = tokenMapForWallet
+// 		w.Tokens = tokenMapForWallet
 
-		// honor the rate limit
-		time.Sleep(time.Millisecond * 337)
-	}
+// 		// honor the rate limit
+// 		time.Sleep(time.Millisecond * 337)
+// 	}
 
-	gloomberg.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gbTokens))), style.AlmostWhiteStyle.Render(strconv.Itoa(len(*gb.OwnWallets)))))
+// 	gloomberg.PrMod("wawa", fmt.Sprintf("found %s tokens in our %s wallets", style.AlmostWhiteStyle.Render(strconv.Itoa(len(gbTokens))), style.AlmostWhiteStyle.Render(strconv.Itoa(len(*gb.OwnWallets)))))
 
-	// create map
-	gbTokensMap := make(map[common.Address]*token.Token)
-	for _, t := range gbTokens {
-		gbTokensMap[t.Address] = t
-	}
+// 	// create map
+// 	gbTokensMap := make(map[common.Address]*token.Token)
+// 	for _, t := range gbTokens {
+// 		gbTokensMap[t.Address] = t
+// 	}
 
-	return gbTokensMap
-}
+// 	return gbTokensMap
+// }

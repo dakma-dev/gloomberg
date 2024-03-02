@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math/big"
 	"os"
 	"strconv"
@@ -15,9 +14,9 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/spf13/viper"
 )
@@ -73,18 +72,18 @@ func GetEstimatedGasPrice() *big.Int {
 	if gasOracle := GetGasOracle(); gasOracle != nil {
 		gasPrice, err := strconv.ParseInt(gasOracle.ProposeGasPrice, 10, 64)
 		if err != nil {
-			gbl.Log.Infof("could not parse proposedGasPrice: %+v | %s", gasPrice, err)
+			log.Infof("could not parse proposedGasPrice: %+v | %s", gasPrice, err)
 
 			return nil
 		}
 
 		estimatedGasPrice = big.NewInt(gasPrice)
-		gbl.Log.Infof("updated proposed gas price to %d gwei", estimatedGasPrice)
+		log.Infof("updated proposed gas price to %d gwei", estimatedGasPrice)
 
 		return estimatedGasPrice
 	}
 
-	gbl.Log.Info("updated current gas price failed")
+	log.Info("updated current gas price failed")
 
 	return nil
 }
@@ -99,7 +98,7 @@ func GetGasOracle() *GasOracle {
 	// // client, _ := createEtherscanHTTPClient()
 	// client, _ := utils.DefaultHTTPClient()
 
-	// gbl.Log.Debugf("gas oracle url: %s", url)
+	// log.Debugf("gas oracle url: %s", url)
 
 	// request, _ := http.NewRequest("GET", url, nil)
 
@@ -107,15 +106,15 @@ func GetGasOracle() *GasOracle {
 	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
+			log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
 		} else {
-			gbl.Log.Errorf("❌ gas oracle error: %+v", err.Error())
+			log.Errorf("❌ gas oracle error: %+v", err.Error())
 		}
 
 		return nil
 	}
 
-	gbl.Log.Debugf("gas oracle status: %s", response.Status)
+	log.Debugf("gas oracle status: %s", response.Status)
 
 	defer response.Body.Close()
 
@@ -126,14 +125,14 @@ func GetGasOracle() *GasOracle {
 
 	// decode the data
 	if !json.Valid(responseBody) {
-		gbl.Log.Warnf("gas oracle invalid json: %s", err)
+		log.Warnf("gas oracle invalid json: %s", err)
 
 		return nil
 	}
 
 	// decode the data
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&gasOracleResponse); err != nil {
-		gbl.Log.Warnf("gas oracle decode error: %s", err.Error())
+		log.Warnf("gas oracle decode error: %s", err.Error())
 
 		return nil
 	}
@@ -149,7 +148,7 @@ func GetBalances(wallets *wallet.Wallets) ([]*AccountBalance, error) {
 	for _, balance := range balances {
 		wethBalance, err := GetWETHBalance(common.HexToAddress(balance.Account))
 		if err != nil || wethBalance == nil {
-			gbl.Log.Warnf("could not get weth balance for %s: %s", balance.Account, err.Error())
+			log.Warnf("could not get weth balance for %s: %s", balance.Account, err.Error())
 
 			continue
 		}
@@ -159,7 +158,7 @@ func GetBalances(wallets *wallet.Wallets) ([]*AccountBalance, error) {
 		// blur pool
 		blurPoolBalance, err := GetBlurPoolBalance(common.HexToAddress(balance.Account))
 		if err != nil || blurPoolBalance == nil {
-			gbl.Log.Warnf("could not get blur pool balance for %s: %s", balance.Account, err.Error())
+			log.Warnf("could not get blur pool balance for %s: %s", balance.Account, err.Error())
 
 			continue
 		}
@@ -177,7 +176,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	balances := make([]*AccountBalance, 0)
 
 	if !viper.IsSet("api_keys.etherscan") {
-		gbl.Log.Warnf("api_keys.etherscan not set")
+		log.Warnf("api_keys.etherscan not set")
 
 		return nil
 	}
@@ -185,7 +184,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	addressList := strings.Join(wallets.StringAddresses(), ",")
 	url := withAPIKey(fmt.Sprint(apiBaseURL+"?module=account&action=balancemulti&tag=latest&address=", addressList))
 
-	gbl.Log.Debugf("multiAccountBalance url: %s", url)
+	log.Debugf("multiAccountBalance url: %s", url)
 
 	// client, _ := createEtherscanHTTPClient()
 	// client, _ := utils.DefaultHTTPClient()
@@ -194,12 +193,12 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	// response, err := client.Do(request)
 	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
-		gbl.Log.Warnf("multiAccountBalance error: %+v", err.Error())
+		log.Warnf("multiAccountBalance error: %+v", err.Error())
 
 		return nil
 	}
 
-	gbl.Log.Debugf("multiAccountBalance status: %s", response.Status)
+	log.Debugf("multiAccountBalance status: %s", response.Status)
 
 	defer response.Body.Close()
 
@@ -207,7 +206,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 
 	// validate the data
 	if err != nil || !json.Valid(responseBody) {
-		gbl.Log.Warnf("multiAccountBalance invalid json: %s", err)
+		log.Warnf("multiAccountBalance invalid json: %s", err)
 
 		return nil
 	}
@@ -230,7 +229,7 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 	dec := json.NewDecoder(bytes.NewReader(responseBody))
 
 	if err := dec.Decode(&accountBalancesResponse); err != nil {
-		gbl.Log.Warnf("multiAccountBalance decode error: %s", err.Error())
+		log.Warnf("multiAccountBalance decode error: %s", err.Error())
 
 		return nil
 	}
@@ -240,9 +239,9 @@ func MultiAccountBalance(wallets *wallet.Wallets) []*AccountBalance {
 
 		_, err := fmt.Sscan(accountBalance.Balance, balance)
 		if err != nil {
-			gbl.Log.Warnf("could not parse balance for %s: %s", accountBalance.Account, err.Error())
+			log.Warnf("could not parse balance for %s: %s", accountBalance.Account, err.Error())
 		} else {
-			gbl.Log.Debugf("%s balance: %+v", accountBalance.Account, balance)
+			log.Debugf("%s balance: %+v", accountBalance.Account, balance)
 
 			balances = append(balances, &AccountBalance{
 				Account:     accountBalance.Account,
@@ -286,7 +285,7 @@ func GetBlurPoolBalance(walletAddress common.Address) (*big.Int, error) {
 func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) (*big.Int, error) {
 	// etherscan api access required
 	if !viper.IsSet("api_keys.etherscan") {
-		gbl.Log.Fatal("api_keys.etherscan not set")
+		log.Fatal("api_keys.etherscan not set")
 	}
 
 	url := withAPIKey(fmt.Sprintf(
@@ -304,9 +303,9 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ token balance · timeout while fetching: %+v", err.Error())
+			log.Warnf("⌛️ token balance · timeout while fetching: %+v", err.Error())
 		} else {
-			gbl.Log.Errorf("❌ token balance · error: %+v", err.Error())
+			log.Errorf("❌ token balance · error: %+v", err.Error())
 		}
 
 		return nil, err
@@ -316,14 +315,14 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	// read the response body
 	responseBody, err := io.ReadAll(response.Body)
 	if err != nil {
-		gbl.Log.Errorf("❌ token balance · response read error: %+v", err.Error())
+		log.Errorf("❌ token balance · response read error: %+v", err.Error())
 
 		return nil, err
 	}
 
 	// decode the data
 	if !json.Valid(responseBody) {
-		gbl.Log.Warnf("token balance · invalid json")
+		log.Warnf("token balance · invalid json")
 
 		return nil, ErrInvalidJSON
 	}
@@ -331,7 +330,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 	// decode the data
 	var tokenBalanceResponse *TokenBalancesResponse
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&tokenBalanceResponse); err != nil {
-		gbl.Log.Warnf("token balance · decode error: %s", err.Error())
+		log.Warnf("token balance · decode error: %s", err.Error())
 
 		return nil, err
 	}
@@ -340,7 +339,7 @@ func GetTokenBalance(walletAddress common.Address, tokenAddress common.Address) 
 
 	_, err = fmt.Sscan(tokenBalanceResponse.Result, balance)
 	if err != nil {
-		gbl.Log.Warnf("could not parse token balance for %s: %s", walletAddress, err.Error())
+		log.Warnf("could not parse token balance for %s: %s", walletAddress, err.Error())
 
 		return nil, err
 	}
@@ -362,15 +361,15 @@ func GetFirstTransactionsByContract(numTxs int64, contractAddress common.Address
 	response, err := utils.HTTP.GetWithTLS12(context.Background(), url)
 	if err != nil {
 		if os.IsTimeout(err) {
-			gbl.Log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
+			log.Warnf("⌛️ timeout while fetching current gas: %+v", err.Error())
 		} else {
-			gbl.Log.Errorf("❌ first 1k txs error: %+v", err.Error())
+			log.Errorf("❌ first 1k txs error: %+v", err.Error())
 		}
 
 		return nil, err
 	}
 
-	// gbl.Log.Infof("fetched first 1k txs for %s: %s", contractAddress.Hex(), response.Status)
+	// log.Infof("fetched first 1k txs for %s: %s", contractAddress.Hex(), response.Status)
 
 	defer response.Body.Close()
 
@@ -381,14 +380,14 @@ func GetFirstTransactionsByContract(numTxs int64, contractAddress common.Address
 
 	// decode the data
 	if !json.Valid(responseBody) {
-		gbl.Log.Warnf("txs response invalid json: %s", err)
+		log.Warnf("txs response invalid json: %s", err)
 
 		return nil, ErrInvalidJSON
 	}
 
 	// decode the data
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&firstTransactions); err != nil {
-		gbl.Log.Warnf("txs response decode error: %s | %+v", err.Error(), string(responseBody))
+		log.Warnf("txs response decode error: %s | %+v", err.Error(), string(responseBody))
 
 		return nil, err
 	}
@@ -398,7 +397,7 @@ func GetFirstTransactionsByContract(numTxs int64, contractAddress common.Address
 	// log.Printf("num first txs: %d", len(firstTransactions.Result))
 
 	if len(firstTransactions.Result) < int(numTxs) {
-		gbl.Log.Debugf("only %d txs found for %s (requested %d)", len(firstTransactions.Result), contractAddress.Hex(), numTxs)
+		log.Debugf("only %d txs found for %s (requested %d)", len(firstTransactions.Result), contractAddress.Hex(), numTxs)
 
 		return nil, fmt.Errorf("only %d txs found for %s (requested %d)", len(firstTransactions.Result), contractAddress.Hex(), numTxs)
 	}

@@ -1,6 +1,6 @@
 run:
     timeout: 3m
-    allow-parallel-runners: true
+    allow-parallel-runners: false
     concurrency: 4
     tests: false
     skip-dirs:

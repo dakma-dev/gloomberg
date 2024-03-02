@@ -10,55 +10,51 @@ import (
 	"strings"
 
 	"github.com/benleb/gloomberg/internal"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/term"
 )
 
 var (
-	Pink        = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
-	Subtle      = lipgloss.AdaptiveColor{Light: "#D9DCCF", Dark: "#383838"}
-	DarkGray    = lipgloss.Color("#333")
-	darkerGray  = lipgloss.Color("#222")
-	darkestGray = lipgloss.Color("#111")
+	Pink = lipgloss.AdaptiveColor{Light: "#FF44DD", Dark: "#FF0099"}
+
+	DarkGray   = lipgloss.Color("#333")
+	darkerGray = lipgloss.Color("#222")
 
 	LightGrayForeground = lipgloss.Color("#BBB")
 
-	OpenSea         = lipgloss.NewStyle().Foreground(OpenseaToneBlue)
-	Blur            = lipgloss.NewStyle().Foreground(BlurOrange).Render
+	OpenSea = lipgloss.NewStyle().Foreground(OpenseaToneBlue)
+
 	BoldAlmostWhite = AlmostWhiteStyle.Copy().Bold(true).Render
 
-	OpenseaToneBlue      = lipgloss.Color("#5f7699")
-	WebUIColor           = lipgloss.Color("#662288")
-	BlurOrange           = lipgloss.Color("#FF8700")
+	OpenseaToneBlue = lipgloss.Color("#5f7699")
+
 	TrendGreenStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("#66CC66"))
 	TrendLightGreenStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#77A077"))
 	TrendRedStyle        = lipgloss.NewStyle().Foreground(lipgloss.Color("#FF6666"))
-	TrendLightRedStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#997777"))
-	ReddishPurple        = lipgloss.NewStyle().Foreground(lipgloss.Color("#9F2B68"))
-	PurplePower          = lipgloss.NewStyle().Foreground(lipgloss.Color("#5D3FD3"))
-	AlmostWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeeee"))
-	DarkWhiteStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
-	VeryLightGrayStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
-	LightGray            = lipgloss.Color("#999999")
-	LightGrayStyle       = lipgloss.NewStyle().Foreground(LightGray)
-	Gray4Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#444"))
-	Gray5Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
-	Gray6Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
-	Gray7                = lipgloss.Color("#777")
-	Gray7Style           = lipgloss.NewStyle().Foreground(Gray7)
-	Gray8Style           = lipgloss.NewStyle().Foreground(lipgloss.Color("#888"))
-	GrayStyle            = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
-	DarkGrayStyle        = lipgloss.NewStyle().Foreground(DarkGray)
-	DarkerGrayStyle      = lipgloss.NewStyle().Foreground(darkerGray)
-	DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray)
-	BoldStyle            = lipgloss.NewStyle().Bold(true)
-	PinkBoldStyle        = BoldStyle.Copy().Foreground(Pink)
-	GrayBoldStyle        = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
-	Sharrow              = lipgloss.NewStyle().SetString("→")
-	DividerArrowRight    = LightGrayStyle.Copy().SetString("→")
-	DividerArrowLeft     = GrayBoldStyle.SetString("←")
+
+	PurplePower        = lipgloss.NewStyle().Foreground(lipgloss.Color("#5D3FD3"))
+	AlmostWhiteStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("#eeeeee"))
+	DarkWhiteStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("#dddddd"))
+	VeryLightGrayStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("#bbbbbb"))
+	LightGray          = lipgloss.Color("#999999")
+	LightGrayStyle     = lipgloss.NewStyle().Foreground(LightGray)
+	Gray4Style         = lipgloss.NewStyle().Foreground(lipgloss.Color("#444"))
+	Gray5Style         = lipgloss.NewStyle().Foreground(lipgloss.Color("#555"))
+	Gray6Style         = lipgloss.NewStyle().Foreground(lipgloss.Color("#666"))
+	Gray7              = lipgloss.Color("#777")
+	Gray7Style         = lipgloss.NewStyle().Foreground(Gray7)
+
+	GrayStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#666666"))
+	DarkGrayStyle   = lipgloss.NewStyle().Foreground(DarkGray)
+	DarkerGrayStyle = lipgloss.NewStyle().Foreground(darkerGray)
+
+	BoldStyle     = lipgloss.NewStyle().Bold(true)
+	PinkBoldStyle = BoldStyle.Copy().Foreground(Pink)
+	GrayBoldStyle = BoldStyle.Copy().Foreground(GrayStyle.GetForeground())
+
+	DividerArrowLeft = GrayBoldStyle.SetString("←")
 
 	// darkestGray          = lipgloss.Color("#111")
 	// DarkestGrayStyle     = lipgloss.NewStyle().Foreground(darkestGray).
@@ -92,20 +88,6 @@ var (
 // 	lipgloss.Color("#eee"),
 // 	lipgloss.Color("#fff"),
 // }
-
-var ShadesPink = []lipgloss.Color{
-	"#fff1f6",
-	"#ffe5f4",
-	"#ffccea",
-	"#ffb2e0",
-	"#ff99d6",
-	"#ff7fcc",
-	"#ff66c1",
-	"#ff4cb7",
-	"#ff32ad",
-	"#ff19a3",
-	"#ff0099",
-}
 
 var PaletteRLD = []lipgloss.Color{
 	"#D23469",
@@ -158,7 +140,7 @@ func GetHeader(version string) string {
 
 	width, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 	}
 
 	return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
@@ -194,63 +176,13 @@ func GetSmallHeader(version string) string {
 
 	width, _, err := term.GetSize(int(os.Stdin.Fd()))
 	if err != nil {
-		// gbl.Log.Error(err)
+		// log.Error(err)
 
 		return lipgloss.NewStyle().Width(80 - 4).Render(header.String())
 	}
 
 	// return lipgloss.NewStyle().PaddingBottom(3).Width(width - 4).Align(lipgloss.Center).Render(header.String())
 	return lipgloss.NewStyle().Width(width - 4).Render(header.String())
-}
-
-func GetBuyDiffShadeColor(priceDiff float64) lipgloss.Color {
-	var priceColor lipgloss.Color
-
-	switch {
-	case priceDiff <= 0.03:
-		priceColor = ShadesPink[9]
-	case priceDiff <= 0.05:
-		priceColor = ShadesPink[8]
-	case priceDiff <= 0.1:
-		priceColor = ShadesPink[4]
-	case priceDiff <= 0.25:
-		priceColor = ShadesPink[2]
-	case priceDiff <= 0.5:
-		priceColor = ShadesPink[1]
-	default:
-		priceColor = "#dddddd"
-	}
-
-	return priceColor
-}
-
-func GetPriceShadeColor(txValue float64) lipgloss.Color {
-	var priceColor lipgloss.Color
-
-	switch {
-	case txValue >= 10.0:
-		priceColor = ShadesPink[9]
-	case txValue >= 5.0:
-		priceColor = ShadesPink[8]
-	case txValue >= 2.0:
-		priceColor = ShadesPink[6]
-	case txValue >= 1.0:
-		priceColor = ShadesPink[5]
-	case txValue >= 0.5:
-		priceColor = ShadesPink[4]
-	case txValue >= 0.25:
-		priceColor = ShadesPink[3]
-	case txValue >= 0.1:
-		priceColor = ShadesPink[2]
-	case txValue >= 0.075:
-		priceColor = ShadesPink[1]
-	case txValue >= 0.02:
-		priceColor = ShadesPink[0]
-	default:
-		priceColor = "#333333"
-	}
-
-	return priceColor
 }
 
 // ShortenAdressPTR returns a shortened address styled with colors.
@@ -268,26 +200,6 @@ func ShortenAddress(address common.Address) string {
 		fmt.Sprintf("%0.2x%0.2x", address.Bytes()[0], address.Bytes()[1]),
 		fmt.Sprintf("%0.2x%0.2x", address.Bytes()[len(address.Bytes())-2], address.Bytes()[len(address.Bytes())-1]),
 	)
-}
-
-func ShortenedTokenIDStyled(tokenID *big.Int, primaryStyle lipgloss.Style, secondaryStyle lipgloss.Style) string {
-	shortened := false
-
-	// shorten token id if it's too long
-	if tokenID.Cmp(big.NewInt(999_999)) > 0 {
-		tokenID = big.NewInt(tokenID.Int64() % 10000)
-		shortened = true
-	}
-
-	// token id
-	prefix := secondaryStyle.Render("#")
-	id := primaryStyle.Render(fmt.Sprint(tokenID))
-
-	if shortened {
-		id += secondaryStyle.Render("…")
-	}
-
-	return prefix + id
 }
 
 func FormatAddress(address *common.Address) string {
@@ -334,13 +246,15 @@ func ShortenAddressStyled(address *common.Address, style lipgloss.Style) string 
 func ShortenHashStyled(txHash common.Hash) string {
 	style := lipgloss.NewStyle().Foreground(GenerateColorWithSeed(txHash.Big().Int64()))
 
+	prefix := "T" + GrayStyle.Render("𝘅")
+
 	// gray out zero txHash
 	if txHash == internal.ZeroHash {
 		gray := DarkGrayStyle.Copy().Faint(false).Render
 		darkGray := DarkGrayStyle.Copy().Faint(true).Render
 
 		return fmt.Sprint(
-			darkGray("0x"),
+			darkGray(prefix),
 			gray(fmt.Sprintf("%0.2x", txHash.Bytes()[0])),
 			darkGray("…"),
 			gray(fmt.Sprintf("%0.2x", txHash.Bytes()[len(txHash.Bytes())-1])),
@@ -348,46 +262,14 @@ func ShortenHashStyled(txHash common.Hash) string {
 	}
 
 	return fmt.Sprint(
-		style.Faint(true).Render("0x"),
+		style.Faint(true).Render(prefix),
 		style.Faint(false).Render(fmt.Sprintf("%0.2x%0.2x", txHash.Bytes()[0], txHash.Bytes()[1])),
 		style.Faint(true).Render("…"),
 		style.Faint(false).Render(fmt.Sprintf("%0.2x%0.2x", txHash.Bytes()[len(txHash.Bytes())-2], txHash.Bytes()[len(txHash.Bytes())-1])),
 	)
 }
 
-func EnforceMinLength(str string, minLength int) string {
-	if len(str) <= minLength {
-		r := []rune(str)
-		spacePlaceHolder := make([]rune, minLength-len(str))
-
-		for i := 0; i < len(spacePlaceHolder); i++ {
-			spacePlaceHolder[i] = ' '
-		}
-
-		return string(append(r, spacePlaceHolder...))
-	}
-
-	return str
-}
-
-func ShortenCollectionName(collectionName string, numItems int) string {
-	maxLength := 25
-	if numItems > 1 {
-		maxLength -= 3
-	}
-
-	collectionName = EnforceMinLength(collectionName, maxLength)
-
-	if len(collectionName) > maxLength {
-		return fmt.Sprintf(
-			"%s%s",
-			collectionName[:maxLength-3],
-			"...",
-		)
-	}
-
-	return collectionName
-}
+// ShortenHashsStyled returns a shortened hash styled with colors.
 
 // GenerateColorWithSeed generates a color based on the given seed.
 func GenerateColorWithSeed(seed int64) lipgloss.Color {

@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/spf13/viper"
 )
@@ -37,11 +37,12 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 		chatID = viper.GetInt64("notifications.telegram.chat_id")
 	}
 
-	gbl.Log.Infof("🔔 new notification | to: %d", chatID)
+	log.Infof("🔔 new notification | to: %d", chatID)
 
 	// message
 	parseMode := "markdown" // "markdownv2"?
-	disableNotifications := false
+	// parseMode := "MarkdownV2"
+	// disableNotifications := false
 
 	var detectedCcontentType, headerContentType string
 
@@ -49,22 +50,17 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 
 	// if an imageURI is provided, we try to attach it to the message
 	if imageURI != "" {
-		gbl.Log.Infof("📸  fetching image: %s", imageURI)
+		log.Infof("📸  fetching image: %s", imageURI)
 
 		// check if imageURI points to a valid image/media file
 		response, err := utils.HTTP.GetWithTLS12(context.Background(), imageURI)
 
 		switch {
-		case err == nil:
-			defer response.Body.Close()
-
-			fallthrough
-
 		case err == nil && response.StatusCode == http.StatusOK:
 			// read image
 			image, err := io.ReadAll(response.Body)
 			if err != nil {
-				gbl.Log.Errorf("📸 ❌ error while reading imageURI: %v | http: %d | %s", err, response.StatusCode, imageURI)
+				log.Errorf("📸 ❌ error while reading imageURI: %v | http: %d | %s", err, response.StatusCode, imageURI)
 			}
 
 			// get the image as io.Reader for the telegram api
@@ -75,17 +71,22 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			// get the content type from the header
 			headerContentType = response.Header.Get("Content-Type")
 
-			gbl.Log.Infof("📸 got image | http: %d | contentType hdr: %v | contentType image: %s", response.StatusCode, headerContentType, detectedCcontentType)
+			log.Infof("📸 got image | http: %d | contentType hdr: %v | contentType image: %s", response.StatusCode, headerContentType, detectedCcontentType)
 
 			if !strings.HasPrefix(detectedCcontentType, "image/") && !strings.HasPrefix(detectedCcontentType, "video/") && detectedCcontentType != "application/octet-stream" {
-				gbl.Log.Warnf("📸 ❔ image seems to be not an image | hdr: %s <> bytes: %s | http: %d | %s", headerContentType, detectedCcontentType, response.StatusCode, imageURI)
+				log.Warnf("📸 ❔ image seems to be not an image | hdr: %s <> bytes: %s | http: %d | %s", headerContentType, detectedCcontentType, response.StatusCode, imageURI)
 			}
 
 		case err == nil && response.StatusCode != http.StatusOK:
-			gbl.Log.Errorf("📸 ⁉️ imageURI invalid (non-200 http status code): %v | http: %d | %s", err, response.StatusCode, imageURI)
+			log.Errorf("📸 ⁉️ imageURI invalid (non-200 http status code): %v | http: %d | %s", err, response.StatusCode, imageURI)
+
+		case err == nil:
+			defer response.Body.Close()
+
+			fallthrough
 
 		case err != nil:
-			gbl.Log.Errorf("📸 ❌ error while getting image: %v || %s", err, imageURI)
+			log.Errorf("📸 ❌ error while getting image: %v || %s", err, imageURI)
 		}
 	}
 
@@ -94,14 +95,14 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 	case strings.HasPrefix(detectedCcontentType, "image/"), strings.HasSuffix(imageURI, ".jpg"), strings.HasSuffix(imageURI, ".png"):
 		msg := tgbotapi.NewPhoto(chatID, tgbotapi.FileURL(imageURI))
 		msg.ParseMode = parseMode
-		msg.DisableNotification = disableNotifications
+		msg.DisableNotification = false
 		msg.Caption = text
 
 		if replyToMessageID != 0 {
 			msg.ReplyToMessageID = replyToMessageID
 		}
 
-		gbl.Log.Info("🔔 📸 sending photo") // | msg: %+v", msg)
+		log.Info("🔔 📸 sending photo") // | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 
@@ -113,7 +114,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			Reader: imageReader,
 		})
 		msg.ParseMode = parseMode
-		msg.DisableNotification = disableNotifications
+		msg.DisableNotification = false
 
 		msg.Caption = text
 
@@ -121,7 +122,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			msg.ReplyToMessageID = replyToMessageID
 		}
 
-		gbl.Log.Infof("🔔 📸 sending animation | msg: %+v", msg)
+		log.Infof("🔔 📸 sending animation | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 
@@ -133,7 +134,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			Reader: imageReader,
 		})
 		msg.ParseMode = parseMode
-		msg.DisableNotification = disableNotifications
+		msg.DisableNotification = false
 
 		msg.Caption = text
 
@@ -141,7 +142,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 			msg.ReplyToMessageID = replyToMessageID
 		}
 
-		gbl.Log.Infof("🔔 📸 sending video | msg: %+v", msg)
+		log.Infof("🔔 📸 sending video | msg: %+v", msg)
 
 		return tgBot.Send(msg)
 	}
@@ -149,7 +150,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 	// if none of the above or it failed, we send a simple message without image
 	msg := tgbotapi.NewMessage(chatID, text)
 	msg.ParseMode = parseMode
-	msg.DisableNotification = disableNotifications
+	msg.DisableNotification = false
 	// send msg to topic (topics are simply replies to a message)
 
 	msg.ReplyMarkup = replyMarkup
@@ -160,7 +161,7 @@ func sendTelegramMessageWithMarkup(chatID int64, text string, imageURI string, r
 
 	msg.DisableWebPagePreview = true
 
-	gbl.Log.Debugf("🔔 📸 sending message | msg: %+v", msg)
+	log.Debugf("🔔 📸 sending message | msg: %+v", msg)
 
 	return tgBot.Send(msg)
 }

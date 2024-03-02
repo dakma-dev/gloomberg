@@ -81,7 +81,7 @@ func (mp *MarketPlace) ContractAddress() common.Address {
 	return contractAddress
 }
 
-// RenderFaint renders the given text with the marketplace color.
+// Render RenderFaint renders the given text with the marketplace color.
 func (mp *MarketPlace) Render(text string) string {
 	return lipgloss.NewStyle().Foreground(mp.Color).Render(text)
 }
@@ -178,6 +178,7 @@ var NFTfi = MarketPlace{
 		common.HexToAddress("0x0C90C8B4aa8549656851964d5fB787F0e4F54082"),
 		common.HexToAddress("0xe73ECe5988FfF33a012CEA8BB6Fd5B27679fC481"),
 		common.HexToAddress("0xE52Cec0E90115AbeB3304BaA36bc2655731f7934"),
+		common.HexToAddress("0x20895578f8ecFf6Ab34c9928544077fF595F177C"), // NFTfi Promissory Note
 	),
 	TokenContractAddresses: mapset.NewSet[common.Address](common.HexToAddress("0x5660E206496808F7b5cDB8C56A696a96AE5E9b23")),
 	Tag:                    "↩︎",

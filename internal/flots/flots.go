@@ -10,7 +10,6 @@ import (
 	"github.com/lmittmann/flashbots"
 	"github.com/lmittmann/w3"
 	"github.com/lmittmann/w3/module/eth"
-	"github.com/spf13/viper"
 )
 
 type Client struct {
@@ -23,47 +22,6 @@ type Client struct {
 	PlusBlocks *big.Int
 
 	SignerPublicKey *ecdsa.PublicKey
-}
-
-func New() *Client {
-	//
-	// connection to the flashbots relay node
-	var fbClient *w3.Client
-
-	if !viper.IsSet("flots.relay") {
-		log.Fatal("❌ invalid or missing flots mainnet provider")
-	}
-
-	//
-	// create the flots client
-	flots := &Client{PlusBlocks: big.NewInt(viper.GetInt64("flots.plusBlocks"))}
-
-	// check for valid flashbots signer key
-	if signerKey, err := crypto.HexToECDSA(viper.GetString("flots.signerKey")); err == nil {
-		// create the flashbots client
-		fbClient = flashbots.MustDial(viper.GetString("flots.relay"), signerKey)
-
-		flots.SignerPublicKey = &signerKey.PublicKey
-	} else {
-		log.Fatalf("❌ invalid or missing signer key: %v", err)
-	}
-
-	//
-	// connection to a mainnet node
-	var w3Client *w3.Client
-
-	if provider := viper.GetString("flots.provider"); provider != "" {
-		w3Client = w3.MustDial(viper.GetString("flots.provider"))
-	} else {
-		log.Fatal("❌ invalid or missing flots mainnet provider")
-	}
-
-	flots.fbClient = fbClient
-	flots.w3Client = w3Client
-
-	log.Debugf("flots: %+v\n", flots)
-
-	return flots
 }
 
 func (c *Client) UserAddress() common.Address {

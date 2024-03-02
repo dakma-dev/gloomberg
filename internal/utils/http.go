@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/charmbracelet/log"
 	"github.com/spf13/viper"
 	"golang.org/x/net/http2"
 )
@@ -72,7 +72,7 @@ func createRequest(ctx context.Context, url string, method string, customHeader 
 	}
 
 	if err != nil {
-		gbl.Log.Errorf("❌ error creating %+v request: %+v", method, err)
+		log.Errorf("❌ error creating %+v request: %+v", method, err)
 
 		return nil, err
 	}
@@ -106,7 +106,7 @@ func CreateHTTPClient(requestTimeout time.Duration, tlsVersion uint16) (*http.Cl
 
 	// explicitly use http2
 	if err := http2.ConfigureTransport(transport); err != nil {
-		gbl.Log.Errorf("❌ error configuring http2 transport: %+v", err.Error())
+		log.Errorf("❌ error configuring http2 transport: %+v", err.Error())
 
 		return nil, err
 	}

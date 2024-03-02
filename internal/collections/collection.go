@@ -13,10 +13,8 @@ import (
 	"github.com/VividCortex/ewma"
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
 	"github.com/benleb/gloomberg/internal/nemo/osmodels"
-	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
@@ -83,7 +81,8 @@ type Collection struct {
 	Raw *osmodels.AssetCollection
 }
 
-func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source degendb.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
+// NewCollection func NewCollection(contractAddress common.Address, name string, nodes *provider.Pool, source degendb.CollectionSource, rueidi *rueidica.Rueidica) *Collection {.
+func NewCollection(contractAddress common.Address, name string, source degendb.CollectionSource, rueidi *rueidica.Rueidica) *Collection {
 	var collectionName string
 
 	ctx := context.Background()
@@ -98,30 +97,31 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 
 		switch {
 		case errors.Is(err, nil):
-			gbl.Log.Debugf("cache | cached collection name: %s", name)
+			log.Debugf("cache | cached collection name: %s", name)
 
 			if name != "" {
 				collectionName = name
 			}
 
-		case nodes != nil:
-			if name, err := nodes.ERC721CollectionName(ctx, contractAddress); err == nil {
-				gbl.Log.Debugf("chain | collection name via chain call: %s", name)
+			// reactivate me
+		// case node != nil:
+		// 	if name, err := node.GetERC721CollectionName(contractAddress); err == nil {
+		// 		log.Debugf("chain | collection name via chain call: %s", name)
 
-				if name != "" {
-					collectionName = name
-				}
+		// 		if name != "" {
+		// 			collectionName = name
+		// 		}
 
-				// cache collection name
-				// gbCache.CacheCollectionName(contractAddress, collectionName)
-				err := rueidi.StoreContractName(ctx, contractAddress, collectionName)
-				if err != nil {
-					gbl.Log.Errorf("error storing contract name: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
-				}
-			}
+		// 		// cache collection name
+		// 		// gbCache.CacheCollectionName(contractAddress, collectionName)
+		// 		err := rueidi.StoreContractName(ctx, contractAddress, collectionName)
+		// 		if err != nil {
+		// 			log.Errorf("error storing contract name: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
+		// 		}
+		// 	}
 
 		default:
-			gbl.Log.Errorf("error getting collection name, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
+			log.Errorf("error getting collection name, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
 
 			collectionName = style.ShortenAdressPTR(&contractAddress)
 		}
@@ -131,7 +131,7 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 
 	saliraTimeframe, ok := viper.Get("salira.timeframes").([]time.Duration)
 	if !ok {
-		gbl.Log.Errorf("error getting SaLiRa timeframes")
+		log.Errorf("error getting SaLiRa timeframes")
 	}
 
 	collection := Collection{
@@ -151,48 +151,49 @@ func NewCollection(contractAddress common.Address, name string, nodes *provider.
 		Raw: &osmodels.AssetCollection{},
 	}
 
-	if nodes != nil {
-		go func() {
-			rawMetaDatas, err := nodes.ERC721CollectionMetadata(context.Background(), contractAddress)
-			if err != nil {
-				gbl.Log.Errorf("error getting collection metadata, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
+	// reactivate me
+	// if node != nil {
+	// 	go func() {
+	// 		rawMetaDatas, err := node.GetERC721CollectionMetadata(contractAddress)
+	// 		if err != nil {
+	// 			log.Errorf("error getting collection metadata, using: %s | %s", style.ShortenAdressPTR(&contractAddress), err)
 
-				return
-			}
+	// 			return
+	// 		}
 
-			metadata := &nemo.CollectionMetadata{}
+	// 		metadata := &nemo.CollectionMetadata{}
 
-			if name := rawMetaDatas["name"]; name != nil {
-				name, ok := name.(string)
-				if ok {
-					metadata.ContractName = name
-				}
-			}
+	// 		if name := rawMetaDatas["name"]; name != nil {
+	// 			name, ok := name.(string)
+	// 			if ok {
+	// 				metadata.ContractName = name
+	// 			}
+	// 		}
 
-			if symbol := rawMetaDatas["symbol"]; symbol != nil {
-				symbol, ok := symbol.(string)
-				if ok {
-					metadata.Symbol = symbol
-				}
-			}
+	// 		if symbol := rawMetaDatas["symbol"]; symbol != nil {
+	// 			symbol, ok := symbol.(string)
+	// 			if ok {
+	// 				metadata.Symbol = symbol
+	// 			}
+	// 		}
 
-			if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
-				totalSupply, ok := totalSupply.(uint64)
-				if ok {
-					metadata.TotalSupply = totalSupply
-				}
-			}
+	// 		if totalSupply := rawMetaDatas["totalSupply"]; totalSupply != nil {
+	// 			totalSupply, ok := totalSupply.(uint64)
+	// 			if ok {
+	// 				metadata.TotalSupply = totalSupply
+	// 			}
+	// 		}
 
-			if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
-				tokenURI, ok := tokenURI.(string)
-				if ok {
-					metadata.TokenURI = tokenURI
-				}
-			}
+	// 		if tokenURI := rawMetaDatas["tokenURI"]; tokenURI != nil {
+	// 			tokenURI, ok := tokenURI.(string)
+	// 			if ok {
+	// 				metadata.TokenURI = tokenURI
+	// 			}
+	// 		}
 
-			collection.Metadata = metadata
-		}()
-	}
+	// 		collection.Metadata = metadata
+	// 	}()
+	// }
 
 	if source == degendb.FromWallet || source == degendb.FromConfiguration {
 		collection.Show.History = true
@@ -314,7 +315,7 @@ func (uc *Collection) GetPrettySaLiRas() []string {
 
 func (uc *Collection) Style() lipgloss.Style {
 	if uc.Colors.Primary == "" {
-		gbl.Log.Debugf("🎨 primary collection color missing for %+v", uc)
+		log.Debugf("🎨 primary collection color missing for %+v", uc)
 		uc.generateColorsFromAddress()
 	}
 
@@ -323,7 +324,7 @@ func (uc *Collection) Style() lipgloss.Style {
 
 func (uc *Collection) StyleSecondary() lipgloss.Style {
 	if uc.Colors.Secondary == "" {
-		gbl.Log.Debugf("🎨 secondary collection color missing for %+v", uc)
+		log.Debugf("🎨 secondary collection color missing for %+v", uc)
 		uc.generateColorsFromAddress()
 	}
 
@@ -397,13 +398,13 @@ func (uc *Collection) CalculateFloorPrice(tokenPrice float64) (float64, float64)
 	(*uc.FloorPrice).Add(tokenPrice)
 	currentFloorPrice := (*uc.FloorPrice).Value()
 
-	gbl.Log.Debugf("uc.PreviousFloorPrice: %f  |  currentFloorPrice: %f | uc.FloorPrice.Value(): %f", uc.PreviousFloorPrice, currentFloorPrice, (*uc.FloorPrice).Value())
+	log.Debugf("uc.PreviousFloorPrice: %f  |  currentFloorPrice: %f | uc.FloorPrice.Value(): %f", uc.PreviousFloorPrice, currentFloorPrice, (*uc.FloorPrice).Value())
 
 	return uc.PreviousFloorPrice, currentFloorPrice
 }
 
 func (uc *Collection) ResetStats() {
-	gbl.Log.Debugf("resetting collection statistics...")
+	log.Debugf("resetting collection statistics...")
 
 	uc.Counters.Mints = 0
 	uc.Counters.Transfers = 0

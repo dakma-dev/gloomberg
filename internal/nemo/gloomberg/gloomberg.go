@@ -3,20 +3,20 @@ package gloomberg
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"strconv"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/chainwatcher"
 	"github.com/benleb/gloomberg/internal/collections"
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/benleb/gloomberg/internal/gbl"
-	"github.com/benleb/gloomberg/internal/jobs"
-	"github.com/benleb/gloomberg/internal/nemo/provider"
+	"github.com/benleb/gloomberg/internal/models"
+	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
-	"github.com/benleb/gloomberg/internal/nemo/watch"
 	"github.com/benleb/gloomberg/internal/rueidica"
-	"github.com/benleb/gloomberg/internal/seawa/models"
+	seawaModels "github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -27,9 +27,24 @@ import (
 )
 
 type Gloomberg struct {
-	// Nodes        *nodes.Nodes
-	ProviderPool *provider.Pool
-	Watcher      *watch.Watcher
+	//
+	//  new stuff ↓
+	//
+	ChaWa    *chainwatcher.ChainWatcher
+	Rueidica *rueidica.Rueidica
+
+	PrintToTerminal chan string
+
+	// low level clients
+	nodes         models.Nodes
+	rueidisClient *rueidis.Client
+
+	// // gloomberg modules
+	// ChainWatcher *chainwatcher.ChainWatcher
+
+	//
+	//  old stuff ↓
+	//
 
 	CollectionDB *collections.CollectionDB
 	OwnWallets   *wallet.Wallets
@@ -37,27 +52,118 @@ type Gloomberg struct {
 
 	RecentOwnEvents mapset.Set[*degendb.PreformattedEvent]
 
-	Ranks map[common.Address]map[int64]degendb.TokenRank
+	// Ranks map[common.Address]map[int64]degendb.TokenRank
 
-	Rdb    rueidis.Client
-	Rueidi *rueidica.Rueidica
-
-	QueueSlugs chan common.Address
+	// QueueSlugs chan common.Address
 
 	CurrentGasPriceGwei   uint64
 	CurrentOnlineWebUsers uint64
 
 	*eventHub
 	// GloomHub *gloomhub
-	Jobs *jobs.Runner
+	// Jobs *jobs.Runner
 	*degendb.DegenDB
 
 	// misc / maybe find better solutions...
-	PrintConfigurations map[string]*printConfig
+	// PrintConfigurations map[string]*printConfig
+}
+
+func New() *Gloomberg {
+	gb := &Gloomberg{
+		PrintToTerminal: make(chan string, 128),
+	}
+
+	go gb.startTerminalPrinter()
+
+	gb.nodes = readChainwatcherConfiguration(viper.Sub("chainwatcher"))
+	gb.rueidisClient = loadRedisConfiguration(viper.Sub("redis"))
+
+	gb.ChaWa = chainwatcher.New(gb.nodes)
+	gb.Rueidica = rueidica.NewRueidica(gb.rueidisClient)
+
+	return gb
+}
+
+func (gb *Gloomberg) Node() *models.Node {
+	return gb.ChaWa.Node()
+}
+
+func (gb *Gloomberg) GetRueidica() *rueidica.Rueidica {
+	// return rueidica.NewRueidica(gb.rueidis)
+	return gb.Rueidica
 }
 
 func (gb *Gloomberg) String() {
 	fmt.Println("gloomberg | " + internal.GloombergVersion)
+}
+
+// AddNodes is a migration helper function.
+func (gb *Gloomberg) AddNodes(nodes models.Nodes) {
+	gb.nodes = nodes
+}
+
+func (gb *Gloomberg) startTerminalPrinter() {
+	log.Debug("starting terminal printer...")
+
+	for eventLine := range gb.PrintToTerminal {
+		if viper.GetBool("log.debug") {
+			debugPrefix := fmt.Sprintf("%d | ", len(gb.PrintToTerminal))
+			eventLine = fmt.Sprint(debugPrefix, eventLine)
+		}
+
+		fmt.Println(eventLine)
+	}
+}
+
+func readChainwatcherConfiguration(chainwatcherConfig *viper.Viper) models.Nodes {
+	var nodes models.Nodes = make([]*models.Node, 0)
+
+	log.Infof("⛓️ config: %+v", chainwatcherConfig.AllSettings())
+
+	// ...or just get a single key
+	err := chainwatcherConfig.UnmarshalKey("nodes", &nodes)
+	if err != nil {
+		log.Errorf("failed to unmarshal configuration: %v", err)
+
+		return nil
+	}
+
+	log.Infof("⛓️ nodes: %+v", nodes)
+
+	return nodes
+}
+
+func loadRedisConfiguration(redisConfig *viper.Viper) *rueidis.Client {
+	// default values set here due to a viper bug that
+	// breaks using defaults in combination with Sub()
+	redisConfig.SetDefault("enabled", false)
+	redisConfig.SetDefault("address", "127.0.0.1:6379")
+	redisConfig.SetDefault("database", 0)
+	redisConfig.SetDefault("password", "")
+
+	// use hostname as client name
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Errorf("❗️ error getting hostname: %s", err)
+
+		hostname = "unknown"
+	}
+
+	// create redis client name
+	clientName := hostname + "_gloomberg_v" + internal.GloombergVersion
+	redisClientOptions := rueidis.ClientOption{
+		InitAddress: []string{redisConfig.GetString("address")},
+		ClientName:  clientName,
+	}
+
+	rueidisClient, err := rueidis.NewClient(redisClientOptions)
+	if err != nil {
+		log.Errorf("error getting redis client: %+v", err)
+
+		return nil
+	}
+
+	return &rueidisClient
 }
 
 type printConfig struct {
@@ -94,91 +200,6 @@ var predefinedPrintConfigurations = []printConfig{
 	},
 }
 
-var GB *Gloomberg
-
-func New() *Gloomberg {
-	// redis
-	// rueidis / new redis library
-	var connectAddr string
-
-	if viper.IsSet("redis.address") {
-		connectAddr = viper.GetString("redis.address")
-	} else {
-		// fallback to old config
-		connectAddr = fmt.Sprintf("%s:%d", viper.GetString("redis.host"), viper.GetInt("redis.port"))
-	}
-
-	// use hostname as client name
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Error(fmt.Sprintf("❗️ error getting hostname: %s", err))
-
-		hostname = "unknown"
-	}
-
-	clientName := hostname + "_gloomberg_v" + internal.GloombergVersion
-	redisClientOptions := rueidis.ClientOption{
-		InitAddress: []string{connectAddr},
-		ClientName:  clientName,
-	}
-
-	rdb := getRedisClient(redisClientOptions)
-
-	gb := &Gloomberg{
-		Rdb:    rdb,
-		Rueidi: rueidica.NewRueidica(rdb),
-
-		CollectionDB: collections.New(),
-
-		RecentOwnEvents: mapset.NewSet[*degendb.PreformattedEvent](),
-
-		Ranks: make(map[common.Address]map[int64]degendb.TokenRank),
-
-		QueueSlugs: make(chan common.Address, 1024),
-
-		eventHub: newEventHub(),
-
-		// DegenDB:  degendb.NewDegenDB(),
-	}
-
-	//
-	// start central terminal printer
-	// printToTerminalChannel := gb.SubscribePrintToTerminal()
-
-	// experimental: start multiple terminal printers
-	for i := 0; i < viper.GetInt("gloomberg.terminalPrinter.numWorker"); i++ {
-		go func() {
-			gbl.Log.Debug("starting terminal printer...")
-
-			for eventLine := range TerminalPrinterQueue {
-				gbl.Log.Debugf("terminal printer eventLine: %s", eventLine)
-
-				if viper.GetBool("log.debug") {
-					debugPrefix := fmt.Sprintf("%d | ", len(TerminalPrinterQueue))
-					eventLine = fmt.Sprint(debugPrefix, eventLine)
-				}
-
-				fmt.Println(eventLine)
-			}
-		}()
-	}
-
-	// load print configurations to pretty style prints from our different "modules"
-	gb.PrintConfigurations = make(map[string]*printConfig)
-
-	for idx, config := range predefinedPrintConfigurations {
-		printConfiguration := predefinedPrintConfigurations[idx]
-
-		for _, keyword := range config.Keywords {
-			gb.PrintConfigurations[keyword] = &printConfiguration
-		}
-	}
-
-	GB = gb
-
-	return gb
-}
-
 func (gb *Gloomberg) PublishOwnSlubSubscription() {
 	slugSubscriptions := make([]degendb.SlugSubscription, 0)
 	for _, slug := range gb.CollectionDB.OpenseaSlugs() {
@@ -212,50 +233,199 @@ func (gb *Gloomberg) publishSlugSubscriptions(slugSubscriptions degendb.SlugSubs
 	// the central gloomberg instance then creates a subscription on the opensea
 	// api and publishes upcoming incoming events to the pubsub channel
 	// marshal event to json
-	if !viper.GetBool("pubsub.client.enabled") {
-		gbl.Log.Warn("❌ not sending slugs to server - pubsub client is not enabled")
+	if viper.Get("seawatcher.pubsubClient") == nil {
+		log.Warn("❌ not sending slugs to server - pubsub client is not enabled")
 
 		return
 	}
 
 	if len(slugSubscriptions) == 0 {
-		gbl.Log.Warn("❌ no slugs to send to gloomberg server")
+		log.Warn("❌ no slugs to send to gloomberg server")
 
 		return
 	}
 
 	log.Debugf("👔 sending %s collection slugs to gloomberg server", style.BoldStyle.Render(strconv.Itoa(len(slugSubscriptions))))
 
-	subscriptionEvent := &models.SubscriptionEvent{Action: models.Subscribe, Collections: slugSubscriptions}
+	subscriptionEvent := &seawaModels.SubscriptionEvent{Action: seawaModels.Subscribe, Collections: slugSubscriptions}
 
 	switch {
-	case viper.GetBool("seawatcher.local"):
+	case viper.Get("seawatcher.local") != nil:
 		// runs on pubsub server side
 		gb.In.SeawatcherSubscriptions <- subscriptionEvent
 
-	case viper.GetBool("pubsub.client.enabled"):
+	case viper.Get("seawatcher.pubsubClient") != nil:
 		// runs on pubsub client side
 		jsonSubscriptionEvent, err := json.Marshal(subscriptionEvent)
 		if err != nil {
-			gbl.Log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
+			log.Error("❌ marshal failed for outgoing list of collection slugs: %s | %v", err, gb.CollectionDB.OpenseaSlugs())
 
 			return
 		}
 
+		if gb == nil {
+			log.Error("gb is nil")
+
+			return
+		}
+
+		// log.Printf("jsonSubscriptionEvent: %+v", jsonSubscriptionEvent)
+		// log.Warnf("gb: %+v", gb)
+		// log.Printf("*gb: %+v", *gb)
+		// log.Printf("gb.Rdb: %+v", gb.Rdb)
+
 		// publish to redis
-		if gb.Rdb.Do(context.Background(), gb.Rdb.B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonSubscriptionEvent)).Build()).Error() != nil {
-			gbl.Log.Warnf("error publishing event to redis: %s", err.Error())
+		if gb.GetRueidica().Rueidis().Do(context.Background(), gb.GetRueidica().Rueidis().B().Publish().Channel(internal.PubSubSeaWatcherMgmt).Message(string(jsonSubscriptionEvent)).Build()).Error() != nil {
+			log.Warnf("error publishing event to redis: %s", err)
 		} else {
-			gbl.Log.Infof("👔 sent %s collection subscriptions to %s", style.BoldStyle.Render(strconv.Itoa(len(slugSubscriptions))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
+			log.Infof("👔 sent %s collection subscriptions to %s", style.BoldStyle.Render(strconv.Itoa(len(slugSubscriptions))), style.BoldStyle.Render(internal.PubSubSeaWatcherMgmt))
 		}
 	}
 }
 
-func getRedisClient(redisClientOptions rueidis.ClientOption) rueidis.Client {
-	rdb, err := rueidis.NewClient(redisClientOptions)
-	if err != nil {
-		log.Fatal(err)
+func (gb *Gloomberg) IsContract(address common.Address) bool {
+	// if its a marketplace address, its a contract
+	if marketplace.Addresses().Contains(address) {
+		return true
 	}
 
-	return rdb
+	// check if we have a cached the account type already
+	accountType, err := gb.GetRueidica().GetCachedAccountType(context.Background(), address)
+	if err == nil {
+		return degendb.AccountType(accountType) == degendb.ContractAccount
+	}
+
+	log.Debugf("❕ error getting cached account type: %s", err)
+
+	// ok 🙄 seems we really need to check via a node if its a eoa or contract
+	codeAt, err := gb.Node().EthClient.CodeAt(context.Background(), address, nil)
+	if err != nil {
+		log.Debugf("❕ failed to get codeAt for %s: %s", address.String(), err)
+
+		return false
+	}
+
+	log.Debugf("codeAt(%s): %+v", address.Hex(), codeAt)
+
+	// if there is deployed code at the address, it's a contract
+	return len(codeAt) > 0
 }
+
+func (gb *Gloomberg) ResolveENS(ensName string) (common.Address, error) {
+	if ensName == "" {
+		return common.Address{}, errors.New("ensName is empty")
+	}
+
+	// reactivate me
+	// address, err := gb.Node().ENSLookup(ensName)
+	// if err == nil && address != (common.Address{}) {
+	// 	err := gb.Rueidica().StoreENSName(ctx, address, ensName)
+	// 	if err != nil {
+	// 		log.Errorf("error storing ensName %s for address %s: %s", ensName, address, err)
+	// 	}
+
+	// 	return address, nil
+	// }
+
+	// if err != nil {
+	// 	log.Errorf("pp.callMethod error - hex address for ensName %s is %+v", ensName, err)
+	// }
+
+	return common.Address{}, errors.New("ens address not found")
+}
+
+func (gb *Gloomberg) ReverseResolveAddressToENS(address common.Address) (string, error) {
+	if address == (common.Address{}) {
+		return "", errors.New("address is empty")
+	}
+
+	if address == internal.ZeroAddress {
+		return "", errors.New("address is zero address")
+	}
+
+	ctx := context.Background()
+
+	// if cachedName, err := cache.GetENSName(ctx, address); err == nil && cachedName != "" {
+	if cachedName, err := gb.GetRueidica().GetCachedENSName(ctx, address); err == nil && cachedName != "" {
+		log.Debugf("ens ensName for address %s is cached: %s", address.Hex(), cachedName)
+
+		return cachedName, nil
+	}
+
+	// reactivate me
+	// // name, err := p.callMethod(ctx, ReverseResolveENS, methodCallParams{Address: address})
+	// if ensName, err := gb.Node().ReverseLookupAndValidate(address); err == nil && ensName != "" {
+	// 	// cache.StoreENSName(ctx, address, ensName)
+	// 	err := gb.Rueidica().StoreENSName(ctx, address, ensName)
+	// 	if err != nil {
+	// 		log.Errorf("error storing ensName %s for address %s: %s", ensName, address.Hex(), err)
+	// 	}
+
+	// 	return ensName, nil
+	// }
+
+	return "", errors.New("ens ensName not found")
+}
+
+func (gb *Gloomberg) FetchFirst1K(contractInfo *degendb.ContractInfo, collectionName string, contractAddress common.Address) {
+	go fetchFirst1K(gb, contractInfo, collectionName, contractAddress)
+}
+
+// var alreadyFetchedContracts = mapset.NewSet[common.Address]()
+
+// var (
+// 	fetchedContracts = mapset.NewSet[common.Address]()
+// 	ignoredContracts = mapset.NewSet[common.Address]()
+// )
+
+// func (gb *Gloomberg) FetchFirst1K(collectionName string, contractAddress common.Address) error {
+// 	if fetchedContracts.Contains(contractAddress) {
+// 		log.Debugf("🤷‍♀️ %s already fetched", style.AlmostWhiteStyle.Render(collectionName))
+
+// 		return nil
+// 	}
+
+// 	if ignoredContracts.Contains(contractAddress) {
+// 		log.Debugf("🤷‍♀️ %s already ignored", style.AlmostWhiteStyle.Render(collectionName))
+
+// 		return nil
+// 	}
+
+// 	numTxsToFecth := int64(1337)
+
+// 	// get first 1k txs for contract
+// 	transactions, err := external.GetFirstTransactionsByContract(numTxsToFecth, contractAddress)
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	fetchedContracts.Add(contractAddress)
+
+// 	log.Printf("📝 firstTxs: received %d txs for %s", len(transactions), collectionName)
+
+// 	count := 0
+// 	for _, tx := range transactions {
+// 		if tx.From == "" {
+// 			continue
+// 		}
+
+// 		fromAddr := common.HexToAddress(tx.From)
+// 		toAddr := common.HexToAddress(tx.To)
+
+// 		if fromAddr != internal.ZeroAddress || tx.TokenID == "" {
+// 			pretty.Println(tx)
+
+// 			continue
+// 		}
+
+// 		gb.DegenDB.SaveAddressWithFirst1KSlugs(toAddr, []degendb.Tag{degendb.Tag(collectionName)})
+
+// 		time.Sleep(337 * time.Millisecond)
+
+// 		count++
+
+// 		log.Printf("📝 firstTxs: stored %s in db for %s (%d total)", toAddr.Hex(), collectionName, count)
+// 	}
+
+// 	return nil
+// }

@@ -1,171 +1,84 @@
 package gloomberg
 
 import (
-	"encoding/json"
-	"fmt"
-	"os"
-	"path/filepath"
-	"regexp"
-	"strings"
+	"time"
 
 	"github.com/benleb/gloomberg/internal"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/log"
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/text/cases"
-	"golang.org/x/text/language"
 )
-
-type FirstTxsTask struct {
-	CollectionName  string
-	ContractAddress common.Address
-}
 
 var (
 	fetchedContracts = mapset.NewSet[common.Address]()
 	ignoredContracts = mapset.NewSet[common.Address]()
 
-	firstTxsCollectionCounter = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "gloomberg_firsttxs_collection_count_total",
-		Help: "No of collections with first txs downloaded.",
-	},
-	)
+	_ = make(chan map[common.Address]string, 137)
 )
 
-func JobFirstTxsForContract(params ...any) {
-	if len(params) != 2 {
-		return
-	}
-
-	collectionName, ok := params[0].(string)
-	if !ok {
-		return
-	}
-
-	contractAddress, ok := params[1].(common.Address)
-	if !ok {
-		return
-	}
-
-	GetFirstTxsForContract(collectionName, contractAddress)
-}
-
-// GetFirstTxsForContract fetches the first 1337 txs for a contract from etherscan and saves them to a json file.
-func GetFirstTxsForContract(collectionName string, contractAddress common.Address) {
-	if collectionName == "" {
-		return
-	}
-
+func fetchFirst1K(gb *Gloomberg, contractInfo *degendb.ContractInfo, slug string, contractAddress common.Address) error {
 	if fetchedContracts.Contains(contractAddress) {
-		gbl.Log.Debugf("🤷‍♀️ %s already fetched", style.AlmostWhiteStyle.Render(collectionName))
+		log.Debugf("🤷‍♀️ %s already fetched", style.AlmostWhiteStyle.Render(slug))
 
-		return
+		return nil
 	}
 
 	if ignoredContracts.Contains(contractAddress) {
-		gbl.Log.Debugf("🤷‍♀️ %s already ignored", style.AlmostWhiteStyle.Render(collectionName))
+		log.Debugf("🤷‍♀️ %s already ignored", style.AlmostWhiteStyle.Render(slug))
 
-		return
+		return nil
 	}
 
-	collectionData := FirstTxsTask{CollectionName: collectionName, ContractAddress: contractAddress}
-	// firstTxsWorkQueue <- &collectionData
+	if gb.DegenDB.First1KTxAlreadyFetchedFor(contractAddress) {
+		log.Infof("🤷‍♀️ %s already fetched", style.AlmostWhiteStyle.Render(slug))
 
-	err := fetchfirstTxsForContract(collectionData.CollectionName, collectionData.ContractAddress)
-	if err != nil && os.IsExist(err) {
-		log.Debugf("file for %s already exists: %+v", collectionData.CollectionName, err)
-	} else if err != nil {
-		gbl.Log.Debugf("failed to get firstTxs for %s: %s", collectionData.CollectionName, err)
-
-		// ignore for this session
-		ignoredContracts.Add(collectionData.ContractAddress)
+		return nil
 	}
 
-	fetchedContracts.Add(collectionData.ContractAddress)
-
-	gbl.Log.Debugf("⏳ added %s to firstTxs queue", style.AlmostWhiteStyle.Render(collectionData.CollectionName))
-}
-
-// func FirstTxsWorker() {
-// 	interval := viper.GetDuration("etherscan.fetchInterval")
-// 	fetchTicker := time.NewTicker(interval)
-
-// 	log.Printf("👷 firstTxs worker started with interval %.0fs", interval.Seconds())
-
-// 	for task := range firstTxsWorkQueue {
-// 		err := fetchfirstTxsForContract(task.CollectionName, task.ContractAddress)
-// 		if err != nil && os.IsExist(err) {
-// 			log.Debugf("file for %s already exists: %+v", task.CollectionName, err)
-
-// 			continue
-// 		} else if err != nil {
-// 			gbl.Log.Debugf("failed to get firstTxs for %s: %s", task.CollectionName, err)
-
-// 			// ignore for this session
-// 			ignoredContracts.Add(task.ContractAddress)
-
-// 			continue
-// 		}
-
-// 		fetchedContracts.Add(task.ContractAddress)
-
-// 		gbl.Log.Infof("📝 firstTxs fetched for %s (%d total | queue: %d)", task.CollectionName, fetchedContracts.Cardinality(), len(firstTxsWorkQueue))
-
-// 		<-fetchTicker.C
-// 	}
-// }
-
-func fetchfirstTxsForContract(collectionName string, contractAddress common.Address) error {
 	numTxsToFecth := int64(1337)
 
 	// get first 1k txs for contract
 	transactions, err := external.GetFirstTransactionsByContract(numTxsToFecth, contractAddress)
 	if err != nil {
 		return err
+	} else if len(transactions) == 0 {
+		return nil
 	}
 
-	// preparedName := cases.Lower(language.Und).String(strings.ReplaceAll(collectionName, " ", "_")) + "_" + contractAddress.Hex() + ".json"
+	fetchedContracts.Add(contractAddress)
 
-	// TODO: find a better way to prepare the filename
-	// pretty sure there exists something already
-	specialCharPattern := regexp.MustCompile(`[!\/\[\]\':;.,<>?@#$%^&*()_+|{}~]`)
-	preparedName := specialCharPattern.ReplaceAllString(collectionName, "")
+	// log.Printf("📝 firstTxs: received %d txs for %s", len(transactions), slug)
 
-	preparedName = cases.Lower(language.Und).String(strings.ReplaceAll(preparedName, " ", "_")) + "_" + contractAddress.Hex() + ".json"
+	count := 0
+	for _, tx := range transactions {
+		if tx.From == "" {
+			continue
+		}
 
-	txsFile := filepath.Join(internal.PathDegendata, "first_txs", preparedName)
+		fromAddr := common.HexToAddress(tx.From)
+		toAddr := common.HexToAddress(tx.To)
 
-	// create file
-	file, err := os.OpenFile(txsFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644) //nolint:nosnakecase
-	if err != nil {
-		return err
+		if fromAddr != internal.ZeroAddress || tx.TokenID == "" {
+			continue
+		}
+
+		gb.DegenDB.SaveAddressFirst1KSlugs(toAddr, []degendb.Tag{degendb.Tag(slug)})
+
+		time.Sleep(37 * time.Millisecond)
+
+		count++
 	}
 
-	defer file.Close()
+	gb.DegenDB.SaveAddressFirst1KFetchedAt(contractAddress, contractInfo)
 
-	marshalled, err := json.Marshal(transactions)
-	if err != nil {
-		log.Error(fmt.Errorf("failed to marshal firstTxs for %s: %w", collectionName, err))
-
-		return err
+	if len(transactions) == count {
+		log.Printf("📝 firstTxs: stored all %d addresses for %s", len(transactions), slug)
+	} else {
+		log.Printf("📝 firstTxs: stored %d/%d addresses for %s", count, len(transactions), slug)
 	}
-
-	// write result to file
-	_, err = file.Write(marshalled)
-	if err != nil {
-		log.Error(fmt.Errorf("failed to write firstTxs for %s to file: %w", collectionName, err))
-
-		return err
-	}
-
-	file.Close()
-
-	firstTxsCollectionCounter.Inc()
 
 	return nil
 }

@@ -10,8 +10,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/utils"
+	"github.com/charmbracelet/log"
 )
 
 type ERC1155MetadataAttribute struct {
@@ -44,7 +44,7 @@ var ErrMetadataURLNotFound = errors.New("metadata url not found")
 
 func GetERC1155MetadataForURI(ctx context.Context, url string, tokenID *big.Int) (*ERC1155Metadata, error) {
 	if url == "" {
-		gbl.Log.Debugf("erc1155 metadata url is empty\n")
+		log.Debugf("erc1155 metadata url is empty\n")
 
 		return nil, ErrMetadataURLNotFound
 	}
@@ -53,25 +53,25 @@ func GetERC1155MetadataForURI(ctx context.Context, url string, tokenID *big.Int)
 	url = strings.ReplaceAll(url, "{id}", tokenID.String())
 
 	if url == "" || !strings.Contains(url, "://") {
-		gbl.Log.Debug("erc1155 metadata url is empty")
+		log.Debug("erc1155 metadata url is empty")
 
 		return nil, ErrMetadataURLNotFound
 	}
 
-	gbl.Log.Debugf("erc1155 metadata url: %+v", url)
+	log.Debugf("erc1155 metadata url: %+v", url)
 
 	response, err := utils.HTTP.GetWithTLS12(ctx, url)
 	if err != nil {
 		if os.IsTimeout(err) {
-			gbl.Log.Debugf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())
+			log.Debugf("⌛️ timeout while fetching erc1155 metadata: %+v", err.Error())
 		} else {
-			gbl.Log.Warnf("❌ erc1155 metadata error | %s: %+v", url, err.Error())
+			log.Warnf("❌ erc1155 metadata error | %s: %+v", url, err.Error())
 		}
 
 		return nil, err
 	}
 
-	gbl.Log.Debugf("erc1155 response status: %s", response.Status)
+	log.Debugf("erc1155 response status: %s", response.Status)
 
 	defer response.Body.Close()
 
@@ -95,7 +95,7 @@ func parseERC1155MetadataResponse(response *http.Response) (*ERC1155Metadata, er
 			return nil, err
 		}
 
-		gbl.Log.Debugf("erc1155 metadata: %+v\n", metadata)
+		log.Debugf("erc1155 metadata: %+v\n", metadata)
 
 		return &metadata, nil
 	}

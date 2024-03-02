@@ -45,7 +45,7 @@ type mevSendBundleResponse struct {
 	BundleHash common.Hash `json:"bundleHash"`
 }
 
-// SendBundle sends the bundle to the client's endpoint.
+// MevSendBundle SendBundle sends the bundle to the client's endpoint.
 func MevSendBundle(r *MevSendBundleRequest) w3types.CallerFactory[common.Hash] {
 	return &mevSendBundleFactory{param: r}
 }

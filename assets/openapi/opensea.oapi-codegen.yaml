@@ -1,0 +1,5 @@
+# package: cmd
+# generate:
+#     models: true
+#     client: true
+# output: opensea.gen.go

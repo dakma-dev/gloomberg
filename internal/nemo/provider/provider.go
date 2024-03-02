@@ -7,19 +7,21 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"math/big"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/benleb/gloomberg/internal/abis"
 	"github.com/benleb/gloomberg/internal/abis/erc20"
+	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo"
+	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/topic"
+	"github.com/benleb/gloomberg/internal/rueidica"
 	"github.com/benleb/gloomberg/internal/utils"
-	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,43 +32,35 @@ import (
 	"github.com/wealdtech/go-ens/v3"
 )
 
+type Pool []*Provider
+
+func (p *Pool) Node() *Provider {
+	if len(*p) == 0 {
+		return nil
+	}
+
+	return (*p)[0]
+}
+
 // Provider represents a rpc-endpoint Provider configuration.
 type Provider struct {
 	Name      string `json:"name"      mapstructure:"name"`
 	Endpoint  string `json:"endpoint"  mapstructure:"endpoint"`
 	Preferred bool   `json:"preferred" mapstructure:"preferred"`
 
-	Color lipgloss.Color `json:"color" mapstructure:"color"`
-	// Marker string         `json:"marker" mapstructure:"marker"`
-
-	PID common.Hash `json:"pid" mapstructure:"pid"`
-
 	Client     *ethclient.Client  `json:"-" mapstructure:"-"`
 	GethClient *gethclient.Client `json:"-" mapstructure:"-"`
-}
 
-// // newProvider creates a new provider.
-// func newProvider(name, endpoint string, preferred bool) *provider {
-// 	return &provider{
-// 		Name:      name,
-// 		Endpoint:  endpoint,
-// 		Preferred: preferred,
-// 	}
-// }
+	// Rueidi *rueidica.Rueidica
 
-// ID returns the provider id consisting of the first and last 4 characters of the pid in a human readable format.
-func (p *Provider) ID() string {
-	// remove leading zeroes from the pid
-	pid := common.TrimLeftZeroes(p.PID.Bytes())
-
-	return string(pid[0:4]) + "…" + string(pid[28:32])
+	LastLogReceivedAt time.Time `json:"-" mapstructure:"-"`
 }
 
 func (p *Provider) getTokenURI(contractAddress common.Address, tokenID *big.Int) (string, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return "", err
 	}
@@ -78,7 +72,7 @@ func (p *Provider) getTokenURI(contractAddress common.Address, tokenID *big.Int)
 		uri, err2 := erc1155.Uri(&bind.CallOpts{}, tokenID)
 
 		if err2 != nil {
-			gbl.Log.Error(err2)
+			log.Error(err2)
 
 			return "", err2
 		}
@@ -89,12 +83,12 @@ func (p *Provider) getTokenURI(contractAddress common.Address, tokenID *big.Int)
 	return tokenURI, nil
 }
 
-func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
-	gbl.Log.Debugf("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
+func (p *Provider) GetTokenImageURI(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+	log.Debugf("GetTokenImageURI || contractAddress: %s | tokenID: %d", contractAddress, tokenID)
 
 	tokenURI, err := p.getTokenURI(contractAddress, tokenID)
 	if err != nil {
-		gbl.Log.Errorf("get token image uri error: %+v", err.Error())
+		log.Errorf("get token image uri error: %+v", err.Error())
 
 		return "", err
 	}
@@ -105,14 +99,14 @@ func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.
 
 		switch mimeType {
 		case "application/json;base64", "data:application/jsonbase64":
-			gbl.Log.Debugf("🧶 base64 json metadata in uri field: %v", data)
+			log.Debugf("🧶 base64 json metadata in uri field: %v", data)
 
 			decoded, err := base64.StdEncoding.DecodeString(data)
 			if err != nil {
-				gbl.Log.Warn(err)
-				gbl.Log.Warn("")
-				gbl.Log.Warn(data)
-				gbl.Log.Warn("")
+				log.Warn(err)
+				log.Warn("")
+				log.Warn(data)
+				log.Warn("")
 			}
 
 			data = string(decoded)
@@ -122,7 +116,7 @@ func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.
 			var metadata *nemo.MetadataERC721
 			err = json.Unmarshal([]byte(data), &metadata)
 			if err != nil {
-				log.Println(err)
+				log.Print(err)
 			}
 
 			log.Printf("🧶 base64 json metadata721: %+v", metadata)
@@ -131,31 +125,31 @@ func (p *Provider) getTokenImageURI(ctx context.Context, contractAddress common.
 		}
 	}
 
-	gbl.Log.Debugf("GetTokenImageURI || tokenURI: %+v", tokenURI)
+	log.Debugf("GetTokenImageURI || tokenURI: %+v", tokenURI)
 
 	metadata, err := getTokenMetadata(ctx, tokenURI)
 	if err != nil || metadata == nil {
-		gbl.Log.Debugf("get token image uri error: %+v", err)
+		log.Debugf("get token image uri error: %+v", err)
 
 		return "", err
 	}
 
-	gbl.Log.Debugf("GetTokenImageURI || metadata: %+v", metadata)
+	log.Debugf("GetTokenImageURI || metadata: %+v", metadata)
 
 	return metadata.Image, nil
 }
 
-func (p *Provider) getERC721CollectionName(contractAddress common.Address) (string, error) {
+func (p *Provider) GetERC721CollectionName(contractAddress common.Address) (string, error) {
 	// get the contractERC721 ABI
 	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return "", err
 	}
 
 	if name, err := contractERC721.Name(&bind.CallOpts{}); err == nil {
-		gbl.Log.Debugf("found collection name via erc721 chain call: %s", name)
+		log.Debugf("found collection name via erc721 chain call: %s", name)
 
 		return name, nil
 	}
@@ -163,37 +157,37 @@ func (p *Provider) getERC721CollectionName(contractAddress common.Address) (stri
 	return "", nil
 }
 
-func (p *Provider) getERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
+func (p *Provider) GetERC721CollectionMetadata(contractAddress common.Address) (map[string]interface{}, error) {
 	collectionMetadata := make(map[string]interface{})
 
 	// get the contractERC721 ABIs
 	contractERC721, err := p.getERC721ABI(contractAddress)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return nil, err
 	}
 
 	if value, err := contractERC721.Name(&bind.CallOpts{}); err != nil {
-		gbl.Log.Debug(err)
+		log.Debug(err)
 	} else {
 		collectionMetadata["name"] = value
 	}
 
 	if symbol, err := contractERC721.Symbol(&bind.CallOpts{}); err != nil {
-		gbl.Log.Debug(err)
+		log.Debug(err)
 	} else {
 		collectionMetadata["symbol"] = symbol
 	}
 
 	if totalSupply, err := contractERC721.TotalSupply(&bind.CallOpts{}); err != nil {
-		gbl.Log.Debug(err)
+		log.Debug(err)
 	} else {
 		collectionMetadata["totalSupply"] = totalSupply.Uint64()
 	}
 
 	if tokenURI, err := contractERC721.TokenURI(&bind.CallOpts{}, big.NewInt(0)); err != nil {
-		gbl.Log.Debug(err)
+		log.Debug(err)
 	} else {
 		collectionMetadata["tokenURI"] = tokenURI
 	}
@@ -201,12 +195,24 @@ func (p *Provider) getERC721CollectionMetadata(contractAddress common.Address) (
 	return collectionMetadata, nil
 }
 
-func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
+func (p *Provider) GetERC1155TotalSupply(address common.Address, tokenID *big.Int) (*big.Int, error) {
+	// bind erc1155 abi
+	if contractERC1155, err := abis.NewERC1155(address, p.Client); err == nil {
+		// call totalSupply
+		if totalSupply, err := contractERC1155.TotalSupply(&bind.CallOpts{}, tokenID); err == nil {
+			return totalSupply, nil
+		}
+	}
+
+	return nil, errors.New("could not get total supply")
+}
+
+func (p *Provider) GetERC1155TokenName(ctx context.Context, contractAddress common.Address, tokenID *big.Int) (string, error) {
 	//
 	// ERC1155
 	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return "", err
 	}
@@ -219,7 +225,7 @@ func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 	// see https://docs.openzeppelin.com/contracts/3.x/api/token/erc1155
 	// the "name" is actually a wild hack by us... 🙄 but it works surprisingly well...^^
 	if uri, err := contractERC1155.Uri(&bind.CallOpts{}, tokenID); err == nil {
-		gbl.Log.Debugf("found collection uri via erc1155 chain call: %s", uri)
+		log.Debugf("found collection uri via erc1155 chain call: %s", uri)
 
 		if strings.HasPrefix(uri, "data:") {
 			uri = strings.TrimPrefix(uri, "data:")
@@ -227,48 +233,48 @@ func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 
 			switch mimeType {
 			case "application/json;base64", "data:application/jsonbase64":
-				gbl.Log.Debugf("🧶 base64 json metadata in uri field: %v", data)
+				log.Debugf("🧶 base64 json metadata in uri field: %v", data)
 
 				decoded, err := base64.StdEncoding.DecodeString(data)
 				if err != nil {
-					gbl.Log.Warn(err)
-					gbl.Log.Warn("")
-					gbl.Log.Warn(data)
-					gbl.Log.Warn("")
+					log.Warn(err)
+					log.Warn("")
+					log.Warn(data)
+					log.Warn("")
 				}
 
-				gbl.Log.Debugf("🧶 base64 json metadata: %+v", string(decoded))
+				log.Debugf("🧶 base64 json metadata: %+v", string(decoded))
 
 				data = string(decoded)
 
 				fallthrough
 
 			case "application/json;utf8":
-				gbl.Log.Debugf("🧶 json metadata in uri field: %v", data)
+				log.Debugf("🧶 json metadata in uri field: %v", data)
 
 				var metadata map[string]interface{}
 
 				err := json.Unmarshal([]byte(data), &metadata)
 				if err != nil {
-					gbl.Log.Warn(err)
-					gbl.Log.Warn("")
-					gbl.Log.Warn(data)
-					gbl.Log.Warn("")
+					log.Warn(err)
+					log.Warn("")
+					log.Warn(data)
+					log.Warn("")
 				}
 
-				gbl.Log.Debugf("🧶 json metadata: %+v", metadata)
+				log.Debugf("🧶 json metadata: %+v", metadata)
 
 				if name, ok := metadata["name"]; ok {
 					tokenName, ok := name.(string)
 					if !ok {
-						gbl.Log.Warnf("🧶 json metadata name is not a string: %v", name)
+						log.Warnf("🧶 json metadata name is not a string: %v", name)
 					}
 
 					return tokenName, nil
 				}
 
 			default:
-				gbl.Log.Infof("🧶 metadata in uri field: %v | %v", mimeType, data)
+				log.Infof("🧶 metadata in uri field: %v | %v", mimeType, data)
 			}
 		}
 
@@ -279,7 +285,7 @@ func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 				name = metadata.CreatedBy + " | " + name
 			}
 
-			gbl.Log.Debugf("found collection name via erc1155 metadata: %v", name)
+			log.Debugf("found collection name via erc1155 metadata: %v", name)
 
 			return name, nil
 		}
@@ -288,8 +294,8 @@ func (p *Provider) getERC1155TokenName(ctx context.Context, contractAddress comm
 	return "", errors.New("could not find collection name")
 }
 
-// connect tries to connect to the provider and returns an error if it fails.
-func (p *Provider) connect() error {
+// Connect tries to Connect to the provider and returns an error if it fails.
+func (p *Provider) Connect() error {
 	var err error
 
 	// reconnect handling
@@ -306,14 +312,14 @@ func (p *Provider) connect() error {
 
 		rpcClient, err = rpc.DialIPC(context.Background(), p.Endpoint)
 		if err != nil {
-			gbl.Log.Debugf("Failed to connect to node %s: %s", p.Name, err)
+			log.Debugf("Failed to connect to node %s: %s", p.Name, err)
 
 			return err
 		}
 	} else {
 		rpcClient, err = rpc.DialContext(context.Background(), p.Endpoint)
 		if err != nil {
-			gbl.Log.Debugf("Failed to connect to node %s: %s", p.Name, err)
+			log.Debugf("Failed to connect to node %s: %s", p.Name, err)
 
 			return err
 		}
@@ -321,20 +327,20 @@ func (p *Provider) connect() error {
 
 	ethClient := ethclient.NewClient(rpcClient)
 	if ethClient == nil {
-		gbl.Log.Debugf("Failed to start eth client for node %s: %s", p.Name, err)
+		log.Debugf("Failed to start eth client for node %s: %s", p.Name, err)
 
 		return err
 	}
 
 	syncing, err := ethClient.SyncProgress(context.Background())
 	if err != nil {
-		gbl.Log.Debugf("Failed to get sync progress for node %s: %s", p.Name, err)
+		log.Debugf("Failed to get sync progress for node %s: %s", p.Name, err)
 
 		return err
 	}
 
 	if syncing != nil {
-		gbl.Log.Debugf("⏳ node %s is still syncing...", p.Name)
+		log.Debugf("⏳ node %s is still syncing...", p.Name)
 
 		return errors.New("node is still syncing")
 	}
@@ -342,7 +348,7 @@ func (p *Provider) connect() error {
 	p.Client = ethClient
 
 	if p.Preferred {
-		gbl.Log.Debugf("%s syncing: %v", p.Name, syncing)
+		log.Debugf("%s syncing: %v", p.Name, syncing)
 
 		p.GethClient = gethclient.New(rpcClient)
 	}
@@ -350,7 +356,7 @@ func (p *Provider) connect() error {
 	return err
 }
 
-func (p *Provider) subscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
+func (p *Provider) SubscribeToAllTransfers(queueLogs chan types.Log) (ethereum.Subscription, error) {
 	subscribeTopics := [][]common.Hash{
 		{common.HexToHash(string(topic.Transfer)), common.HexToHash(string(topic.TransferSingle)), common.HexToHash(string(topic.BuyPriceSet))},
 		{},
@@ -376,11 +382,41 @@ func (p *Provider) subscribeTo(queueLogs chan types.Log, topics [][]common.Hash,
 	return p.Client.SubscribeFilterLogs(ctx, filterQuery, queueLogs)
 }
 
+// IsContract returns true if the given address is a contract address.
+// to resource intensive to check this for every address we encounter, so we cache the result.
+func (p *Provider) IsContract(address common.Address, rueidi *rueidica.Rueidica) bool {
+	// if its a marketplace address, its a contract
+	if marketplace.Addresses().Contains(address) {
+		return true
+	}
+
+	// check if we have a cached the account type already
+	accountType, err := rueidi.GetCachedAccountType(context.Background(), address)
+	if err == nil {
+		return degendb.AccountType(accountType) == degendb.ContractAccount
+	}
+
+	log.Debugf("❕ error getting cached account type: %s", err)
+
+	// ok 🙄 seems we really need to check via a node if its a eoa or contract
+	codeAt, err := p.codeAt(context.Background(), address)
+	if err != nil {
+		log.Debugf("❕ failed to get codeAt for %s: %s", address.String(), err)
+
+		return false
+	}
+
+	log.Debugf("codeAt(%s): %+v", address.Hex(), codeAt)
+
+	// if there is deployed code at the address, it's a contract
+	return len(codeAt) > 0
+}
+
 func (p *Provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3, error) {
 	// get the contractERC721 ABIs
 	contractERC721, err := abis.NewERC721v3(contractAddress, p.Client)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return nil, err
 	}
@@ -388,11 +424,11 @@ func (p *Provider) getERC721ABI(contractAddress common.Address) (*abis.ERC721v3,
 	return contractERC721, nil
 }
 
-func (p *Provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
+func (p *Provider) GetERC1155ABI(contractAddress common.Address) (*abis.ERC1155, error) {
 	// get the contractERC721 ABIs
 	contractERC1155, err := abis.NewERC1155(contractAddress, p.Client)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return nil, err
 	}
@@ -400,11 +436,11 @@ func (p *Provider) getERC1155ABI(contractAddress common.Address) (*abis.ERC1155,
 	return contractERC1155, nil
 }
 
-func (p *Provider) getWETHABI(contractAddress common.Address) (*abis.WETH, error) {
+func (p *Provider) GetWETHABI(contractAddress common.Address) (*abis.WETH, error) {
 	// get the contractERC721 ABIs
 	contractWETH, err := abis.NewWETH(contractAddress, p.Client)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return nil, err
 	}
@@ -416,7 +452,7 @@ func (p *Provider) getERC20ABI(contractAddress common.Address) (*erc20.ERC20, er
 	// get the contractERC721 ABIs
 	contractERC20, err := erc20.NewERC20(contractAddress, p.Client)
 	if err != nil {
-		gbl.Log.Error(err)
+		log.Error(err)
 
 		return nil, err
 	}
@@ -425,7 +461,7 @@ func (p *Provider) getERC20ABI(contractAddress common.Address) (*erc20.ERC20, er
 }
 
 func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC721, error) {
-	gbl.Log.Debugf("GetTokenMetadata || tokenURI: %+v", tokenURI)
+	log.Debugf("GetTokenMetadata || tokenURI: %+v", tokenURI)
 
 	tokenURI = utils.PrepareURL(tokenURI)
 
@@ -436,12 +472,12 @@ func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC72
 			status = response.Status
 		}
 
-		gbl.Log.Warnf("❌ get token metadata | %s | status: %s | error: %+v", tokenURI, status, err)
+		log.Warnf("❌ get token metadata | %s | status: %s | error: %+v", tokenURI, status, err)
 
 		return nil, err
 	}
 
-	gbl.Log.Debugf("get token metadata status: %s", response.Status)
+	log.Debugf("get token metadata status: %s", response.Status)
 
 	defer response.Body.Close()
 
@@ -452,19 +488,19 @@ func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC72
 
 	// decode the data
 	if err != nil || !json.Valid(responseBody) {
-		gbl.Log.Warnf("get token metadata invalid json: %s", err)
+		log.Warnf("get token metadata invalid json: %s", err)
 
 		return nil, err
 	}
 
 	// decode the data
 	if err := json.NewDecoder(bytes.NewReader(responseBody)).Decode(&tokenMetadata); err != nil {
-		gbl.Log.Warnf("get token metadata decode error: %s", err.Error())
+		log.Warnf("get token metadata decode error: %s", err.Error())
 
 		return nil, err
 	}
 
-	gbl.Log.Debugf("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
+	log.Debugf("GetTokenMetadata || tokenMetadata: %+v", tokenMetadata)
 
 	return tokenMetadata, nil
 }
@@ -473,39 +509,13 @@ func getTokenMetadata(ctx context.Context, tokenURI string) (*nemo.MetadataERC72
 // ens
 //
 
-// func (p *provider) getENSForAllAddresses(wallets *wallet.Wallets) {
-// 	var wgENS sync.WaitGroup
-
-// 	for _, w := range *wallets {
-// 		wgENS.Add(1)
-
-// 		go func(w *wallet.Wallet) {
-// 			defer wgENS.Done()
-
-// 			name, err := p.getENSForAddress(w.Address)
-// 			if err != nil {
-// 				gbl.Log.Debugf("❌ failed to resolve ENS name for %s: %s", w.Address.Hex(), err)
-
-// 				return
-// 			}
-
-// 			w.ENS = &ens.Name{
-// 				Name: name,
-// 			}
-// 			w.Name = w.ENS.Name
-// 		}(w)
-// 	}
-
-// 	wgENS.Wait()
-// }
-
-func (p *Provider) ensLookup(ensName string) (common.Address, error) {
+func (p *Provider) ENSLookup(ensName string) (common.Address, error) {
 	var err error
 
 	// do a lookup for the ensName to validate its authenticity
 	resolvedAddress, err := ens.Resolve(p.Client, ensName)
 	if err != nil {
-		gbl.Log.Debugf("ens resolve error: %s : %s", ensName, err)
+		log.Debugf("ens resolve error: %s : %s", ensName, err)
 
 		return common.Address{}, err
 	}
@@ -513,7 +523,7 @@ func (p *Provider) ensLookup(ensName string) (common.Address, error) {
 	return resolvedAddress, nil
 }
 
-func (p *Provider) reverseLookupAndValidate(address common.Address) (string, error) {
+func (p *Provider) ReverseLookupAndValidate(address common.Address) (string, error) {
 	var ensName string
 
 	var err error
@@ -522,7 +532,7 @@ func (p *Provider) reverseLookupAndValidate(address common.Address) (string, err
 	ensName, err = ens.ReverseResolve(p.Client, address)
 
 	if err != nil || common.IsHexAddress(ensName) {
-		gbl.Log.Debugf("ens reverse resolve error: %s -> %s: %s", address, ensName, err)
+		log.Debugf("ens reverse resolve error: %s -> %s: %s", address, ensName, err)
 
 		return "", err
 	}
@@ -530,13 +540,13 @@ func (p *Provider) reverseLookupAndValidate(address common.Address) (string, err
 	// do a lookup for the ensName to validate its authenticity
 	resolvedAddress, err := ens.Resolve(p.Client, ensName)
 	if err != nil {
-		gbl.Log.Debugf("ens resolve error: %s -> %s: %s", ensName, address, err)
+		log.Debugf("ens resolve error: %s -> %s: %s", ensName, address, err)
 
 		return "", err
 	}
 
 	if resolvedAddress != address {
-		gbl.Log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
+		log.Debugf("  %s  !=  %s", resolvedAddress.Hex(), address.Hex())
 
 		return "", errors.New("ens forward and reverse resolved addresses do not match")
 	}
@@ -548,31 +558,31 @@ func (p *Provider) reverseLookupAndValidate(address common.Address) (string, err
 // gas
 //
 
-// GetCurrentGasInfo returns the current gas price and tip.
-func (p *Provider) getGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
-	// header, err := p.Client.BlockByNumber(ctx, nil)
-	header, err := p.Client.HeaderByNumber(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
+// // GetCurrentGasInfo returns the current gas price and tip.
+// func (p *Provider) GetGasInfo(ctx context.Context) (*nemo.GasInfo, error) {
+// 	// header, err := p.Client.BlockByNumber(ctx, nil)
+// 	header, err := p.Client.HeaderByNumber(ctx, nil)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	gasPrice, err := p.Client.SuggestGasPrice(ctx)
-	if err != nil {
-		return nil, err
-	}
+// 	gasPrice, err := p.Client.SuggestGasPrice(ctx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	gasTip, err := p.Client.SuggestGasTipCap(ctx)
-	if err != nil {
-		return nil, err
-	}
+// 	gasTip, err := p.Client.SuggestGasTipCap(ctx)
+// 	if err != nil {
+// 		return nil, err
+// 	}
 
-	return &nemo.GasInfo{
-		LastBlock:         header.Number.Uint64(),
-		LastBlockGasLimit: header.GasLimit,
-		GasPriceWei:       gasPrice,
-		GasTipWei:         gasTip,
-	}, nil
-}
+// 	return &nemo.GasInfo{
+// 		LastBlock:         header.Number.Uint64(),
+// 		LastBlockGasLimit: header.GasLimit,
+// 		GasPriceWei:       gasPrice,
+// 		GasTipWei:         gasTip,
+// 	}, nil
+// }
 
 //
 // bytecode

@@ -2,96 +2,32 @@ package degendb
 
 import (
 	"context"
+	"errors"
+	"regexp"
+	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
+	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/spf13/viper"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/kr/pretty"
 	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
-)
-
-const (
-	mongoDB         = "dev-degendb"
-	collAddresses   = "addresses"
-	collCollections = "collections"
-	collDegens      = "degens"
-	collTokens      = "tokens"
 )
 
 type DegenDB struct {
 	uri   string
 	mongo *mongo.Client
-}
 
-func NewDegenDB() *DegenDB {
-	ddb := &DegenDB{
-		uri: viper.GetString("mongodb.uri"),
-	}
+	addressesColl   *mongo.Collection
+	collectionsColl *mongo.Collection
+	degensColl      *mongo.Collection
+	tokensColl      *mongo.Collection
 
-	mongoClient, err := ddb.connect()
-	if err != nil {
-		log.Debugf("mongoDB not configured or not reachable... %s: %s", ddb.uri, err)
-		gbl.Log.Infof("❕ could not connect to mongoDB at %s: %s", ddb.uri, err)
-
-		return nil
-	}
-
-	log.Debugf("✅ connected to mongoDB at %s", ddb.uri)
-
-	ddb.mongo = mongoClient
-
-	if viper.GetBool("mongodb.initialize") {
-		// cleanup & initialize
-		collectionsColl := ddb.mongo.Database(mongoDB).Collection(collCollections)
-		degensColl := ddb.mongo.Database(mongoDB).Collection(collDegens)
-		tokensColl := ddb.mongo.Database(mongoDB).Collection(collTokens)
-		addressesColl := ddb.mongo.Database(mongoDB).Collection(collAddresses)
-
-		err := collectionsColl.Drop(context.Background())
-		if err != nil {
-			log.Error(err)
-		}
-
-		err = degensColl.Drop(context.Background())
-		if err != nil {
-			log.Error(err)
-		}
-
-		err = tokensColl.Drop(context.Background())
-		if err != nil {
-			log.Error(err)
-		}
-
-		err = addressesColl.Drop(context.Background())
-		if err != nil {
-			log.Error(err)
-		}
-
-		// initialize og degens
-		ddb.initializeDegensCollection()
-
-		// // check
-		// cursor, err := degensColl.Find(context.Background(), bson.D{})
-		// if err != nil {
-		// 	log.Error(err)
-		// }
-
-		// // query
-		// var mongoDegen []Degen
-		// if err = cursor.All(context.TODO(), &mongoDegen); err != nil {
-		// 	log.Error(err)
-		// }
-
-		// // print
-		// for _, dgn := range mongoDegen {
-		// 	log.Printf("mongoDegen: %+v", dgn)
-		// }
-	}
-
-	return ddb
+	ethClient *ethclient.Client
 }
 
 func (ddb *DegenDB) connect() (*mongo.Client, error) {
@@ -146,7 +82,41 @@ func (ddb *DegenDB) NewAddress(address common.Address) *Address {
 
 	// log.Printf("degendb| address %s is a %s address", style.AlmostWhiteStyle.Render(address.Hex()), style.AlmostWhiteStyle.Render(addrType))
 
-	return &Address{HexAddress: address.Hex(), Address: address} // , IsContract: isContract, Type: addrType}
+	return &Address{ID: address.Hex()} // , IsContract: isContract, Type: addrType}
+}
+
+func (ddb *DegenDB) GetAccountType(address common.Address) AccountType {
+	accountType := ExternallyOwnedAccount
+
+	if ddb.IsContract(address) {
+		accountType = ContractAccount
+	}
+
+	return accountType
+}
+
+func (ddb *DegenDB) IsContract(address common.Address) bool {
+	// if its a marketplace address, its a contract
+	if marketplace.Addresses().Contains(address) {
+		return true
+	}
+
+	if ddb.ethClient == nil {
+		return false
+	}
+
+	// ok 🙄 seems we really need to check via a node if its a eoa or contract
+	codeAt, err := ddb.ethClient.CodeAt(context.Background(), address, nil)
+	if err != nil {
+		log.Debugf("❕ failed to get codeAt for %s: %s", address.String(), err)
+
+		return false
+	}
+
+	log.Debugf("codeAt(%s): %+v", address.Hex(), codeAt)
+
+	// if there is deployed code at the address, it's a contract
+	return len(codeAt) > 0
 }
 
 func (ddb *DegenDB) NewDegen(name string, addresses []common.Address, twitter string, telegram string, telegramID int64, tags []Tag) *Degen {
@@ -163,12 +133,31 @@ func (ddb *DegenDB) NewDegen(name string, addresses []common.Address, twitter st
 	return degen
 }
 
+// func (ddb *DegenDB) AddAddressWithFirst1KSlug(address common.Address, slug []Tag) {
+// 	addressesColl := ddb.mongo.Database(mongoDB).Collection(collAddresses)
+
+// 	addr := ddb.NewAddress(address)
+
+// 	reallyTrue := true
+
+// 	addressResult, err := addressesColl.UpdateByID(context.TODO(), addr.HexAddress, addr, &options.UpdateOptions{
+// 		Upsert: &reallyTrue,
+// 	})
+
+// 	if err != nil {
+// 		log.Error(err)
+// 	}
+
+// 	if addressResult == nil {
+// 		log.Printf("addressResult.InsertedIDs is nil")
+
+// 		continue
+// 	}
+// }
+
 // /.
 func (ddb *DegenDB) initializeDegensCollection() {
-	degensColl := ddb.mongo.Database(mongoDB).Collection(collDegens)
-	addressesColl := ddb.mongo.Database(mongoDB).Collection(collAddresses)
-
-	ogDegens := []interface{}{}
+	var ogDegens []interface{}
 
 	for _, degen := range ogDegens {
 		degen, ok := degen.(*Degen)
@@ -185,9 +174,9 @@ func (ddb *DegenDB) initializeDegensCollection() {
 			addresses = append(addresses, address)
 		}
 
-		addressResult, err := addressesColl.InsertMany(context.TODO(), addresses)
+		addressResult, err := ddb.addressesColl.InsertMany(context.TODO(), addresses)
 		if err != nil {
-			log.Error(err)
+			log.Errorf("InsertMany err: %+v", err)
 		}
 
 		if addressResult == nil {
@@ -214,20 +203,18 @@ func (ddb *DegenDB) initializeDegensCollection() {
 		return
 	}
 
-	_, err := degensColl.InsertMany(context.TODO(), ogDegens)
+	_, err := ddb.degensColl.InsertMany(context.TODO(), ogDegens)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("degensColl InsertMany err: %+v", err)
 	}
 }
 
 func (ddb *DegenDB) AddCollections(collections interface{}) {
-	collectionsColl := ddb.mongo.Database(mongoDB).Collection(collCollections)
-
 	mongoCollections := make([]interface{}, 0)
 
 	collectionList, ok := collections.([]Collection)
 	if !ok {
-		log.Printf("type asserting collections error")
+		log.Printf("type asserting collection error")
 
 		return
 	}
@@ -235,8 +222,7 @@ func (ddb *DegenDB) AddCollections(collections interface{}) {
 		mongoCollections = append(mongoCollections, collection)
 	}
 
-	// result, err := degensColl.UpdateMany(context.TODO(), bson.D{{}}, ogDegens, &options.UpdateOptions{
-	result, err := collectionsColl.InsertMany(context.TODO(), mongoCollections)
+	result, err := ddb.collectionsColl.InsertMany(context.TODO(), mongoCollections)
 	if err != nil {
 		log.Printf("add collections error: %+v", err)
 
@@ -247,13 +233,11 @@ func (ddb *DegenDB) AddCollections(collections interface{}) {
 }
 
 func (ddb *DegenDB) AddCollectionToken(collections interface{}, tokens interface{}) {
-	collectionsColl := ddb.mongo.Database(mongoDB).Collection(collCollections)
-
 	mongoCollections := make([]interface{}, 0)
 
 	collectionList, ok := collections.([]Address)
 	if !ok {
-		log.Printf("type asserting collections error")
+		log.Printf("type asserting collection token error")
 
 		return
 	}
@@ -261,8 +245,7 @@ func (ddb *DegenDB) AddCollectionToken(collections interface{}, tokens interface
 		mongoCollections = append(mongoCollections, collection)
 	}
 
-	// result, err := degensColl.UpdateMany(context.TODO(), bson.D{{}}, ogDegens, &options.UpdateOptions{
-	result, err := collectionsColl.InsertMany(context.TODO(), mongoCollections)
+	result, err := ddb.collectionsColl.InsertMany(context.TODO(), mongoCollections)
 	if err != nil {
 		log.Printf("add collections error: %+v", err)
 
@@ -284,12 +267,237 @@ func (ddb *DegenDB) AddCollectionToken(collections interface{}, tokens interface
 		mongoTokens = append(mongoTokens, token)
 	}
 
-	tokensColl := ddb.mongo.Database(mongoDB).Collection(collTokens)
-	// result, err := degensColl.UpdateMany(context.TODO(), bson.D{{}}, ogDegens, &options.UpdateOptions{
-	result, err = tokensColl.InsertMany(context.TODO(), mongoTokens)
+	result, err = ddb.tokensColl.InsertMany(context.TODO(), mongoTokens)
 	if err != nil {
-		log.Error(err)
+		log.Errorf("tokensColl.InsertMany err: %+v", err)
 	}
 
 	log.Printf("add tokens result: %+v", result)
 }
+
+// SaveContractInfo
+
+func (ddb *DegenDB) First1KTxAlreadyFetchedFor(address common.Address) bool {
+	addrFilter := bson.D{{Key: "_id", Value: address.Hex()}}
+
+	var addr Address
+	err := ddb.addressesColl.FindOne(context.Background(), addrFilter).Decode(&addr)
+	if err != nil {
+		// check for ErrNoDocuments
+		if errors.Is(err, mongo.ErrNoDocuments) {
+			log.Debugf("🥊 First1KTxAlreadyFetchedFor - mongo.ErrNoDocuments | %+v", address.Hex())
+
+			// ddb.AddAddress(address)
+		} else {
+			log.Errorf("First1KTxAlreadyFetchedFor err: %+v", err)
+		}
+
+		return false
+	}
+
+	log.Debugf("addr: %+v | addr.First1KFetchedAt: %+v | addr.First1KFetchedAt.IsZero(): %+v", pretty.Sprint(addr), addr.First1KFetchedAt, addr.First1KFetchedAt.IsZero())
+
+	if addr.First1KFetchedAt.IsZero() {
+		return false
+	}
+
+	return true
+}
+
+// func (ddb *DegenDB) SetFirst1KFetchDate(address common.Address) {
+// 	addrFilter := bson.D{{Key: "_id", Value: address.Hex()}}
+
+// 	upd := bson.D{
+// 		{Key: "$currentDate", Value: bson.D{{Key: "first1kFetchedAt", Value: true}}},
+// 	}
+
+// 	addressResult := ddb.addressesColl.FindOneAndUpdate(context.Background(), addrFilter, upd, &options.FindOneAndUpdateOptions{})
+
+// 	if addressResult == nil {
+// 		log.Error("addressResult.InsertedIDs is nil")
+
+// 		return
+// 	}
+// }
+
+// func (ddb *DegenDB) SaveAddressWithFirst1KSlugs(address common.Address, first1kSlugs []Tag) {
+// 	addr := &Address{ID: address.Hex()}
+
+// 	// use lower-case tags without special chars
+// 	lowerTags := make([]Tag, 0)
+// 	for _, tag := range first1kSlugs {
+// 		lowerTag := strings.ToLower(string(tag))
+// 		// TODO: find a better way to prepare the filename
+// 		// pretty sure there exists something already
+// 		specialCharPattern := regexp.MustCompile(`[!\/\[\]\':;.,<>?@#$%^&*()_+|{}~]`)
+// 		sanitizedLowerTag := strings.ReplaceAll(specialCharPattern.ReplaceAllString(lowerTag, ""), " ", "_")
+
+// 		lowerTags = append(lowerTags, Tag(sanitizedLowerTag))
+// 	}
+
+// 	addrFilter := bson.D{{Key: "_id", Value: address.Hex()}}
+
+// 	upd := bson.D{
+// 		{Key: "$set", Value: addr},
+// 		{Key: "$setOnInsert", Value: bson.D{{Key: "created_at", Value: time.Now()}, {Key: "type", Value: ddb.GetAccountType(address)}}},
+// 		{Key: "$currentDate", Value: bson.D{{Key: "updated_at", Value: true}}},
+// 		{Key: "$addToSet", Value: bson.D{{Key: "first1K", Value: bson.D{{Key: "$each", Value: lowerTags}}}}}, // bson.D{{"First1K", bson.D{{"$each", first1kSlugs}}
+// 	}
+
+// 	upsert := true
+// 	after := options.After
+
+// 	result := ddb.addressesColl.FindOneAndUpdate(context.TODO(), addrFilter, upd, &options.FindOneAndUpdateOptions{
+// 		ReturnDocument: &after,
+// 		Upsert:         &upsert,
+// 	})
+
+// 	if result.Err() != nil && !errors.Is(result.Err(), mongo.ErrNoDocuments) {
+// 		log.Errorf("result err: %+v", result.Err())
+
+// 		return
+// 	}
+
+// 	if result == nil {
+// 		log.Error("addressResult.InsertedIDs is nil")
+
+// 		return
+// 	} else if result.Err() != nil {
+// 		// check for ErrNoDocuments
+// 		if errors.Is(result.Err(), mongo.ErrNoDocuments) {
+// 			log.Debugf("addressResult.Err() is mongo.ErrNoDocuments")
+// 		} else {
+// 			log.Errorf("result err: %+v", result.Err())
+// 		}
+
+// 		return
+// 	}
+
+// 	// var decoded interface{}
+// 	// addressResult.Decode(&decoded)
+
+// 	log.Debug("addressResult: %+v", result)
+// }
+
+func (ddb *DegenDB) SaveAddressFirst1KFetchedAt(address common.Address, contractInfo *ContractInfo) (result *mongo.SingleResult) {
+	upd := bson.E{Key: "$currentDate", Value: bson.D{{Key: "first1kFetchedAt", Value: true}}}
+
+	return ddb.SaveAddress(address, contractInfo, upd)
+}
+
+func (ddb *DegenDB) SaveAddressFirst1KSlugs(address common.Address, first1kSlugs []Tag) (result *mongo.SingleResult) {
+	// use lower-case tags without special chars
+	lowerTags := make([]Tag, 0)
+	for _, tag := range first1kSlugs {
+		lowerTag := strings.ToLower(string(tag))
+		// TODO: find a better way to prepare the filename
+		// pretty sure there exists something already
+		specialCharPattern := regexp.MustCompile(`[!\/\[\]\':;.,<>?@#$%^&*()_+|{}~]`)
+		sanitizedLowerTag := strings.ReplaceAll(specialCharPattern.ReplaceAllString(lowerTag, ""), " ", "_")
+
+		lowerTags = append(lowerTags, Tag(sanitizedLowerTag))
+	}
+
+	upd := bson.E{Key: "$addToSet", Value: bson.D{{Key: "first1K", Value: bson.D{{Key: "$each", Value: lowerTags}}}}}
+
+	return ddb.SaveAddress(address, nil, upd)
+}
+
+func (ddb *DegenDB) SaveAddress(address common.Address, contractInfo *ContractInfo, updEntries ...primitive.E) (result *mongo.SingleResult) {
+	// use lower-case tags without special chars
+	lowerTags := make([]Tag, 0)
+	for _, tag := range lowerTags {
+		lowerTag := strings.ToLower(string(tag))
+		// TODO: find a better way to prepare the filename
+		// pretty sure there exists something already
+		specialCharPattern := regexp.MustCompile(`[!\/\[\]\':;.,<>?@#$%^&*()_+|{}~]`)
+		sanitizedLowerTag := strings.ReplaceAll(specialCharPattern.ReplaceAllString(lowerTag, ""), " ", "_")
+
+		lowerTags = append(lowerTags, Tag(sanitizedLowerTag))
+	}
+
+	// filter to find the address
+	addrFilter := bson.D{{Key: "_id", Value: address.Hex()}}
+
+	// create a new address
+	newAddress := &Address{ID: address.Hex()}
+
+	// optional collection info
+	if contractInfo != nil {
+		newAddress.Name = contractInfo.Name
+		newAddress.SlugOpenSea = contractInfo.Collection
+		// addr.ContractStandard = contractInfo.ContractStandard
+		// addr.Supply = contractInfo.Supply
+	}
+
+	// base data for upsert
+	upd := bson.D{
+		{Key: "$set", Value: newAddress},
+		{Key: "$setOnInsert", Value: bson.D{{Key: "created_at", Value: time.Now()}, {Key: "type", Value: ddb.GetAccountType(address)}}},
+		{Key: "$currentDate", Value: bson.D{{Key: "updated_at", Value: true}}},
+		// {Key: "$addToSet", Value: bson.D{{Key: "first1K", Value: bson.D{{Key: "$each", Value: lowerTags}}}}}, // bson.D{{"First1K", bson.D{{"$each", first1kSlugs}}
+	}
+
+	// add variable updates
+	upd = append(upd, updEntries...)
+
+	// upsert options
+	upsert := true
+	after := options.After
+
+	result = ddb.addressesColl.FindOneAndUpdate(context.TODO(), addrFilter, upd, &options.FindOneAndUpdateOptions{
+		ReturnDocument: &after,
+		Upsert:         &upsert,
+	})
+
+	if result.Err() != nil && !errors.Is(result.Err(), mongo.ErrNoDocuments) {
+		log.Errorf("result err: %+v", result.Err())
+
+		return nil
+	}
+
+	if result == nil {
+		log.Error("addressResult.InsertedIDs is nil")
+
+		return nil
+	} else if result.Err() != nil {
+		// check for ErrNoDocuments
+		if errors.Is(result.Err(), mongo.ErrNoDocuments) {
+			log.Debugf("addressResult.Err() is mongo.ErrNoDocuments")
+		} else {
+			log.Errorf("result err: %+v", result.Err())
+		}
+
+		return result
+	}
+
+	// var decoded interface{}
+	// addressResult.Decode(&decoded)
+
+	log.Debug("addressResult: %+v", result)
+
+	return result
+}
+
+// func (ddb *DegenDB) AddAddress(contractInfo *ContractInfo, address common.Address) error {
+// 	// addr := ddb.NewAddress(address)
+// 	addr := &Address{ID: address.Hex(), Type: ddb.GetAccountType(address), CreatedAt: time.Now(), UpdatedAt: time.Now()}
+
+// 	if contractInfo != nil {
+// 		addr.Name = contractInfo.Name
+// 		addr.SlugOpenSea = contractInfo.Collection
+// 		// addr.ContractStandard = contractInfo.ContractStandard
+// 		// addr.Supply = contractInfo.Supply
+// 	}
+
+// 	result, err := ddb.addressesColl.InsertOne(context.TODO(), addr, &options.InsertOneOptions{})
+// 	if err != nil {
+// 		log.Errorf("result err: %+v", err)
+
+// 		return err
+// 	}
+
+// 	log.Debugf("addAddress result: %+v", result)
+
+// 	return nil
+// }

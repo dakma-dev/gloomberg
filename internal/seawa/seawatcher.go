@@ -3,11 +3,8 @@ package seawa
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math"
 	"math/big"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,11 +12,8 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/gloomberg"
-	"github.com/benleb/gloomberg/internal/nemo/osmodels"
 	"github.com/benleb/gloomberg/internal/nemo/price"
-	"github.com/benleb/gloomberg/internal/pusu"
 	"github.com/benleb/gloomberg/internal/seawa/models"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils/hooks"
@@ -32,7 +26,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/redis/rueidis"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
 )
 
 type SeaWatcher struct {
@@ -50,15 +43,14 @@ type SeaWatcher struct {
 	// subscribed slugs/events
 	subscriptions map[string]map[degendb.EventType]func()
 
-	runLocal        bool
-	runPubsubServer bool
+	runLocal bool
 
 	// redis client
 	rdb rueidis.Client
 
 	gb *gloomberg.Gloomberg
 
-	mu *sync.RWMutex
+	mu sync.RWMutex
 }
 
 var availableEventTypes = mapset.NewSet[degendb.EventType](degendb.Listing, degendb.CollectionOffer, degendb.Bid)
@@ -69,92 +61,17 @@ var eventsReceivedCounter = promauto.NewCounter(prometheus.CounterOpts{
 })
 
 // func NewSeaWatcher(apiToken string, rdb rueidis.Client) *SeaWatcher {.
-func NewSeaWatcher(apiToken string, gb *gloomberg.Gloomberg) *SeaWatcher {
-	// we might not connect to the stream api locally if we use other ways to get the events
-	runLocalAPIClient := viper.GetBool("seawatcher.local")
 
-	if runLocalAPIClient && apiToken == "" {
-		log.Info("no OpenSea api token provided, skipping OpenSea stream api")
+func (sw *SeaWatcher) IsEnabled() bool {
+	return sw.IsLocalClientEnabled() || sw.IsPubsubClientEnabled()
+}
 
-		return nil
-	}
+func (sw *SeaWatcher) IsLocalClientEnabled() bool {
+	return viper.Get("seawatcher.local") != nil && viper.GetBool("seawatcher.local.enabled")
+}
 
-	endpointURL := fmt.Sprint(osmodels.StreamAPIEndpoint, "?token=", apiToken)
-
-	endpoint, err := url.Parse(endpointURL)
-	if err != nil {
-		log.Info(err)
-
-		return nil
-	}
-
-	sw := &SeaWatcher{
-		receivedEvents: make(chan map[string]interface{}, 1024),
-		subscriptions:  make(map[string]map[degendb.EventType]func()),
-
-		channels: make(map[string]*phx.Channel),
-
-		runLocal:        runLocalAPIClient,
-		runPubsubServer: viper.GetBool("seawatcher.pubsub"),
-
-		gb:  gb,
-		rdb: gb.Rdb,
-
-		mu: &sync.RWMutex{},
-	}
-
-	// create phoenix socket
-	if runLocalAPIClient {
-		sw.phoenixSocket = phx.NewSocket(endpoint)
-		sw.phoenixSocket.Logger = phx.NewCustomLogger(phx.LoggerLevel(phx.LogWarning), zap.NewStdLog(gbl.Log.Desugar()))
-
-		// exponential backoff for reconnects
-		sw.phoenixSocket.ReconnectAfterFunc = func(attempt int) time.Duration {
-			// max waitTime is 2^7 = 128sec
-			waitTime := time.Second * time.Duration(math.Pow(2.0, float64(int(math.Min(float64(attempt), 5)))))
-
-			sw.Prf("❌ reconnecting to OpenSea failed (#%d) 😩 trying again in %dsec..", attempt, int(waitTime.Seconds()))
-
-			return waitTime
-		}
-
-		// error function
-		sw.phoenixSocket.OnError(func(err error) { gbl.Log.Errorf("❌ seawa socket error: %+v", err) })
-
-		// called on successful connection to the socket/OpenSea
-		sw.phoenixSocket.OnOpen(func() {
-			sw.Pr("✅ connected to the OpenSea stream")
-		})
-
-		// called on disconnect/connection breaks to the socket/OpenSea
-		sw.phoenixSocket.OnClose(func() {
-			sw.Pr("❕ connection to OpenSea closed, trying to reconnect...")
-
-			err := sw.phoenixSocket.Reconnect()
-			if err != nil {
-				sw.Prf("❌ reconnecting to OpenSea stream failed: %s", err)
-			}
-		})
-
-		// initial connection to the socket/OpenSea
-		if sw.phoenixSocket != nil {
-			sw.Pr("connecting to OpenSea...")
-
-			if err := sw.phoenixSocket.Connect(); err != nil {
-				socketError := errors.New("OpenSea stream socket connection failed: " + err.Error())
-				sw.Prf("❌ socket error: %s", socketError.Error())
-
-				return nil
-			}
-		}
-	}
-
-	// // subscribe to mgmt channel
-	// if viper.GetBool("pubsub.server.enabled") {
-	// 	go sw.subscribeToMgmt()
-	// }
-
-	return sw
+func (sw *SeaWatcher) IsPubsubClientEnabled() bool {
+	return viper.Get("seawatcher.pubsubClient") != nil
 }
 
 // Pr prints messages from seawatcher to the terminal.
@@ -277,10 +194,11 @@ func (sw *SeaWatcher) eventHandler(response any) {
 		sw.gb.In.ItemMetadataUpdated <- itemMetadataUpdated
 	}
 
-	if viper.GetBool("pubsub.server.enabled") {
-		publishChannel := internal.PubSubSeaWatcher + "/" + generalEvent.EventType + "/" + contractAddress.Hex()
-		pusu.Publish(sw.gb, publishChannel, rawEvent)
-	}
+	// // TODO^^
+	// if viper.Get("seawatcher.local.pubsubServer") != nil {
+	// 	publishChannel := internal.PubSubSeaWatcher + "/" + generalEvent.EventType + "/" + contractAddress.Hex()
+	// 	pusu.Publish(sw.gb, publishChannel, rawEvent)
+	// }
 
 	// 💄 styled log
 	perItemPrice := price.NewPrice(big.NewInt(0).Div(generalEvent.Payload.GetPrice().Wei(), big.NewInt(int64(generalEvent.Payload.Quantity))))
@@ -290,13 +208,15 @@ func (sw *SeaWatcher) eventHandler(response any) {
 }
 
 func (sw *SeaWatcher) Subscribe(subscriptions degendb.SlugSubscriptions) uint64 {
-	if !viper.GetBool("pubsub.server.enabled") && !viper.GetBool("seawatcher.pubsub") && !viper.GetBool("seawatcher.local") {
+	if sw.IsPubsubClientEnabled() {
 		// runs on the pubsub client side
-		gbl.Log.Infof("⚓️ subscribing to: %+v", subscriptions)
+		log.Infof("⚓️ subscribing to: %+v", subscriptions)
+		log.Printf("⚓️ subscribing to: %+v | gb: %+v", subscriptions, sw.gb)
 
 		if len(subscriptions) > 0 {
 			sw.gb.PublishSlubSubscriptions(subscriptions)
 		} else {
+			log.Printf("own??   %+v", subscriptions)
 			sw.gb.PublishOwnSlubSubscription()
 		}
 
@@ -562,7 +482,7 @@ func (sw *SeaWatcher) ServerSubscribeToPubsubMgmt() {
 
 		// validate json
 		if !json.Valid([]byte(msg.Message)) {
-			gbl.Log.Warnf("❗️ invalid json: %s", msg.Message)
+			log.Warnf("❗️ invalid json: %s", msg.Message)
 
 			return
 		}
@@ -605,7 +525,7 @@ func (sw *SeaWatcher) serverHandleMgmtEvent(subscriptionEvent *models.Subscripti
 		return
 
 	case models.Subscribe, models.Unsubscribe:
-		if !viper.GetBool("seawatcher.local") {
+		if viper.Get("seawatcher.local") == nil {
 			sw.Prf("⚓️❌ can't subscribe to mgmt events, not running local OpenSea client")
 
 			return

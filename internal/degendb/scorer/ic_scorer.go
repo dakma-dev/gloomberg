@@ -11,10 +11,6 @@ import (
 
 type InformationContentScorer struct{}
 
-func NewInformationContentScorer() *InformationContentScorer {
-	return &InformationContentScorer{}
-}
-
 func (scorer *InformationContentScorer) ScoreCollection(collection *Collection) ([]float64, error) {
 	scores := make([]float64, 0)
 

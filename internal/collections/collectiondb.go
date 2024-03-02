@@ -17,13 +17,6 @@ type CollectionDB struct {
 	RWMu *sync.RWMutex
 }
 
-func New() *CollectionDB {
-	return &CollectionDB{
-		Collections: make(map[common.Address]*Collection),
-		RWMu:        &sync.RWMutex{},
-	}
-}
-
 func (cs *CollectionDB) Addresses() []common.Address {
 	addresses := make([]common.Address, 0)
 	addresses = append(addresses, cs.UserCollectionsAddresses()...)

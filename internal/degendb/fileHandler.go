@@ -1,16 +1,5 @@
 package degendb
 
-import (
-	"bytes"
-	"encoding/gob"
-	"io"
-	"os"
-	"sort"
-
-	"github.com/charmbracelet/log"
-	"github.com/klauspost/compress/zstd"
-)
-
 type OpenSeaMetadata []struct {
 	TokenIdentifier struct {
 		ContractAddress string `json:"contract_address"`
@@ -55,43 +44,6 @@ func (tr TokenRank) GetRankSymbol(totalSupply uint64) string {
 // helper & utility functions
 //
 
-func SortMapByValue(m map[string]int64, reverse bool) []string {
-	sorted := make([]string, 0)
-
-	for k := range m {
-		sorted = append(sorted, k)
-	}
-
-	sort.Slice(sorted, func(i, j int) bool {
-		if reverse {
-			return m[sorted[i]] < m[sorted[j]]
-		}
-
-		return m[sorted[i]] > m[sorted[j]]
-	})
-
-	return sorted
-}
-
-func WriteDataToFile(data interface{}, filePath string) {
-	var buf bytes.Buffer
-	err := gob.NewEncoder(&buf).Encode(data)
-	if err != nil {
-		log.Errorf("failed to encode metadata: %s", err)
-	}
-
-	file, err := os.Create(filePath)
-	if err != nil {
-		log.Errorf("failed to create file: %s", err)
-	}
-	defer file.Close()
-
-	err = ZstdCompress(&buf, file)
-	if err != nil {
-		log.Errorf("failed to compress file: %s", err)
-	}
-}
-
 // func ReadMetadataFromFile(filePath string) ([]degendb.TokenMetadata, error) {
 // 	metadata := make([]degendb.TokenMetadata, 0)
 
@@ -118,22 +70,6 @@ func WriteDataToFile(data interface{}, filePath string) {
 
 // 	return metadata, nil
 // }
-
-func ZstdCompress(in io.Reader, out io.Writer) error {
-	enc, err := zstd.NewWriter(out, zstd.WithEncoderLevel(zstd.SpeedFastest))
-	if err != nil {
-		return err
-	}
-
-	_, err = io.Copy(enc, in)
-	if err != nil {
-		enc.Close()
-
-		return err
-	}
-
-	return enc.Close()
-}
 
 // func ReadOSRawDataFiles(gb *gloomberg.Gloomberg, filePath string) {
 // 	rankAndMetadataFiles, err := os.ReadDir(filePath)
@@ -265,7 +201,7 @@ func ZstdCompress(in io.Reader, out io.Writer) error {
 // 			}
 
 // 			if token.Rank.OpenSea == 0 {
-// 				gbl.Log.Infof("tmissing rank for token: %+v", token)
+// 				log.Infof("tmissing rank for token: %+v", token)
 
 // 				continue
 // 			}

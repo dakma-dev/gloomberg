@@ -14,9 +14,7 @@ import (
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/degendb"
 	"github.com/benleb/gloomberg/internal/external"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/price"
-	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/wallet"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/benleb/gloomberg/internal/utils"
@@ -42,10 +40,9 @@ var (
 )
 
 type Stats struct {
-	gb           *Gloomberg
-	wallets      *wallet.Wallets
-	providerPool *provider.Pool
-	rdb          rueidis.Client
+	gb      *Gloomberg
+	wallets *wallet.Wallets
+	rdb     rueidis.Client
 
 	interval  time.Duration
 	timeframe time.Duration
@@ -61,12 +58,11 @@ type Stats struct {
 	OutputLines    uint64
 }
 
-func NewStats(gb *Gloomberg, gasTicker *time.Ticker, wallets *wallet.Wallets, providerPool *provider.Pool, rdb rueidis.Client) *Stats {
+func NewStats(gb *Gloomberg, gasTicker *time.Ticker, wallets *wallet.Wallets, rdb rueidis.Client) *Stats {
 	stats := &Stats{
-		gb:           gb,
-		wallets:      wallets,
-		providerPool: providerPool,
-		rdb:          rdb,
+		gb:      gb,
+		wallets: wallets,
+		rdb:     rdb,
 
 		RecentEvents: mapset.NewSet[*degendb.RecentEvent](),
 
@@ -113,18 +109,18 @@ func (s *Stats) volumeLastTimeframe() *big.Int {
 }
 
 func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
-	gbl.Log.Debugf("updating wallet balances...")
+	log.Debugf("updating wallet balances...")
 
 	balances, err := external.GetBalances(s.wallets)
 	if err != nil || balances == nil {
-		gbl.Log.Warn("❌ error while fetching wallet balances")
+		log.Warn("❌ error while fetching wallet balances")
 
 		return nil, ErrWalletBalance
 	}
 
 	if viper.GetBool("log.debug") {
 		for _, balance := range balances {
-			gbl.Log.Debugf("UpdateBalances| %+v\n", balance)
+			log.Debugf("UpdateBalances| %+v\n", balance)
 		}
 	}
 
@@ -142,7 +138,7 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 			balanceTotalWei = big.NewInt(0).Add(balanceTotalWei, balance.BalanceBlurPool)
 		}
 
-		gbl.Log.Debugf("%s: %6.3fΞ total || %6.3f ETH | %6.3f WETH | %6.3f BlurPool", balance.Account, balanceTotalWei, utils.WeiToEther(balance.BalanceETH), utils.WeiToEther(balance.BalanceWETH), utils.WeiToEther(balance.BalanceBlurPool))
+		log.Debugf("%s: %6.3fΞ total || %6.3f ETH | %6.3f WETH | %6.3f BlurPool", balance.Account, balanceTotalWei, utils.WeiToEther(balance.BalanceETH), utils.WeiToEther(balance.BalanceWETH), utils.WeiToEther(balance.BalanceBlurPool))
 
 		(*s.wallets)[walletAddress].BalanceBefore = (*s.wallets)[walletAddress].Balance
 		(*s.wallets)[walletAddress].Balance = balanceTotalWei
@@ -154,7 +150,7 @@ func (s *Stats) UpdateBalances() (*wallet.Wallets, error) {
 
 		(*s.wallets)[walletAddress].BalanceTrend = trendIndicator.String()
 
-		gbl.Log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, utils.WeiToEther((*s.wallets)[walletAddress].Balance))
+		log.Debugf("  %s balance: %s %6.3f", balance.Account, trendIndicator, utils.WeiToEther((*s.wallets)[walletAddress].Balance))
 	}
 
 	return s.wallets, nil
@@ -170,7 +166,7 @@ func (s *Stats) Print(queueOutput chan string) {
 	if viper.GetBool("stats.balances") {
 		_, err := s.UpdateBalances()
 		if err != nil {
-			gbl.Log.Warn("❌ error while updating w balances")
+			log.Warn("❌ error while updating w balances")
 		}
 	}
 
@@ -178,18 +174,20 @@ func (s *Stats) Print(queueOutput chan string) {
 	statsLists = []string{}
 	statsLists = append(statsLists, s.getPrimaryStatsLists()...)
 
-	maxWalletNameLength := 0.0
-	for _, w := range *s.wallets {
-		maxWalletNameLength = math.Max(maxWalletNameLength, float64(len(w.Name)))
-	}
+	if s.wallets != nil && len(*s.wallets) > 0 {
+		maxWalletNameLength := 0.0
+		for _, w := range *s.wallets {
+			maxWalletNameLength = math.Max(maxWalletNameLength, float64(len(w.Name)))
+		}
 
-	if walletBalancesList := s.getWalletStatsList(int(maxWalletNameLength)); len(walletBalancesList) > 0 {
-		statsLists = append(statsLists, listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, walletBalancesList...)))
-	}
+		if walletBalancesList := s.getWalletStatsList(int(maxWalletNameLength)); len(walletBalancesList) > 0 {
+			statsLists = append(statsLists, listStyle.Render(lipgloss.JoinVertical(lipgloss.Left, walletBalancesList...)))
+		}
 
-	if s.gb.RecentOwnEvents.Cardinality() > 0 {
-		eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
-		statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
+		if s.gb.RecentOwnEvents.Cardinality() > 0 {
+			eventsList := listStyle // .Copy().UnsetWidth().PaddingLeft(0).Render
+			statsLists = append(statsLists, eventsList.Render(lipgloss.JoinVertical(lipgloss.Left, s.getOwnEventsHistoryList()...)))
+		}
 	}
 
 	formattedStatsLists = lipgloss.JoinHorizontal(lipgloss.Top, statsLists...)
@@ -206,10 +204,10 @@ func (s *Stats) getPrimaryStatsLists() []string {
 	var firstColumn []string
 
 	// gas
-	if gasInfo, err := s.providerPool.GetCurrentGasInfo(); err == nil && gasInfo != nil {
+	if gasInfo, err := s.gb.ChaWa.GetGasInfo(context.Background()); err == nil && gasInfo != nil {
 		// gas info
-		if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-			gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
+		if gasInfo.GasPrice.Cmp(big.NewInt(0)) > 0 {
+			gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPrice).Float64()
 			gasPrice := uint64(math.Ceil(gasPriceGwei))
 			// gasTip, _ := nodes.WeiToGwei(gasInfo.GasTipWei).Uint64()
 
@@ -332,12 +330,12 @@ func (s *Stats) getPrimaryStatsLists() []string {
 		if s.rdb != nil {
 			dbSize, err := s.rdb.Do(context.TODO(), s.rdb.B().Dbsize().Build()).AsInt64()
 			if err != nil {
-				gbl.Log.Warnf("failed to get redis dbsize: %v", err)
+				log.Warnf("failed to get redis dbsize: %v", err)
 			}
 
 			dbInfo, err := s.rdb.Do(context.TODO(), s.rdb.B().Info().Section("stats").Build()).ToString()
 			if err != nil {
-				gbl.Log.Warnf("failed to get redis dbsize: %v", err)
+				log.Warnf("failed to get redis dbsize: %v", err)
 			}
 
 			// cache hitrate
@@ -347,7 +345,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 				if rawKeyspaceHits := strings.TrimPrefix(stat, "keyspace_hits:"); rawKeyspaceHits != stat {
 					keyspaceHits, err = strconv.ParseInt(rawKeyspaceHits, 10, 64)
 					if err != nil {
-						gbl.Log.Warnf("failed to parse keyspace_hits: %v", err)
+						log.Warnf("failed to parse keyspace_hits: %v", err)
 					}
 
 					log.Debugf("keyspaceHits: %+v", keyspaceHits)
@@ -356,7 +354,7 @@ func (s *Stats) getPrimaryStatsLists() []string {
 				if rawKeyspaceMisses := strings.TrimPrefix(stat, "keyspace_misses:"); rawKeyspaceMisses != stat {
 					keyspaceMisses, err = strconv.ParseInt(rawKeyspaceMisses, 10, 64)
 					if err != nil {
-						gbl.Log.Warnf("failed to parse keyspaceMisses: %v", err)
+						log.Warnf("failed to parse keyspaceMisses: %v", err)
 					}
 
 					// we're done
@@ -418,12 +416,12 @@ func (s *Stats) getWalletStatsList(maxWalletNameLength int) []string {
 
 	walletsList := make([]string, 0)
 
-	// get sum of wallet balances
-	sumWalletBalances := big.NewInt(0)
-	for _, w := range *s.wallets {
-		sumWalletBalances.Add(sumWalletBalances, w.Balance)
-	}
-	walletsList = append(walletsList, listItem(fmt.Sprintf("%s %s%s", style.DarkGrayStyle.Render("Total"), style.GrayStyle.Render(fmt.Sprintf("%15.2f", utils.WeiToEther(sumWalletBalances))), style.GrayStyle.Render("Ξ"))))
+	// // get sum of wallet balances
+	// sumWalletBalances := big.NewInt(0)
+	// for _, w := range *s.wallets {
+	// 	sumWalletBalances.Add(sumWalletBalances, w.Balance)
+	// }
+	// walletsList = append(walletsList, listItem(fmt.Sprintf("%s %s%s", style.DarkGrayStyle.Render("Total"), style.GrayStyle.Render(fmt.Sprintf("%15.2f", utils.WeiToEther(sumWalletBalances))), style.GrayStyle.Render("Ξ"))))
 
 	for _, w := range wallets[:numberOfWalletsToShow] {
 		balanceEther, _ := utils.WeiToEther(w.Balance).Float64()
@@ -440,7 +438,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	eventsList := make([]string, 0)
 
 	if s.gb.RecentOwnEvents.Cardinality() == 0 {
-		gbl.Log.Debugf("no events to show")
+		log.Debugf("no events to show")
 
 		return eventsList
 	}
@@ -451,7 +449,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 	// for idx, event := range s.EventHistory {
 	for idx, event := range s.gb.RecentOwnEvents.ToSlice() {
 		if event == nil {
-			gbl.Log.Debugf("␀ event is nil: %d\n", idx)
+			log.Debugf("␀ event is nil: %d\n", idx)
 
 			continue
 		}
@@ -500,7 +498,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 
 		tokenHistory, ok := event.Other["fmtTokensHistory"].([]string)
 		if !ok {
-			gbl.Log.Warnf("could not get token history for event: %+v", event)
+			log.Warnf("could not get token history for event: %+v", event)
 
 			continue
 		}
@@ -547,7 +545,7 @@ func (s *Stats) getOwnEventsHistoryList() []string {
 func (s *Stats) StartTicker(intervalPrintStats time.Duration, queueOutput chan string) {
 	tickerPrintStats := time.NewTicker(time.Second * 7)
 
-	gbl.Log.Infof("starting stats ticker (%s)", intervalPrintStats)
+	log.Infof("starting stats ticker (%s)", intervalPrintStats)
 
 	time.Sleep(time.Until(time.Now().Truncate(intervalPrintStats).Add(intervalPrintStats)))
 
@@ -631,7 +629,7 @@ func (s *Stats) highVolumeMint() {
 	}
 }
 
-func GasTicker(gb *Gloomberg, gasTicker *time.Ticker, providerPool *provider.Pool, queueOutput chan string) {
+func GasLineTicker(gb *Gloomberg, gasTicker *time.Ticker, queueOutput chan string) {
 	oldGasPrice := uint64(0)
 
 	for range gasTicker.C {
@@ -648,10 +646,10 @@ func GasTicker(gb *Gloomberg, gasTicker *time.Ticker, providerPool *provider.Poo
 
 		gasLine.WriteString("   ")
 
-		if gasInfo, err := providerPool.GetCurrentGasInfo(); err == nil && gasInfo != nil {
+		if gasInfo, err := gb.ChaWa.GetGasInfo(context.Background()); err == nil && gasInfo != nil {
 			// gas price
-			if gasInfo.GasPriceWei.Cmp(big.NewInt(0)) > 0 {
-				gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPriceWei).Float64()
+			if gasInfo.GasPrice.Cmp(big.NewInt(0)) > 0 {
+				gasPriceGwei, _ := utils.WeiToGwei(gasInfo.GasPrice).Float64()
 				gasPrice := uint64(math.Round(gasPriceGwei))
 
 				atomic.StoreUint64(&gb.CurrentGasPriceGwei, gasPrice)

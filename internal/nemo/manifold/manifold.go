@@ -2,8 +2,6 @@ package manifold
 
 import "github.com/ethereum/go-ethereum/common"
 
-const APIBaseURL = "https://apps.api.manifoldxyz.com/public/instance/"
-
 // DataResponse is the response from the Manifold API endpoint /data?id=1337...
 type DataResponse struct {
 	ID            int        `json:"id"`

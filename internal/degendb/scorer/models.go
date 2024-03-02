@@ -20,30 +20,11 @@ type CollectionAttribute struct {
 	TotalTokens int
 }
 
-// Collection.
+// Collection Collection.
 type Collection struct {
 	Name                      string
 	Tokens                    []*Token
 	AttributesFrequencyCounts map[string]map[string]int
-}
-
-func NewCollection(name string, tokens []*Token) *Collection {
-	collection := &Collection{
-		Name:   name,
-		Tokens: tokens,
-	}
-
-	collection.AttributesFrequencyCounts = collection.ExtractCollectionAttributeFrequencyCounts()
-
-	// "trait countify"
-	for _, token := range collection.Tokens {
-		token.Metadata = append(token.Metadata, TokenAttribute{
-			Name:  "meta_trait:trait_count",
-			Value: len(token.Metadata),
-		})
-	}
-
-	return collection
 }
 
 func (collection *Collection) ExtractNullAttributes() map[string]*CollectionAttribute {

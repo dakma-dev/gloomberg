@@ -5,10 +5,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/spf13/viper"
+	"github.com/charmbracelet/log"
 )
 
 // Pr prints messages from gloomberg to the terminal.
@@ -24,9 +23,6 @@ func Prf(format string, a ...any) {
 }
 
 // func (gb *Gloomberg) PrWarn(message string) {.
-func PrWarn(message string) {
-	printToTerminal("⚠️", "", message)
-}
 
 // func (gb *Gloomberg) PrWithKeywordAndIcon(icon string, keyword string, message string) {.
 func PrWithKeywordAndIcon(icon string, keyword string, message string) {
@@ -47,7 +43,7 @@ func PrMod(mod string, message string) {
 
 	prConfig, ok := printConfigurations[mod]
 	if !ok {
-		gbl.Log.Warnf("no print configuration for module %s | message: %s", mod, message)
+		log.Warnf("no print configuration for module %s | message: %s", mod, message)
 
 		return
 	}
@@ -72,35 +68,15 @@ func PrModf(mod string, format string, a ...any) {
 
 // PrVMod prints messages from gloomberg to the terminal if verbose mode is enabled.
 // func (gb *Gloomberg) PrVMod(mod string, message string) {.
-func PrVMod(mod string, message string) {
-	if viper.GetBool("log.verbose") {
-		PrMod(mod, message)
-	}
-}
 
 // PrVModf formats and prints messages from gloomberg to the terminal if verbose mode is enabled.
 // func (gb *Gloomberg) PrVModf(mod string, format string, a ...any) {.
-func PrVModf(mod string, format string, a ...any) {
-	if viper.GetBool("log.verbose") {
-		PrModf(mod, format, a...)
-	}
-}
 
 // PrDMod prints messages from gloomberg to the terminal if debug mode is enabled.
 // func (gb *Gloomberg) PrDMod(mod string, message string) {.
-func PrDMod(mod string, message string) {
-	if viper.GetBool("log.debug") {
-		PrMod(mod, message)
-	}
-}
 
 // PrDModf formats and prints messages from gloomberg to the terminal if debug mode is enabled.
 // func (gb *Gloomberg) PrDModf(mod string, format string, a ...any) {.
-func PrDModf(mod string, format string, a ...any) {
-	if viper.GetBool("log.debug") {
-		PrModf(mod, format, a...)
-	}
-}
 
 // func (gb *Gloomberg) printToTerminal(icon string, keyword string, message string) {.
 func printToTerminal(icon string, keyword string, message string) {

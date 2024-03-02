@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/mitchellh/mapstructure"
@@ -41,7 +40,7 @@ func StringToAddressHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
-// StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
+// StringToHashHookFunc StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
 func StringToHashHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
@@ -61,7 +60,7 @@ func StringToHashHookFunc() mapstructure.DecodeHookFunc {
 	}
 }
 
-// StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
+// StringToEventTypeHookFunc StringToAddressHookFunc is a mapstructure hook function that converts a string to a common.Address.
 func StringToEventTypeHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
@@ -101,7 +100,7 @@ func StringToEventTypeHookFunc() mapstructure.DecodeHookFunc {
 // 	}
 // }
 
-// StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
+// StringToUnixTimeHookFunc StringToDurationHookFunc is a mapstructure hook function that converts a string to a common.Address.
 func StringToUnixTimeHookFunc() mapstructure.DecodeHookFunc {
 	return func(
 		f reflect.Type,
@@ -127,44 +126,8 @@ func StringToUnixTimeHookFunc() mapstructure.DecodeHookFunc {
 }
 
 // StringToInt64HookFunc is a mapstructure hook function that converts a string to a common.Address.
-func StringToInt64HookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data any,
-	) (any, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-
-		if t != reflect.TypeOf(int64(0)) {
-			return data, nil
-		}
-
-		// Convert it by parsing
-		return strconv.ParseInt(data.(string), 10, 64)
-	}
-}
 
 // StringToLipglossColorHookFunc is a mapstructure hook function that converts a string to a lipgloss.Color.
-func StringToLipglossColorHookFunc() mapstructure.DecodeHookFunc {
-	return func(
-		f reflect.Type,
-		t reflect.Type,
-		data any,
-	) (any, error) {
-		if f.Kind() != reflect.String {
-			return data, nil
-		}
-
-		if t != reflect.TypeOf(lipgloss.Color("")) {
-			return data, nil
-		}
-
-		// convert it by parsing
-		return lipgloss.Color(data.(string)), nil
-	}
-}
 
 // StringToBigIntHookFunc is a mapstructure hook function that converts a string to a *big.Int.
 func StringToBigIntHookFunc() mapstructure.DecodeHookFunc {

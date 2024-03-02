@@ -63,6 +63,16 @@ issues closed, PRs open (ping me if you want to contribute)
 export rel_tag="v0.1.2"; git tag -a ${rel_tag} -m "${rel_tag}" && git push origin ${rel_tag}
 ```
 
+- move & rename output of the open-rarity python script to the degendata folders
+
+```bash
+python -m scripts.score_real_collections --filename_prefix ranks mfers
+
+for i in ranks_*; do filename=$(basename ${i//ranks_/}); mv ${i} ~/repos/benleb/gloomberg/degendata/ranks/${filename//.json/_opensea.json}; done
+for i in cached_data/*; do filename=$(basename $i); mv ${i} ~/repos/benleb/gloomberg/degendata/metadata/${filename//cached_os_trait_data/opensea}; done
+```
+
+
 ### pre-commit
 
 we use [pre-commit](https://pre-commit.com) to run some checks before committing. install like described in

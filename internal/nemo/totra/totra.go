@@ -8,13 +8,10 @@ import (
 
 	"github.com/benleb/gloomberg/internal"
 	"github.com/benleb/gloomberg/internal/degendb"
-	"github.com/benleb/gloomberg/internal/gbl"
 	"github.com/benleb/gloomberg/internal/nemo/marketplace"
 	"github.com/benleb/gloomberg/internal/nemo/price"
-	"github.com/benleb/gloomberg/internal/nemo/provider"
 	"github.com/benleb/gloomberg/internal/nemo/standard"
 	"github.com/benleb/gloomberg/internal/nemo/token"
-	"github.com/benleb/gloomberg/internal/nemo/topic"
 	"github.com/benleb/gloomberg/internal/style"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/log"
@@ -70,85 +67,6 @@ type TokenTransaction struct {
 // 	{0xf2, 0x42, 0x43, 0x2a}: "safeTransferFrom(address,address,uint256,uint256,bytes)",
 // 	{0x32, 0x38, 0x9b, 0x71}: "bulkTransfer(((uint8,address,uint256,uint256)[],address,bool)[],bytes32)",
 // }
-
-// marketplaceAddresses is a map of marketplace contract addresses to their respective marketplace.
-var marketplaceAddresses = marketplace.AddressToMarketplace()
-
-func NewTokenTransaction(tx *types.Transaction, receipt *types.Receipt, providerPool *provider.Pool) *TokenTransaction {
-	tfLogsByStandard := make(map[standard.Standard][]*types.Log)
-
-	for _, txLog := range receipt.Logs {
-		if len(txLog.Topics) == 0 {
-			continue
-		}
-
-		logStandard := getTransferLogStandard(txLog)
-
-		tfLogsByStandard[logStandard] = append(tfLogsByStandard[logStandard], txLog)
-	}
-
-	sender, err := types.LatestSignerForChainID(tx.ChainId()).Sender(tx)
-	if err != nil {
-		gbl.Log.Warnf("could not get message for tx %s: %s", tx.Hash().Hex(), err)
-	}
-
-	ttx := &TokenTransaction{
-		Tx:             tx,
-		TxHash:         tx.Hash(),
-		TxReceipt:      receipt,
-		From:           sender,
-		logsByStandard: tfLogsByStandard,
-		Transfers:      make([]*TokenTransfer, 0),
-
-		AmountPaid: tx.Value(),
-
-		ReceivedAt: time.Now(),
-
-		// print all tx by default
-		DoNotPrint: false,
-	}
-
-	// method id/signature of the called contract function
-	if tx.Data() != nil && len(tx.Data()) > 3 {
-		ttx.MethodID = [4]byte(tx.Data()[0:4])
-	}
-
-	// get method name (disabled as currently not used)
-	// method, err := external.GetMethodSignature(hexutil.Encode(tx.Data()[0:4]))
-	// if err != nil {
-	// 	log.Warnf("could not get method signature for tx %s: %s", tx.Hash().Hex(), err)
-	// }
-
-	// marketplace
-	switch {
-	case tx.To() == nil: // || marketplaceAddresses[*tx.To()] == nil:
-		ttx.Marketplace = &marketplace.Unknown
-	case marketplaceAddresses[*tx.To()] != nil:
-		ttx.Marketplace = marketplaceAddresses[*tx.To()]
-	default:
-		ttx.Marketplace = &marketplace.Unknown
-	}
-
-	// parse transfers from logs to get the amount paid and other data
-	ttx.parseTransfersFromReceipt(providerPool)
-
-	// erc20
-	ttx.parseERC20Transfers(providerPool)
-
-	// connect nft transfers and erc20 transfers
-	ttx.discoverItemPrices()
-
-	// action performed by the tx
-	ttx.Action = ttx.getAction()
-
-	if len(ttx.Transfers) == 0 {
-		gbl.Log.Debugf("  🧱 no transfers found for ttx: %+v", ttx)
-
-		return nil
-	}
-
-	return ttx
-}
 
 func (ttx *TokenTransaction) GetEtherscanTxURL() string {
 	return fmt.Sprintf("https://etherscan.io/tx/%s", ttx.TxHash)
@@ -228,12 +146,12 @@ func (ttx *TokenTransaction) GetNFTSenderAndReceiverAddresses() mapset.Set[commo
 	return ttx.GetNFTSenderAddresses().Union(ttx.GetNFTReceiverAddresses())
 }
 
-func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Pool) {
+func (ttx *TokenTransaction) parseTransfersFromReceipt() {
 	// assuming every nft is just sold once per tx
 	uniqueTransfers := make(map[string][]*TokenTransfer)
 
 	for logStandard, txLogs := range ttx.logsByStandard {
-		gbl.Log.Debugf("  🧱 ttx logs to parse: %+v", len(txLogs))
+		log.Debugf("  🧱 ttx logs to parse: %+v", len(txLogs))
 
 		for _, txLog := range txLogs {
 			// parse Transfer & TransferSingle logs
@@ -241,13 +159,13 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 
 			switch logStandard {
 			case standard.ERC20:
-				transfer = parseERC20TransferLog(txLog, providerPool)
+				transfer = parseERC20TransferLog()
 
 			case standard.ERC721:
 				transfer = parseERC721TransferLog(txLog)
 
 			case standard.ERC1155:
-				transfer = parseERC1155TransferLog(txLog, providerPool)
+				transfer = parseERC1155TransferLog()
 				// if transfer != nil {
 				// 	out := strings.Builder{}
 				// 	out.WriteString(fmt.Sprintf("from: %+v | to: %+v | amount: %+v | tokenid: %+v | addr: %+v\n", style.ShortenAddress(&transfer.OldFrom), style.ShortenAddress(transfer.To()), transfer.AmountTokens(), transfer.Token.ID, transfer.Token.Address))
@@ -276,7 +194,7 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 // 	uniqueTransfers := make(map[string][]*TokenTransfer, 0)
 
 // 	for _, txLog := range ttx.TxReceipt.Logs {
-// 		gbl.Log.Debugf("  🧱 blockParser | ttx log: %+v", txLog)
+// 		log.Debugf("  🧱 blockParser | ttx log: %+v", txLog)
 
 // 		// parse Transfer & TransferSingle logs
 // 		var transfer *TokenTransfer
@@ -304,28 +222,29 @@ func (ttx *TokenTransaction) parseTransfersFromReceipt(providerPool *provider.Po
 // 	ttx.parseERC20Transfers()
 // }
 
-func (ttx *TokenTransaction) parseERC20Transfers(providerPool *provider.Pool) {
+func (ttx *TokenTransaction) parseERC20Transfers() {
 	ttx.sentMoney = make(map[common.Address]*big.Int)
 	ttx.sentToken = make(map[common.Address][]*token.Token)
 
 	amountPaidERC20 := big.NewInt(0)
 
 	for _, transfer := range ttx.Transfers {
-		if transfer.Standard == standard.ERC20 {
-			log.Debugf("providerPool.IsContract(%s): %+v ", transfer.From.Hex(), providerPool.IsContract(transfer.From))
+		// reactivate me
+		// if transfer.Standard == standard.ERC20 {
+		// 	log.Debugf("providerPool.IsContract(%s): %+v ", transfer.From.Hex(), providerPool.IsContract(transfer.From, rueidi))
 
-			if providerPool.IsContract(transfer.From) || marketplace.Blur.ContractAddresses.Contains(transfer.From) {
-				continue
-			}
+		// 	if providerPool.IsContract(transfer.From, rueidi) || marketplace.Blur.ContractAddresses.Contains(transfer.From) {
+		// 		continue
+		// 	}
 
-			if _, ok := ttx.sentMoney[transfer.From]; !ok {
-				ttx.sentMoney[transfer.From] = big.NewInt(0)
-			}
+		// 	if _, ok := ttx.sentMoney[transfer.From]; !ok {
+		// 		ttx.sentMoney[transfer.From] = big.NewInt(0)
+		// 	}
 
-			ttx.sentMoney[transfer.From].Add(ttx.sentMoney[transfer.From], transfer.AmountTokens)
+		// 	ttx.sentMoney[transfer.From].Add(ttx.sentMoney[transfer.From], transfer.AmountTokens)
 
-			amountPaidERC20.Add(amountPaidERC20, transfer.AmountTokens)
-		}
+		// 	amountPaidERC20.Add(amountPaidERC20, transfer.AmountTokens)
+		// }
 
 		if transfer.Standard == standard.ERC721 || transfer.Standard == standard.ERC1155 {
 			if _, ok := ttx.sentToken[transfer.From]; !ok {
@@ -548,13 +467,90 @@ func (ttx *TokenTransaction) IsBurn() bool {
 }
 
 func (ttx *TokenTransaction) IsLoan() bool {
-	// if no nfts are moved, this is not a mint
 	if !ttx.IsMovingNFTs() {
 		return false
 	}
 
+	txContainsLoanNFT := ttx.GetTransferredTokenContractAdresses().Intersect(marketplace.TokenAddresses())
+	if txContainsLoanNFT.Cardinality() > 0 {
+		log.Printf("")
+		log.Printf("  🐄 txContainsLoanNFT: %+v", txContainsLoanNFT)
+
+		// txSenderAndLoanContractAreNFTSender := ttx.GetNFTSenderAddresses().Contains(ttx.From) && ttx.GetNFTSenderAddresses().ContainsAny(marketplace.LoanContracts.ToSlice()...)
+		// log.Printf("  🐄 txSenderAndLoanContractAreNFTSender: %+v", txSenderAndLoanContractAreNFTSender)
+
+		txSenderAndZeroAreNFTSender := ttx.GetNFTSenderAddresses().Contains(ttx.From) && ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress)
+		log.Printf("  🐄 txSenderAndZeroAreNFTSender: %+v", txSenderAndZeroAreNFTSender)
+
+		loanContractIsNFTReceiver := ttx.GetNFTReceiverAddresses().ContainsAny(marketplace.LoanContracts.ToSlice()...)
+		log.Printf("  🐄 loanContractIsNFTReceiver: %+v", loanContractIsNFTReceiver)
+
+		// txSenderAndZeroAreNFTReceiver := ttx.GetNFTReceiverAddresses().Contains(ttx.From) && ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress)
+		// log.Printf("  🐄 txSenderAndZeroAreNFTReceiver: %+v", txSenderAndZeroAreNFTReceiver)
+
+		log.Printf("  🐄 → %+v %+v %+v | is loan: %+v", txContainsLoanNFT, txSenderAndZeroAreNFTSender, loanContractIsNFTReceiver, txContainsLoanNFT.Cardinality() > 0 && txSenderAndZeroAreNFTSender && loanContractIsNFTReceiver)
+		log.Printf("")
+	}
+
+	// if ttx.GetTransferredTokenContractAdresses().ContainsAny(marketplace.LoanContracts.ToSlice()...) {
+	// 	zeroAddressInOne := ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress) || ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress)
+	// 	zeroAddressInBoth := ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress) && ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress)
+
+	// 	ttyTy := "in none"
+
+	// 	if zeroAddressInOne {
+	// 		ttyTy = "←LOAN"
+	// 	} else if zeroAddressInBoth {
+	// 		ttyTy = "→REPAY"
+	// 	}
+
+	// 	log.Infof("")
+	// 	// log.Infof(pretty.Sprint(ttx.Is()))
+	// 	log.Infof("isLoan | NFTSenderAddresses: %+v", ttx.GetNFTSenderAddresses())
+	// 	log.Infof("isLoan | NFTReceiverAddresses: %+v", ttx.GetNFTReceiverAddresses())
+	// 	log.Infof("isLoan | zeroAddressInOne: %+v | zeroAddressInBoth: %+v", zeroAddressInOne, zeroAddressInBoth)
+	// 	if zeroAddressInOne {
+	// 		log.Infof("isLoan | → %+v", ttyTy)
+	// 	}
+	// 	log.Infof("")
+
+	// 	log.Infof("")
+	// 	log.Infof("isLoan | NFTSenderAddresses: %+v", ttx.GetNFTSenderAddresses())
+	// 	log.Infof("isLoan | NFTReceiverAddresses: %+v", ttx.GetNFTReceiverAddresses())
+	// 	log.Infof("isLoan | zeroAddressInOne: %+v | zeroAddressInBoth: %+v", zeroAddressInOne, zeroAddressInBoth)
+	// 	if zeroAddressInOne {
+	// 		log.Infof("isLoan | → %+v", ttyTy)
+	// 	}
+	// 	log.Infof("")
+
+	// 	// log.Printf("")
+	// 	// log.Printf("")
+	// 	// log.Printf(" LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??")
+
+	// 	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress), ttx.GetNFTSenderAddresses())
+	// 	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTSenderAddresses().ContainsAny(internal.ZeroAddress), ttx.GetNFTSenderAddresses())
+	// 	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTSenderAddresses().Contains(common.Address{}), ttx.GetNFTSenderAddresses())
+	// 	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTSenderAddresses().ContainsAny(common.Address{}), ttx.GetNFTSenderAddresses())
+	// 	// log.Printf("  🧱 → %v  |   %+v", ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress), ttx.GetNFTSenderAddresses())
+
+	// 	if ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress) {
+	// 		return true
+	// 	}
+
+	// 	log.Printf(" LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??  LOAN??")
+	// 	log.Printf("")
+	// 	log.Printf("")
+
+	// 	// return true
+	// }
+
 	for tokenAddress := range ttx.GetTransfersByContract() {
 		if marketplace.LoanContracts.Contains(tokenAddress) {
+			log.Printf("  🧱 ← %v | %+v  in  %+v", ttx.GetNFTReceiverAddresses().Contains(tokenAddress), tokenAddress, ttx.GetNFTReceiverAddresses())
+			log.Printf("  🧱 → %v | %+v  in  %+v", ttx.GetNFTSenderAddresses().Contains(tokenAddress), tokenAddress, ttx.GetNFTSenderAddresses())
+			log.Printf("")
+			log.Printf("")
+
 			return true
 		}
 	}
@@ -563,13 +559,65 @@ func (ttx *TokenTransaction) IsLoan() bool {
 }
 
 func (ttx *TokenTransaction) IsLoanPayback() bool {
-	// if no nfts are moved, this is not a mint
 	if !ttx.IsMovingNFTs() {
 		return false
 	}
 
+	// log.Printf("")
+	// log.Printf("")
+	// log.Printf(" REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??")
+
+	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress), ttx.GetNFTReceiverAddresses())
+	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTReceiverAddresses().ContainsAny(internal.ZeroAddress), ttx.GetNFTReceiverAddresses())
+	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTReceiverAddresses().Contains(common.Address{}), ttx.GetNFTReceiverAddresses())
+	// log.Printf("  🧱 ← %v  |   %+v", ttx.GetNFTReceiverAddresses().ContainsAny(common.Address{}), ttx.GetNFTReceiverAddresses())
+	// log.Printf("  🧱 → %v  |   %+v", ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress), ttx.GetNFTReceiverAddresses())
+
+	// zeroAddressInOne := ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress) || ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress)
+	// zeroAddressInBoth := ttx.GetNFTSenderAddresses().Contains(internal.ZeroAddress) && ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress)
+
+	// ttyTy := "in none"
+
+	// if zeroAddressInOne {
+	// 	ttyTy = "←LOAN"
+	// } else if zeroAddressInBoth {
+	// 	ttyTy = "→REPAY"
+	// }
+
+	// log.Infof("")
+	// // log.Infof(pretty.Sprint(ttx.Is()))
+	// log.Infof("isPayback | NFTSenderAddresses: %+v", ttx.GetNFTSenderAddresses())
+	// log.Infof("isPayback | NFTReceiverAddresses: %+v", ttx.GetNFTReceiverAddresses())
+	// log.Infof("isPayback | zeroAddressInOne: %+v | zeroAddressInBoth: %+v", zeroAddressInOne, zeroAddressInBoth)
+	// if zeroAddressInOne {
+	// 	log.Infof("isPayback | → %+v", ttyTy)
+	// }
+	// log.Infof("")
+
+	// log.Infof("")
+	// log.Infof("isPayback | NFTSenderAddresses: %+v", ttx.GetNFTSenderAddresses())
+	// log.Infof("isPayback | NFTReceiverAddresses: %+v", ttx.GetNFTReceiverAddresses())
+	// log.Infof("isPayback | zeroAddressInOne: %+v | zeroAddressInBoth: %+v", zeroAddressInOne, zeroAddressInBoth)
+	// if zeroAddressInOne {
+	// 	log.Infof("isPayback | → %+v", ttyTy)
+	// }
+	// log.Infof("")
+
+	// if ttx.GetNFTReceiverAddresses().Contains(internal.ZeroAddress) {
+	// 	return true
+	// }
+
+	// log.Printf(" REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??  REPAY??")
+	// log.Printf("")
+	// log.Printf("")
+
 	for tokenAddress := range ttx.GetTransfersByContract() {
 		if marketplace.LoanContracts.Contains(tokenAddress) {
+			log.Printf("  🧱 ← %v | %+v  in  %+v", ttx.GetNFTReceiverAddresses().Contains(tokenAddress), tokenAddress, ttx.GetNFTReceiverAddresses())
+			log.Printf("  🧱 → %v | %+v  in  %+v", ttx.GetNFTSenderAddresses().Contains(tokenAddress), tokenAddress, ttx.GetNFTSenderAddresses())
+			log.Printf("")
+			log.Printf("")
+
 			return true
 		}
 	}
@@ -606,7 +654,7 @@ func (ttx *TokenTransaction) IsTransfer() bool {
 	// methodSignature := ttx.Tx.Data()[0:4]
 
 	// if methodSignaturesTransfers[[4]byte(methodSignature)] == "" {
-	// 	gbl.Log.Debugf("wrong method signature: %x", methodSignature)
+	// 	log.Debugf("wrong method signature: %x", methodSignature)
 
 	// 	return false
 	// }
@@ -626,6 +674,8 @@ func (ttx *TokenTransaction) getAction() *degendb.GBEventType {
 		return degendb.Loan
 	case ttx.Marketplace != nil && ttx.Marketplace != &marketplace.Unknown:
 		return degendb.Sale
+	// case ttx.IsLoanPayback():
+	// 	return degendb.RepayLoan
 	case ttx.IsAirdrop():
 		return degendb.Airdrop
 	case ttx.IsReBurn():
@@ -639,31 +689,6 @@ func (ttx *TokenTransaction) getAction() *degendb.GBEventType {
 	default:
 		return degendb.Unknown
 	}
-}
-
-func getTransferLogStandard(log *types.Log) standard.Standard {
-	logStandard := standard.UNKNOWN
-
-	topic0 := topic.Topic(log.Topics[0].String())
-
-	switch {
-	// erc20
-	case topic0 == topic.Transfer && len(log.Topics) <= 3:
-		logStandard = standard.ERC20
-
-	// erc721
-	case topic0 == topic.Transfer && len(log.Topics) >= 4:
-		logStandard = standard.ERC721
-
-	// erc1155
-	case topic0 == topic.TransferSingle && len(log.Topics) >= 4:
-		logStandard = standard.ERC1155
-
-	default:
-		gbl.Log.Debugf("unknown log standard | len(log.Topics): %d | topic0: %s", len(log.Topics), topic0)
-	}
-
-	return logStandard
 }
 
 func parseERC721TransferLog(txLog *types.Log) *TokenTransfer {
@@ -680,78 +705,84 @@ func parseERC721TransferLog(txLog *types.Log) *TokenTransfer {
 	}
 }
 
-func parseERC1155TransferLog(txLog *types.Log, providerPool *provider.Pool) *TokenTransfer {
-	// abiERC1155, err := abis.NewERC1155(txLog.Address, ethNode.Client)
-	abiERC1155, err := providerPool.GetERC1155ABI(txLog.Address)
-	if err != nil {
-		gbl.Log.Errorf("❗️ error binding erc1155 contract abi: %s", err)
+func parseERC1155TransferLog() *TokenTransfer {
+	// reactivate me
+	// // abiERC1155, err := abis.NewERC1155(txLog.Address, ethNode.Client)
+	// abiERC1155, err := providerPool.GetERC1155ABI(txLog.Address)
+	// if err != nil {
+	// 	log.Errorf("❗️ error binding erc1155 contract abi: %s", err)
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	transferLog, err := abiERC1155.ParseTransferSingle(*txLog)
-	if err != nil {
-		gbl.Log.Errorf("❗️ error parsing TransferSingle log: %s", err)
+	return nil
 
-		return nil
-	}
+	// transferLog, err := abiERC1155.ParseTransferSingle(*txLog)
+	// if err != nil {
+	// 	log.Errorf("❗️ error parsing TransferSingle log: %s", err)
 
-	return &TokenTransfer{
-		From:                transferLog.From,
-		To:                  transferLog.To,
-		AmountTokens:        transferLog.Value,
-		AmountEtherReturned: big.NewInt(0),
-		Standard:            standard.ERC1155,
-		Token: &token.Token{
-			Address: transferLog.Raw.Address,
-			ID:      transferLog.Id,
-		},
-	}
+	// 	return nil
+	// }
+
+	// return &TokenTransfer{
+	// 	From:                transferLog.From,
+	// 	To:                  transferLog.To,
+	// 	AmountTokens:        transferLog.Value,
+	// 	AmountEtherReturned: big.NewInt(0),
+	// 	Standard:            standard.ERC1155,
+	// 	Token: &token.Token{
+	// 		Address: transferLog.Raw.Address,
+	// 		ID:      transferLog.Id,
+	// 	},
+	// }
 }
 
-func parseERC20TransferLog(txLog *types.Log, providerPool *provider.Pool) *TokenTransfer {
-	abiWETH, err := providerPool.GetWETHABI(txLog.Address)
-	if err != nil {
-		gbl.Log.Errorf("❗️ error binding erc721 contract abi: %s", err)
+func parseERC20TransferLog() *TokenTransfer {
+	// reactivate me
+	// abiWETH, err := providerPool.GetWETHABI(txLog.Address)
+	// if err != nil {
+	// 	log.Errorf("❗️ error binding erc721 contract abi: %s", err)
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	transferLog, err := abiWETH.ParseTransfer(*txLog)
-	if err != nil {
-		gbl.Log.Infof("❗️ error parsing transfer log (%d topics): %s", len(txLog.Topics), err)
+	// transferLog, err := abiWETH.ParseTransfer(*txLog)
+	// if err != nil {
+	// 	log.Infof("❗️ error parsing transfer log (%d topics): %s", len(txLog.Topics), err)
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	// we only care about certain tokens like WETH and Blur Pool Token
-	if transferLog.Raw.Address != internal.WETHContractAddress && transferLog.Raw.Address != internal.BlurPoolTokenContractAddress {
-		gbl.Log.Debugf("❗️ non-WETH ERC20 token, ignoring: %s", transferLog.Raw.Address.String())
+	// // we only care about certain tokens like WETH and Blur Pool Token
+	// if transferLog.Raw.Address != internal.WETHContractAddress && transferLog.Raw.Address != internal.BlurPoolTokenContractAddress {
+	// 	log.Debugf("❗️ non-WETH ERC20 token, ignoring: %s", transferLog.Raw.Address.String())
 
-		return nil
-	}
+	// 	return nil
+	// }
 
-	// handle blur pool txs
-	amount := transferLog.Wad
+	// // handle blur pool txs
+	// amount := transferLog.Wad
 
-	if transferLog.Raw.Address == internal.BlurPoolTokenContractAddress && len(txLog.Topics) == 3 {
-		amount = new(big.Int).SetBytes(transferLog.Raw.Data)
-	}
+	// if transferLog.Raw.Address == internal.BlurPoolTokenContractAddress && len(txLog.Topics) == 3 {
+	// 	amount = new(big.Int).SetBytes(transferLog.Raw.Data)
+	// }
 
-	tokenTransfer := &TokenTransfer{
-		From:                transferLog.Src,
-		To:                  transferLog.Dst,
-		AmountTokens:        amount,
-		AmountEtherReturned: big.NewInt(0),
-		Standard:            standard.ERC20,
-		Token: &token.Token{
-			Address: transferLog.Raw.Address,
+	// tokenTransfer := &TokenTransfer{
+	// 	From:                transferLog.Src,
+	// 	To:                  transferLog.Dst,
+	// 	AmountTokens:        amount,
+	// 	AmountEtherReturned: big.NewInt(0),
+	// 	Standard:            standard.ERC20,
+	// 	Token: &token.Token{
+	// 		Address: transferLog.Raw.Address,
 
-			// set a random ID for ERC20 tokens
-			ID: big.NewInt(-1),
-			// ID: big.NewInt(0).Add(big.NewInt(rand.Int63n(1337)), amount), //nolint:gosec
-		},
-	}
+	// 		// set a random ID for ERC20 tokens
+	// 		ID: big.NewInt(-1),
+	// 		// ID: big.NewInt(0).Add(big.NewInt(rand.Int63n(1337)), amount), //nolint:gosec
+	// 	},
+	// }
 
-	return tokenTransfer
+	// return tokenTransfer
+
+	return nil
 }

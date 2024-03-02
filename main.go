@@ -1,4 +1,6 @@
 // copyright © 2022 benleb <git@benleb.de>
+//
+//	go:generate abigen --abi=internal/abis/ensregistry/ensregistry.json --pkg=abis --type=ensregistry --out=internal/abis/ensregistry/ensregistry.go
 package main
 
 import (
@@ -40,7 +42,7 @@ func main() {
 		// if err := client.Disconnect(context.TODO()); err != nil {
 		// 	panic(err)
 		// }
-		cmd.GracefulShutdown()
+		// cmd.GracefulShutdown()
 
 		// reset/restore default foreground color
 		termenv.DefaultOutput().SetForegroundColor(defaultForeground)
