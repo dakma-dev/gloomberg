@@ -1152,7 +1152,7 @@ paths:
                   schema:
                       type: string
                   description: |-
-                      Filter results by the contract address for NFT(s).  
+                      Filter results by the contract address for NFT(s).
                        NOTE: If used, token_ids or token_id is required.
                 - in: query
                   name: bundled
@@ -1233,7 +1233,7 @@ paths:
                           - created_date
                           - eth_price
                   description: |-
-                      The order in which to sort the results. Default: created_date 
+                      The order in which to sort the results. Default: created_date
                        NOTE: If `eth_price` is used, `asset_contract_address` and `token_id` are required.
                 - in: query
                   name: order_direction
@@ -1270,7 +1270,7 @@ paths:
                   description: >-
                       An array of token IDs to search for (e.g.
                       ?token_ids=1&token_ids=209). This endpoint will return a list of
-                      orders with token_id matching any of the IDs in this array. 
+                      orders with token_id matching any of the IDs in this array.
                        NOTE: If used, asset_contract_address is required.
             tags:
                 - Transaction Endpoints
@@ -1373,7 +1373,7 @@ paths:
                   schema:
                       type: string
                   description: |-
-                      Filter results by the contract address for NFT(s).  
+                      Filter results by the contract address for NFT(s).
                        NOTE: If used, token_ids or token_id is required.
                 - in: query
                   name: bundled
@@ -1454,7 +1454,7 @@ paths:
                           - created_date
                           - eth_price
                   description: |-
-                      The order in which to sort the results. Default: created_date 
+                      The order in which to sort the results. Default: created_date
                        NOTE: If `eth_price` is used, `asset_contract_address` and `token_id` are required.
                 - in: query
                   name: order_direction
@@ -1491,7 +1491,7 @@ paths:
                   description: >-
                       An array of token IDs to search for (e.g.
                       ?token_ids=1&token_ids=209). This endpoint will return a list of
-                      orders with token_id matching any of the IDs in this array. 
+                      orders with token_id matching any of the IDs in this array.
                        NOTE: If used, asset_contract_address is required.
             tags:
                 - Transaction Endpoints
@@ -3115,7 +3115,7 @@ components:
                         Indicates what conduit, if any, should be utilized as a source for
                         token approvals when performing transfers. By default (i.e. when
                         conduitKey is set to the zero hash), the offerer will grant transfer
-                        approvals to Seaport directly. 
+                        approvals to Seaport directly.
 
                         To utilize OpenSea's conduit, use
                         0x0000007b02230091a7ed01230072f7006a004d60a8d4e71d599b8104250f0000
@@ -3782,7 +3782,7 @@ components:
                         Indicates what conduit, if any, should be utilized as a source for
                         token approvals when performing transfers. By default (i.e. when
                         conduitKey is set to the zero hash), the offerer will grant transfer
-                        approvals to Seaport directly. 
+                        approvals to Seaport directly.
 
                         To utilize OpenSea's conduit, use
                         0x0000007b02230091a7ed01230072f7006a004d60a8d4e71d599b8104250f0000
